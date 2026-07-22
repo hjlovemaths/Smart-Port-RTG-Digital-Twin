@@ -65,6 +65,15 @@ CONTINUOUS_YARD_PREFIXES = (
 )
 CONTINUOUS_YARD_MINIMUM_OLD_SPAN_M = 350.0
 
+# Long gaps left between the existing authored yard families after they are
+# extended.  These correspond to the three blue strips visible behind the
+# original short concrete slabs in the Blender overview.
+INFILL_YARDS = (
+    ("LEFT_CENTRAL", -32.0, -8.0),
+    ("RIGHT_CENTRAL", 8.0, 37.5),
+    ("RIGHT_NARROW", 60.0, 67.0),
+)
+
 
 def block_length(bay_count: int) -> float:
     return bay_count * BAY_LENGTH_M + (bay_count - 1) * BAY_GAP_M
@@ -265,6 +274,11 @@ def build_yard_layout() -> dict[str, object]:
     white = get_material("YARD_LAYOUT_WhiteMarking", (0.90, 0.92, 0.90, 1.0), roughness=0.55)
     yellow = get_material("YARD_LAYOUT_YellowMarking", (0.95, 0.62, 0.03, 1.0), roughness=0.50)
     rail = get_material("YARD_LAYOUT_GantryRail", (0.035, 0.040, 0.045, 1.0), metallic=0.75, roughness=0.35)
+    infill_materials = {
+        "LEFT_CENTRAL": get_material("YARD_LAYOUT_LeftCentralInfill", (0.115, 0.125, 0.135, 1.0), roughness=0.86),
+        "RIGHT_CENTRAL": get_material("YARD_LAYOUT_RightCentralInfill", (0.105, 0.120, 0.130, 1.0), roughness=0.86),
+        "RIGHT_NARROW": get_material("YARD_LAYOUT_RightNarrowInfill", (0.125, 0.130, 0.135, 1.0), roughness=0.86),
+    }
 
     total_length = sum(block_length(count) for _, count in BLOCKS) + BLOCK_GAP_M * (len(BLOCKS) - 1)
     target_end_y = START_Y_M + total_length
@@ -278,6 +292,35 @@ def build_yard_layout() -> dict[str, object]:
     )
     apron["total_length_m"] = total_length
     apron["block_gap_m"] = BLOCK_GAP_M
+
+    infill_results = []
+    for infill_name, x_min, x_max in INFILL_YARDS:
+        width = x_max - x_min
+        center_x = (x_min + x_max) * 0.5
+        infill = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_INFILL_{infill_name}",
+            [((center_x, apron_center_y, 0.055), (width, total_length, 0.05))],
+            infill_materials[infill_name],
+            surface_collection,
+        )
+        infill["yard_infill_role"] = infill_name
+        infill["x_min_m"] = x_min
+        infill["x_max_m"] = x_max
+        infill["target_length_m"] = total_length
+
+        infill_boundaries = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_INFILL_{infill_name}_BOUNDARIES",
+            [
+                ((x_min + 0.04, apron_center_y, MARKING_TOP_Z_M), (0.08, total_length, 0.02)),
+                ((x_max - 0.04, apron_center_y, MARKING_TOP_Z_M), (0.08, total_length, 0.02)),
+            ],
+            yellow,
+            marking_collection,
+        )
+        infill_boundaries["yard_infill_role"] = infill_name
+        infill_results.append(
+            {"name": infill_name, "x_min": x_min, "x_max": x_max, "width": width}
+        )
 
     root = bpy.data.objects.new("YARD_LAYOUT_1C4C_ROOT", None)
     root.empty_display_type = "PLAIN_AXES"
@@ -428,6 +471,7 @@ def build_yard_layout() -> dict[str, object]:
         "removed_old_objects": removed,
         "hidden_legacy_objects": legacy_hidden,
         "extended_continuous_yards": len(extended_continuous_yards),
+        "infill_yards": infill_results,
         "total_length_m": total_length,
         "total_bays": sum(count for _, count in BLOCKS),
         "blocks": block_results,

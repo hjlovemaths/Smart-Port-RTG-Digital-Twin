@@ -148,3 +148,10 @@ side-yard surfaces, stack pads, lane boundaries, AGV routes, and the internal
 truck lane to the same `Y=-0.5` through `Y=1960.5` longitudinal range. Their
 authored widths and X positions are preserved. Short decorative objects and
 existing container meshes are not stretched.
+
+Three previously uncovered longitudinal strips are filled by generated yard
+surfaces and edge markings over the same 1,961 m range:
+
+- left-central infill: X = -32.0 to -8.0 m;
+- right-central infill: X = 8.0 to 37.5 m;
+- right narrow infill: X = 60.0 to 67.0 m.
