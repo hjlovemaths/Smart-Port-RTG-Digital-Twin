@@ -47,10 +47,10 @@ ROPE_ENDPOINTS = (
 HOIST_TARGETS = ((1, 0.0), (35, -0.45), (70, 0.85), (230, 0.85))
 GANTRY_TARGETS = ((1, 0.0), (159, 0.0), (230, 4.2))
 TROLLEY_TARGETS = ((1, 0.0), (90, 0.0), (150, -2.25), (230, -2.25))
-# Endpoints above are measured from the Blender guide curves.  RTX makes their
-# tips read slightly high against the modeled yellow attachment beam, so lower
-# the visible connection to the beam's upper edge while preserving the slant.
-LOWER_ROPE_VISIBLE_OFFSET_Z = -0.18
+# The Blender guide curves end at Z=4.30, while the measured upper surface of
+# the yellow attachment beam is approximately Z=3.78.  Put the curve centreline
+# at Z=3.79 so its rendered width visually touches the beam without penetrating.
+LOWER_ROPE_VISIBLE_OFFSET_Z = -0.51
 LEGACY_ROPE_PATHS = tuple(
     f"/World/PortAndRTG/RTG_BOUND_HOIST_ROPE_{group:02d}_{strand}__USD_MESH"
     for group in range(8)

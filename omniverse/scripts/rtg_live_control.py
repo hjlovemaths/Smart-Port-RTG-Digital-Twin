@@ -49,7 +49,7 @@ ROPE_ENDPOINTS = (
 )
 # Must match build_rtg_simready.py so live WPF/ROS2 commands keep the same
 # lower attachment point as the authored validation animation.
-LOWER_ROPE_VISIBLE_OFFSET_Z = -0.18
+LOWER_ROPE_VISIBLE_OFFSET_Z = -0.51
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
