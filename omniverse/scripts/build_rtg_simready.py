@@ -47,6 +47,19 @@ ROPE_ENDPOINTS = (
 HOIST_TARGETS = ((1, 0.0), (35, -0.45), (70, 0.85), (230, 0.85))
 GANTRY_TARGETS = ((1, 0.0), (159, 0.0), (230, 4.2))
 TROLLEY_TARGETS = ((1, 0.0), (90, 0.0), (150, -2.25), (230, -2.25))
+
+# Phase-one limits intentionally match the motion range already validated in
+# Blender and Omniverse.  Expand them only after collision proxies and the
+# manual container-handling cycle have been verified.
+GANTRY_LIMITS = (0.0, 4.20)
+GANTRY_SOFT_LIMITS = (0.10, 4.10)
+GANTRY_MAX_VELOCITY = 1.50
+TROLLEY_LIMITS = (-2.25, 0.0)
+TROLLEY_SOFT_LIMITS = (-2.15, -0.10)
+TROLLEY_MAX_VELOCITY = 1.00
+HOIST_LIMITS = (-0.45, 0.85)
+HOIST_SOFT_LIMITS = (-0.40, 0.80)
+HOIST_MAX_VELOCITY = 0.90
 # The Blender guide curves end at Z=4.30, while the measured upper surface of
 # the yellow attachment beam is approximately Z=3.78.  Put the curve centreline
 # at Z=3.79 so its rendered width visually touches the beam without penetrating.
@@ -81,6 +94,9 @@ def define_prismatic_joint(
     stiffness: float = 100000.0,
     damping: float = 20000.0,
     max_force: float = 10000000.0,
+    soft_lower: float | None = None,
+    soft_upper: float | None = None,
+    max_velocity: float | None = None,
 ) -> tuple[UsdPhysics.PrismaticJoint, UsdPhysics.DriveAPI]:
     joint = UsdPhysics.PrismaticJoint.Define(stage, f"{JOINTS_PATH}/{name}")
     if body0:
@@ -108,6 +124,18 @@ def define_prismatic_joint(
     joint.GetPrim().CreateAttribute("rtg:controlMode", Sdf.ValueTypeNames.Token).Set(
         "position_drive"
     )
+    if soft_lower is not None:
+        joint.GetPrim().CreateAttribute(
+            "rtg:softLowerLimit", Sdf.ValueTypeNames.Float
+        ).Set(soft_lower)
+    if soft_upper is not None:
+        joint.GetPrim().CreateAttribute(
+            "rtg:softUpperLimit", Sdf.ValueTypeNames.Float
+        ).Set(soft_upper)
+    if max_velocity is not None:
+        joint.GetPrim().CreateAttribute(
+            "rtg:maxVelocity", Sdf.ValueTypeNames.Float
+        ).Set(max_velocity)
     return joint, drive
 
 
@@ -229,13 +257,15 @@ def build_layer() -> Path:
         "GantryTravelJoint",
         "Y",
         GANTRY_PATH,
-        -50.0,
-        50.0,
+        *GANTRY_LIMITS,
         Gf.Vec3f(0.0, 4.160424, 0.0),
         local_rot0=Gf.Quatf(0.0, Gf.Vec3f(0.0, 0.0, 1.0)),
         stiffness=5000000.0,
         damping=1500000.0,
         max_force=50000000.0,
+        soft_lower=GANTRY_SOFT_LIMITS[0],
+        soft_upper=GANTRY_SOFT_LIMITS[1],
+        max_velocity=GANTRY_MAX_VELOCITY,
     )
     UsdPhysics.ArticulationRootAPI.Apply(gantry_joint.GetPrim())
 
@@ -244,13 +274,15 @@ def build_layer() -> Path:
         "TrolleyTravelJoint",
         "X",
         TROLLEY_PATH,
-        -4.5,
-        4.5,
+        *TROLLEY_LIMITS,
         Gf.Vec3f(-2.25, 0.0, 0.0),
         body0=GANTRY_PATH,
         stiffness=160000.0,
         damping=35000.0,
         max_force=8000000.0,
+        soft_lower=TROLLEY_SOFT_LIMITS[0],
+        soft_upper=TROLLEY_SOFT_LIMITS[1],
+        max_velocity=TROLLEY_MAX_VELOCITY,
     )
 
     hoist_joint, hoist_drive = define_prismatic_joint(
@@ -258,13 +290,15 @@ def build_layer() -> Path:
         "HoistVerticalJoint",
         "Z",
         HOIST_PATH,
-        -6.5,
-        1.0,
+        *HOIST_LIMITS,
         Gf.Vec3f(0.0, 0.0, 0.85),
         body0=TROLLEY_PATH,
         stiffness=180000.0,
         damping=40000.0,
         max_force=10000000.0,
+        soft_lower=HOIST_SOFT_LIMITS[0],
+        soft_upper=HOIST_SOFT_LIMITS[1],
+        max_velocity=HOIST_MAX_VELOCITY,
     )
 
     # Position targets mirror the existing Blender demonstration sequence.

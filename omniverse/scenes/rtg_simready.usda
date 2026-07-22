@@ -51,10 +51,13 @@ def "World"
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (0, 0, 0, 1)
             quatf physics:localRot1 = (1, 0, 0, 0)
-            float physics:lowerLimit = -50
-            float physics:upperLimit = 50
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 4.2
             custom token rtg:axis = "Y"
             custom token rtg:controlMode = "position_drive"
+            custom float rtg:maxVelocity = 1.5
+            custom float rtg:softLowerLimit = 0.1
+            custom float rtg:softUpperLimit = 4.1
         }
 
         def PhysicsPrismaticJoint "TrolleyTravelJoint" (
@@ -83,10 +86,13 @@ def "World"
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)
-            float physics:lowerLimit = -4.5
-            float physics:upperLimit = 4.5
+            float physics:lowerLimit = -2.25
+            float physics:upperLimit = 0
             custom token rtg:axis = "X"
             custom token rtg:controlMode = "position_drive"
+            custom float rtg:maxVelocity = 1
+            custom float rtg:softLowerLimit = -2.15
+            custom float rtg:softUpperLimit = -0.1
         }
 
         def PhysicsPrismaticJoint "HoistVerticalJoint" (
@@ -115,10 +121,13 @@ def "World"
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)
-            float physics:lowerLimit = -6.5
-            float physics:upperLimit = 1
+            float physics:lowerLimit = -0.45
+            float physics:upperLimit = 0.85
             custom token rtg:axis = "Z"
             custom token rtg:controlMode = "position_drive"
+            custom float rtg:maxVelocity = 0.9
+            custom float rtg:softLowerLimit = -0.4
+            custom float rtg:softUpperLimit = 0.8
         }
 
         def "Materials"

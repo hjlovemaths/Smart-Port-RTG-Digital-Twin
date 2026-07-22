@@ -48,6 +48,18 @@ RTG 4.2 m during frames 160-230. The eight tires do not receive independent
 rotation samples; they inherit the gantry transform together with the wheel
 bogies, frame, cable loops, conduits, floodlights, trolley, hoist, and spreader.
 
+The first control-validation limits deliberately match that authored motion:
+
+| Joint | Hard limits | Soft limits | Maximum velocity |
+| --- | ---: | ---: | ---: |
+| Gantry Y | 0.00 to 4.20 m | 0.10 to 4.10 m | 1.50 m/s |
+| Trolley X | -2.25 to 0.00 m | -2.15 to -0.10 m | 1.00 m/s |
+| Hoist Z | -0.45 to 0.85 m | -0.40 to 0.80 m | 0.90 m/s |
+
+These limits are authored on the disabled prototype joints and enforced by the
+live-control helper. They should be expanded only after collision proxies and a
+manual container-handling cycle have been validated.
+
 The same layer contains `RTG_DYNAMIC_HOIST_ROPES`: 16 linear rope curves
 measured from the Blender source. Their upper endpoints remain fixed to the
 trolley while their lower endpoints use the same Z targets as the hoist joint,

@@ -50,6 +50,9 @@ ROPE_ENDPOINTS = (
 # Must match build_rtg_simready.py so live WPF/ROS2 commands keep the same
 # lower attachment point as the authored validation animation.
 LOWER_ROPE_VISIBLE_OFFSET_Z = -0.51
+GANTRY_LIMITS = (0.0, 4.20)
+TROLLEY_LIMITS = (-2.25, 0.0)
+HOIST_LIMITS = (-0.45, 0.85)
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
@@ -104,7 +107,7 @@ class RTGController:
         ).GetTargetPositionAttr()
 
     def set_gantry(self, position_m: float) -> float:
-        value = _clamp(position_m, -50.0, 50.0)
+        value = _clamp(position_m, *GANTRY_LIMITS)
         with Usd.EditContext(self.stage, self._session):
             self._gantry.Set(value)
             # A session-layer default overrides the authored demo samples and
@@ -119,7 +122,7 @@ class RTGController:
         return value
 
     def set_trolley(self, position_m: float) -> float:
-        value = _clamp(position_m, -4.5, 4.5)
+        value = _clamp(position_m, *TROLLEY_LIMITS)
         with Usd.EditContext(self.stage, self._session):
             self._trolley.Set(value)
             self._trolley_translate.Set(
@@ -133,7 +136,7 @@ class RTGController:
 
     def set_hoist(self, position_m: float) -> float:
         """Command the hoist and update every lower rope endpoint atomically."""
-        value = _clamp(position_m, -6.5, 1.0)
+        value = _clamp(position_m, *HOIST_LIMITS)
         with Usd.EditContext(self.stage, self._session):
             self._hoist.Set(value)
             self._hoist_translate.Set(
