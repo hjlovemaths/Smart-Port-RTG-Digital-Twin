@@ -1,4 +1,4 @@
-"""Export the current Blender scene as the project's static validation USD asset."""
+"""Export the Blender-authored visual scene and controller animation to USD."""
 
 from pathlib import Path
 
@@ -97,8 +97,12 @@ def export_static_usd() -> None:
                 depsgraph=depsgraph,
             )
             temporary = bpy.data.objects.new(f"{obj.name}__USD_MESH", mesh)
-            temporary.matrix_world = evaluated.matrix_world.copy()
             temporary_collection.objects.link(temporary)
+            # Keep the source controller hierarchy.  Without this, converted
+            # festoon/loop curves are exported at /World and stay suspended at
+            # their frame-1 position while the gantry or trolley moves away.
+            temporary.parent = obj.parent
+            temporary.matrix_world = evaluated.matrix_world.copy()
             temporary.select_set(True)
             temporary_objects.append(temporary)
             selected_count += 1
@@ -111,7 +115,10 @@ def export_static_usd() -> None:
         bpy.ops.wm.usd_export(
             filepath=str(OUTPUT_PATH),
             selected_objects_only=True,
-            export_animation=False,
+            # The primary gantry, trolley, and hoist Actions are the source of
+            # truth.  Export their time samples instead of rebuilding motion in
+            # a stronger Omniverse layer.
+            export_animation=True,
             export_materials=True,
             # Omniverse supplies the stage lighting. Blender preview lights and
             # their viewport gizmos are intentionally omitted.

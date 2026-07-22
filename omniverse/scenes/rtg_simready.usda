@@ -1,0 +1,300 @@
+#usda 1.0
+(
+    customLayerData = {
+        string collisionStatus = "proxy_pending"
+        string description = "SimReady motion layer for the primary middle RTG"
+        int hiddenLegacyRopeCount = 16
+        string primaryRtg = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+        int ropeCount = 16
+        string ropeSystem = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL/RTG_DYNAMIC_HOIST_ROPES"
+    }
+    defaultPrim = "World"
+    endTimeCode = 230
+    framesPerSecond = 24
+    metersPerUnit = 1
+    startTimeCode = 1
+    timeCodesPerSecond = 24
+    upAxis = "Z"
+)
+
+def "World"
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+
+    def Scope "RTGPhysics"
+    {
+        def PhysicsPrismaticJoint "GantryTravelJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear", "PhysicsArticulationRootAPI"]
+        )
+        {
+            float drive:linear:physics:damping = 1500000
+            float drive:linear:physics:maxForce = 50000000
+            float drive:linear:physics:stiffness = 5000000
+            float drive:linear:physics:targetPosition = 0
+            float drive:linear:physics:targetPosition.timeSamples = {
+                1: 0,
+                159: 0,
+                230: 4.2,
+            }
+            float drive:linear:physics:targetVelocity = 0
+            uniform token drive:linear:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body1 = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL>
+            float physics:breakForce = inf
+            float physics:breakTorque = inf
+            bool physics:jointEnabled = 0
+            point3f physics:localPos0 = (0, 4.160424, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0, 0, 0, 1)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+            custom token rtg:axis = "Y"
+            custom token rtg:controlMode = "position_drive"
+        }
+
+        def PhysicsPrismaticJoint "TrolleyTravelJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+        )
+        {
+            float drive:linear:physics:damping = 35000
+            float drive:linear:physics:maxForce = 8000000
+            float drive:linear:physics:stiffness = 160000
+            float drive:linear:physics:targetPosition = 0
+            float drive:linear:physics:targetPosition.timeSamples = {
+                1: 0,
+                90: 0,
+                150: -2.25,
+                230: -2.25,
+            }
+            float drive:linear:physics:targetVelocity = 0
+            uniform token drive:linear:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL>
+            rel physics:body1 = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL>
+            float physics:breakForce = inf
+            float physics:breakTorque = inf
+            bool physics:jointEnabled = 0
+            point3f physics:localPos0 = (-2.25, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -4.5
+            float physics:upperLimit = 4.5
+            custom token rtg:axis = "X"
+            custom token rtg:controlMode = "position_drive"
+        }
+
+        def PhysicsPrismaticJoint "HoistVerticalJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+        )
+        {
+            float drive:linear:physics:damping = 40000
+            float drive:linear:physics:maxForce = 10000000
+            float drive:linear:physics:stiffness = 180000
+            float drive:linear:physics:targetPosition = 0
+            float drive:linear:physics:targetPosition.timeSamples = {
+                1: 0,
+                35: -0.45,
+                70: 0.85,
+                230: 0.85,
+            }
+            float drive:linear:physics:targetVelocity = 0
+            uniform token drive:linear:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL>
+            rel physics:body1 = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL/ANIM_CTRL_RTG_HOIST_VERTICAL>
+            float physics:breakForce = inf
+            float physics:breakTorque = inf
+            bool physics:jointEnabled = 0
+            point3f physics:localPos0 = (0, 0, 0.85)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -6.5
+            float physics:upperLimit = 1
+            custom token rtg:axis = "Z"
+            custom token rtg:controlMode = "position_drive"
+        }
+
+        def "Materials"
+        {
+            def Material "HoistRopeBlack"
+            {
+                token outputs:surface.connect = </World/RTGPhysics/Materials/HoistRopeBlack/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.008, 0.01, 0.014)
+                    float inputs:roughness = 0.72
+                    token outputs:surface
+                }
+            }
+        }
+    }
+
+    def "PortAndRTG"
+    {
+        def "RTG_PRIMARY_DYNAMIC"
+        {
+            def "ANIM_CTRL_RTG_GANTRY_TRAVEL" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+            )
+            {
+                float physics:mass = 120000
+                bool physics:rigidBodyEnabled = 0
+                custom token rtg:collisionStatus = "proxy_pending"
+                custom token rtg:demoMotionMode = "blender_authored_animation"
+                custom token rtg:physicsRole = "gantry"
+
+                def "ANIM_CTRL_RTG_TROLLEY_TRAVEL" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                )
+                {
+                    float physics:mass = 15000
+                    bool physics:rigidBodyEnabled = 0
+                    custom token rtg:collisionStatus = "proxy_pending"
+                    custom token rtg:physicsRole = "trolley"
+
+                    over "ANIM_CTRL_RTG_HOIST_VERTICAL" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        float physics:mass = 5000
+                        bool physics:rigidBodyEnabled = 0
+                        custom token rtg:collisionStatus = "proxy_pending"
+                        custom token rtg:physicsRole = "hoist_and_spreader"
+                    }
+
+                    def BasisCurves "RTG_DYNAMIC_HOIST_ROPES" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        uniform token basis = "bezier"
+                        int[] curveVertexCounts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+                        rel material:binding = </World/RTGPhysics/Materials/HoistRopeBlack>
+                        point3f[] points = [(1.062, -5.55, 8.81), (2.2421, -5.56, 4.3), (1.098, -5.55, 8.81), (2.2781, -5.56, 4.3), (1.062, -4.45, 8.81), (2.2421, -4.44, 4.3), (1.098, -4.45, 8.81), (2.2781, -4.44, 4.3), (1.912, -5.55, 8.81), (2.2421, -5.56, 4.3), (1.948, -5.55, 8.81), (2.2781, -5.56, 4.3), (1.912, -4.45, 8.81), (2.2421, -4.44, 4.3), (1.948, -4.45, 8.81), (2.2781, -4.44, 4.3), (3.012, -5.55, 8.81), (3.0821, -5.56, 4.3), (3.048, -5.55, 8.81), (3.1181, -5.56, 4.3), (3.012, -4.45, 8.81), (3.0821, -4.44, 4.3), (3.048, -4.45, 8.81), (3.1181, -4.44, 4.3), (3.862, -5.55, 8.81), (3.0821, -5.56, 4.3), (3.898, -5.55, 8.81), (3.1181, -5.56, 4.3), (3.862, -4.45, 8.81), (3.0821, -4.44, 4.3), (3.898, -4.45, 8.81), (3.1181, -4.44, 4.3)]
+                        point3f[] points.timeSamples = {
+                            1: [(1.062, -5.55, 8.81), (2.2421, -5.56, 4.3), (1.098, -5.55, 8.81), (2.2781, -5.56, 4.3), (1.062, -4.45, 8.81), (2.2421, -4.44, 4.3), (1.098, -4.45, 8.81), (2.2781, -4.44, 4.3), (1.912, -5.55, 8.81), (2.2421, -5.56, 4.3), (1.948, -5.55, 8.81), (2.2781, -5.56, 4.3), (1.912, -4.45, 8.81), (2.2421, -4.44, 4.3), (1.948, -4.45, 8.81), (2.2781, -4.44, 4.3), (3.012, -5.55, 8.81), (3.0821, -5.56, 4.3), (3.048, -5.55, 8.81), (3.1181, -5.56, 4.3), (3.012, -4.45, 8.81), (3.0821, -4.44, 4.3), (3.048, -4.45, 8.81), (3.1181, -4.44, 4.3), (3.862, -5.55, 8.81), (3.0821, -5.56, 4.3), (3.898, -5.55, 8.81), (3.1181, -5.56, 4.3), (3.862, -4.45, 8.81), (3.0821, -4.44, 4.3), (3.898, -4.45, 8.81), (3.1181, -4.44, 4.3)],
+                            35: [(1.062, -5.55, 8.81), (2.2421, -5.56, 3.85), (1.098, -5.55, 8.81), (2.2781, -5.56, 3.85), (1.062, -4.45, 8.81), (2.2421, -4.44, 3.85), (1.098, -4.45, 8.81), (2.2781, -4.44, 3.85), (1.912, -5.55, 8.81), (2.2421, -5.56, 3.85), (1.948, -5.55, 8.81), (2.2781, -5.56, 3.85), (1.912, -4.45, 8.81), (2.2421, -4.44, 3.85), (1.948, -4.45, 8.81), (2.2781, -4.44, 3.85), (3.012, -5.55, 8.81), (3.0821, -5.56, 3.85), (3.048, -5.55, 8.81), (3.1181, -5.56, 3.85), (3.012, -4.45, 8.81), (3.0821, -4.44, 3.85), (3.048, -4.45, 8.81), (3.1181, -4.44, 3.85), (3.862, -5.55, 8.81), (3.0821, -5.56, 3.85), (3.898, -5.55, 8.81), (3.1181, -5.56, 3.85), (3.862, -4.45, 8.81), (3.0821, -4.44, 3.85), (3.898, -4.45, 8.81), (3.1181, -4.44, 3.85)],
+                            70: [(1.062, -5.55, 8.81), (2.2421, -5.56, 5.15), (1.098, -5.55, 8.81), (2.2781, -5.56, 5.15), (1.062, -4.45, 8.81), (2.2421, -4.44, 5.15), (1.098, -4.45, 8.81), (2.2781, -4.44, 5.15), (1.912, -5.55, 8.81), (2.2421, -5.56, 5.15), (1.948, -5.55, 8.81), (2.2781, -5.56, 5.15), (1.912, -4.45, 8.81), (2.2421, -4.44, 5.15), (1.948, -4.45, 8.81), (2.2781, -4.44, 5.15), (3.012, -5.55, 8.81), (3.0821, -5.56, 5.15), (3.048, -5.55, 8.81), (3.1181, -5.56, 5.15), (3.012, -4.45, 8.81), (3.0821, -4.44, 5.15), (3.048, -4.45, 8.81), (3.1181, -4.44, 5.15), (3.862, -5.55, 8.81), (3.0821, -5.56, 5.15), (3.898, -5.55, 8.81), (3.1181, -5.56, 5.15), (3.862, -4.45, 8.81), (3.0821, -4.44, 5.15), (3.898, -4.45, 8.81), (3.1181, -4.44, 5.15)],
+                            230: [(1.062, -5.55, 8.81), (2.2421, -5.56, 5.15), (1.098, -5.55, 8.81), (2.2781, -5.56, 5.15), (1.062, -4.45, 8.81), (2.2421, -4.44, 5.15), (1.098, -4.45, 8.81), (2.2781, -4.44, 5.15), (1.912, -5.55, 8.81), (2.2421, -5.56, 5.15), (1.948, -5.55, 8.81), (2.2781, -5.56, 5.15), (1.912, -4.45, 8.81), (2.2421, -4.44, 5.15), (1.948, -4.45, 8.81), (2.2781, -4.44, 5.15), (3.012, -5.55, 8.81), (3.0821, -5.56, 5.15), (3.048, -5.55, 8.81), (3.1181, -5.56, 5.15), (3.012, -4.45, 8.81), (3.0821, -4.44, 5.15), (3.048, -4.45, 8.81), (3.1181, -4.44, 5.15), (3.862, -5.55, 8.81), (3.0821, -5.56, 5.15), (3.898, -5.55, 8.81), (3.1181, -5.56, 5.15), (3.862, -4.45, 8.81), (3.0821, -4.44, 5.15), (3.898, -4.45, 8.81), (3.1181, -4.44, 5.15)],
+                        }
+                        color3f[] primvars:displayColor = [(0.012, 0.014, 0.018)]
+                        custom bool rtg:collisionEnabled = 0
+                        custom string rtg:lowerAttachmentBody = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL/ANIM_CTRL_RTG_HOIST_VERTICAL"
+                        custom token rtg:systemRole = "hoist_rope_visual"
+                        custom string rtg:upperAttachmentBody = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/ANIM_CTRL_RTG_TROLLEY_TRAVEL"
+                        uniform token type = "linear"
+                        float[] widths = [0.036] (
+                            interpolation = "constant"
+                        )
+                        uniform token wrap = "nonperiodic"
+                    }
+                }
+            }
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_00_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_00_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_01_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_01_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_02_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_02_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_03_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_03_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_04_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_04_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_05_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_05_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_06_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_06_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_07_0__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+
+        over "RTG_BOUND_HOIST_ROPE_07_1__USD_MESH"
+        {
+            custom bool rtg:replacedByDynamicRopes = 1
+            token visibility = "invisible"
+        }
+    }
+}
+

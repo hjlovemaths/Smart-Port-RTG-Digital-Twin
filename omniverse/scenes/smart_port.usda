@@ -1,5 +1,8 @@
 #usda 1.0
 (
+    subLayers = [
+        @./rtg_simready.usda@
+    ]
     customLayerData = {
         dictionary cameraSettings = {
             dictionary Front = {
@@ -27,6 +30,10 @@
         }
     }
     defaultPrim = "World"
+    startTimeCode = 1
+    endTimeCode = 230
+    timeCodesPerSecond = 24
+    framesPerSecond = 24
     metersPerUnit = 1
     upAxis = "Z"
 )

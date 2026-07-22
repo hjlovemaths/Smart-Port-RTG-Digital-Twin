@@ -72,10 +72,11 @@ groups are:
 - The file contains 39 copies of each controller name pattern. Only the
   unsuffixed three-controller chain owns geometry; the other 38 chains contain
   controllers only and should be removed from a production asset.
-- The populated controller hierarchy contains multiple visual naming families
-  (`CODEx_left_yard_*`, `CODEx_right_yard_*`, and `RTG_*`). It is suitable for
-  visual playback but should be reduced to one canonical RTG before adding
-  physics.
+- `scripts/configure_rtg_roles.py` now separates those visual naming families.
+  The populated unsuffixed controller chain is under `RTG_PRIMARY_DYNAMIC` and
+  owns only the middle RTG. The left and right clone geometry is detached from
+  the animated controllers and grouped under `RTG_STATIC_LEFT` and
+  `RTG_STATIC_RIGHT` with `physics_enabled = false` metadata.
 - Recommended Omniverse mapping: one gantry prismatic joint on local Y, one
   trolley prismatic joint on local X, and one hoist prismatic joint on local Z.
   The spreader and load attachment state should be authored separately from
