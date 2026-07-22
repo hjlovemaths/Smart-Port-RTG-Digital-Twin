@@ -64,5 +64,130 @@ Omniverse / Isaac Sim     WPF 客户端
 - `blender/`：Blender 源模型。
 - `omniverse/`：可直接打开的 Omniverse/OpenUSD 内容工程。
 - `doc/`：智慧港口数字孪生平台方案文档。
+结合[方案 PDF](</D:/dnt/project/Smart Port RTG Digital Twin/doc/智慧港口数字孪生平台方案总结.pdf>)，你目前完成的是“视觉资产与 USD 场景基础”，接下来重点应转向 **SimReady、运动控制、ROS2 和实时数据**。
 
+| PDF 阶段 | 当前状态 | 还需要做 |
+|---|---|---|
+| 1. RTG 模型转 USD | 已完成 | 整理生产级模型层级 |
+| 2. SimReady RTG | 未完成 | 碰撞体、质量、关节、驱动、限位 |
+| 3. 港区环境 | 部分完成 | 已有白天天空和海面；缺夜晚、雨、雾 |
+| 4. Isaac Sim + ROS2 | 未开始 | 控制、状态回传、传感器仿真 |
+| 5. AI Agent | 未开始 | 调度、故障诊断、预测维护 |
+| 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
+
+## 最优先：把 RTG 做成 SimReady 设备
+
+当前模型主要还是“可观看模型”，虽然 Blender 中有大车、小车和吊具动画，但导出的 USD 当前关闭了动画，而且尚未具备物理控制。
+
+建议先做一台标准 RTG：
+
+- 清理模型里重复的 39 组控制器，仅保留一套正式 RTG。
+- 将模型拆成：
+  - `Gantry`：大车及门架
+  - `Trolley`：小车
+  - `Hoist`：吊具升降系统
+  - `Spreader`：吊具
+  - `Payload`：被吊集装箱
+- 建立三个主要移动关节：
+  - 大车：Y 轴 Prismatic Joint
+  - 小车：X 轴 Prismatic Joint
+  - 吊具：Z 轴 Prismatic Joint
+- 为关节设置行程、最大速度、加速度、阻尼和急停限制。
+- 添加简化碰撞体、质量、重心和惯量。
+- 添加吊具锁箱/解锁状态，集装箱不能再依靠“显示/隐藏动画”模拟装卸。
+- 车轮、卷筒和滑轮旋转可以后做；它们主要影响视觉，不是第一阶段控制闭环的必要条件。
+
+现有运动分析已经写在 [RTG_ANIMATION_ANALYSIS.md](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/docs/RTG_ANIMATION_ANALYSIS.md>)。
+
+## 第二步：完成一次完整装卸循环
+
+在接 ROS2 之前，先在 Isaac Sim 内部完成手动控制：
+
+1. 大车移动到目标贝位。
+2. 小车移动到集装箱上方。
+3. 吊具下降。
+4. 对位并锁箱。
+5. 起升集装箱。
+6. 大车/小车移动。
+7. 下降、解锁并放箱。
+8. 验证碰撞、限位和急停。
+
+这是后续 ROS2、实时数据和 AI Agent 的共同基础。这个循环没有打通，直接做 AI 调度意义不大。
+
+## 第三步：接入 ROS2 和实时状态
+
+建议先定义一套稳定接口：
+
+- 控制命令：大车速度、小车位置、吊具高度、锁箱/解锁、急停。
+- 状态数据：三个机构的位置和速度、吊具状态、载荷、限位、故障码。
+- ROS2 标准数据：
+  - `/joint_states`
+  - `/tf`
+  - `/rtg/command`
+  - `/rtg/status`
+  - `/rtg/alarm`
+  - `/spreader/lock`
+- 为以后真实 PLC 数据预留 ROS2 与 OPC UA/MQTT 的适配层。
+- 加入时间戳和设备 ID，保证真实港口状态能稳定映射到数字世界。
+
+## 第四步：实时生成集装箱
+
+你已经把地面的静态箱子移除了，这是正确方向。后续需要：
+
+- 建立一个轻量化集装箱 USD 原型。
+- 使用 USD Instance/Point Instancer 批量生成。
+- 数据字段包含箱号、尺寸、颜色、堆场贝位、层高、状态和目标位置。
+- 根据实时堆场数据增删或移动实例。
+- 被吊箱从实例系统切换到独立刚体，落箱后再归还实例系统。
+
+这能显著降低 RTX 5060 8GB 的显存压力。
+
+## 第五步：环境与性能
+
+目前已有白天天空、太阳光和较真实的海面：
+
+- [environment.usda](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scenes/environment.usda>)
+- [天空纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png>)
+- [海面法线纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/harbor_water_normal.png>)
+
+仍需补充：
+
+- 夜晚照明和港机工作灯。
+- 雨天、雾天、湿地反射。
+- 白天/夜晚/雨雾预设切换。
+- Payload 按区域加载。
+- 重复 RTG、车辆、集装箱使用实例。
+- 为远处港区建立 LOD 或代理模型。
+- 建立性能预算：显存、帧率、启动时间和场景对象数量。
+
+建议以 RTX 5060 8GB 为基准，先保证实时模式稳定达到约 30 FPS，并给系统和后续传感器留出显存空间。
+
+## 第六步：传感器和 AI
+
+传感器建议按最小闭环逐步增加：
+
+- 吊具俯视相机：箱角和锁孔对位。
+- 载荷/称重传感器。
+- 大车、小车和起升限位。
+- 防碰撞距离传感器。
+- 后续再增加激光雷达、OCR 和箱号识别。
+
+AI Agent 应放在控制系统稳定之后：
+
+- 第一阶段：规则调度，作为基准。
+- 第二阶段：RTG 作业路径与任务排序优化。
+- 第三阶段：视觉对位和异常检测。
+- 第四阶段：电机、制动器、钢丝绳等故障预测。
+- 第五阶段：调度 Agent 与维护 Agent 协同。
+
+## WPF 项目的定位
+
+PDF 写的是 Unity/Web，但你的 WPF 项目也可以继续使用。建议：
+
+- Omniverse/Isaac Sim 负责三维场景、物理仿真和传感器。
+- ROS2 或服务层负责实时数据。
+- WPF 负责设备状态、报警、任务列表、趋势图和操作界面。
+- 三维画面优先使用 Omniverse 视频流或远程渲染，不建议再把整个高精度港区转成 OBJ 塞进 WPF。
+
+最合理的下一项工作是：**提取一台标准 RTG，建立大车、小车、吊具三个可控制关节，并在 Isaac Sim 中完成一次手动吊箱循环。**完成这一步后，再接 ROS2。
 更详细的 Omniverse 工作流见 [`omniverse/README.md`](omniverse/README.md)。
