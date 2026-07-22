@@ -86,7 +86,7 @@ def export_static_usd() -> None:
             and not is_ground_container(obj)
             and obj.visible_get(view_layer=view_layer)
         )
-        if is_regular_visible_object and obj.type == "CURVE":
+        if is_regular_visible_object and obj.type in {"CURVE", "FONT"}:
             # Native BasisCurves are omitted below because Omniverse interprets
             # their width differently.  A temporary evaluated mesh preserves
             # Blender's bevel, taper, modifiers, materials, and world transform.

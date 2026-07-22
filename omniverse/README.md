@@ -123,3 +123,28 @@ their Blender thickness and their gantry/trolley motion in Omniverse. The source
 Static yard and ground containers are omitted from `RTG_Model.usdc`. The hoisted
 `YLOAD` container, truck load, and ship deck cargo remain; runtime container
 instances can be authored later from live terminal data.
+
+## Real-scale 1C-4C yard layout
+
+Run `scripts/build_yard_layout.py` in Blender to regenerate the central yard
+layout. The current parameters are:
+
+| Block | Bay range | Block length |
+| --- | ---: | ---: |
+| 1C | 001-091 | 564 m |
+| 2C | 001-091 | 564 m |
+| 3C | 001-091 | 564 m |
+| 4C | 001-041 | 254 m |
+
+Each bay pad is 6 m long and 8 m wide. Adjacent pads have a 0.20 m clear gap,
+and adjacent C blocks have a 5 m clear gap. The complete layout is 1,961 m
+long. `YARD_LAYOUT_1C4C_BAY_ANCHORS` contains 314 logical anchors with
+`yard_block`, `bay_number`, and `bay_id` properties for later live container
+instancing. The visual pads and markings are combined per block to keep the
+Blender and USD object counts low.
+
+The same build pass extends the existing continuous left, right, and outer
+side-yard surfaces, stack pads, lane boundaries, AGV routes, and the internal
+truck lane to the same `Y=-0.5` through `Y=1960.5` longitudinal range. Their
+authored widths and X positions are preserved. Short decorative objects and
+existing container meshes are not stretched.
