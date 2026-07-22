@@ -67,8 +67,9 @@ a second, silver-grey set of ropes in RTX rendering. Static left/right RTG rope
 meshes are not affected.
 
 The dynamic curves use all 16 endpoint pairs measured directly from Blender.
-Their lower ends terminate at the four red-marked attachment groups on top of
-the yellow hoist hardware at approximately Z=4.30 m. The rope lower endpoints
+Their lower ends terminate at the four attachment groups on the upper edge of
+the yellow hoist beam, using a small visual offset from the Blender guide-curve
+tips. The rope lower endpoints
 and the complete hoist/spreader hierarchy use the same hoist command, while the
 upper endpoints remain fixed in trolley-local space.
 
