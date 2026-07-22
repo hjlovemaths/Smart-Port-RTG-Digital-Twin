@@ -1,0 +1,16 @@
+{
+  "name": "Smart Port RTG Digital Twin",
+  "version": "0.1.0",
+  "stage": "../scenes/smart_port.usda",
+  "sourceBlend": "../../blender/RTG_Model.blend",
+  "metersPerUnit": 1.0,
+  "upAxis": "Z",
+  "initialImport": {
+    "format": "USDC",
+    "animation": false,
+    "materials": true,
+    "lights": false,
+    "cameras": true,
+    "applyModifiers": true
+  }
+}

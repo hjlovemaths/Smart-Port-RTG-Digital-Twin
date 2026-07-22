@@ -1,0 +1,16 @@
+* text=auto
+
+*.blend binary
+*.exr binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.usd binary
+*.usdc binary
+*.usdz binary
+
+*.md text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.usda text eol=lf

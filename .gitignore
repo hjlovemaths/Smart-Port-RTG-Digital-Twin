@@ -1,0 +1,24 @@
+# Local inspection and generated preview files
+tmp/
+
+# Blender recovery and autosave files
+*.blend1
+*.blend2
+*.blend@
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Omniverse and editor-local state
+.omniverse/
+logs/
+cache/
+.idea/
+.vscode/
+
+# Operating-system metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
