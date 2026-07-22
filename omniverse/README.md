@@ -60,6 +60,24 @@ These limits are authored on the disabled prototype joints and enforced by the
 live-control helper. They should be expanded only after collision proxies and a
 manual container-handling cycle have been validated.
 
+### Engineering-coordinate mapping
+
+PLC, ROS2, and WPF use real equipment coordinates while the current visual
+model retains its validated travel. The live controller applies these linear
+mappings:
+
+| Engineering value | USD controller value |
+| --- | ---: |
+| Trolley 0 m, left end near the tower | X = 0.00 |
+| Trolley 18 m, far end | X = -2.25 |
+| Hoist 0 m, spreader at ground level | Z = -0.45 |
+| Hoist 15 m, highest position | Z = 0.85 |
+
+Therefore `set_trolley()` accepts 0-18 actual metres and `set_hoist()` accepts
+0-15 actual metres. Reverse conversion helpers are provided for status values
+sent back to WPF/ROS2. The rope visual continues to use the mapped USD hoist
+position, so it remains attached throughout the full engineering range.
+
 The same layer contains `RTG_DYNAMIC_HOIST_ROPES`: 16 linear rope curves
 measured from the Blender source. Their upper endpoints remain fixed to the
 trolley while their lower endpoints use the same Z targets as the hoist joint,

@@ -51,12 +51,43 @@ ROPE_ENDPOINTS = (
 # lower attachment point as the authored validation animation.
 LOWER_ROPE_VISIBLE_OFFSET_Z = -0.51
 GANTRY_LIMITS = (0.0, 4.20)
-TROLLEY_LIMITS = (-2.25, 0.0)
-HOIST_LIMITS = (-0.45, 0.85)
+TROLLEY_ENGINEERING_LIMITS = (0.0, 18.0)
+TROLLEY_USD_LIMITS = (0.0, -2.25)
+HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
+HOIST_USD_LIMITS = (-0.45, 0.85)
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, float(value)))
+
+
+def _linear_map(
+    value: float,
+    source: tuple[float, float],
+    target: tuple[float, float],
+) -> float:
+    ratio = (value - source[0]) / (source[1] - source[0])
+    return target[0] + ratio * (target[1] - target[0])
+
+
+def trolley_actual_to_usd(position_m: float) -> float:
+    value = _clamp(position_m, *TROLLEY_ENGINEERING_LIMITS)
+    return _linear_map(value, TROLLEY_ENGINEERING_LIMITS, TROLLEY_USD_LIMITS)
+
+
+def trolley_usd_to_actual(position_usd: float) -> float:
+    value = _clamp(position_usd, min(TROLLEY_USD_LIMITS), max(TROLLEY_USD_LIMITS))
+    return _linear_map(value, TROLLEY_USD_LIMITS, TROLLEY_ENGINEERING_LIMITS)
+
+
+def hoist_actual_to_usd(height_m: float) -> float:
+    value = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
+    return _linear_map(value, HOIST_ENGINEERING_LIMITS, HOIST_USD_LIMITS)
+
+
+def hoist_usd_to_actual(position_usd: float) -> float:
+    value = _clamp(position_usd, min(HOIST_USD_LIMITS), max(HOIST_USD_LIMITS))
+    return _linear_map(value, HOIST_USD_LIMITS, HOIST_ENGINEERING_LIMITS)
 
 
 def _rope_points(hoist_position: float) -> list[Gf.Vec3f]:
@@ -122,7 +153,9 @@ class RTGController:
         return value
 
     def set_trolley(self, position_m: float) -> float:
-        value = _clamp(position_m, *TROLLEY_LIMITS)
+        """Set actual trolley travel: 0 m at the tower, 18 m at the far end."""
+        actual = _clamp(position_m, *TROLLEY_ENGINEERING_LIMITS)
+        value = trolley_actual_to_usd(actual)
         with Usd.EditContext(self.stage, self._session):
             self._trolley.Set(value)
             self._trolley_translate.Set(
@@ -132,11 +165,12 @@ class RTGController:
                     TROLLEY_BASE_TRANSLATE[2],
                 )
             )
-        return value
+        return actual
 
-    def set_hoist(self, position_m: float) -> float:
-        """Command the hoist and update every lower rope endpoint atomically."""
-        value = _clamp(position_m, *HOIST_LIMITS)
+    def set_hoist(self, height_m: float) -> float:
+        """Set actual spreader height and update lower rope endpoints atomically."""
+        actual = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
+        value = hoist_actual_to_usd(actual)
         with Usd.EditContext(self.stage, self._session):
             self._hoist.Set(value)
             self._hoist_translate.Set(
@@ -147,7 +181,7 @@ class RTGController:
                 )
             )
             self._ropes.GetPointsAttr().Set(_rope_points(value))
-        return value
+        return actual
 
     def set_positions(
         self, *, gantry_m: float, trolley_m: float, hoist_m: float

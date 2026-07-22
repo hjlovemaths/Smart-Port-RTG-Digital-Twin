@@ -90,9 +90,15 @@ def "World"
             float physics:upperLimit = 0
             custom token rtg:axis = "X"
             custom token rtg:controlMode = "position_drive"
+            custom float rtg:engineeringLowerLimit = 0
+            custom token rtg:engineeringUnit = "m"
+            custom float rtg:engineeringUpperLimit = 18
+            custom string rtg:engineeringZeroDescription = "left end near control tower"
             custom float rtg:maxVelocity = 1
             custom float rtg:softLowerLimit = -2.15
             custom float rtg:softUpperLimit = -0.1
+            custom float rtg:usdPositionAtEngineeringLower = 0
+            custom float rtg:usdPositionAtEngineeringUpper = -2.25
         }
 
         def PhysicsPrismaticJoint "HoistVerticalJoint" (
@@ -125,9 +131,15 @@ def "World"
             float physics:upperLimit = 0.85
             custom token rtg:axis = "Z"
             custom token rtg:controlMode = "position_drive"
+            custom float rtg:engineeringLowerLimit = 0
+            custom token rtg:engineeringUnit = "m"
+            custom float rtg:engineeringUpperLimit = 15
+            custom string rtg:engineeringZeroDescription = "spreader at ground level"
             custom float rtg:maxVelocity = 0.9
             custom float rtg:softLowerLimit = -0.4
             custom float rtg:softUpperLimit = 0.8
+            custom float rtg:usdPositionAtEngineeringLower = -0.45
+            custom float rtg:usdPositionAtEngineeringUpper = 0.85
         }
 
         def "Materials"

@@ -60,6 +60,16 @@ TROLLEY_MAX_VELOCITY = 1.00
 HOIST_LIMITS = (-0.45, 0.85)
 HOIST_SOFT_LIMITS = (-0.40, 0.80)
 HOIST_MAX_VELOCITY = 0.90
+
+# Engineering coordinates exposed to PLC/ROS2/WPF.  The current visual model
+# is not authored at the full physical travel, so these values are mapped
+# linearly onto the validated USD controller ranges above.
+TROLLEY_ENGINEERING_LIMITS = (0.0, 18.0)
+TROLLEY_USD_AT_ENGINEERING_LIMITS = (0.0, -2.25)
+TROLLEY_ZERO_DESCRIPTION = "left end near control tower"
+HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
+HOIST_USD_AT_ENGINEERING_LIMITS = (-0.45, 0.85)
+HOIST_ZERO_DESCRIPTION = "spreader at ground level"
 # The Blender guide curves end at Z=4.30, while the measured upper surface of
 # the yellow attachment beam is approximately Z=3.78.  Put the curve centreline
 # at Z=3.79 so its rendered width visually touches the beam without penetrating.
@@ -137,6 +147,32 @@ def define_prismatic_joint(
             "rtg:maxVelocity", Sdf.ValueTypeNames.Float
         ).Set(max_velocity)
     return joint, drive
+
+
+def apply_engineering_mapping(
+    joint: UsdPhysics.PrismaticJoint,
+    engineering_limits: tuple[float, float],
+    usd_at_engineering_limits: tuple[float, float],
+    zero_description: str,
+) -> None:
+    """Describe the real equipment coordinate mapped onto a USD joint."""
+    prim = joint.GetPrim()
+    prim.CreateAttribute("rtg:engineeringUnit", Sdf.ValueTypeNames.Token).Set("m")
+    prim.CreateAttribute(
+        "rtg:engineeringLowerLimit", Sdf.ValueTypeNames.Float
+    ).Set(engineering_limits[0])
+    prim.CreateAttribute(
+        "rtg:engineeringUpperLimit", Sdf.ValueTypeNames.Float
+    ).Set(engineering_limits[1])
+    prim.CreateAttribute(
+        "rtg:usdPositionAtEngineeringLower", Sdf.ValueTypeNames.Float
+    ).Set(usd_at_engineering_limits[0])
+    prim.CreateAttribute(
+        "rtg:usdPositionAtEngineeringUpper", Sdf.ValueTypeNames.Float
+    ).Set(usd_at_engineering_limits[1])
+    prim.CreateAttribute(
+        "rtg:engineeringZeroDescription", Sdf.ValueTypeNames.String
+    ).Set(zero_description)
 
 
 def rope_points(hoist_offset: float) -> list[Gf.Vec3f]:
@@ -284,6 +320,12 @@ def build_layer() -> Path:
         soft_upper=TROLLEY_SOFT_LIMITS[1],
         max_velocity=TROLLEY_MAX_VELOCITY,
     )
+    apply_engineering_mapping(
+        trolley_joint,
+        TROLLEY_ENGINEERING_LIMITS,
+        TROLLEY_USD_AT_ENGINEERING_LIMITS,
+        TROLLEY_ZERO_DESCRIPTION,
+    )
 
     hoist_joint, hoist_drive = define_prismatic_joint(
         stage,
@@ -299,6 +341,12 @@ def build_layer() -> Path:
         soft_lower=HOIST_SOFT_LIMITS[0],
         soft_upper=HOIST_SOFT_LIMITS[1],
         max_velocity=HOIST_MAX_VELOCITY,
+    )
+    apply_engineering_mapping(
+        hoist_joint,
+        HOIST_ENGINEERING_LIMITS,
+        HOIST_USD_AT_ENGINEERING_LIMITS,
+        HOIST_ZERO_DESCRIPTION,
     )
 
     # Position targets mirror the existing Blender demonstration sequence.
