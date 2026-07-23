@@ -2,7 +2,7 @@
 
 Example:
     blender --background --python omniverse/scripts/build_live_containers.py -- \
-        --bay 1C/041 --pattern 413413
+        --bay 1C/004 --pattern 123456 --container-size-ft 40
 """
 
 from __future__ import annotations
@@ -19,10 +19,12 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.append(str(SCRIPT_DIR))
 
 from yard_coordinate_mapping import (
+    BAY_GAP_M,
     BAY_LENGTH_M,
     BAY_WIDTH_M,
     YARD_LAYOUT_START_Y_M,
     YARD_TOTAL_LENGTH_M,
+    bay_scene_y_m,
     bay_id_scene_y_m,
     parse_bay_id,
 )
@@ -35,7 +37,9 @@ LIVE_ROOT_PATH = "/World/LiveContainers"
 PAD_TOP_Z_M = 0.10
 
 CONTAINER_WIDTH_X_M = 1.306287
-CONTAINER_LENGTH_Y_M = 3.617411
+CONTAINER_LENGTH_20FT_Y_M = BAY_LENGTH_M
+CONTAINER_LENGTH_40FT_Y_M = BAY_LENGTH_M * 2.0 + BAY_GAP_M
+CONTAINER_LENGTH_Y_M = CONTAINER_LENGTH_20FT_Y_M
 CONTAINER_VISUAL_HEIGHT_Z_M = 0.904353
 CONTAINER_ACTUAL_HEIGHT_M = 2.50
 MAX_STACK_TIERS = 6
@@ -466,13 +470,61 @@ def create_yard_ground_markings(
     )
 
 
-def build_live_container_layer(bay_id: str, pattern: str) -> Path:
+def container_length_for_size(container_size_ft: int) -> float:
+    if container_size_ft == 20:
+        return CONTAINER_LENGTH_20FT_Y_M
+    if container_size_ft == 40:
+        return CONTAINER_LENGTH_40FT_Y_M
+    raise ValueError("Container size must be 20 or 40 ft")
+
+
+def validate_container_bay_number(block: str, bay_number: int, container_size_ft: int) -> None:
+    if container_size_ft == 20 and bay_number % 2 == 0:
+        raise ValueError(
+            f"20 ft containers should be placed on odd bay numbers, got {block}/{bay_number:03d}"
+        )
+    if container_size_ft == 40 and bay_number % 2 != 0:
+        raise ValueError(
+            f"40 ft containers should be placed on even bay numbers, got {block}/{bay_number:03d}"
+        )
+
+
+def container_center_y_for_bay(block: str, bay_number: int, container_size_ft: int) -> float:
+    if container_size_ft == 20:
+        return bay_scene_y_m(block, bay_number, "center")
+    front_odd_bay = bay_number - 1
+    rear_odd_bay = bay_number + 1
+    return (
+        bay_scene_y_m(block, front_odd_bay, "center")
+        + bay_scene_y_m(block, rear_odd_bay, "center")
+    ) * 0.5
+
+
+def container_length_for_bay(block: str, bay_number: int, container_size_ft: int) -> float:
+    return container_length_for_size(container_size_ft)
+
+
+def occupied_bay_numbers(bay_number: int, container_size_ft: int) -> tuple[int, ...]:
+    if container_size_ft == 20:
+        return (bay_number,)
+    return (bay_number - 1, bay_number + 1)
+
+
+def build_live_container_layer(
+    bay_id: str,
+    pattern: str,
+    *,
+    container_size_ft: int = 20,
+    show_ground_markings: bool = False,
+) -> Path:
     if OUTPUT_PATH.exists():
         OUTPUT_PATH.unlink()
 
     block, bay_number = parse_bay_id(bay_id)
     normalized_bay_id = f"{block}/{bay_number:03d}"
+    validate_container_bay_number(block, bay_number, container_size_ft)
     heights = parse_pattern(pattern)
+    container_length_y = container_length_for_bay(block, bay_number, container_size_ft)
 
     stage = Usd.Stage.CreateNew(str(OUTPUT_PATH))
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
@@ -485,6 +537,9 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
     root.CreateAttribute("live:bayMapPattern", Sdf.ValueTypeNames.String).Set(pattern)
     root.CreateAttribute("live:layoutMode", Sdf.ValueTypeNames.Token).Set(
         "six_container_columns_plus_one_truck_lane"
+    )
+    root.CreateAttribute("live:containerSizeFt", Sdf.ValueTypeNames.Int).Set(
+        container_size_ft
     )
     root.CreateAttribute("live:physicsMode", Sdf.ValueTypeNames.Token).Set(
         "visual_only_no_collision"
@@ -503,7 +558,7 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
         material(stage, f"Container_{name}", color) for name, color in CONTAINER_COLORS
     ]
 
-    bay_center_y = bay_id_scene_y_m(normalized_bay_id, "center")
+    bay_center_y = container_center_y_for_bay(block, bay_number, container_size_ft)
     row_width = CONTAINER_WIDTH_X_M
     total_width = len(heights) * row_width + (len(heights) - 1) * ROW_GAP_X_M
     required_width = (
@@ -532,7 +587,10 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
     ]
     container_width = CONTAINER_WIDTH_X_M
 
-    stack_path = f"{LIVE_ROOT_PATH}/Bay_{block}_{bay_number:03d}_Pattern_{pattern}"
+    stack_path = (
+        f"{LIVE_ROOT_PATH}/Bay_{block}_{bay_number:03d}_"
+        f"{container_size_ft}FT_Pattern_{pattern}"
+    )
     stack = UsdGeom.Xform.Define(stage, stack_path).GetPrim()
     stack.CreateAttribute("live:block", Sdf.ValueTypeNames.String).Set(block)
     stack.CreateAttribute("live:bayNumber", Sdf.ValueTypeNames.Int).Set(bay_number)
@@ -562,7 +620,7 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
         RIGHT_INNER_SAFETY_X_M
     )
     stack.CreateAttribute("live:containerLengthM", Sdf.ValueTypeNames.Float).Set(
-        CONTAINER_LENGTH_Y_M
+        container_length_y
     )
     stack.CreateAttribute("live:containerWidthVisualM", Sdf.ValueTypeNames.Float).Set(
         container_width
@@ -584,7 +642,7 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
                 stage,
                 container_path,
                 Gf.Vec3d(x, bay_center_y, z),
-                Gf.Vec3f(container_width, CONTAINER_LENGTH_Y_M, CONTAINER_VISUAL_HEIGHT_Z_M),
+                Gf.Vec3f(container_width, container_length_y, CONTAINER_VISUAL_HEIGHT_Z_M),
                 mat,
                 bay_id=normalized_bay_id,
                 row=row_index,
@@ -595,30 +653,31 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
                 stage,
                 container_path,
                 Gf.Vec3d(x, bay_center_y, z),
-                Gf.Vec3f(container_width, CONTAINER_LENGTH_Y_M, CONTAINER_VISUAL_HEIGHT_Z_M),
+                Gf.Vec3f(container_width, container_length_y, CONTAINER_VISUAL_HEIGHT_Z_M),
             )
 
     outline_pad = 0.35
     stack_x_min = leftmost_stack_x - row_width * 0.5 - outline_pad
     stack_x_max = leftmost_stack_x + (len(heights) - 1) * row_pitch + row_width * 0.5 + outline_pad
-    create_layout_outline(
-        stage,
-        f"{stack_path}/BayMap_Outline",
-        stack_x_min,
-        stack_x_max,
-        bay_center_y - BAY_LENGTH_M * 0.5 - outline_pad,
-        bay_center_y + BAY_LENGTH_M * 0.5 + outline_pad,
-    )
-    create_yard_ground_markings(
-        stage,
-        f"{stack_path}/GroundMarkings",
-        block,
-        bay_number,
-        bay_center_y,
-        stack_x_min,
-        stack_x_max,
-        column_centers,
-    )
+    if show_ground_markings:
+        create_layout_outline(
+            stage,
+            f"{stack_path}/BayMap_Outline",
+            stack_x_min,
+            stack_x_max,
+            bay_center_y - container_length_y * 0.5 - outline_pad,
+            bay_center_y + container_length_y * 0.5 + outline_pad,
+        )
+        create_yard_ground_markings(
+            stage,
+            f"{stack_path}/GroundMarkings",
+            block,
+            bay_number,
+            bay_center_y,
+            stack_x_min,
+            stack_x_max,
+            column_centers,
+        )
 
     layer = stage.GetRootLayer()
     layer.customLayerData = {
@@ -632,7 +691,8 @@ def build_live_container_layer(bay_id: str, pattern: str) -> Path:
         "truckLaneCount": 1,
         "containerActualHeightMeters": CONTAINER_ACTUAL_HEIGHT_M,
         "containerVisualHeightMeters": CONTAINER_VISUAL_HEIGHT_Z_M,
-        "containerLengthMeters": CONTAINER_LENGTH_Y_M,
+        "containerLengthMeters": container_length_y,
+        "containerSizeFeet": container_size_ft,
         "leftInnerSafetyMeters": LEFT_INNER_SAFETY_X_M,
         "truckLaneWidthMeters": TRUCK_LANE_WIDTH_X_M,
         "rightInnerSafetyMeters": RIGHT_INNER_SAFETY_X_M,
@@ -647,8 +707,18 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bay", default="1C/041")
     parser.add_argument("--pattern", default="413413")
+    parser.add_argument("--container-size-ft", type=int, choices=(20, 40), default=20)
+    parser.add_argument("--show-ground-markings", action="store_true")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else None)
-    print("Built live containers layer:", build_live_container_layer(args.bay, args.pattern))
+    print(
+        "Built live containers layer:",
+        build_live_container_layer(
+            args.bay,
+            args.pattern,
+            container_size_ft=args.container_size_ft,
+            show_ground_markings=args.show_ground_markings,
+        ),
+    )
 
 
 if __name__ == "__main__":

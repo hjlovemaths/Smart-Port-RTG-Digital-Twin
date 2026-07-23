@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-BAY_LENGTH_M = 6.0
+BAY_LENGTH_M = 2.475
 BAY_WIDTH_M = 20.0
 BAY_GAP_M = 0.20
 BLOCK_GAP_M = 5.0
@@ -25,7 +25,8 @@ class YardBlock:
 
     @property
     def length_m(self) -> float:
-        return self.bay_count * BAY_LENGTH_M + (self.bay_count - 1) * BAY_GAP_M
+        odd_slot_count = (self.bay_count + 1) // 2
+        return odd_slot_count * BAY_LENGTH_M + (odd_slot_count - 1) * BAY_GAP_M
 
     @property
     def end_m(self) -> float:
@@ -74,15 +75,24 @@ def validate_bay(block: str, bay_number: int) -> YardBlock:
 
 def bay_start_m(block: str, bay_number: int) -> float:
     yard_block = validate_bay(block, bay_number)
-    return yard_block.start_m + (int(bay_number) - 1) * (BAY_LENGTH_M + BAY_GAP_M)
+    bay = int(bay_number)
+    if bay % 2 == 1:
+        odd_slot_index = (bay - 1) // 2
+        return yard_block.start_m + odd_slot_index * (BAY_LENGTH_M + BAY_GAP_M)
+    previous_odd_bay = bay - 1
+    return bay_start_m(block, previous_odd_bay)
 
 
 def bay_end_m(block: str, bay_number: int) -> float:
-    return bay_start_m(block, bay_number) + BAY_LENGTH_M
+    bay = int(bay_number)
+    if bay % 2 == 1:
+        return bay_start_m(block, bay) + BAY_LENGTH_M
+    next_odd_bay = bay + 1
+    return bay_end_m(block, next_odd_bay)
 
 
 def bay_center_m(block: str, bay_number: int) -> float:
-    return bay_start_m(block, bay_number) + BAY_LENGTH_M * 0.5
+    return (bay_start_m(block, bay_number) + bay_end_m(block, bay_number)) * 0.5
 
 
 def bay_position_m(block: str, bay_number: int, anchor: str = "center") -> float:

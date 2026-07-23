@@ -27,10 +27,10 @@ ANCHOR_COLLECTION_NAME = "YARD_LAYOUT_1C4C_BAY_ANCHORS"
 LABEL_COLLECTION_NAME = "YARD_LAYOUT_1C4C_LABELS"
 
 BLOCKS = (("1C", 91), ("2C", 91), ("3C", 91), ("4C", 41))
-BAY_LENGTH_M = 6.0
+BAY_LENGTH_M = 2.475
 BAY_GAP_M = 0.20
 GROUND_SLOT_BAY_STRIDE = 2
-GROUND_SLOT_LENGTH_M = BAY_LENGTH_M * GROUND_SLOT_BAY_STRIDE + BAY_GAP_M
+GROUND_SLOT_LENGTH_M = BAY_LENGTH_M
 BLOCK_GAP_M = 5.0
 START_Y_M = -0.50
 
@@ -84,7 +84,27 @@ INFILL_YARDS = (
 
 
 def block_length(bay_count: int) -> float:
-    return bay_count * BAY_LENGTH_M + (bay_count - 1) * BAY_GAP_M
+    odd_slot_count = (bay_count + 1) // 2
+    return odd_slot_count * BAY_LENGTH_M + (odd_slot_count - 1) * BAY_GAP_M
+
+
+def bay_local_start(bay_number: int) -> float:
+    bay = int(bay_number)
+    if bay % 2 == 1:
+        odd_slot_index = (bay - 1) // 2
+        return odd_slot_index * (BAY_LENGTH_M + BAY_GAP_M)
+    return bay_local_start(bay - 1)
+
+
+def bay_local_end(bay_number: int) -> float:
+    bay = int(bay_number)
+    if bay % 2 == 1:
+        return bay_local_start(bay) + BAY_LENGTH_M
+    return bay_local_end(bay + 1)
+
+
+def bay_local_center(bay_number: int) -> float:
+    return (bay_local_start(bay_number) + bay_local_end(bay_number)) * 0.5
 
 
 def odd_ground_slot_numbers(bay_count: int) -> list[int]:
@@ -99,7 +119,7 @@ def odd_ground_slot_numbers(bay_count: int) -> list[int]:
 
 
 def ground_slot_bounds(block_start_y: float, block_end_y: float, odd_bay_number: int) -> tuple[float, float]:
-    slot_start = block_start_y + (odd_bay_number - 1) * (BAY_LENGTH_M + BAY_GAP_M)
+    slot_start = block_start_y + bay_local_start(odd_bay_number)
     slot_end = min(slot_start + GROUND_SLOT_LENGTH_M, block_end_y)
     return slot_start, slot_end
 
@@ -388,8 +408,7 @@ def build_yard_layout() -> dict[str, object]:
 
         for index in range(bay_count):
             bay_number = index + 1
-            bay_start = current_y + index * (BAY_LENGTH_M + BAY_GAP_M)
-            bay_center = bay_start + BAY_LENGTH_M * 0.5
+            bay_center = current_y + bay_local_center(bay_number)
 
             anchor = bpy.data.objects.new(
                 f"YARD_LAYOUT_1C4C_ANCHOR_{block_name}_BAY_{bay_number:03d}", None
