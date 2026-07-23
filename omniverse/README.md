@@ -48,17 +48,18 @@ RTG 4.2 m during frames 160-230. The eight tires do not receive independent
 rotation samples; they inherit the gantry transform together with the wheel
 bogies, frame, cable loops, conduits, floodlights, trolley, hoist, and spreader.
 
-The first control-validation limits deliberately match that authored motion:
+The demo animation still keeps the small authored gantry movement for visual
+validation, but the engineering limits now match the real 1C-4C yard:
 
 | Joint | Hard limits | Soft limits | Maximum velocity |
 | --- | ---: | ---: | ---: |
-| Gantry Y | 0.00 to 4.20 m | 0.10 to 4.10 m | 1.50 m/s |
-| Trolley X | -2.25 to 0.00 m | -2.15 to -0.10 m | 1.00 m/s |
-| Hoist Z | -0.45 to 0.85 m | -0.40 to 0.80 m | 0.90 m/s |
+| Gantry engineering travel | 0.00 to 1,961.00 m | 1.00 to 1,960.00 m | 1.50 m/s |
+| Trolley engineering travel | 0.00 to 18.00 m | 0.30 to 17.70 m | 1.00 m/s |
+| Hoist engineering height | 0.00 to 15.00 m | 0.50 to 14.70 m | 0.90 m/s |
 
-These limits are authored on the disabled prototype joints and enforced by the
-live-control helper. They should be expanded only after collision proxies and a
-manual container-handling cycle have been validated.
+The hard limits describe the physical stroke. The soft limits describe the
+normal command envelope used by WPF/ROS2 so regular commands keep clearance
+from end stops and keep the spreader at least 0.5 m above ground.
 
 ### Engineering-coordinate mapping
 
@@ -68,15 +69,25 @@ mappings:
 
 | Engineering value | USD controller value |
 | --- | ---: |
+| Gantry 0 m, 1C/001 seaside bay-start origin | Y = 0.00 |
+| Gantry 1,961 m, 4C/041 bay end | Y = 1,961.00 |
 | Trolley 0 m, left end near the tower | X = 0.00 |
 | Trolley 18 m, far end | X = -2.25 |
 | Hoist 0 m, spreader at ground level | Z = -0.45 |
 | Hoist 15 m, highest position | Z = 0.85 |
 
-Therefore `set_trolley()` accepts 0-18 actual metres and `set_hoist()` accepts
-0-15 actual metres. Reverse conversion helpers are provided for status values
-sent back to WPF/ROS2. The rope visual continues to use the mapped USD hoist
+Therefore `set_gantry()` accepts 0-1,961 m from the 1C/001 seaside origin,
+`set_trolley()` accepts 0-18 actual metres, and `set_hoist()` accepts 0-15
+actual metres. Reverse conversion helpers are provided for status values sent
+back to WPF/ROS2. The rope visual continues to use the mapped USD hoist
 position, so it remains attached throughout the full engineering range.
+
+`scripts/yard_coordinate_mapping.py` contains the shared business-coordinate
+rules for the real-scale yard. `set_gantry_bay("1C", 25)` and
+`set_gantry_bay_id("1C/025")` move the gantry to a bay target; by default the
+target is the bay center. Pass `anchor="start"` or `anchor="end"` when the
+command should use the bay boundary instead. Bay spacing is 6.0 m pad length
+plus 0.20 m clear gap, and the four C blocks are separated by 5.0 m gaps.
 
 The same layer contains `RTG_DYNAMIC_HOIST_ROPES`: 16 linear rope curves
 measured from the Blender source. Their upper endpoints remain fixed to the
@@ -89,6 +100,8 @@ For live control in Kit, create `RTGController(stage)` from
 write deterministic controller transforms plus the retained drive targets to
 the USD session layer. `set_hoist` updates all lower rope endpoints in the same
 call, which is the entry point intended for the later ROS2/WPF data bridge.
+Use `set_positions()` when a command is allowed to reach the hard limits, and
+`set_positions_safe()` for normal operation inside the soft-limit envelope.
 
 The SimReady layer hides the 16 top-level
 `RTG_BOUND_HOIST_ROPE_*__USD_MESH` meshes exported from Blender. Those meshes
@@ -124,6 +137,29 @@ Static yard and ground containers are omitted from `RTG_Model.usdc`. The hoisted
 `YLOAD` container, truck load, and ship deck cargo remain; runtime container
 instances can be authored later from live terminal data.
 
+## Runtime container generation
+
+`scripts/build_live_containers.py` generates lightweight container stacks into
+`scenes/live_containers.usda`. The current demo command is:
+
+```bash
+blender --background --python omniverse/scripts/build_live_containers.py -- --bay 1C/041 --pattern 413413
+```
+
+The pattern is parsed one digit per row from right to left. For example,
+`413413` means row 1 on the right has 4 tiers, row 2 has 1 tier, row 3 has 3
+tiers, and so on toward the left. The generated layer writes one schematic stack
+column per row, adds `live:bayId`, `live:row`, and `live:tiers` metadata, draws
+tier separator lines, and draws a red outline around the bay-map footprint.
+`scenes/smart_port.usda` sublayers `live_containers.usda`, so reloading the
+stage shows the current live stack without changing the Blender source asset.
+
+The bay-map visualization is constrained to fit inside the 12 m bay width. The
+left side keeps 1.8 m clear for the truck lane, while the right side keeps 0.4 m
+clearance from the RTG structure. It uses a 1.20 m schematic tier height, so the
+maximum 6-tier stack is 7.2 m high. This keeps the live bay-map readable without
+blocking the RTG cabin and lower beam in the current visual scene.
+
 ## Real-scale 1C-4C yard layout
 
 Run `scripts/build_yard_layout.py` in Blender to regenerate the central yard
@@ -136,7 +172,7 @@ layout. The current parameters are:
 | 3C | 001-091 | 564 m |
 | 4C | 001-041 | 254 m |
 
-Each bay pad is 6 m long and 8 m wide. Adjacent pads have a 0.20 m clear gap,
+Each bay pad is 6 m long and 12 m wide. Adjacent pads have a 0.20 m clear gap,
 and adjacent C blocks have a 5 m clear gap. The complete layout is 1,961 m
 long. `YARD_LAYOUT_1C4C_BAY_ANCHORS` contains 314 logical anchors with
 `yard_block`, `bay_number`, and `bay_id` properties for later live container

@@ -9,8 +9,15 @@ layout objects and leaves the RTGs, ships, roads, and surrounding port intact.
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import bpy
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.append(str(SCRIPT_DIR))
+
+from yard_coordinate_mapping import BAY_WIDTH_M
 
 
 LAYOUT_ROOT_NAME = "YARD_LAYOUT_1C4C_REAL_SCALE"
@@ -21,8 +28,9 @@ LABEL_COLLECTION_NAME = "YARD_LAYOUT_1C4C_LABELS"
 
 BLOCKS = (("1C", 91), ("2C", 91), ("3C", 91), ("4C", 41))
 BAY_LENGTH_M = 6.0
-BAY_WIDTH_M = 8.0
 BAY_GAP_M = 0.20
+GROUND_SLOT_BAY_STRIDE = 2
+GROUND_SLOT_LENGTH_M = BAY_LENGTH_M * GROUND_SLOT_BAY_STRIDE + BAY_GAP_M
 BLOCK_GAP_M = 5.0
 START_Y_M = -0.50
 
@@ -77,6 +85,23 @@ INFILL_YARDS = (
 
 def block_length(bay_count: int) -> float:
     return bay_count * BAY_LENGTH_M + (bay_count - 1) * BAY_GAP_M
+
+
+def odd_ground_slot_numbers(bay_count: int) -> list[int]:
+    """Ground marks use the real-yard convention: odd bay numbers only.
+
+    Each odd mark represents a 40 ft work slot that visually spans two 20 ft
+    bay units.  If the block ends on an odd bay, the final marker is kept as a
+    terminal marker so the operator still sees the documented end bay.
+    """
+
+    return list(range(1, bay_count + 1, GROUND_SLOT_BAY_STRIDE))
+
+
+def ground_slot_bounds(block_start_y: float, block_end_y: float, odd_bay_number: int) -> tuple[float, float]:
+    slot_start = block_start_y + (odd_bay_number - 1) * (BAY_LENGTH_M + BAY_GAP_M)
+    slot_end = min(slot_start + GROUND_SLOT_LENGTH_M, block_end_y)
+    return slot_start, slot_end
 
 
 def get_material(name: str, color: tuple[float, float, float, float], metallic=0.0, roughness=0.65):
@@ -144,8 +169,8 @@ def create_text(name, body, location, size, material, collection) -> bpy.types.O
     curve.align_x = "CENTER"
     curve.align_y = "CENTER"
     curve.size = size
-    curve.extrude = 0.008
-    curve.bevel_depth = 0.004
+    curve.extrude = 0.012
+    curve.bevel_depth = 0.006
     curve.materials.append(material)
     obj = bpy.data.objects.new(name, curve)
     obj.location = location
@@ -272,6 +297,8 @@ def build_yard_layout() -> dict[str, object]:
         "4C": get_material("YARD_LAYOUT_4C_Pad", (0.18, 0.14, 0.16, 1.0), roughness=0.82),
     }
     white = get_material("YARD_LAYOUT_WhiteMarking", (0.90, 0.92, 0.90, 1.0), roughness=0.55)
+    bay_number_gray = get_material("YARD_LAYOUT_BayNumberGrey", (0.68, 0.70, 0.68, 1.0), roughness=0.48)
+    bay_number_backing = get_material("YARD_LAYOUT_BayNumberDarkBacking", (0.030, 0.035, 0.035, 1.0), roughness=0.72)
     yellow = get_material("YARD_LAYOUT_YellowMarking", (0.95, 0.62, 0.03, 1.0), roughness=0.50)
     rail = get_material("YARD_LAYOUT_GantryRail", (0.035, 0.040, 0.045, 1.0), metallic=0.75, roughness=0.35)
     infill_materials = {
@@ -326,10 +353,12 @@ def build_yard_layout() -> dict[str, object]:
     root.empty_display_type = "PLAIN_AXES"
     root.empty_display_size = 0.5
     root_collection.objects.link(root)
-    root["layout_version"] = 2
+    root["layout_version"] = 3
     root["bay_length_m"] = BAY_LENGTH_M
     root["bay_width_m"] = BAY_WIDTH_M
     root["bay_gap_m"] = BAY_GAP_M
+    root["ground_mark_rule"] = "odd bay marks only; one visual ground slot spans two 20ft bay units"
+    root["ground_slot_length_m"] = GROUND_SLOT_LENGTH_M
     root["block_gap_m"] = BLOCK_GAP_M
     root["total_length_m"] = total_length
 
@@ -340,14 +369,27 @@ def build_yard_layout() -> dict[str, object]:
         end_y = current_y + length
         center_y = current_y + length * 0.5
 
-        bay_boxes = []
-        separator_boxes = []
+        ground_slot_boxes = []
+        ground_slot_separator_boxes = []
+        bay_number_panel_boxes = []
         marker_panels = []
+        for odd_bay_number in odd_ground_slot_numbers(bay_count):
+            slot_start, slot_end = ground_slot_bounds(current_y, end_y, odd_bay_number)
+            slot_length = slot_end - slot_start
+            slot_center = (slot_start + slot_end) * 0.5
+            ground_slot_boxes.append(
+                ((0.0, slot_center, PAD_TOP_Z_M - 0.015), (BAY_WIDTH_M, slot_length, 0.03))
+            )
+            if slot_end < end_y - 1.0e-4:
+                gap_center = slot_end + BAY_GAP_M * 0.5
+                ground_slot_separator_boxes.append(
+                    ((0.0, gap_center, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.055, 0.015))
+                )
+
         for index in range(bay_count):
             bay_number = index + 1
             bay_start = current_y + index * (BAY_LENGTH_M + BAY_GAP_M)
             bay_center = bay_start + BAY_LENGTH_M * 0.5
-            bay_boxes.append(((0.0, bay_center, PAD_TOP_Z_M - 0.015), (BAY_WIDTH_M, BAY_LENGTH_M, 0.03)))
 
             anchor = bpy.data.objects.new(
                 f"YARD_LAYOUT_1C4C_ANCHOR_{block_name}_BAY_{bay_number:03d}", None
@@ -361,35 +403,35 @@ def build_yard_layout() -> dict[str, object]:
             anchor["bay_id"] = f"{block_name}/{bay_number:03d}"
             anchor["bay_length_m"] = BAY_LENGTH_M
             anchor["bay_width_m"] = BAY_WIDTH_M
+            anchor["ground_mark_visible"] = bay_number % GROUND_SLOT_BAY_STRIDE == 1
             anchor_collection.objects.link(anchor)
 
-            if index < bay_count - 1:
-                gap_center = bay_start + BAY_LENGTH_M + BAY_GAP_M * 0.5
-                separator_boxes.append(
-                    ((0.0, gap_center, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.04, 0.015))
-                )
-
         pad = create_boxes_object(
-            f"YARD_LAYOUT_1C4C_{block_name}_{bay_count:03d}_BAY_PADS",
-            bay_boxes,
+            f"YARD_LAYOUT_1C4C_{block_name}_{bay_count:03d}_ODD_BAY_40FT_SLOTS",
+            ground_slot_boxes,
             pad_materials[block_name],
             surface_collection,
         )
         pad.parent = root
         pad["yard_block"] = block_name
         pad["bay_count"] = bay_count
+        pad["ground_slot_rule"] = "odd bay marks, one visual slot spans two 20ft bay units"
+        pad["ground_slot_count"] = len(ground_slot_boxes)
+        pad["ground_slot_length_m"] = GROUND_SLOT_LENGTH_M
         pad["block_start_y_m"] = current_y
         pad["block_end_y_m"] = end_y
         pad["block_length_m"] = length
 
-        if separator_boxes:
+        if ground_slot_separator_boxes:
             separators = create_boxes_object(
-                f"YARD_LAYOUT_1C4C_{block_name}_BAY_GAP_CENTERLINES",
-                separator_boxes,
+                f"YARD_LAYOUT_1C4C_{block_name}_ODD_BAY_40FT_SLOT_SEPARATORS",
+                ground_slot_separator_boxes,
                 white,
                 marking_collection,
             )
             separators.parent = root
+            separators["yard_block"] = block_name
+            separators["ground_slot_rule"] = "separator between visible odd bay 40ft slots"
 
         boundary_boxes = [
             ((-BAY_WIDTH_M * 0.5, center_y, MARKING_TOP_Z_M), (0.08, length, 0.02)),
@@ -416,19 +458,35 @@ def build_yard_layout() -> dict[str, object]:
         )
         rails.parent = root
 
-        label_numbers = {1, bay_count}
-        label_numbers.update(range(10, bay_count + 1, 10))
-        for bay_number in sorted(label_numbers):
-            bay_center = current_y + (bay_number - 1) * (BAY_LENGTH_M + BAY_GAP_M) + BAY_LENGTH_M * 0.5
+        label_numbers = odd_ground_slot_numbers(bay_count)
+        for bay_number in label_numbers:
+            slot_start, slot_end = ground_slot_bounds(current_y, end_y, bay_number)
+            bay_center = (slot_start + slot_end) * 0.5
+            bay_number_panel_boxes.append(
+                ((0.0, bay_center, MARKING_TOP_Z_M + 0.004), (2.25, 1.55, 0.018))
+            )
             label = create_text(
                 f"YARD_LAYOUT_1C4C_LABEL_{block_name}_BAY_{bay_number:03d}",
                 f"{bay_number:02d}",
-                (0.0, bay_center, MARKING_TOP_Z_M + 0.015),
-                0.70,
-                white,
+                (0.0, bay_center, MARKING_TOP_Z_M + 0.030),
+                0.95,
+                bay_number_gray,
                 label_collection,
             )
             label.parent = root
+            label["yard_block"] = block_name
+            label["bay_number"] = bay_number
+            label["ground_mark_rule"] = "odd bay number centered in a 40ft visual slot"
+
+        bay_number_panels = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_{block_name}_ODD_BAY_NUMBER_BACKINGS",
+            bay_number_panel_boxes,
+            bay_number_backing,
+            marking_collection,
+        )
+        bay_number_panels.parent = root
+        bay_number_panels["yard_block"] = block_name
+        bay_number_panels["ground_mark_rule"] = "dark backing behind enlarged grey odd bay numbers"
 
         for suffix, label_y in (("START", current_y + 3.0), ("END", end_y - 3.0)):
             marker_panels.append(((-5.20, label_y, MARKING_TOP_Z_M), (1.8, 2.2, 0.025)))
@@ -460,7 +518,11 @@ def build_yard_layout() -> dict[str, object]:
         )
         current_y = end_y + BLOCK_GAP_M
 
-    bpy.context.scene["yard_layout_spec"] = "1C-3C:91 bays; 4C:41 bays; 6x8m; bay gap 0.2m; block gap 5m"
+    bpy.context.scene["yard_layout_spec"] = (
+        "1C-3C:91 bays; 4C:41 bays; ground shows odd bay marks only "
+        "(01,03,...); each visible ground slot spans two 20ft bay units; "
+        "bay gap 0.2m; block gap 5m"
+    )
     bpy.context.scene["yard_layout_total_length_m"] = total_length
     bpy.context.view_layer.update()
     if bpy.data.filepath:

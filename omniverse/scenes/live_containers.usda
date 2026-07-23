@@ -1,0 +1,2566 @@
+#usda 1.0
+(
+    customLayerData = {
+        string bayId = "1C/005"
+        string bayMapPattern = "413413"
+        double containerActualHeightMeters = 2.5
+        int containerColumnCount = 6
+        int containerCount = 16
+        double containerLengthMeters = 3.617411
+        double containerVisualHeightMeters = 0.904353
+        string description = "Runtime container instances generated from live bay-map data"
+        string layoutMode = "six_container_columns_plus_one_truck_lane"
+        double leftInnerSafetyMeters = 1.2
+        string physicsMode = "visual_only_no_collision"
+        double rightInnerSafetyMeters = 1.5
+        string rowHeights = "4,1,3,4,1,3"
+        string rowOrder = "right_to_left"
+        int truckLaneCount = 1
+        double truckLaneWidthMeters = 5
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def "World"
+{
+    def Xform "LiveContainers"
+    {
+        custom string live:bayId = "1C/005"
+        custom string live:bayMapPattern = "413413"
+        custom float live:containerActualHeightM = 2.5
+        custom float live:containerVisualHeightM = 0.904353
+        custom token live:layoutMode = "six_container_columns_plus_one_truck_lane"
+        custom float live:maxStackHeightM = 15
+        custom token live:physicsMode = "visual_only_no_collision"
+
+        def "Looks"
+        {
+            def Material "Container_weathered_blue"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_weathered_blue/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.04, 0.21, 0.48)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+
+            def Material "Container_oxide_red"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_oxide_red/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.5, 0.11, 0.055)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+
+            def Material "Container_warm_gray"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_warm_gray/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.47, 0.5, 0.46)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+
+            def Material "Container_faded_teal"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_faded_teal/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.07, 0.36, 0.34)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+
+            def Material "Container_sand_yellow"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_sand_yellow/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.66, 0.52, 0.2)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+
+            def Material "Container_dark_navy"
+            {
+                token outputs:surface.connect = </World/LiveContainers/Looks/Container_dark_navy/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.03, 0.06, 0.14)
+                    float inputs:roughness = 0.62
+                    token outputs:surface
+                }
+            }
+        }
+
+        def Xform "Bay_1C_005_Pattern_413413"
+        {
+            custom int live:bayNumber = 5
+            custom string live:block = "1C"
+            custom int live:containerColumnCount = 6
+            custom float live:containerLengthM = 3.617411
+            custom float live:containerWidthVisualM = 1.306287
+            custom token live:firstRowAnchorPolicy = "keep_reference_rightmost_row"
+            custom float live:firstRowCenterXM = 6.4333334
+            custom float live:leftInnerSafetyM = 1.2
+            custom float live:rightInnerSafetyM = 1.5
+            custom int live:rowCount = 6
+            custom token live:rowOrder = "right_to_left"
+            custom float live:rowWidthM = 1.306287
+            custom float live:tierGapVisualM = 0.035
+            custom float live:totalWidthM = 8.837722
+            custom int live:truckLaneCount = 1
+            custom float live:truckLaneWidthM = 5
+
+            def Cube "R01_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 1
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_warm_gray>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 1
+                custom token live:source = "bay_map"
+                custom int live:tier = 2
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_oxide_red>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 1.9757060112876892)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 25.47929455089569, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T02_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 29.12070544910431, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 1
+                custom token live:source = "bay_map"
+                custom int live:tier = 3
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_weathered_blue>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 2.9150590112876893)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 25.47929455089569, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T03_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 29.12070544910431, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 1
+                custom token live:source = "bay_map"
+                custom int live:tier = 4
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_dark_navy>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (6.433333333333336, 27.3, 3.854412011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 25.47929455089569, 2.9980589887123106)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.0414472182591785, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.302704628308617, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.5639620383580555, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (6.825219448407494, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R01_T04_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (6.433333333333336, 29.12070544910431, 2.9980589887123106)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 2
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 1
+                rel material:binding = </World/LiveContainers/Looks/Container_dark_navy>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (4.927046333333336, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (4.927046333333336, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (4.535160218259178, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (4.796417628308617, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (5.057675038358055, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (5.318932448407494, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (4.927046333333336, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (4.535160218259178, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (4.796417628308617, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (5.057675038358055, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (5.318932448407494, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R02_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (4.927046333333336, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 3
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_warm_gray>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 3
+                custom token live:source = "bay_map"
+                custom int live:tier = 2
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_oxide_red>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 1.9757060112876892)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 25.47929455089569, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T02_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 29.12070544910431, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 3
+                custom token live:source = "bay_map"
+                custom int live:tier = 3
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_weathered_blue>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (3.4207593333333355, 27.3, 2.9150590112876893)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 25.47929455089569, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.0288732182591778, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.2901306283086162, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.5513880383580547, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (3.812645448407493, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R03_T03_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (3.4207593333333355, 29.12070544910431, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 4
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_dark_navy>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 4
+                custom token live:source = "bay_map"
+                custom int live:tier = 2
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_sand_yellow>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 1.9757060112876892)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 25.47929455089569, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T02_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 29.12070544910431, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 4
+                custom token live:source = "bay_map"
+                custom int live:tier = 3
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_faded_teal>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 2.9150590112876893)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 25.47929455089569, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T03_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 29.12070544910431, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 4
+                custom token live:source = "bay_map"
+                custom int live:tier = 4
+                custom int live:tiers = 4
+                rel material:binding = </World/LiveContainers/Looks/Container_warm_gray>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (1.914472333333336, 27.3, 3.854412011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 25.47929455089569, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 25.47929455089569, 2.9980589887123106)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.5225862182591783, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (1.7838436283086168, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.0451010383580552, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (2.3063584484074937, 29.12070544910431, 3.3902354999999997)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R04_T04_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (1.914472333333336, 29.12070544910431, 2.9980589887123106)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 5
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 1
+                rel material:binding = </World/LiveContainers/Looks/Container_warm_gray>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (0.40818533333333606, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (0.40818533333333606, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.01629921825917835, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.2775566283086168, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.5388140383580553, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.8000714484074938, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (0.40818533333333606, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.01629921825917835, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.2775566283086168, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.5388140383580553, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (0.8000714484074938, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R05_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (0.40818533333333606, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 6
+                custom token live:source = "bay_map"
+                custom int live:tier = 1
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_dark_navy>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 1.036353011287689)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 25.47929455089569, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 25.47929455089569, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 29.12070544910431, 0.5721765)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T01_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 29.12070544910431, 0.17999998871231077)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 6
+                custom token live:source = "bay_map"
+                custom int live:tier = 2
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_sand_yellow>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 1.9757060112876892)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 25.47929455089569, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 25.47929455089569, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 29.12070544910431, 1.5115295)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T02_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 29.12070544910431, 1.1193529887123108)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom string live:bayId = "1C/005"
+                custom int live:row = 6
+                custom token live:source = "bay_map"
+                custom int live:tier = 3
+                custom int live:tiers = 3
+                rel material:binding = </World/LiveContainers/Looks/Container_faded_teal>
+                double size = 1
+                float3 xformOp:scale = (1.306287, 3.617411, 0.904353)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_WeatheredTop"
+            {
+                color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
+                double size = 1
+                float3 xformOp:scale = (1.1495326, 2.966277, 0.018)
+                double3 xformOp:translate = (-1.0981016666666639, 27.3, 2.9150590112876893)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Front_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Front_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Front_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Front_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 25.47929455089569, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Front_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 25.47929455089569, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Back_Rib_01"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.4899877817408216, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Back_Rib_02"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-1.228730371691383, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Back_Rib_03"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.9674729616419446, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Back_Rib_04"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (0.018, 0.018, 0.74156946)
+                double3 xformOp:translate = (-0.7062155515925062, 29.12070544910431, 2.4508825)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def Cube "R06_T03_Container_Back_BottomLine"
+            {
+                color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
+                double size = 1
+                float3 xformOp:scale = (1.2017841, 0.02, 0.035)
+                double3 xformOp:translate = (-1.0981016666666639, 29.12070544910431, 2.058705988712311)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def BasisCurves "BayMap_Outline"
+            {
+                uniform token basis = "bezier"
+                int[] curveVertexCounts = [5]
+                point3f[] points = [(-2.1012452, 23.95, 0.18), (7.4364767, 23.95, 0.18), (7.4364767, 30.65, 0.18), (-2.1012452, 30.65, 0.18), (-2.1012452, 23.95, 0.18)]
+                color3f[] primvars:displayColor = [(0.94, 0.9, 0.72)]
+                uniform token type = "linear"
+                float[] widths = [0.08] (
+                    interpolation = "constant"
+                )
+                uniform token wrap = "nonperiodic"
+            }
+
+            def "GroundMarkings"
+            {
+                def Cube "TruckLaneAsphaltSurface_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.085, 0.095, 0.09)]
+                    double size = 1
+                    float3 xformOp:scale = (5.2, 1961, 0.012)
+                    double3 xformOp:translate = (-6.300000000000001, 980, 0.133)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneLeftWhite_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.065, 1961, 0.014)
+                    double3 xformOp:translate = (-8.8, 980, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneRightWhite_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.065, 1961, 0.014)
+                    double3 xformOp:translate = (-3.8000000000000007, 980, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneCenterYellow_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(1, 0.74, 0.06)]
+                    double size = 1
+                    float3 xformOp:scale = (0.075, 1961, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, 980, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "StackLeftBoundary"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.06, 7.15, 0.014)
+                    double3 xformOp:translate = (-2.101245166666664, 27.3, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "StackRightBoundary"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.06, 7.15, 0.014)
+                    double3 xformOp:translate = (7.4364768333333355, 27.3, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_01"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 45.707478, 0.18), (-6.3, 46.589478, 0.18), (-6.3, 46.589478, 0.18), (-6.573, 46.295475, 0.18), (-6.3, 46.589478, 0.18), (-6.027, 46.295475, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_02"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 139.08842, 0.18), (-6.3, 139.97043, 0.18), (-6.3, 139.97043, 0.18), (-6.573, 139.67642, 0.18), (-6.3, 139.97043, 0.18), (-6.027, 139.67642, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_03"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 232.46938, 0.18), (-6.3, 233.35138, 0.18), (-6.3, 233.35138, 0.18), (-6.573, 233.05739, 0.18), (-6.3, 233.35138, 0.18), (-6.027, 233.05739, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_04"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 325.85034, 0.18), (-6.3, 326.73233, 0.18), (-6.3, 326.73233, 0.18), (-6.573, 326.43832, 0.18), (-6.3, 326.73233, 0.18), (-6.027, 326.43832, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_05"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 419.2313, 0.18), (-6.3, 420.11328, 0.18), (-6.3, 420.11328, 0.18), (-6.573, 419.81927, 0.18), (-6.3, 420.11328, 0.18), (-6.027, 419.81927, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_06"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 512.61224, 0.18), (-6.3, 513.49426, 0.18), (-6.3, 513.49426, 0.18), (-6.573, 513.20026, 0.18), (-6.3, 513.49426, 0.18), (-6.027, 513.20026, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_07"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 605.99316, 0.18), (-6.3, 606.8752, 0.18), (-6.3, 606.8752, 0.18), (-6.573, 606.5812, 0.18), (-6.3, 606.8752, 0.18), (-6.027, 606.5812, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_08"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 699.37415, 0.18), (-6.3, 700.25616, 0.18), (-6.3, 700.25616, 0.18), (-6.573, 699.96216, 0.18), (-6.3, 700.25616, 0.18), (-6.027, 699.96216, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_09"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 792.75507, 0.18), (-6.3, 793.6371, 0.18), (-6.3, 793.6371, 0.18), (-6.573, 793.3431, 0.18), (-6.3, 793.6371, 0.18), (-6.027, 793.3431, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_10"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 886.13605, 0.18), (-6.3, 887.01807, 0.18), (-6.3, 887.01807, 0.18), (-6.573, 886.72406, 0.18), (-6.3, 887.01807, 0.18), (-6.027, 886.72406, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_11"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 979.517, 0.18), (-6.3, 980.399, 0.18), (-6.3, 980.399, 0.18), (-6.573, 980.105, 0.18), (-6.3, 980.399, 0.18), (-6.027, 980.105, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_12"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1072.898, 0.18), (-6.3, 1073.7799, 0.18), (-6.3, 1073.7799, 0.18), (-6.573, 1073.486, 0.18), (-6.3, 1073.7799, 0.18), (-6.027, 1073.486, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_13"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1166.2789, 0.18), (-6.3, 1167.1609, 0.18), (-6.3, 1167.1609, 0.18), (-6.573, 1166.867, 0.18), (-6.3, 1167.1609, 0.18), (-6.027, 1166.867, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_14"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1259.6599, 0.18), (-6.3, 1260.5419, 0.18), (-6.3, 1260.5419, 0.18), (-6.573, 1260.2478, 0.18), (-6.3, 1260.5419, 0.18), (-6.027, 1260.2478, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_15"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1353.0408, 0.18), (-6.3, 1353.9229, 0.18), (-6.3, 1353.9229, 0.18), (-6.573, 1353.6288, 0.18), (-6.3, 1353.9229, 0.18), (-6.027, 1353.6288, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_16"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1446.4218, 0.18), (-6.3, 1447.3037, 0.18), (-6.3, 1447.3037, 0.18), (-6.573, 1447.0098, 0.18), (-6.3, 1447.3037, 0.18), (-6.027, 1447.0098, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_17"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1539.8027, 0.18), (-6.3, 1540.6847, 0.18), (-6.3, 1540.6847, 0.18), (-6.573, 1540.3907, 0.18), (-6.3, 1540.6847, 0.18), (-6.027, 1540.3907, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_18"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1633.1837, 0.18), (-6.3, 1634.0657, 0.18), (-6.3, 1634.0657, 0.18), (-6.573, 1633.7716, 0.18), (-6.3, 1634.0657, 0.18), (-6.027, 1633.7716, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_19"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1726.5646, 0.18), (-6.3, 1727.4467, 0.18), (-6.3, 1727.4467, 0.18), (-6.573, 1727.1526, 0.18), (-6.3, 1727.4467, 0.18), (-6.027, 1727.1526, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_20"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1819.9456, 0.18), (-6.3, 1820.8275, 0.18), (-6.3, 1820.8275, 0.18), (-6.573, 1820.5336, 0.18), (-6.3, 1820.8275, 0.18), (-6.027, 1820.5336, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_21"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 1913.3265, 0.18), (-6.3, 1914.2085, 0.18), (-6.3, 1914.2085, 0.18), (-6.573, 1913.9146, 0.18), (-6.3, 1914.2085, 0.18), (-6.027, 1913.9146, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def Cube "TruckLane1CStartStopLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (5, 0.06, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, -0.5, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLane4CEndStopLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (5, 0.06, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, 1960.5, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "ContainerColumnSeparator_01"
+                {
+                    color3f[] primvars:displayColor = [(0.72, 0.72, 0.66)]
+                    double size = 1
+                    float3 xformOp:scale = (0.04, 7.15, 0.01)
+                    double3 xformOp:translate = (-0.3449581666666639, 27.3, 0.14300000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "ContainerColumnSeparator_02"
+                {
+                    color3f[] primvars:displayColor = [(0.72, 0.72, 0.66)]
+                    double size = 1
+                    float3 xformOp:scale = (0.04, 7.15, 0.01)
+                    double3 xformOp:translate = (1.161328833333336, 27.3, 0.14300000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "ContainerColumnSeparator_03"
+                {
+                    color3f[] primvars:displayColor = [(0.72, 0.72, 0.66)]
+                    double size = 1
+                    float3 xformOp:scale = (0.04, 7.15, 0.01)
+                    double3 xformOp:translate = (2.6676158333333357, 27.3, 0.14300000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "ContainerColumnSeparator_04"
+                {
+                    color3f[] primvars:displayColor = [(0.72, 0.72, 0.66)]
+                    double size = 1
+                    float3 xformOp:scale = (0.04, 7.15, 0.01)
+                    double3 xformOp:translate = (4.173902833333336, 27.3, 0.14300000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "ContainerColumnSeparator_05"
+                {
+                    color3f[] primvars:displayColor = [(0.72, 0.72, 0.66)]
+                    double size = 1
+                    float3 xformOp:scale = (0.04, 7.15, 0.01)
+                    double3 xformOp:translate = (5.680189833333336, 27.3, 0.14300000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayFrontLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (9.537722, 0.06, 0.014)
+                    double3 xformOp:translate = (2.6676158333333357, 23.725, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayBackLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (9.537722, 0.06, 0.014)
+                    double3 xformOp:translate = (2.6676158333333357, 30.875, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayIdDarkPaintPatch"
+                {
+                    color3f[] primvars:displayColor = [(0.03, 0.035, 0.032)]
+                    double size = 1
+                    float3 xformOp:scale = (1.55, 0.72, 0.012)
+                    double3 xformOp:translate = (-3.040000000000001, 24.445, 0.14100000000000001)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_00_1_Seg_B"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.0345, 0.23, 0.018)
+                    double3 xformOp:translate = (-3.5735000000000006, 24.639999999999997, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_00_1_Seg_C"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.0345, 0.23, 0.018)
+                    double3 xformOp:translate = (-3.5735000000000006, 24.41, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_01_C_Seg_A"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.253, 0.0345, 0.018)
+                    double3 xformOp:translate = (-3.3688000000000007, 24.755, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_01_C_Seg_F"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.0345, 0.23, 0.018)
+                    double3 xformOp:translate = (-3.4953000000000007, 24.639999999999997, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_01_C_Seg_E"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.0345, 0.23, 0.018)
+                    double3 xformOp:translate = (-3.4953000000000007, 24.41, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BlockLabel_1C_Char_01_C_Seg_D"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.253, 0.0345, 0.018)
+                    double3 xformOp:translate = (-3.3688000000000007, 24.294999999999998, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_A"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.22, 0.03, 0.018)
+                    double3 xformOp:translate = (-3.120000000000001, 24.525, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_B"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-3.010000000000001, 24.425, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_C"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-3.010000000000001, 24.224999999999998, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_D"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.22, 0.03, 0.018)
+                    double3 xformOp:translate = (-3.120000000000001, 24.125, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_E"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-3.230000000000001, 24.224999999999998, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_00_0_Seg_F"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-3.230000000000001, 24.425, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_01_5_Seg_A"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.22, 0.03, 0.018)
+                    double3 xformOp:translate = (-2.832000000000001, 24.525, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_01_5_Seg_F"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-2.942000000000001, 24.425, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_01_5_Seg_G"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.22, 0.03, 0.018)
+                    double3 xformOp:translate = (-2.832000000000001, 24.325, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_01_5_Seg_C"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.03, 0.2, 0.018)
+                    double3 xformOp:translate = (-2.7220000000000013, 24.224999999999998, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "BayNumberLabel_005_Char_01_5_Seg_D"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.22, 0.03, 0.018)
+                    double3 xformOp:translate = (-2.832000000000001, 24.125, 0.15900000000000003)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+            }
+        }
+    }
+}
+

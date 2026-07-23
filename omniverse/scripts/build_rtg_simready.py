@@ -12,6 +12,16 @@ import sys
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.append(str(SCRIPT_DIR))
+
+from yard_coordinate_mapping import (
+    GANTRY_HARD_LIMITS_M,
+    GANTRY_SOFT_LIMITS_M,
+    YARD_TOTAL_LENGTH_M,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "rtg_simready.usda"
@@ -48,11 +58,10 @@ HOIST_TARGETS = ((1, 0.0), (35, -0.45), (70, 0.85), (230, 0.85))
 GANTRY_TARGETS = ((1, 0.0), (159, 0.0), (230, 4.2))
 TROLLEY_TARGETS = ((1, 0.0), (90, 0.0), (150, -2.25), (230, -2.25))
 
-# Phase-one limits intentionally match the motion range already validated in
-# Blender and Omniverse.  Expand them only after collision proxies and the
-# manual container-handling cycle have been verified.
-GANTRY_LIMITS = (0.0, 4.20)
-GANTRY_SOFT_LIMITS = (0.10, 4.10)
+# Full engineering gantry travel spans the 1C/001 seaside start through the
+# 4C/041 bay end.  The authored demo samples below still move only 4.2 m.
+GANTRY_LIMITS = GANTRY_HARD_LIMITS_M
+GANTRY_SOFT_LIMITS = GANTRY_SOFT_LIMITS_M
 GANTRY_MAX_VELOCITY = 1.50
 TROLLEY_LIMITS = (-2.25, 0.0)
 TROLLEY_SOFT_LIMITS = (-2.15, -0.10)
@@ -65,15 +74,17 @@ HOIST_MAX_VELOCITY = 0.90
 # is not authored at the full physical travel, so these values are mapped
 # linearly onto the validated USD controller ranges above.
 TROLLEY_ENGINEERING_LIMITS = (0.0, 18.0)
+TROLLEY_ENGINEERING_SOFT_LIMITS = (0.3, 17.7)
 TROLLEY_USD_AT_ENGINEERING_LIMITS = (0.0, -2.25)
 TROLLEY_ZERO_DESCRIPTION = "left end near control tower"
 HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
+HOIST_ENGINEERING_SOFT_LIMITS = (0.5, 14.7)
 HOIST_USD_AT_ENGINEERING_LIMITS = (-0.45, 0.85)
 HOIST_ZERO_DESCRIPTION = "spreader at ground level"
 # The Blender guide curves end at Z=4.30, while the measured upper surface of
-# the yellow attachment beam is approximately Z=3.78.  Put the curve centreline
-# at Z=3.79 so its rendered width visually touches the beam without penetrating.
-LOWER_ROPE_VISIBLE_OFFSET_Z = -0.51
+# the yellow lifting lugs is approximately Z=3.72.  Put the curve centreline on
+# that yellow top face so the rendered rope visually binds to the four lugs.
+LOWER_ROPE_VISIBLE_OFFSET_Z = -0.58
 LEGACY_ROPE_PATHS = tuple(
     f"/World/PortAndRTG/RTG_BOUND_HOIST_ROPE_{group:02d}_{strand}__USD_MESH"
     for group in range(8)
@@ -154,6 +165,7 @@ def apply_engineering_mapping(
     engineering_limits: tuple[float, float],
     usd_at_engineering_limits: tuple[float, float],
     zero_description: str,
+    engineering_soft_limits: tuple[float, float] | None = None,
 ) -> None:
     """Describe the real equipment coordinate mapped onto a USD joint."""
     prim = joint.GetPrim()
@@ -173,6 +185,13 @@ def apply_engineering_mapping(
     prim.CreateAttribute(
         "rtg:engineeringZeroDescription", Sdf.ValueTypeNames.String
     ).Set(zero_description)
+    if engineering_soft_limits is not None:
+        prim.CreateAttribute(
+            "rtg:engineeringSoftLowerLimit", Sdf.ValueTypeNames.Float
+        ).Set(engineering_soft_limits[0])
+        prim.CreateAttribute(
+            "rtg:engineeringSoftUpperLimit", Sdf.ValueTypeNames.Float
+        ).Set(engineering_soft_limits[1])
 
 
 def rope_points(hoist_offset: float) -> list[Gf.Vec3f]:
@@ -304,6 +323,19 @@ def build_layer() -> Path:
         max_velocity=GANTRY_MAX_VELOCITY,
     )
     UsdPhysics.ArticulationRootAPI.Apply(gantry_joint.GetPrim())
+    apply_engineering_mapping(
+        gantry_joint,
+        GANTRY_LIMITS,
+        GANTRY_LIMITS,
+        "1C/001 seaside bay-start origin; positive travel follows bay order",
+        GANTRY_SOFT_LIMITS,
+    )
+    gantry_joint.GetPrim().CreateAttribute(
+        "rtg:engineeringCommandMode", Sdf.ValueTypeNames.Token
+    ).Set("bay_or_metre")
+    gantry_joint.GetPrim().CreateAttribute(
+        "rtg:yardEndBay", Sdf.ValueTypeNames.String
+    ).Set("4C/041")
 
     trolley_joint, trolley_drive = define_prismatic_joint(
         stage,
@@ -325,6 +357,7 @@ def build_layer() -> Path:
         TROLLEY_ENGINEERING_LIMITS,
         TROLLEY_USD_AT_ENGINEERING_LIMITS,
         TROLLEY_ZERO_DESCRIPTION,
+        TROLLEY_ENGINEERING_SOFT_LIMITS,
     )
 
     hoist_joint, hoist_drive = define_prismatic_joint(
@@ -347,6 +380,7 @@ def build_layer() -> Path:
         HOIST_ENGINEERING_LIMITS,
         HOIST_USD_AT_ENGINEERING_LIMITS,
         HOIST_ZERO_DESCRIPTION,
+        HOIST_ENGINEERING_SOFT_LIMITS,
     )
 
     # Position targets mirror the existing Blender demonstration sequence.
@@ -369,6 +403,7 @@ def build_layer() -> Path:
         "ropeSystem": ROPE_SYSTEM_PATH,
         "ropeCount": len(ROPE_ENDPOINTS),
         "hiddenLegacyRopeCount": len(LEGACY_ROPE_PATHS),
+        "yardGantryTravelMeters": YARD_TOTAL_LENGTH_M,
     }
     layer.Save()
     return OUTPUT_PATH
