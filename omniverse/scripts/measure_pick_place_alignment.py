@@ -11,10 +11,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCENE_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "smart_port.usda"
 
 SOURCE_CONTAINER_PATH = (
-    "/World/LiveContainers/Bay_1C_005_Pattern_413413/R01_T04_Container"
+    "/World/LiveContainers/Bay_1C_004_40FT_Pattern_123456/R01_T01_Container"
 )
 TARGET_CONTAINER_PATH = (
-    "/World/LiveContainers/Bay_1C_005_Pattern_413413/R02_T01_Container"
+    "/World/LiveContainers/Bay_1C_004_40FT_Pattern_123456/R02_T02_Container"
 )
 SPREADER_NAME_TOKEN = "RTG_SPREAD_REDRAW_yellow_pair_lift_header_front"
 GRIPPER_NAME_TOKENS = (

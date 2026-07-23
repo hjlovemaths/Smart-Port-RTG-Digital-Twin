@@ -1,8 +1,8 @@
 """Animate a simple RTG pick-and-place operation for the live bay map.
 
 Scenario:
-    Pick R01/T04, the top box in the rightmost first row, and place it at
-    R02/T02, directly above the single box in the second row.
+    Re-handle R01/T01 from the rightmost first row and place it at R02/T03,
+    directly above the two existing boxes in the second row.
 
 This is a visual validation/demo layer.  It animates the live container prims
 and writes matching RTG gantry/trolley/hoist/rope samples into smart_port.usda.
@@ -36,10 +36,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCENE_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "smart_port.usda"
 LIVE_CONTAINER_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "live_containers.usda"
 
-STACK_PATH = "/World/LiveContainers/Bay_1C_005_Pattern_413413"
-SOURCE_PREFIX = f"{STACK_PATH}/R01_T04_Container"
-SOURCE_MAIN_PATH = f"{STACK_PATH}/R01_T04_Container"
-TARGET_UNDER_PATH = f"{STACK_PATH}/R02_T01_Container"
+BAY_ID = "1C/004"
+STACK_PATH = "/World/LiveContainers/Bay_1C_004_40FT_Pattern_123456"
+SOURCE_PREFIX = f"{STACK_PATH}/R01_T01_Container"
+SOURCE_MAIN_PATH = f"{STACK_PATH}/R01_T01_Container"
+TARGET_UNDER_PATH = f"{STACK_PATH}/R02_T02_Container"
+TARGET_SLOT_LABEL = "R02/T03"
 
 CONTAINER_VISUAL_HEIGHT_Z_M = 0.904353
 TIER_GAP_Z_M = 0.035
@@ -59,8 +61,8 @@ TROLLEY_USD_TO_WORLD_X = -1.4741
 # must then use the same hoist delta so it stays visually attached to the
 # spreader instead of floating independently.
 HOIST_HIGH = 2.30
-HOIST_PICK = 0.90
-HOIST_PLACE = -0.98
+REFERENCE_PICK_CONTAINER_CENTER_Z = 3.3902355
+REFERENCE_PICK_HOIST_Z = 0.90
 
 FRAMES = {
     "start": 1,
@@ -115,6 +117,14 @@ def set_translate_samples(prim, samples: list[tuple[int, Gf.Vec3d]]) -> None:
     reset_and_set_samples(attr, samples)
 
 
+def hoist_for_container_center_z(container_center_z: float) -> float:
+    """Return the visual hoist offset whose red clamp face meets a box top."""
+
+    return REFERENCE_PICK_HOIST_Z + (
+        float(container_center_z) - REFERENCE_PICK_CONTAINER_CENTER_Z
+    )
+
+
 def apply_container_animation() -> dict[str, object]:
     stage = Usd.Stage.Open(str(LIVE_CONTAINER_PATH))
     if not stage:
@@ -134,15 +144,17 @@ def apply_container_animation() -> dict[str, object]:
         target_under_center[1],
         target_under_center[2] + CONTAINER_VISUAL_HEIGHT_Z_M + TIER_GAP_Z_M,
     )
+    hoist_pick = hoist_for_container_center_z(source_center[2])
+    hoist_place = hoist_for_container_center_z(target_center[2])
     source_lifted = Gf.Vec3d(
         source_center[0],
         source_center[1],
-        source_center[2] + (HOIST_HIGH - HOIST_PICK),
+        source_center[2] + (HOIST_HIGH - hoist_pick),
     )
     target_lifted = Gf.Vec3d(
         target_center[0],
         target_center[1],
-        target_center[2] + (HOIST_HIGH - HOIST_PLACE),
+        target_center[2] + (HOIST_HIGH - hoist_place),
     )
 
     source_prims = [
@@ -166,14 +178,14 @@ def apply_container_animation() -> dict[str, object]:
         ]
         set_translate_samples(prim, samples)
         prim.CreateAttribute("live:pickPlaceDemoRole", Sdf.ValueTypeNames.String).Set(
-            "moved_source_R01_T04_to_R02_T02"
+            "moved_source_R01_T01_to_R02_T03"
         )
 
     stage.GetRootLayer().customLayerData.update(
         {
             "pickPlaceDemoEnabled": True,
-            "pickPlaceSource": "R01/T04",
-            "pickPlaceTarget": "R02/T02",
+            "pickPlaceSource": "R01/T01",
+            "pickPlaceTarget": TARGET_SLOT_LABEL,
             "pickPlaceFramePlan": "1-70 clamp, 70-100 lift, 100-140 trolley, 140-195 lower/release",
         }
     )
@@ -182,16 +194,26 @@ def apply_container_animation() -> dict[str, object]:
         "sourceCenter": tuple(round(v, 4) for v in source_center),
         "targetCenter": tuple(round(v, 4) for v in target_center),
         "animatedPrims": len(source_prims),
+        "hoistPick": round(hoist_pick, 4),
+        "hoistPlace": round(hoist_place, 4),
     }
 
 
-def apply_rtg_animation(source_x: float, target_x: float) -> dict[str, object]:
+def apply_rtg_animation(
+    source_x: float,
+    target_x: float,
+    work_center_y: float,
+    hoist_pick: float,
+    hoist_place: float,
+) -> dict[str, object]:
     stage = Usd.Stage.Open(str(SCENE_PATH))
     if not stage:
         raise RuntimeError(f"Cannot open {SCENE_PATH}")
 
-    nominal_gantry_y = gantry_bay_id_to_usd("1C/005")
-    gantry_y = GANTRY_HOME_USD_Y + (27.3 - SPREADER_WORLD_Y_AT_GANTRY_HOME)
+    nominal_gantry_y = gantry_bay_id_to_usd(BAY_ID)
+    gantry_y = GANTRY_HOME_USD_Y + (
+        work_center_y - SPREADER_WORLD_Y_AT_GANTRY_HOME
+    )
     trolley_source = (
         source_x - SPREADER_WORLD_X_AT_TROLLEY_ZERO
     ) / TROLLEY_USD_TO_WORLD_X
@@ -212,12 +234,12 @@ def apply_rtg_animation(source_x: float, target_x: float) -> dict[str, object]:
     hoist_samples = (
         (FRAMES["start"], HOIST_HIGH),
         (FRAMES["align_source"], HOIST_HIGH),
-        (FRAMES["lower_pick"], HOIST_PICK),
-        (FRAMES["clamp"], HOIST_PICK),
+        (FRAMES["lower_pick"], hoist_pick),
+        (FRAMES["clamp"], hoist_pick),
         (FRAMES["lift_source"], HOIST_HIGH),
         (FRAMES["travel_target"], HOIST_HIGH),
-        (FRAMES["lower_place"], HOIST_PLACE),
-        (FRAMES["release"], HOIST_PLACE),
+        (FRAMES["lower_place"], hoist_place),
+        (FRAMES["release"], hoist_place),
         (FRAMES["raise_clear"], HOIST_HIGH),
     )
 
@@ -255,7 +277,7 @@ def apply_rtg_animation(source_x: float, target_x: float) -> dict[str, object]:
     stage.GetRootLayer().customLayerData.update(
         {
             "rtgPickPlaceDemoEnabled": True,
-            "rtgPickPlaceDemo": "R01/T04 -> R02/T02",
+            "rtgPickPlaceDemo": f"R01/T01 -> {TARGET_SLOT_LABEL}",
             "rtgPickPlaceAlignment": "spreader header centre aligned to source/target container centres",
         }
     )
@@ -265,7 +287,8 @@ def apply_rtg_animation(source_x: float, target_x: float) -> dict[str, object]:
         "nominalGantryY": round(nominal_gantry_y, 4),
         "trolleySourceX": round(trolley_source, 4),
         "trolleyTargetX": round(trolley_target, 4),
-        "hoistPlaceZ": HOIST_PLACE,
+        "hoistPickZ": round(hoist_pick, 4),
+        "hoistPlaceZ": round(hoist_place, 4),
     }
 
 
@@ -273,7 +296,14 @@ def apply_pick_place_demo() -> dict[str, object]:
     container_result = apply_container_animation()
     source_x = container_result["sourceCenter"][0]
     target_x = container_result["targetCenter"][0]
-    rtg_result = apply_rtg_animation(source_x, target_x)
+    work_center_y = container_result["sourceCenter"][1]
+    rtg_result = apply_rtg_animation(
+        source_x,
+        target_x,
+        work_center_y,
+        container_result["hoistPick"],
+        container_result["hoistPlace"],
+    )
     result = {"container": container_result, "rtg": rtg_result}
     print("Applied RTG pick-place demo:", result)
     return result

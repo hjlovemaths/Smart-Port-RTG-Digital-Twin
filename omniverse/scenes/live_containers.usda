@@ -17,6 +17,7 @@
         string rowHeights = "1,2,3,4,5,6"
         string rowOrder = "right_to_left"
         int truckLaneCount = 1
+        bool truckLaneVisible = 1
         double truckLaneWidthMeters = 5
     }
     defaultPrim = "World"
@@ -142,6 +143,7 @@ def "World"
             )
             {
                 custom string live:bayId = "1C/004"
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 custom int live:row = 1
                 custom token live:source = "bay_map"
                 custom int live:tier = 1
@@ -155,6 +157,7 @@ def "World"
 
             def Cube "R01_T01_Container_WeatheredTop"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
                 double size = 1
                 float3 xformOp:scale = (1.1495326, 4.223, 0.018)
@@ -164,6 +167,7 @@ def "World"
 
             def Cube "R01_T01_Container_Front_Rib_01"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -173,6 +177,7 @@ def "World"
 
             def Cube "R01_T01_Container_Front_Rib_02"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -182,6 +187,7 @@ def "World"
 
             def Cube "R01_T01_Container_Front_Rib_03"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -191,6 +197,7 @@ def "World"
 
             def Cube "R01_T01_Container_Front_Rib_04"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -200,6 +207,7 @@ def "World"
 
             def Cube "R01_T01_Container_Front_BottomLine"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (1.2017841, 0.02, 0.035)
@@ -209,6 +217,7 @@ def "World"
 
             def Cube "R01_T01_Container_Back_Rib_01"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -218,6 +227,7 @@ def "World"
 
             def Cube "R01_T01_Container_Back_Rib_02"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -227,6 +237,7 @@ def "World"
 
             def Cube "R01_T01_Container_Back_Rib_03"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -236,6 +247,7 @@ def "World"
 
             def Cube "R01_T01_Container_Back_Rib_04"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
@@ -245,6 +257,7 @@ def "World"
 
             def Cube "R01_T01_Container_Back_BottomLine"
             {
+                custom string live:pickPlaceDemoRole = "moved_source_R01_T01_to_R02_T03"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (1.2017841, 0.02, 0.035)
@@ -2442,6 +2455,7 @@ def "World"
             )
             {
                 custom string live:bayId = "1C/004"
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 custom int live:row = 6
                 custom token live:source = "bay_map"
                 custom int live:tier = 6
@@ -2450,106 +2464,385 @@ def "World"
                 double size = 1
                 float3 xformOp:scale = (1.306287, 5.15, 0.904353)
                 double3 xformOp:translate = (-1.0981016666666639, 4.75, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.0981016666666639, 4.75, 5.2689414999999995),
+                    105: (-1.0981016666666639, 4.75, 5.2689414999999995),
+                    122: (-1.0981016666666639, 4.75, 5.2689414999999995),
+                    152: (-1.0981016666666639, 4.75, 6.5189415),
+                    185: (-4.65, 4.750000000000001, 6.5189414999999995),
+                    220: (-4.65, 4.750000000000001, 1.1721765),
+                    238: (-4.65, 4.750000000000001, 1.1721765),
+                    260: (-4.65, 4.750000000000001, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_WeatheredTop"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.7, 0.68, 0.6)]
                 double size = 1
                 float3 xformOp:scale = (1.1495326, 4.223, 0.018)
                 double3 xformOp:translate = (-1.0981016666666639, 4.75, 5.733118011287688)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.0981016666666639, 4.75, 5.733118011287688),
+                    105: (-1.0981016666666639, 4.75, 5.733118011287688),
+                    122: (-1.0981016666666639, 4.75, 5.733118011287688),
+                    152: (-1.0981016666666639, 4.75, 6.983118011287689),
+                    185: (-4.65, 4.750000000000001, 6.983118011287688),
+                    220: (-4.65, 4.750000000000001, 1.6363530112876887),
+                    238: (-4.65, 4.750000000000001, 1.6363530112876887),
+                    260: (-4.65, 4.750000000000001, 1.6363530112876887),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Front_Rib_01"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-1.4899877817408216, 2.162999952316284, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.4899877817408216, 2.162999952316284, 5.2689414999999995),
+                    105: (-1.4899877817408216, 2.162999952316284, 5.2689414999999995),
+                    122: (-1.4899877817408216, 2.162999952316284, 5.2689414999999995),
+                    152: (-1.4899877817408216, 2.162999952316284, 6.5189415),
+                    185: (-5.041886115074158, 2.162999952316285, 6.5189414999999995),
+                    220: (-5.041886115074158, 2.162999952316285, 1.1721765),
+                    238: (-5.041886115074158, 2.162999952316285, 1.1721765),
+                    260: (-5.041886115074158, 2.162999952316285, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Front_Rib_02"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-1.228730371691383, 2.162999952316284, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.228730371691383, 2.162999952316284, 5.2689414999999995),
+                    105: (-1.228730371691383, 2.162999952316284, 5.2689414999999995),
+                    122: (-1.228730371691383, 2.162999952316284, 5.2689414999999995),
+                    152: (-1.228730371691383, 2.162999952316284, 6.5189415),
+                    185: (-4.78062870502472, 2.162999952316285, 6.5189414999999995),
+                    220: (-4.78062870502472, 2.162999952316285, 1.1721765),
+                    238: (-4.78062870502472, 2.162999952316285, 1.1721765),
+                    260: (-4.78062870502472, 2.162999952316285, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Front_Rib_03"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-0.9674729616419446, 2.162999952316284, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-0.9674729616419446, 2.162999952316284, 5.2689414999999995),
+                    105: (-0.9674729616419446, 2.162999952316284, 5.2689414999999995),
+                    122: (-0.9674729616419446, 2.162999952316284, 5.2689414999999995),
+                    152: (-0.9674729616419446, 2.162999952316284, 6.5189415),
+                    185: (-4.519371294975281, 2.162999952316285, 6.5189414999999995),
+                    220: (-4.519371294975281, 2.162999952316285, 1.1721765),
+                    238: (-4.519371294975281, 2.162999952316285, 1.1721765),
+                    260: (-4.519371294975281, 2.162999952316285, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Front_Rib_04"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-0.7062155515925062, 2.162999952316284, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-0.7062155515925062, 2.162999952316284, 5.2689414999999995),
+                    105: (-0.7062155515925062, 2.162999952316284, 5.2689414999999995),
+                    122: (-0.7062155515925062, 2.162999952316284, 5.2689414999999995),
+                    152: (-0.7062155515925062, 2.162999952316284, 6.5189415),
+                    185: (-4.258113884925843, 2.162999952316285, 6.5189414999999995),
+                    220: (-4.258113884925843, 2.162999952316285, 1.1721765),
+                    238: (-4.258113884925843, 2.162999952316285, 1.1721765),
+                    260: (-4.258113884925843, 2.162999952316285, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Front_BottomLine"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (1.2017841, 0.02, 0.035)
                 double3 xformOp:translate = (-1.0981016666666639, 2.162999952316284, 4.87676498871231)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.0981016666666639, 2.162999952316284, 4.87676498871231),
+                    105: (-1.0981016666666639, 2.162999952316284, 4.87676498871231),
+                    122: (-1.0981016666666639, 2.162999952316284, 4.87676498871231),
+                    152: (-1.0981016666666639, 2.162999952316284, 6.126764988712311),
+                    185: (-4.65, 2.162999952316285, 6.12676498871231),
+                    220: (-4.65, 2.162999952316285, 0.7799999887123104),
+                    238: (-4.65, 2.162999952316285, 0.7799999887123104),
+                    260: (-4.65, 2.162999952316285, 0.7799999887123104),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Back_Rib_01"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-1.4899877817408216, 7.337000047683715, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.4899877817408216, 7.337000047683715, 5.2689414999999995),
+                    105: (-1.4899877817408216, 7.337000047683715, 5.2689414999999995),
+                    122: (-1.4899877817408216, 7.337000047683715, 5.2689414999999995),
+                    152: (-1.4899877817408216, 7.337000047683715, 6.5189415),
+                    185: (-5.041886115074158, 7.337000047683716, 6.5189414999999995),
+                    220: (-5.041886115074158, 7.337000047683716, 1.1721765),
+                    238: (-5.041886115074158, 7.337000047683716, 1.1721765),
+                    260: (-5.041886115074158, 7.337000047683716, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Back_Rib_02"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-1.228730371691383, 7.337000047683715, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.228730371691383, 7.337000047683715, 5.2689414999999995),
+                    105: (-1.228730371691383, 7.337000047683715, 5.2689414999999995),
+                    122: (-1.228730371691383, 7.337000047683715, 5.2689414999999995),
+                    152: (-1.228730371691383, 7.337000047683715, 6.5189415),
+                    185: (-4.78062870502472, 7.337000047683716, 6.5189414999999995),
+                    220: (-4.78062870502472, 7.337000047683716, 1.1721765),
+                    238: (-4.78062870502472, 7.337000047683716, 1.1721765),
+                    260: (-4.78062870502472, 7.337000047683716, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Back_Rib_03"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-0.9674729616419446, 7.337000047683715, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-0.9674729616419446, 7.337000047683715, 5.2689414999999995),
+                    105: (-0.9674729616419446, 7.337000047683715, 5.2689414999999995),
+                    122: (-0.9674729616419446, 7.337000047683715, 5.2689414999999995),
+                    152: (-0.9674729616419446, 7.337000047683715, 6.5189415),
+                    185: (-4.519371294975281, 7.337000047683716, 6.5189414999999995),
+                    220: (-4.519371294975281, 7.337000047683716, 1.1721765),
+                    238: (-4.519371294975281, 7.337000047683716, 1.1721765),
+                    260: (-4.519371294975281, 7.337000047683716, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Back_Rib_04"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (0.018, 0.018, 0.74156946)
                 double3 xformOp:translate = (-0.7062155515925062, 7.337000047683715, 5.2689414999999995)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-0.7062155515925062, 7.337000047683715, 5.2689414999999995),
+                    105: (-0.7062155515925062, 7.337000047683715, 5.2689414999999995),
+                    122: (-0.7062155515925062, 7.337000047683715, 5.2689414999999995),
+                    152: (-0.7062155515925062, 7.337000047683715, 6.5189415),
+                    185: (-4.258113884925843, 7.337000047683716, 6.5189414999999995),
+                    220: (-4.258113884925843, 7.337000047683716, 1.1721765),
+                    238: (-4.258113884925843, 7.337000047683716, 1.1721765),
+                    260: (-4.258113884925843, 7.337000047683716, 1.1721765),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
 
             def Cube "R06_T06_Container_Back_BottomLine"
             {
+                custom string live:outboundDemoRole = "R06_T06_loaded_to_empty_truck"
                 color3f[] primvars:displayColor = [(0.018, 0.018, 0.016)]
                 double size = 1
                 float3 xformOp:scale = (1.2017841, 0.02, 0.035)
                 double3 xformOp:translate = (-1.0981016666666639, 7.337000047683715, 4.87676498871231)
+                double3 xformOp:translate.timeSamples = {
+                    1: (-1.0981016666666639, 7.337000047683715, 4.87676498871231),
+                    105: (-1.0981016666666639, 7.337000047683715, 4.87676498871231),
+                    122: (-1.0981016666666639, 7.337000047683715, 4.87676498871231),
+                    152: (-1.0981016666666639, 7.337000047683715, 6.126764988712311),
+                    185: (-4.65, 7.337000047683716, 6.12676498871231),
+                    220: (-4.65, 7.337000047683716, 0.7799999887123104),
+                    238: (-4.65, 7.337000047683716, 0.7799999887123104),
+                    260: (-4.65, 7.337000047683716, 0.7799999887123104),
+                }
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+            }
+
+            def "TruckLane"
+            {
+                def Cube "TruckLaneAsphaltSurface_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.085, 0.095, 0.09)]
+                    double size = 1
+                    float3 xformOp:scale = (5.2, 439.525, 0.012)
+                    double3 xformOp:translate = (-6.300000000000001, 219.26250000000002, 0.133)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneLeftWhite_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.065, 439.525, 0.014)
+                    double3 xformOp:translate = (-8.8, 219.26250000000002, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneRightWhite_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (0.065, 439.525, 0.014)
+                    double3 xformOp:translate = (-3.8000000000000007, 219.26250000000002, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLaneCenterYellow_1C4C_Through"
+                {
+                    color3f[] primvars:displayColor = [(1, 0.74, 0.06)]
+                    double size = 1
+                    float3 xformOp:scale = (0.075, 439.525, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, 219.26250000000002, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_01"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 30.411642, 0.18), (-6.3, 31.293642, 0.18), (-6.3, 31.293642, 0.18), (-6.573, 30.999643, 0.18), (-6.3, 31.293642, 0.18), (-6.027, 30.999643, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_02"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 93.20093, 0.18), (-6.3, 94.08293, 0.18), (-6.3, 94.08293, 0.18), (-6.573, 93.788925, 0.18), (-6.3, 94.08293, 0.18), (-6.027, 93.788925, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_03"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 155.99022, 0.18), (-6.3, 156.87221, 0.18), (-6.3, 156.87221, 0.18), (-6.573, 156.57822, 0.18), (-6.3, 156.87221, 0.18), (-6.027, 156.57822, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_04"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 218.7795, 0.18), (-6.3, 219.6615, 0.18), (-6.3, 219.6615, 0.18), (-6.573, 219.3675, 0.18), (-6.3, 219.6615, 0.18), (-6.027, 219.3675, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_05"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 281.5688, 0.18), (-6.3, 282.45078, 0.18), (-6.3, 282.45078, 0.18), (-6.573, 282.1568, 0.18), (-6.3, 282.45078, 0.18), (-6.027, 282.1568, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_06"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 344.35806, 0.18), (-6.3, 345.24008, 0.18), (-6.3, 345.24008, 0.18), (-6.573, 344.94608, 0.18), (-6.3, 345.24008, 0.18), (-6.027, 344.94608, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def BasisCurves "TruckLaneForwardArrow_1C4C_07"
+                {
+                    uniform token basis = "bezier"
+                    int[] curveVertexCounts = [2, 2, 2]
+                    point3f[] points = [(-6.3, 407.14737, 0.18), (-6.3, 408.02936, 0.18), (-6.3, 408.02936, 0.18), (-6.573, 407.73535, 0.18), (-6.3, 408.02936, 0.18), (-6.027, 407.73535, 0.18)]
+                    color3f[] primvars:displayColor = [(0.98, 0.98, 0.9)]
+                    uniform token type = "linear"
+                    float[] widths = [0.1] (
+                        interpolation = "constant"
+                    )
+                    uniform token wrap = "nonperiodic"
+                }
+
+                def Cube "TruckLane1CStartStopLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (5, 0.06, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, -0.5, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
+
+                def Cube "TruckLane4CEndStopLine"
+                {
+                    color3f[] primvars:displayColor = [(0.92, 0.92, 0.86)]
+                    double size = 1
+                    float3 xformOp:scale = (5, 0.06, 0.014)
+                    double3 xformOp:translate = (-6.300000000000001, 439.02500000000003, 0.14500000000000002)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                }
             }
         }
     }

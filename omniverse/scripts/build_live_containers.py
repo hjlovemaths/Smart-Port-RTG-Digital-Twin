@@ -280,6 +280,63 @@ def create_ground_bar(
     create_colored_cube(stage, path, center, scale, color)
 
 
+def create_truck_lane_markings(stage: Usd.Stage, path: str) -> None:
+    white = Gf.Vec3f(0.92, 0.92, 0.86)
+    yellow = Gf.Vec3f(1.0, 0.74, 0.06)
+    yard_lane_y_min = YARD_LAYOUT_START_Y_M
+    yard_lane_y_max = YARD_LAYOUT_START_Y_M + YARD_TOTAL_LENGTH_M
+    yard_lane_center_y = (yard_lane_y_min + yard_lane_y_max) * 0.5
+    yard_lane_length = yard_lane_y_max - yard_lane_y_min
+    lane_left_x = -BAY_WIDTH_M * 0.5 + LEFT_INNER_SAFETY_X_M
+    lane_right_x = lane_left_x + TRUCK_LANE_WIDTH_X_M
+    lane_mid_x = (lane_left_x + lane_right_x) * 0.5
+    truck_lane_width = lane_right_x - lane_left_x
+
+    create_ground_bar(
+        stage,
+        f"{path}/TruckLaneAsphaltSurface_1C4C_Through",
+        Gf.Vec3d(lane_mid_x, yard_lane_center_y, GROUND_MARKING_Z_M - 0.012),
+        Gf.Vec3f(truck_lane_width + 0.20, yard_lane_length, 0.012),
+        Gf.Vec3f(0.085, 0.095, 0.090),
+    )
+    for name, x, width, color in (
+        ("TruckLaneLeftWhite", lane_left_x, 0.065, white),
+        ("TruckLaneRightWhite", lane_right_x, 0.065, white),
+        ("TruckLaneCenterYellow", lane_mid_x, 0.075, yellow),
+    ):
+        create_ground_bar(
+            stage,
+            f"{path}/{name}_1C4C_Through",
+            Gf.Vec3d(x, yard_lane_center_y, GROUND_MARKING_Z_M),
+            Gf.Vec3f(width, yard_lane_length, 0.014),
+            color,
+        )
+
+    arrow_spacing_m = 60.0
+    arrow_count = max(3, int(yard_lane_length / arrow_spacing_m))
+    for arrow_index in range(arrow_count):
+        arrow_y = yard_lane_y_min + (arrow_index + 0.5) * yard_lane_length / arrow_count
+        create_truck_lane_arrow(
+            stage,
+            f"{path}/TruckLaneForwardArrow_1C4C_{arrow_index + 1:02d}",
+            lane_mid_x,
+            arrow_y,
+            1.05,
+        )
+
+    for name, y in (
+        ("TruckLane1CStartStopLine", yard_lane_y_min),
+        ("TruckLane4CEndStopLine", yard_lane_y_max),
+    ):
+        create_ground_bar(
+            stage,
+            f"{path}/{name}",
+            Gf.Vec3d(lane_mid_x, y, GROUND_MARKING_Z_M),
+            Gf.Vec3f(truck_lane_width, 0.060, 0.014),
+            white,
+        )
+
+
 SEGMENT_DEFS = {
     "A": (0.0, 0.5, 0.55, 0.075),
     "B": (0.275, 0.25, 0.075, 0.50),
@@ -515,6 +572,7 @@ def build_live_container_layer(
     pattern: str,
     *,
     container_size_ft: int = 20,
+    show_truck_lane: bool = True,
     show_ground_markings: bool = False,
 ) -> Path:
     if OUTPUT_PATH.exists():
@@ -659,6 +717,8 @@ def build_live_container_layer(
     outline_pad = 0.35
     stack_x_min = leftmost_stack_x - row_width * 0.5 - outline_pad
     stack_x_max = leftmost_stack_x + (len(heights) - 1) * row_pitch + row_width * 0.5 + outline_pad
+    if show_truck_lane:
+        create_truck_lane_markings(stage, f"{stack_path}/TruckLane")
     if show_ground_markings:
         create_layout_outline(
             stage,
@@ -695,6 +755,7 @@ def build_live_container_layer(
         "containerSizeFeet": container_size_ft,
         "leftInnerSafetyMeters": LEFT_INNER_SAFETY_X_M,
         "truckLaneWidthMeters": TRUCK_LANE_WIDTH_X_M,
+        "truckLaneVisible": show_truck_lane,
         "rightInnerSafetyMeters": RIGHT_INNER_SAFETY_X_M,
         "rowOrder": "right_to_left",
         "rowHeights": ",".join(str(value) for value in heights),
@@ -708,6 +769,7 @@ def main() -> None:
     parser.add_argument("--bay", default="1C/041")
     parser.add_argument("--pattern", default="413413")
     parser.add_argument("--container-size-ft", type=int, choices=(20, 40), default=20)
+    parser.add_argument("--hide-truck-lane", action="store_true")
     parser.add_argument("--show-ground-markings", action="store_true")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else None)
     print(
@@ -716,6 +778,7 @@ def main() -> None:
             args.bay,
             args.pattern,
             container_size_ft=args.container_size_ft,
+            show_truck_lane=not args.hide_truck_lane,
             show_ground_markings=args.show_ground_markings,
         ),
     )
