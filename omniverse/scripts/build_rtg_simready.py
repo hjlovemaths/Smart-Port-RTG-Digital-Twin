@@ -35,23 +35,30 @@ ROPE_SYSTEM_PATH = f"{TROLLEY_PATH}/RTG_DYNAMIC_HOIST_ROPES"
 
 # Rope endpoints measured from the Blender source in trolley-local coordinates.
 # Each tuple is (fixed upper trolley attachment, moving lower spreader attachment).
+# Lower endpoints converge on the four visible yellow lifting-header corners
+# requested in visual review, rather than the older sheave-centre placeholders.
+LOWER_HEADER_LEFT_X = 2.3456
+LOWER_HEADER_RIGHT_X = 2.7524
+LOWER_HEADER_FRONT_Y = -5.56
+LOWER_HEADER_REAR_Y = -4.44
+LOWER_HEADER_SOURCE_Z = 4.3575
 ROPE_ENDPOINTS = (
-    ((1.0620, -5.55, 8.81), (2.2421, -5.56, 4.30)),
-    ((1.0980, -5.55, 8.81), (2.2781, -5.56, 4.30)),
-    ((1.0620, -4.45, 8.81), (2.2421, -4.44, 4.30)),
-    ((1.0980, -4.45, 8.81), (2.2781, -4.44, 4.30)),
-    ((1.9120, -5.55, 8.81), (2.2421, -5.56, 4.30)),
-    ((1.9480, -5.55, 8.81), (2.2781, -5.56, 4.30)),
-    ((1.9120, -4.45, 8.81), (2.2421, -4.44, 4.30)),
-    ((1.9480, -4.45, 8.81), (2.2781, -4.44, 4.30)),
-    ((3.0120, -5.55, 8.81), (3.0821, -5.56, 4.30)),
-    ((3.0480, -5.55, 8.81), (3.1181, -5.56, 4.30)),
-    ((3.0120, -4.45, 8.81), (3.0821, -4.44, 4.30)),
-    ((3.0480, -4.45, 8.81), (3.1181, -4.44, 4.30)),
-    ((3.8620, -5.55, 8.81), (3.0821, -5.56, 4.30)),
-    ((3.8980, -5.55, 8.81), (3.1181, -5.56, 4.30)),
-    ((3.8620, -4.45, 8.81), (3.0821, -4.44, 4.30)),
-    ((3.8980, -4.45, 8.81), (3.1181, -4.44, 4.30)),
+    ((1.0620, -5.55, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.0980, -5.55, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.0620, -4.45, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.0980, -4.45, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.9120, -5.55, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.9480, -5.55, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.9120, -4.45, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((1.9480, -4.45, 8.81), (LOWER_HEADER_LEFT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.0120, -5.55, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.0480, -5.55, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.0120, -4.45, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.0480, -4.45, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.8620, -5.55, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.8980, -5.55, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_FRONT_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.8620, -4.45, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
+    ((3.8980, -4.45, 8.81), (LOWER_HEADER_RIGHT_X, LOWER_HEADER_REAR_Y, LOWER_HEADER_SOURCE_Z)),
 )
 
 HOIST_TARGETS = ((1, 0.0), (35, -0.45), (70, 0.85), (230, 0.85))
@@ -81,9 +88,10 @@ HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
 HOIST_ENGINEERING_SOFT_LIMITS = (0.5, 14.7)
 HOIST_USD_AT_ENGINEERING_LIMITS = (-0.45, 0.85)
 HOIST_ZERO_DESCRIPTION = "spreader at ground level"
-# The Blender guide curves end at Z=4.30, while the measured upper surface of
-# the yellow lifting lugs is approximately Z=3.72.  Put the curve centreline on
-# that yellow top face so the rendered rope visually binds to the four lugs.
+# The Blender guide curves end at LOWER_HEADER_SOURCE_Z, while the measured
+# upper surface of the yellow lifting header is approximately Z=3.78.  Put the
+# curve centreline on that yellow top face so the rendered rope visually binds
+# to the four blue-marked header corners.
 LOWER_ROPE_VISIBLE_OFFSET_Z = -0.58
 LEGACY_ROPE_PATHS = tuple(
     f"/World/PortAndRTG/RTG_BOUND_HOIST_ROPE_{group:02d}_{strand}__USD_MESH"
