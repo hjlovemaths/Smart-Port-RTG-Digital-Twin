@@ -85,6 +85,8 @@ TRUCK_BED_CENTER_Z = (
     + TRAILER_BOX_CLEARANCE_Z_M
     + CONTAINER_VISUAL_HEIGHT_Z_M * 0.5
 )
+SPREADER_STACK_CLEARANCE_Z_M = 0.65
+HOIST_LIMIT_MARGIN_Z_M = 0.15
 
 GANTRY_HOME_USD_Y = 23.9
 SPREADER_WORLD_X_AT_TROLLEY_ZERO = -3.7426
@@ -176,9 +178,38 @@ def tier_center_z(tier: int) -> float:
     )
 
 
+def tier_top_z(tier: int) -> float:
+    return tier_center_z(tier) + CONTAINER_VISUAL_HEIGHT_Z_M * 0.5
+
+
 def hoist_for_container_center_z(container_center_z: float) -> float:
     return REFERENCE_PICK_HOIST_Z + (
         float(container_center_z) - REFERENCE_PICK_CONTAINER_CENTER_Z
+    )
+
+
+def safe_hoist_high_for_stack(
+    *,
+    lifted_container_center_z_at_low: float,
+    low_hoist: float,
+    max_stack_tiers: int,
+    floor_value: float,
+) -> float:
+    """Hoist high value that clears the tallest stack during horizontal travel.
+
+    The animated container follows the same hoist delta as the spreader.  During
+    trolley travel its bottom face must be above the top of the tallest nearby
+    stack plus a visual safety margin; otherwise a 6-tier bay will appear to be
+    scraped by the spreader/load.
+    """
+
+    required_bottom_z = tier_top_z(max_stack_tiers) + SPREADER_STACK_CLEARANCE_Z_M
+    return max(
+        floor_value,
+        low_hoist
+        + required_bottom_z
+        - lifted_container_center_z_at_low
+        + CONTAINER_VISUAL_HEIGHT_Z_M * 0.5,
     )
 
 
@@ -217,6 +248,20 @@ def set_visibility_samples(prim, samples: list[tuple[int, str]]) -> None:
     attr.Set(samples[0][1])
     for frame, value in samples:
         attr.Set(value, Usd.TimeCode(frame))
+
+
+def set_visibility_samples_subtree(
+    stage: Usd.Stage, prefix: str, samples: list[tuple[int, str]]
+) -> int:
+    count = 0
+    for prim in stage.Traverse():
+        if not str(prim.GetPath()).startswith(prefix):
+            continue
+        if not prim.IsA(UsdGeom.Imageable):
+            continue
+        set_visibility_samples(prim, samples)
+        count += 1
+    return count
 
 
 def get_translate(prim) -> Gf.Vec3d:
@@ -354,23 +399,27 @@ def create_live_container_sequence_layer() -> dict[str, object]:
     t2_centers = create_sequence_stack(stage, t2_stack, "1C/020", "103020", materials)
     t3_centers = create_sequence_stack(stage, t3_stack, "1C/010", "123456", materials)
 
-    set_visibility_samples(
-        stage.GetPrimAtPath(t1_stack),
+    hidden_subtrees = {}
+    hidden_subtrees["task1"] = set_visibility_samples_subtree(
+        stage,
+        t1_stack,
         [
             (FRAMES["t1_start"], UsdGeom.Tokens.inherited),
             (FRAMES["t1_clear"], UsdGeom.Tokens.invisible),
         ],
     )
-    set_visibility_samples(
-        stage.GetPrimAtPath(t2_stack),
+    hidden_subtrees["task2"] = set_visibility_samples_subtree(
+        stage,
+        t2_stack,
         [
             (FRAMES["t1_start"], UsdGeom.Tokens.invisible),
             (FRAMES["t2_start"], UsdGeom.Tokens.inherited),
             (FRAMES["t2_clear"], UsdGeom.Tokens.invisible),
         ],
     )
-    set_visibility_samples(
-        stage.GetPrimAtPath(t3_stack),
+    hidden_subtrees["task3"] = set_visibility_samples_subtree(
+        stage,
+        t3_stack,
         [
             (FRAMES["t1_start"], UsdGeom.Tokens.invisible),
             (FRAMES["t3_start"], UsdGeom.Tokens.inherited),
@@ -394,8 +443,9 @@ def create_live_container_sequence_layer() -> dict[str, object]:
         materials[1],
         bay_id="1C/004",
     )
-    set_visibility_samples(
-        stage.GetPrimAtPath(t1_box_path),
+    hidden_subtrees["task1_truck_box"] = set_visibility_samples_subtree(
+        stage,
+        t1_box_path,
         [
             (FRAMES["t1_start"], UsdGeom.Tokens.invisible),
             (FRAMES["t1_truck_appear"], UsdGeom.Tokens.inherited),
@@ -405,7 +455,15 @@ def create_live_container_sequence_layer() -> dict[str, object]:
     t1_target = Gf.Vec3d(t1_centers[(2, 2)][0], t1_centers[(2, 2)][1], tier_center_z(3))
     t1_pick_hoist = hoist_for_container_center_z(truck_box_z)
     t1_place_hoist = hoist_for_container_center_z(t1_target[2])
-    t1_high = max(3.40, t1_pick_hoist + 1.35, t1_place_hoist + 1.35)
+    t1_high = max(
+        t1_pick_hoist + 1.35,
+        safe_hoist_high_for_stack(
+            lifted_container_center_z_at_low=t1_target[2],
+            low_hoist=t1_place_hoist,
+            max_stack_tiers=max(parse_pattern("123456")),
+            floor_value=3.40,
+        ),
+    )
     animate_translate_subtree(
         stage,
         t1_box_path,
@@ -433,7 +491,15 @@ def create_live_container_sequence_layer() -> dict[str, object]:
     t2_truck_target = Gf.Vec3d(truck_x, t2_truck_y_stop, truck_box_z)
     t2_pick_hoist = hoist_for_container_center_z(t2_source[2])
     t2_place_hoist = hoist_for_container_center_z(t2_truck_target[2])
-    t2_high = max(3.70, t2_pick_hoist + 1.35, t2_place_hoist + 1.35)
+    t2_high = max(
+        t2_place_hoist + 1.35,
+        safe_hoist_high_for_stack(
+            lifted_container_center_z_at_low=t2_source[2],
+            low_hoist=t2_pick_hoist,
+            max_stack_tiers=max(parse_pattern("103020")),
+            floor_value=3.70,
+        ),
+    )
     animate_translate_subtree(
         stage,
         t2_source_path,
@@ -455,7 +521,18 @@ def create_live_container_sequence_layer() -> dict[str, object]:
             ),
             (FRAMES["t2_lower_place"], t2_truck_target),
             (FRAMES["t2_release"], t2_truck_target),
+            (FRAMES["t2_raise"], t2_truck_target),
             (FRAMES["t2_truck_gone"], Gf.Vec3d(truck_x, truck_y_exit, truck_box_z)),
+        ],
+    )
+    hidden_subtrees["task2_loaded_box"] = set_visibility_samples_subtree(
+        stage,
+        t2_source_path,
+        [
+            (FRAMES["t1_start"], UsdGeom.Tokens.invisible),
+            (FRAMES["t2_start"], UsdGeom.Tokens.inherited),
+            (FRAMES["t2_truck_gone"], UsdGeom.Tokens.inherited),
+            (FRAMES["t2_truck_gone"] + 1, UsdGeom.Tokens.invisible),
         ],
     )
 
@@ -465,7 +542,15 @@ def create_live_container_sequence_layer() -> dict[str, object]:
     t3_target = Gf.Vec3d(t3_centers[(2, 2)][0], t3_centers[(2, 2)][1], tier_center_z(3))
     t3_pick_hoist = hoist_for_container_center_z(t3_source[2])
     t3_place_hoist = hoist_for_container_center_z(t3_target[2])
-    t3_high = max(3.30, t3_pick_hoist + 1.35, t3_place_hoist + 1.35)
+    t3_high = max(
+        t3_pick_hoist + 1.35,
+        safe_hoist_high_for_stack(
+            lifted_container_center_z_at_low=t3_target[2],
+            low_hoist=t3_place_hoist,
+            max_stack_tiers=max(parse_pattern("123456")),
+            floor_value=3.30,
+        ),
+    )
     animate_translate_subtree(
         stage,
         t3_source_path,
@@ -494,8 +579,11 @@ def create_live_container_sequence_layer() -> dict[str, object]:
         "description": "Three-task RTG operation sequence generated from omniverse/task.txt",
         "sequenceTasks": "inbound 1C/004; outbound 1C/020; rehandle 1C/010",
         "containerSizeFeet": 40,
-        "taskCount": 3,
-    }
+            "taskCount": 3,
+            "visibilitySubtreeSampleCounts": ",".join(
+                f"{name}:{count}" for name, count in hidden_subtrees.items()
+            ),
+        }
     stage.GetRootLayer().Save()
 
     return {
@@ -732,6 +820,7 @@ def apply_rtg_and_truck_sequence(live_info: dict[str, object]) -> dict[str, obje
         (FRAMES["t3_release"], t3_place),
         (FRAMES["t3_raise"], t3_high),
     ]
+    visual_hoist_upper_limit = max(value for _, value in hoist_samples) + HOIST_LIMIT_MARGIN_Z_M
 
     reset_and_set_samples(
         translate_attr(stage, GANTRY_PATH),
@@ -748,6 +837,20 @@ def apply_rtg_and_truck_sequence(live_info: dict[str, object]) -> dict[str, obje
         [(frame, Gf.Vec3d(0.0, 0.0, value)) for frame, value in hoist_samples],
     )
     reset_and_set_samples(drive_attr(stage, HOIST_JOINT_PATH), hoist_samples)
+    hoist_joint = stage.GetPrimAtPath(HOIST_JOINT_PATH)
+    if hoist_joint:
+        hoist_joint.CreateAttribute("physics:upperLimit", Sdf.ValueTypeNames.Float).Set(
+            visual_hoist_upper_limit
+        )
+        hoist_joint.CreateAttribute("rtg:softUpperLimit", Sdf.ValueTypeNames.Float).Set(
+            visual_hoist_upper_limit - 0.05
+        )
+        hoist_joint.CreateAttribute(
+            "rtg:visualOneOverSixUpperLimit", Sdf.ValueTypeNames.Float
+        ).Set(visual_hoist_upper_limit)
+        hoist_joint.CreateAttribute(
+            "rtg:visualClearancePolicy", Sdf.ValueTypeNames.String
+        ).Set("1-over-6 container travel clearance")
 
     ropes = UsdGeom.BasisCurves.Get(stage, ROPE_SYSTEM_PATH)
     if not ropes:
@@ -768,6 +871,8 @@ def apply_rtg_and_truck_sequence(live_info: dict[str, object]) -> dict[str, obje
             "taskSequenceSource": "omniverse/task.txt",
             "taskSequenceFramePlan": "1-305 inbound, 320-680 outbound, 700-925 rehandle",
             "taskSequenceTruck": UNIFIED_TRUCK_ROOT,
+            "visualHoistUpperLimit": round(visual_hoist_upper_limit, 4),
+            "visualHoistClearance": f"box bottom clears max stack by {SPREADER_STACK_CLEARANCE_Z_M:.2f} m",
         }
     )
     stage.GetRootLayer().Save()

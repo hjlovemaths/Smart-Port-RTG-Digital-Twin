@@ -38,6 +38,13 @@ APRON_WIDTH_M = 16.0
 GANTRY_RAIL_X_M = 6.50
 PAD_TOP_Z_M = 0.10
 MARKING_TOP_Z_M = 0.135
+SIDE_BAY_LABEL_X_POSITIONS_M = (-3.15, 3.15)
+SIDE_BAY_LABEL_PANEL_SIZE_M = (1.15, 0.74, 0.018)
+SIDE_BAY_LABEL_DIGIT_WIDTH_M = 0.24
+SIDE_BAY_LABEL_DIGIT_HEIGHT_M = 0.43
+SIDE_BAY_LABEL_DIGIT_STROKE_M = 0.055
+SIDE_BAY_LABEL_DIGIT_GAP_M = 0.08
+SIDE_BAY_LABEL_DIGIT_Z_M = MARKING_TOP_Z_M + 0.026
 
 OWNED_OBJECT_PREFIXES = (
     "YARD_1C_",
@@ -198,6 +205,70 @@ def create_text(name, body, location, size, material, collection) -> bpy.types.O
     return obj
 
 
+DIGIT_SEGMENTS = {
+    "0": ("top", "upper_left", "upper_right", "lower_left", "lower_right", "bottom"),
+    "1": ("upper_right", "lower_right"),
+    "2": ("top", "upper_right", "middle", "lower_left", "bottom"),
+    "3": ("top", "upper_right", "middle", "lower_right", "bottom"),
+    "4": ("upper_left", "upper_right", "middle", "lower_right"),
+    "5": ("top", "upper_left", "middle", "lower_right", "bottom"),
+    "6": ("top", "upper_left", "middle", "lower_left", "lower_right", "bottom"),
+    "7": ("top", "upper_right", "lower_right"),
+    "8": (
+        "top",
+        "upper_left",
+        "upper_right",
+        "middle",
+        "lower_left",
+        "lower_right",
+        "bottom",
+    ),
+    "9": ("top", "upper_left", "upper_right", "middle", "lower_right", "bottom"),
+}
+
+
+def add_ground_digit_boxes(
+    boxes: list,
+    text: str,
+    center_x: float,
+    center_y: float,
+    z: float,
+) -> None:
+    """Append black rectangular strokes for a flat ground bay-number label."""
+
+    text = text.strip()
+    if not text:
+        return
+    digit_w = SIDE_BAY_LABEL_DIGIT_WIDTH_M
+    digit_h = SIDE_BAY_LABEL_DIGIT_HEIGHT_M
+    stroke = SIDE_BAY_LABEL_DIGIT_STROKE_M
+    gap = SIDE_BAY_LABEL_DIGIT_GAP_M
+    total_w = len(text) * digit_w + max(0, len(text) - 1) * gap
+    start_x = center_x - total_w * 0.5 + digit_w * 0.5
+
+    for index, char in enumerate(text):
+        segments = DIGIT_SEGMENTS.get(char)
+        if not segments:
+            continue
+        cx = start_x + index * (digit_w + gap)
+        cy = center_y
+        for segment in segments:
+            if segment == "top":
+                boxes.append(((cx, cy + digit_h * 0.5, z), (digit_w, stroke, 0.020)))
+            elif segment == "middle":
+                boxes.append(((cx, cy, z), (digit_w, stroke, 0.020)))
+            elif segment == "bottom":
+                boxes.append(((cx, cy - digit_h * 0.5, z), (digit_w, stroke, 0.020)))
+            elif segment == "upper_left":
+                boxes.append(((cx - digit_w * 0.5, cy + digit_h * 0.25, z), (stroke, digit_h * 0.5, 0.020)))
+            elif segment == "upper_right":
+                boxes.append(((cx + digit_w * 0.5, cy + digit_h * 0.25, z), (stroke, digit_h * 0.5, 0.020)))
+            elif segment == "lower_left":
+                boxes.append(((cx - digit_w * 0.5, cy - digit_h * 0.25, z), (stroke, digit_h * 0.5, 0.020)))
+            elif segment == "lower_right":
+                boxes.append(((cx + digit_w * 0.5, cy - digit_h * 0.25, z), (stroke, digit_h * 0.5, 0.020)))
+
+
 def remove_previous_layout() -> int:
     removed = 0
     for obj in list(bpy.data.objects):
@@ -317,8 +388,8 @@ def build_yard_layout() -> dict[str, object]:
         "4C": get_material("YARD_LAYOUT_4C_Pad", (0.18, 0.14, 0.16, 1.0), roughness=0.82),
     }
     white = get_material("YARD_LAYOUT_WhiteMarking", (0.90, 0.92, 0.90, 1.0), roughness=0.55)
-    bay_number_gray = get_material("YARD_LAYOUT_BayNumberGrey", (0.68, 0.70, 0.68, 1.0), roughness=0.48)
-    bay_number_backing = get_material("YARD_LAYOUT_BayNumberDarkBacking", (0.030, 0.035, 0.035, 1.0), roughness=0.72)
+    bay_number_black = get_material("YARD_LAYOUT_BayNumberBlack", (0.005, 0.005, 0.004, 1.0), roughness=0.60)
+    bay_number_backing = get_material("YARD_LAYOUT_BayNumberLightSideBacking", (0.96, 0.95, 0.88, 1.0), roughness=0.64)
     yellow = get_material("YARD_LAYOUT_YellowMarking", (0.95, 0.62, 0.03, 1.0), roughness=0.50)
     rail = get_material("YARD_LAYOUT_GantryRail", (0.035, 0.040, 0.045, 1.0), metallic=0.75, roughness=0.35)
     infill_materials = {
@@ -392,6 +463,7 @@ def build_yard_layout() -> dict[str, object]:
         ground_slot_boxes = []
         ground_slot_separator_boxes = []
         bay_number_panel_boxes = []
+        bay_number_digit_boxes = []
         marker_panels = []
         for odd_bay_number in odd_ground_slot_numbers(bay_count):
             slot_start, slot_end = ground_slot_bounds(current_y, end_y, odd_bay_number)
@@ -481,31 +553,42 @@ def build_yard_layout() -> dict[str, object]:
         for bay_number in label_numbers:
             slot_start, slot_end = ground_slot_bounds(current_y, end_y, bay_number)
             bay_center = (slot_start + slot_end) * 0.5
-            bay_number_panel_boxes.append(
-                ((0.0, bay_center, MARKING_TOP_Z_M + 0.004), (2.25, 1.55, 0.018))
-            )
-            label = create_text(
-                f"YARD_LAYOUT_1C4C_LABEL_{block_name}_BAY_{bay_number:03d}",
-                f"{bay_number:02d}",
-                (0.0, bay_center, MARKING_TOP_Z_M + 0.030),
-                0.95,
-                bay_number_gray,
-                label_collection,
-            )
-            label.parent = root
-            label["yard_block"] = block_name
-            label["bay_number"] = bay_number
-            label["ground_mark_rule"] = "odd bay number centered in a 40ft visual slot"
+            for side_index, label_x in enumerate(SIDE_BAY_LABEL_X_POSITIONS_M, start=1):
+                bay_number_panel_boxes.append(
+                    (
+                        (label_x, bay_center, MARKING_TOP_Z_M + 0.004),
+                        SIDE_BAY_LABEL_PANEL_SIZE_M,
+                    )
+                )
+                add_ground_digit_boxes(
+                    bay_number_digit_boxes,
+                    f"{bay_number:02d}",
+                    label_x,
+                    bay_center,
+                    SIDE_BAY_LABEL_DIGIT_Z_M,
+                )
 
         bay_number_panels = create_boxes_object(
-            f"YARD_LAYOUT_1C4C_{block_name}_ODD_BAY_NUMBER_BACKINGS",
+            f"YARD_LAYOUT_1C4C_{block_name}_ODD_BAY_NUMBER_SIDE_BACKINGS",
             bay_number_panel_boxes,
             bay_number_backing,
             marking_collection,
         )
         bay_number_panels.parent = root
         bay_number_panels["yard_block"] = block_name
-        bay_number_panels["ground_mark_rule"] = "dark backing behind enlarged grey odd bay numbers"
+        bay_number_panels["ground_mark_rule"] = "light backing behind black side odd bay numbers"
+        bay_number_panels["side_label_x_positions_m"] = str(SIDE_BAY_LABEL_X_POSITIONS_M)
+
+        bay_number_digits = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_{block_name}_ODD_BAY_NUMBER_BLACK_DIGITS",
+            bay_number_digit_boxes,
+            bay_number_black,
+            marking_collection,
+        )
+        bay_number_digits.parent = root
+        bay_number_digits["yard_block"] = block_name
+        bay_number_digits["ground_mark_rule"] = "black segmented odd bay numbers on both side markers"
+        bay_number_digits["side_label_x_positions_m"] = str(SIDE_BAY_LABEL_X_POSITIONS_M)
 
         for suffix, label_y in (("START", current_y + 3.0), ("END", end_y - 3.0)):
             marker_panels.append(((-5.20, label_y, MARKING_TOP_Z_M), (1.8, 2.2, 0.025)))

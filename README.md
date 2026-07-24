@@ -189,3 +189,17 @@ PDF 写的是 Unity/Web，但你的 WPF 项目也可以继续使用。建议：
 
 最合理的下一项工作是：**提取一台标准 RTG，建立大车、小车、吊具三个可控制关节，并在 Isaac Sim 中完成一次手动吊箱循环。**完成这一步后，再接 ROS2。
 更详细的 Omniverse 工作流见 [`omniverse/README.md`](omniverse/README.md)。
+
+
+
+PLC / TOS / 任务系统
+        ↓
+RTG Twin Service
+        ↓
+Omniverse Extension
+        ↓
+RTG / 集卡 / 箱区实时渲染
+
+AI 智能体
+        ↘
+         任务规划 / 风险预警 / 翻箱建议 / 可视化解释

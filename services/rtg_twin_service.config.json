@@ -1,0 +1,22 @@
+{
+  "rtgName": "RTG_220",
+  "publish": {
+    "host": "127.0.0.1",
+    "port": 48700,
+    "hz": 10
+  },
+  "plc": {
+    "enabled": true,
+    "host": "10.142.20.1",
+    "port": 5515
+  },
+  "core": {
+    "enabled": true,
+    "host": "10.142.20.1",
+    "port": 7065
+  },
+  "timeouts": {
+    "plcStaleSeconds": 3,
+    "taskStaleSeconds": 1800
+  }
+}
