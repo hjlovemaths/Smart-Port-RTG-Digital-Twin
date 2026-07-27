@@ -7,6 +7,7 @@ the project USD files unchanged while the application is running.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 import sys
 
@@ -85,12 +86,47 @@ ROPE_ENDPOINTS = (
 LOWER_ROPE_VISIBLE_OFFSET_Z = -0.58
 GANTRY_LIMITS = GANTRY_HARD_LIMITS_M
 GANTRY_SOFT_LIMITS = GANTRY_SOFT_LIMITS_M
-TROLLEY_ENGINEERING_LIMITS = (0.0, 18.0)
-TROLLEY_SOFT_LIMITS = (0.3, 17.7)
-TROLLEY_USD_LIMITS = (0.0, -2.25)
+TROLLEY_ENGINEERING_LIMITS = (0.0, 18.06)
+TROLLEY_SOFT_LIMITS = TROLLEY_ENGINEERING_LIMITS
+# These USD positions come directly from the validated task.txt animation.
+# Only the live PLC conversion uses this table; the RTG model, container rows,
+# truck model, and scripted animation remain on their authored coordinates.
+TROLLEY_PLC_STOP_CALIBRATION = (
+    (0.48, 0.6155620378536059),   # truck centre
+    (1.00, 0.6155620378536059),   # hold the real 0.63 m reading over the truck
+    (3.71, -1.7939748547136125),  # row 6
+    (6.66, -2.8158098726906840),  # row 5
+    (9.50, -3.8376448906677547),  # row 4
+    (12.35, -4.8594799086448250), # row 3
+    (15.19, -5.8813149266218950), # row 2
+    (18.06, -6.9031499445989670), # row 1
+)
+TROLLEY_USD_LIMITS = (
+    TROLLEY_PLC_STOP_CALIBRATION[0][1],
+    TROLLEY_PLC_STOP_CALIBRATION[-1][1],
+)
 HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
 HOIST_SOFT_LIMITS = (0.5, 14.7)
-HOIST_USD_LIMITS = (-0.45, 0.85)
+# One physical container tier is 2.5 m. Match that increment to the
+# compressed visual container pitch used by the live stack.
+HOIST_ACTUAL_TIER_HEIGHT_M = 2.50
+HOIST_VISUAL_TIER_HEIGHT_M = 0.904353 + 0.035
+HOIST_USD_PER_ENGINEERING_M = (
+    HOIST_VISUAL_TIER_HEIGHT_M / HOIST_ACTUAL_TIER_HEIGHT_M
+)
+HOIST_FIRST_TIER_ENGINEERING_M = 2.50
+# Tier-1 top is Z=1.024353 and the spreader lock contact plane is Z=2.55,
+# so this offset puts the lock feet directly on the first-layer box.
+HOIST_USD_AT_FIRST_TIER = -1.525647
+HOIST_USD_AT_ENGINEERING_ZERO = (
+    HOIST_USD_AT_FIRST_TIER
+    - HOIST_FIRST_TIER_ENGINEERING_M * HOIST_USD_PER_ENGINEERING_M
+)
+HOIST_USD_LIMITS = (
+    HOIST_USD_AT_ENGINEERING_ZERO,
+    HOIST_USD_AT_ENGINEERING_ZERO
+    + HOIST_ENGINEERING_LIMITS[1] * HOIST_USD_PER_ENGINEERING_M,
+)
 # The current Omniverse visual alignment expects the gantry controller Y to
 # match the yard bay scene Y directly.  Keep this explicit so bay commands such
 # as 1C/005 park the RTG on the visible bay-map footprint rather than behind it.
@@ -99,6 +135,12 @@ RTG_WORK_CENTER_LOCAL_Y_M = 0.0
 # moves the RTG toward the 1C seaside/start side so the tyres sit closer to the
 # front edge of the live bay-map footprint.
 RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M = -3.4
+# ``currentField`` + ``currentBay`` identifies an authored yard centreline, not
+# a wheel track.  Keep that command on the RTG short-beam/work-centre line even
+# though the continuous PLC metre display retains the wheel-footprint tuning
+# above.  A positive correction cancels the -3.4 m tyre alignment for bay
+# commands, placing the short-beam centre exactly on the bay centreline.
+RTG_BAY_CENTERLINE_CORRECTION_Y_M = -RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
@@ -114,14 +156,48 @@ def _linear_map(
     return target[0] + ratio * (target[1] - target[0])
 
 
+def _piecewise_map(
+    value: float, points: tuple[tuple[float, float], ...]
+) -> float:
+    if value <= points[0][0]:
+        return points[0][1]
+    for (source_a, target_a), (source_b, target_b) in zip(points, points[1:]):
+        if value <= source_b:
+            return _linear_map(
+                value,
+                (source_a, source_b),
+                (target_a, target_b),
+            )
+    return points[-1][1]
+
+
+def _piecewise_inverse(
+    value: float, points: tuple[tuple[float, float], ...]
+) -> float:
+    for (source_a, target_a), (source_b, target_b) in zip(points, points[1:]):
+        if math.isclose(target_a, target_b):
+            if math.isclose(value, target_a):
+                return source_a
+            continue
+        if min(target_a, target_b) <= value <= max(target_a, target_b):
+            return _linear_map(
+                value,
+                (target_a, target_b),
+                (source_a, source_b),
+            )
+    if value > max(point[1] for point in points):
+        return points[0][0]
+    return points[-1][0]
+
+
 def trolley_actual_to_usd(position_m: float) -> float:
     value = _clamp(position_m, *TROLLEY_ENGINEERING_LIMITS)
-    return _linear_map(value, TROLLEY_ENGINEERING_LIMITS, TROLLEY_USD_LIMITS)
+    return _piecewise_map(value, TROLLEY_PLC_STOP_CALIBRATION)
 
 
 def trolley_usd_to_actual(position_usd: float) -> float:
     value = _clamp(position_usd, min(TROLLEY_USD_LIMITS), max(TROLLEY_USD_LIMITS))
-    return _linear_map(value, TROLLEY_USD_LIMITS, TROLLEY_ENGINEERING_LIMITS)
+    return _piecewise_inverse(value, TROLLEY_PLC_STOP_CALIBRATION)
 
 
 def hoist_actual_to_usd(height_m: float) -> float:
@@ -156,19 +232,21 @@ def gantry_usd_to_actual(controller_y_m: float) -> float:
 
 
 def gantry_bay_to_usd(block: str, bay_number: int, anchor: str = "center") -> float:
-    """Return the USD controller Y needed to put the spreader over a yard bay."""
+    """Return the Y that puts the RTG short-beam centre on a yard bay line."""
     return (
         bay_scene_y_m(block, bay_number, anchor)
         + RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
+        + RTG_BAY_CENTERLINE_CORRECTION_Y_M
         - RTG_WORK_CENTER_LOCAL_Y_M
     )
 
 
 def gantry_bay_id_to_usd(bay_id: str, anchor: str = "center") -> float:
-    """Return the USD controller Y needed to put the spreader over a bay id."""
+    """Return the Y that puts the RTG short-beam centre on a bay-id line."""
     return (
         bay_id_scene_y_m(bay_id, anchor)
         + RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
+        + RTG_BAY_CENTERLINE_CORRECTION_Y_M
         - RTG_WORK_CENTER_LOCAL_Y_M
     )
 
@@ -220,10 +298,8 @@ class RTGController:
             joint.GetPrim(), UsdPhysics.Tokens.linear
         ).GetTargetPositionAttr()
 
-    def set_gantry(self, position_m: float) -> float:
-        """Set gantry work-centre travel in metres from the 1C/001 start."""
-        actual = _clamp(position_m, *GANTRY_LIMITS)
-        controller_y = gantry_actual_to_usd(actual)
+    def _set_gantry_controller_y(self, controller_y: float) -> None:
+        """Write one already-calibrated controller Y to both gantry controls."""
         with Usd.EditContext(self.stage, self._session):
             self._gantry.Set(controller_y)
             # A session-layer default overrides the authored demo samples and
@@ -235,24 +311,33 @@ class RTGController:
                     GANTRY_BASE_TRANSLATE[2],
                 )
             )
+
+    def set_gantry(self, position_m: float) -> float:
+        """Set gantry work-centre travel in metres from the 1C/001 start."""
+        actual = _clamp(position_m, *GANTRY_LIMITS)
+        self._set_gantry_controller_y(gantry_actual_to_usd(actual))
         return actual
 
     def set_gantry_bay(
         self, block: str, bay_number: int, anchor: str = "center"
     ) -> float:
-        """Move gantry to a yard bay target such as 1C/025."""
-        return self.set_gantry(bay_position_m(block, bay_number, anchor))
+        """Centre the RTG short beam on a yard bay target such as 1C/025."""
+        actual = bay_position_m(block, bay_number, anchor)
+        self._set_gantry_controller_y(gantry_bay_to_usd(block, bay_number, anchor))
+        return actual
 
     def set_gantry_bay_id(self, bay_id: str, anchor: str = "center") -> float:
-        """Move gantry to a text bay target such as '1C/025' or '1C-25'."""
-        return self.set_gantry(bay_id_position_m(bay_id, anchor))
+        """Centre the RTG short beam on a text target such as '1C/025'."""
+        actual = bay_id_position_m(bay_id, anchor)
+        self._set_gantry_controller_y(gantry_bay_id_to_usd(bay_id, anchor))
+        return actual
 
     def set_gantry_safe(self, position_m: float) -> float:
         """Set gantry travel while keeping inside the normal soft-limit envelope."""
         return self.set_gantry(_clamp(position_m, *GANTRY_SOFT_LIMITS))
 
     def set_trolley(self, position_m: float) -> float:
-        """Set actual trolley travel: 0 m at the tower, 18 m at the far end."""
+        """Set PLC trolley travel against the validated task animation stops."""
         actual = _clamp(position_m, *TROLLEY_ENGINEERING_LIMITS)
         value = trolley_actual_to_usd(actual)
         with Usd.EditContext(self.stage, self._session):
@@ -332,6 +417,7 @@ __all__ = [
     "HOIST_ENGINEERING_LIMITS",
     "HOIST_SOFT_LIMITS",
     "RTGController",
+    "RTG_BAY_CENTERLINE_CORRECTION_Y_M",
     "RTG_WORK_CENTER_LOCAL_Y_M",
     "TROLLEY_ENGINEERING_LIMITS",
     "TROLLEY_SOFT_LIMITS",

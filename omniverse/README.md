@@ -54,7 +54,7 @@ validation, but the engineering limits now match the real 1C-4C yard:
 | Joint | Hard limits | Soft limits | Maximum velocity |
 | --- | ---: | ---: | ---: |
 | Gantry engineering travel | 0.00 to 1,961.00 m | 1.00 to 1,960.00 m | 1.50 m/s |
-| Trolley engineering travel | 0.00 to 18.00 m | 0.30 to 17.70 m | 1.00 m/s |
+| Trolley engineering travel | 0.00 to 18.06 m | 0.00 to 18.06 m | 1.00 m/s |
 | Hoist engineering height | 0.00 to 15.00 m | 0.50 to 14.70 m | 0.90 m/s |
 
 The hard limits describe the physical stroke. The soft limits describe the
@@ -64,20 +64,32 @@ from end stops and keep the spreader at least 0.5 m above ground.
 ### Engineering-coordinate mapping
 
 PLC, ROS2, and WPF use real equipment coordinates while the current visual
-model retains its validated travel. The live controller applies these linear
-mappings:
+model retains its validated travel. The live controller applies calibrated
+trolley row stops so PLC trolley positions align the spreader centreline with
+the current six-row container layout:
 
 | Engineering value | USD controller value |
 | --- | ---: |
 | Gantry 0 m, 1C/001 seaside bay-start origin | Y = 0.00 |
 | Gantry 1,961 m, 4C/041 bay end | Y = 1,961.00 |
-| Trolley 0 m, left end near the tower | X = 0.00 |
-| Trolley 18 m, far end | X = -2.25 |
-| Hoist 0 m, spreader at ground level | Z = -0.45 |
-| Hoist 15 m, highest position | Z = 0.85 |
+| Trolley 0.48-1.00 m, truck centre | X = 0.615562 |
+| Trolley 3.71 m, row 6 centre | X = -1.793975 |
+| Trolley 6.66 m, row 5 centre | X = -2.815810 |
+| Trolley 9.50 m, row 4 centre | X = -3.837645 |
+| Trolley 12.35 m, row 3 centre | X = -4.859480 |
+| Trolley 15.19 m, row 2 centre | X = -5.881315 |
+| Trolley 18.06 m, row 1 centre | X = -6.903150 |
+| Hoist 0 m, engineering zero | Z = -2.465000 |
+| Hoist 2.5 m, spreader on tier-1 container top | Z = -1.525647 |
+| Hoist +2.5 m, one physical container tier | Z += 0.939353 |
+| Hoist 15 m, highest position | Z = 3.171118 |
+
+The stop table is implemented only in `scripts/rtg_live_control.py` and maps
+PLC readings to the positions already validated by the `task.txt` animation.
+It does not reposition the RTG model, truck, container rows, or scripted demo.
 
 Therefore `set_gantry()` accepts 0-1,961 m from the 1C/001 seaside origin,
-`set_trolley()` accepts 0-18 actual metres, and `set_hoist()` accepts 0-15
+`set_trolley()` accepts 0-18.06 actual metres, and `set_hoist()` accepts 0-15
 actual metres. Reverse conversion helpers are provided for status values sent
 back to WPF/ROS2. The rope visual continues to use the mapped USD hoist
 position, so it remains attached throughout the full engineering range.
@@ -154,11 +166,10 @@ tier separator lines, and draws a red outline around the bay-map footprint.
 `scenes/smart_port.usda` sublayers `live_containers.usda`, so reloading the
 stage shows the current live stack without changing the Blender source asset.
 
-The bay-map visualization is constrained to fit inside the 12 m bay width. The
-left side keeps 1.8 m clear for the truck lane, while the right side keeps 0.4 m
-clearance from the RTG structure. It uses a 1.20 m schematic tier height, so the
-maximum 6-tier stack is 7.2 m high. This keeps the live bay-map readable without
-blocking the RTG cabin and lower beam in the current visual scene.
+Each physical container tier is treated as 2.5 m, so a six-tier stack is
+15.0 m high in engineering coordinates. The compressed visual stack keeps its
+existing 0.904353 m box height plus 0.035 m tier gap; live hoist movement maps
+each physical 2.5 m increment to that 0.939353 m visual tier pitch.
 
 ## Real-scale 1C-4C yard layout
 
@@ -191,3 +202,27 @@ surfaces and edge markings over the same 1,961 m range:
 - left-central infill: X = -32.0 to -8.0 m;
 - right-central infill: X = 8.0 to 37.5 m;
 - right narrow infill: X = 60.0 to 67.0 m.
+
+## RTG camera marker popup
+
+The Kit receiver can open an RTSP preview when a camera marker is selected in
+the viewport. Camera definitions are read from the local, git-ignored file
+`omniverse/config/cameras/Cam_RTG_220.json`, with the RCMS camera configuration
+used as a fallback.
+The authored RTG markers (`C1`–`C33`) are preserved; markers without a
+matching entry open an `UNCONFIGURED` status instead of creating geometry
+outside the RTG. To start it standalone from Script Editor:
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_camera_popup.py", encoding="utf-8").read())
+start_rtg_camera_popup()
+```
+
+Select a green marker to open the `RTG Camera` window. The reader uses the Axis
+RTSP endpoint `rtsp://user:password@ip:port/axis-media/media.amp` built from
+the configuration (including the `AttachedLine` camera query). For HaiKang/Hikvision entries the reader uses
+`/Streaming/Channels/101`-style URLs and defaults to RTSP port 554; add
+`RtspPort` or `RtspChannel` to override those defaults. The Omniverse Kit Python environment needs an OpenCV build
+with FFMPEG/RTSP support; if it is unavailable the popup reports the missing
+decoder and still shows the resolved stream URL. Stop it with
+`stop_rtg_camera_popup()`.

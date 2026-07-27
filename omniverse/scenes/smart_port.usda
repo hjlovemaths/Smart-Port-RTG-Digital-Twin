@@ -71,6 +71,7 @@ def Xform "World"
                 float exposure:responsivity = 1.1026709
                 float exposure:time = 0.02
                 bool omni:kit:cameraLock = 0
+                token visibility = "invisible"
                 custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -68.32129752438678)
                 float3 xformOp:rotateYXZ = (7.4601583, 13.889879, 0.81765515)
                 float3 xformOp:scale = (1, 1, 1)
