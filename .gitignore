@@ -23,3 +23,8 @@ omniverse/config/cameras/Cam_RTG_*.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Microsoft Office temporary lock files
+~$*.docx
+~$*.xlsx
+~$*.pptx

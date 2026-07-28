@@ -87,11 +87,15 @@ DEFAULT_PORT = 48700
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 LIVE_TASK_STACK_PATH = "/World/LiveContainers/LiveTaskStack"
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
-LEGACY_LIVE_HOISTED_LOAD_PATH = (
+RTG_HOIST_PATH = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
-    "ANIM_CTRL_RTG_TROLLEY_TRAVEL/ANIM_CTRL_RTG_HOIST_VERTICAL/"
-    "LIVE_TwinHoistedContainer"
+    "ANIM_CTRL_RTG_TROLLEY_TRAVEL/ANIM_CTRL_RTG_HOIST_VERTICAL"
 )
+RTG_ROPE_SYSTEM_PATH = (
+    "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
+    "ANIM_CTRL_RTG_TROLLEY_TRAVEL/RTG_DYNAMIC_HOIST_ROPES"
+)
+LEGACY_LIVE_HOISTED_LOAD_PATH = f"{RTG_HOIST_PATH}/LIVE_TwinHoistedContainer"
 LIVE_HOISTED_LOAD_PATH = "/World/LiveContainers/LiveTwinHoistedContainer"
 
 TASK_STATE_IDLE = "IDLE"
@@ -128,6 +132,7 @@ HOISTED_LOAD_LOCAL_CENTER_X = 2.55
 HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
+RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
 
 
 def _hoisted_container_local_center_z(container_height: float) -> float:
@@ -159,6 +164,36 @@ def _as_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _pose_spreader_locked(pose: Dict[str, Any]) -> bool:
+    """Return the resolved twist-lock state, with legacy lock-only fallback."""
+
+    if RESOLVED_LOCKED_KEY in pose:
+        return bool(pose[RESOLVED_LOCKED_KEY])
+    return _as_int(pose.get("lockState"), 0) != 0
+
+
+def _requested_spreader_size_ft(
+    pose: Dict[str, Any],
+    task: Dict[str, Any],
+    inferred_task_size_ft: Optional[int] = None,
+) -> Optional[int]:
+    """Resolve 20/40 ft demand from PLC limits, then from task box length."""
+
+    tool_20 = _as_int(pose.get("tool20f"), 0) != 0
+    tool_40 = _as_int(pose.get("tool40f"), 0) != 0
+    if tool_20 != tool_40:
+        return 20 if tool_20 else 40
+    if tool_20 and tool_40:
+        return None
+
+    size = _as_int(task.get("containerSize"), 0)
+    if size in (20, 1):
+        return 20
+    if size in (40, 2, 45, 3):
+        return 40
+    return inferred_task_size_ft if inferred_task_size_ft in (20, 40) else None
 
 
 def _field_name(value: Any) -> Optional[str]:
@@ -313,6 +348,7 @@ class RtgTwinStatusOverlay:
             "gantry": _fmt_number(gantry_m, 2, " m"),
             "trolley": _fmt_number(applied.get("trolleyMeter") or pose.get("trolleyMeter"), 2, " m"),
             "hoist": _fmt_number(applied.get("hoistMeter") or pose.get("hoistMeter"), 2, " m"),
+            "spreader_size": _fmt_number(applied.get("spreaderSizeFt"), 0, " ft"),
             "task_state": _task_state_text(task, has_task),
             "task_type": _fmt_text(task.get("taskType") if has_task else None),
             "task_id": _fmt_text(task.get("taskId") if has_task else None),
@@ -358,7 +394,7 @@ class RtgTwinStatusOverlay:
         self._window = ui.Window(
             "RTG Twin HUD",
             width=270,
-            height=540,
+            height=560,
             visible=True,
             flags=flags,
         )
@@ -381,7 +417,7 @@ class RtgTwinStatusOverlay:
 
         with self._window.frame:
             with ui.VStack(spacing=6, style={"background_color": 0xAA02111F}):
-                with ui.Frame(style=panel_style, height=205):
+                with ui.Frame(style=panel_style, height=225):
                     with ui.VStack(spacing=5):
                         ui.Spacer(height=6)
                         ui.Label("DEVICE", style=title_style, height=20)
@@ -391,6 +427,7 @@ class RtgTwinStatusOverlay:
                         self._row(ui, "Gantry", "gantry", name_style, value_style)
                         self._row(ui, "Trolley", "trolley", name_style, value_style)
                         self._row(ui, "Hoist", "hoist", name_style, value_style)
+                        self._row(ui, "Tool Size", "spreader_size", name_style, value_style)
                         ui.Spacer(height=2)
 
                 with ui.Frame(style=panel_style, height=320):
@@ -537,10 +574,13 @@ class OmniverseRtgTwinDriver:
         self._last_task_source_path: Optional[str] = None
         self._task_source_has_moved = False
         self._task_source_original_translates: Dict[str, Any] = {}
+        self._task_source_truck_local_center: Any = None
         self._task_vehicle_started_at: float = 0.0
         self._task_flow_state: str = TASK_STATE_IDLE
         self._task_flow_state_started_at: float = 0.0
         self._task_flow_saw_locked: bool = False
+        self._spreader_locked: bool = False
+        self._spreader_lock_signal_seen: bool = False
         self._operation_state_machine: Optional[RtgOperationStateMachine] = None
         self._operation_task_key: Optional[tuple[Any, ...]] = None
         self._status_overlay: Optional[RtgTwinStatusOverlay] = None
@@ -594,8 +634,9 @@ class OmniverseRtgTwinDriver:
             return None
 
         controller = self._controller_for_stage(stage)
-        pose = state.get("pose") or {}
+        pose = dict(state.get("pose") or {})
         task = state.get("task") or {}
+        pose[RESOLVED_LOCKED_KEY] = self._resolve_spreader_locked(pose)
 
         field = _field_name(pose.get("currentField"))
         bay = _as_int(pose.get("currentBay"), 0)
@@ -621,12 +662,28 @@ class OmniverseRtgTwinDriver:
         applied_hoist_m = (
             controller.set_hoist_safe(hoist_m) if hoist_m is not None else None
         )
+        task_stack_key = self._task_stack_key(task)
+        inferred_spreader_size_ft = (
+            task_stack_key[3] if task_stack_key is not None else None
+        )
+        requested_spreader_size_ft = _requested_spreader_size_ft(
+            pose,
+            task,
+            inferred_spreader_size_ft,
+        )
+        applied_spreader_size_ft = (
+            controller.set_spreader_size(requested_spreader_size_ft)
+            if requested_spreader_size_ft is not None
+            else None
+        )
 
         applied = {
             "gantryMeter": applied_gantry_m,
             "gantrySource": gantry_source,
             "trolleyMeter": applied_trolley_m,
             "hoistMeter": applied_hoist_m,
+            "spreaderSizeFt": applied_spreader_size_ft,
+            "spreaderTargetSizeFt": requested_spreader_size_ft,
         }
         self._sync_task_stack(stage, task)
         if _task_work_type(task) == WORK_TYPE_SWITCH:
@@ -643,6 +700,9 @@ class OmniverseRtgTwinDriver:
             round(applied_trolley_m, 3) if applied_trolley_m is not None else None,
             round(applied_hoist_m, 3) if applied_hoist_m is not None else None,
             _as_int(pose.get("lockState"), 0),
+            _as_int(pose.get("unlockState"), 0),
+            _pose_spreader_locked(pose),
+            requested_spreader_size_ft,
             task.get("taskId"),
         )
         if key != self._last_applied_key:
@@ -651,9 +711,41 @@ class OmniverseRtgTwinDriver:
                 "applied "
                 f"gantry={applied_gantry_m}({gantry_source}) "
                 f"trolley={applied_trolley_m} hoist={applied_hoist_m} "
-                f"lock={pose.get('lockState')}"
+                f"spreader={applied_spreader_size_ft}->{requested_spreader_size_ft}ft "
+                f"lock={pose.get('lockState')} unlock={pose.get('unlockState')} "
+                f"resolvedLocked={_pose_spreader_locked(pose)}"
             )
         return applied
+
+    def _resolve_spreader_locked(self, pose: Dict[str, Any]) -> bool:
+        """Latch the two PLC end-position signals into one stable lock state."""
+
+        lock_on = _as_int(pose.get("lockState"), 0) != 0
+        if pose.get("unlockState") is None:
+            self._spreader_locked = lock_on
+            return self._spreader_locked
+
+        unlock_on = _as_int(pose.get("unlockState"), 0) != 0
+        previous = self._spreader_locked
+
+        if lock_on and not unlock_on:
+            self._spreader_locked = True
+            self._spreader_lock_signal_seen = True
+        elif unlock_on and not lock_on:
+            self._spreader_locked = False
+            self._spreader_lock_signal_seen = True
+        elif not self._spreader_lock_signal_seen:
+            # Older feeds publish only lockState. Preserve that behaviour until
+            # a valid pair of open/closed end-position signals is observed.
+            self._spreader_locked = lock_on
+
+        if self._spreader_locked != previous:
+            self._log(
+                "spreader lock resolved "
+                f"{previous} -> {self._spreader_locked} "
+                f"(lock={pose.get('lockState')} unlock={pose.get('unlockState')})"
+            )
+        return self._spreader_locked
 
     def _sync_status_overlay(
         self, state: Dict[str, Any], applied: Dict[str, Any]
@@ -863,7 +955,7 @@ class OmniverseRtgTwinDriver:
             # pre-pick state from the beginning.
             if (
                 self._operation_state_machine is not None
-                and _as_int(pose.get("lockState"), 0) == 1
+                and _pose_spreader_locked(pose)
             ):
                 self._operation_state_machine.state = OperationState.TROLLEY_TO_TARGET
                 self._operation_state_machine.entered_at = time.time()
@@ -881,7 +973,7 @@ class OmniverseRtgTwinDriver:
             bay=_as_int(pose.get("currentBay"), 0) or None,
             trolley_m=_as_float(pose.get("trolleyMeter")),
             hoist_m=_as_float(pose.get("hoistMeter")),
-            locked=_as_int(pose.get("lockState"), 0) == 1,
+            locked=_pose_spreader_locked(pose),
             alarmed=_as_int(pose.get("alarmStatus"), 0) != 0,
             vision_confirmed=bool(task.get("visionConfirmed", True)),
         )
@@ -970,7 +1062,7 @@ class OmniverseRtgTwinDriver:
         pose: Dict[str, Any],
     ) -> str:
         now = time.time()
-        locked = _as_int(pose.get("lockState"), 0) == 1
+        locked = _pose_spreader_locked(pose)
         if locked:
             self._task_flow_saw_locked = True
 
@@ -1010,7 +1102,7 @@ class OmniverseRtgTwinDriver:
         pose: Dict[str, Any],
     ) -> str:
         now = time.time()
-        locked = _as_int(pose.get("lockState"), 0) == 1
+        locked = _pose_spreader_locked(pose)
         if locked:
             self._task_flow_saw_locked = True
 
@@ -1279,7 +1371,7 @@ class OmniverseRtgTwinDriver:
         # state machine's next update frame after a successful grab.
         carrying = flow_state == TASK_STATE_CARRYING or (
             work_type in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
-            and _as_int((pose or {}).get("lockState"), 0) == 1
+            and _pose_spreader_locked(pose or {})
         )
         truck_box_visible = _truck_box_visible(work_type, flow_state)
         truck_has_exited = (
@@ -1307,7 +1399,32 @@ class OmniverseRtgTwinDriver:
                 if stale_copy:
                     stage.RemovePrim(stale_copy.GetPath())
                 if carrying:
-                    self._move_task_source_with_spreader(stage)
+                    # Blend the exact source box from its stack slot to the
+                    # spreader over a short lift interval.  This makes the
+                    # grab visible instead of snapping the box to the
+                    # spreader on the first lock frame.
+                    self._move_task_source_with_spreader(stage, animate=True)
+                elif work_type == WORK_TYPE_UNLOAD and flow_state in (
+                    TASK_STATE_PLACED,
+                    TASK_STATE_TRUCK_EXITING,
+                ):
+                    # Keep the exact bay-map source box (including its ribs
+                    # and material) and move it onto the truck after unlock.
+                    # The truck root is animated during TRUCK_EXITING, so this
+                    # is intentionally repeated every frame to make the box
+                    # visibly travel with the vehicle.
+                    self._move_task_source_to_truck(stage)
+                    self._set_container_visual_visibility(
+                        stage,
+                        f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer",
+                        False,
+                    )
+                elif work_type == WORK_TYPE_UNLOAD and flow_state == "COMPLETE":
+                    self._set_container_visual_visibility(
+                        stage,
+                        self._last_task_source_path,
+                        False,
+                    )
                 return
 
             if not carrying:
@@ -1443,12 +1560,21 @@ class OmniverseRtgTwinDriver:
     def _hoisted_container_world_center(
         stage: Any, container_height: float
     ) -> Any:
-        """Return the world-space box centre directly below the spreader."""
+        """Return the carried-box centre from the rendered rope lower ends.
+
+        The rope curve points are driven by the same trolley and hoist values
+        as the visible RTG.  Averaging their lower endpoints therefore gives a
+        stable attachment centre without relying on mesh transforms that may
+        have been baked during USD export.
+        """
 
         from pxr import Gf, UsdGeom
-        from rtg_live_control import HOIST_PATH
+        from rtg_live_control import (
+            LOWER_HEADER_SOURCE_Z,
+            LOWER_ROPE_VISIBLE_OFFSET_Z,
+        )
 
-        hoist = stage.GetPrimAtPath(HOIST_PATH)
+        hoist = stage.GetPrimAtPath(RTG_HOIST_PATH)
         if not hoist:
             return None
         local_center = Gf.Vec3d(
@@ -1456,8 +1582,46 @@ class OmniverseRtgTwinDriver:
             HOISTED_LOAD_LOCAL_CENTER_Y,
             _hoisted_container_local_center_z(container_height),
         )
-        return UsdGeom.XformCache().GetLocalToWorldTransform(hoist).Transform(
+        fallback_center = UsdGeom.XformCache().GetLocalToWorldTransform(hoist).Transform(
             local_center
+        )
+        ropes = UsdGeom.BasisCurves.Get(stage, RTG_ROPE_SYSTEM_PATH)
+        if not ropes:
+            return fallback_center
+
+        points = ropes.GetPointsAttr().Get()
+        lower_points = (
+            [point for index, point in enumerate(points) if index % 2 == 1]
+            if points
+            else []
+        )
+        if not lower_points:
+            return fallback_center
+        count = float(len(lower_points))
+        lower_local = Gf.Vec3d(
+            sum(float(point[0]) for point in lower_points) / count,
+            sum(float(point[1]) for point in lower_points) / count,
+            sum(float(point[2]) for point in lower_points) / count,
+        )
+        rope_world = UsdGeom.XformCache().GetLocalToWorldTransform(
+            ropes.GetPrim()
+        ).Transform(lower_local)
+        local_vertical_drop = (
+            float(LOWER_HEADER_SOURCE_Z)
+            + float(LOWER_ROPE_VISIBLE_OFFSET_Z)
+            - _hoisted_container_local_center_z(container_height)
+        )
+        values = (
+            float(rope_world[0]),
+            float(rope_world[1]),
+            float(rope_world[2]) - local_vertical_drop,
+        )
+        if not all(math.isfinite(value) for value in values):
+            return fallback_center
+        return Gf.Vec3d(
+            values[0],
+            values[1],
+            values[2],
         )
 
     @staticmethod
@@ -1500,6 +1664,7 @@ class OmniverseRtgTwinDriver:
 
     def _restore_task_source(self, stage: Any) -> None:
         if not self._last_task_source_path:
+            self._task_source_truck_local_center = None
             return
         from pxr import Usd
 
@@ -1514,8 +1679,11 @@ class OmniverseRtgTwinDriver:
         self._last_task_source_path = None
         self._task_source_has_moved = False
         self._task_source_original_translates.clear()
+        self._task_source_truck_local_center = None
 
-    def _move_task_source_with_spreader(self, stage: Any) -> None:
+    def _move_task_source_with_spreader(
+        self, stage: Any, *, animate: bool = False
+    ) -> None:
         """Attach the original task-stack source container to the spreader."""
 
         if not self._last_task_source_path:
@@ -1524,20 +1692,113 @@ class OmniverseRtgTwinDriver:
 
         source = stage.GetPrimAtPath(self._last_task_source_path)
         if not source:
+            self._log(
+                f"cannot attach source: missing prim {self._last_task_source_path}"
+            )
             return
         source_scale = self._get_xform_scale(source)
         source_translate = self._get_xform_translate(source)
         parent = source.GetParent()
         if source_scale is None or source_translate is None or not parent:
+            self._log(
+                f"cannot attach source: incomplete xform {self._last_task_source_path}"
+            )
             return
 
         spreader_world = self._hoisted_container_world_center(
             stage, float(source_scale[2])
         )
         if spreader_world is None:
+            self._log("cannot attach source: spreader transform unavailable")
             return
         parent_world = UsdGeom.XformCache().GetLocalToWorldTransform(parent)
         target_local = parent_world.GetInverse().Transform(spreader_world)
+        if animate:
+            source_key = str(source.GetPath())
+            start_local = self._task_source_original_translates.get(
+                source_key, source_translate
+            )
+            progress = min(
+                1.0,
+                max(0.0, (time.time() - self._task_flow_state_started_at) / 1.0),
+            )
+            target_local = Gf.Vec3d(
+                float(start_local[0])
+                + (float(target_local[0]) - float(start_local[0])) * progress,
+                float(start_local[1])
+                + (float(target_local[1]) - float(start_local[1])) * progress,
+                float(start_local[2])
+                + (float(target_local[2]) - float(start_local[2])) * progress,
+            )
+        was_moved = self._task_source_has_moved
+        self._move_task_source_to_local_target(stage, source, parent, target_local)
+        if not was_moved:
+            self._log(
+                f"attached source box {self._last_task_source_path} to spreader"
+            )
+
+    def _move_task_source_to_truck(self, stage: Any) -> None:
+        """Place the original source box without a sideways unlock jump.
+
+        At unlock, preserve the carried box's current X/Y below the spreader
+        and only settle its Z onto the authored truck load height.  Capture
+        that point in truck-local coordinates so the exact source box follows
+        the truck during its exit animation.
+        """
+
+        if not self._last_task_source_path:
+            return
+        from pxr import Gf, UsdGeom
+
+        source = stage.GetPrimAtPath(self._last_task_source_path)
+        truck = stage.GetPrimAtPath(LIVE_TASK_TRUCK_PATH)
+        loaded = stage.GetPrimAtPath(f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer")
+        if not source or not truck or not loaded:
+            return
+        parent = source.GetParent()
+        source_local = self._get_xform_translate(source)
+        if not parent or source_local is None:
+            return
+
+        xform_cache = UsdGeom.XformCache()
+        truck_world = xform_cache.GetLocalToWorldTransform(truck)
+        parent_world = xform_cache.GetLocalToWorldTransform(parent)
+        if self._task_source_truck_local_center is None:
+            source_world = parent_world.Transform(source_local)
+            loaded_world = xform_cache.GetLocalToWorldTransform(loaded).Transform(
+                Gf.Vec3d(0.0, 0.0, 0.0)
+            )
+            placed_world = Gf.Vec3d(
+                float(source_world[0]),
+                float(source_world[1]),
+                float(loaded_world[2]),
+            )
+            self._task_source_truck_local_center = (
+                truck_world.GetInverse().Transform(placed_world)
+            )
+            self._log(
+                "captured placed source under spreader "
+                f"truckLocal={tuple(round(float(v), 3) for v in self._task_source_truck_local_center)}"
+            )
+
+        target_world = truck_world.Transform(self._task_source_truck_local_center)
+        target_local = parent_world.GetInverse().Transform(target_world)
+        self._move_task_source_to_local_target(stage, source, parent, target_local)
+
+    def _move_task_source_to_local_target(
+        self,
+        stage: Any,
+        source: Any,
+        parent: Any,
+        target_local: Any,
+    ) -> None:
+        """Translate the source body and authored detail siblings together."""
+
+        from pxr import Gf
+
+        source_translate = self._get_xform_translate(source)
+        if source_translate is None:
+            return
         delta = Gf.Vec3d(
             float(target_local[0]) - float(source_translate[0]),
             float(target_local[1]) - float(source_translate[1]),
@@ -1622,6 +1883,20 @@ class OmniverseRtgTwinDriver:
                 op.Set(value)
                 return
         xform.AddTranslateOp().Set(value)
+
+    @staticmethod
+    def _get_xform_translate(prim: Any) -> Any:
+        """Return the authored translate value without creating a new xform op."""
+
+        if not prim:
+            return None
+        from pxr import UsdGeom
+
+        xform = UsdGeom.Xformable(prim)
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                return op.Get()
+        return None
 
     @staticmethod
     def _get_xform_scale(prim: Any) -> Any:
@@ -1909,6 +2184,42 @@ class OmniverseRtgTwinDriver:
             )
             self._set_attr(
                 prim, "rtg:lockState", Sdf.ValueTypeNames.Int, _as_int(pose.get("lockState"), 0)
+            )
+            self._set_attr(
+                prim,
+                "rtg:unlockState",
+                Sdf.ValueTypeNames.Int,
+                _as_int(pose.get("unlockState"), 0),
+            )
+            self._set_attr(
+                prim,
+                "rtg:spreaderLocked",
+                Sdf.ValueTypeNames.Bool,
+                self._spreader_locked,
+            )
+            self._set_attr(
+                prim,
+                "rtg:tool20f",
+                Sdf.ValueTypeNames.Int,
+                _as_int(pose.get("tool20f"), 0),
+            )
+            self._set_attr(
+                prim,
+                "rtg:tool40f",
+                Sdf.ValueTypeNames.Int,
+                _as_int(pose.get("tool40f"), 0),
+            )
+            self._set_attr(
+                prim,
+                "rtg:spreaderSizeFt",
+                Sdf.ValueTypeNames.Double,
+                applied.get("spreaderSizeFt"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:spreaderTargetSizeFt",
+                Sdf.ValueTypeNames.Int,
+                applied.get("spreaderTargetSizeFt"),
             )
             self._set_attr(
                 prim, "rtg:taskId", Sdf.ValueTypeNames.String, task.get("taskId")

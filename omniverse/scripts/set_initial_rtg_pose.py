@@ -17,7 +17,7 @@ from rtg_live_control import (
     RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M,
     RTG_WORK_CENTER_LOCAL_Y_M,
     _rope_points,
-    gantry_actual_to_usd,
+    gantry_bay_id_to_usd,
     hoist_actual_to_usd,
 )
 from yard_coordinate_mapping import bay_id_position_m, bay_id_scene_y_m
@@ -95,7 +95,11 @@ def set_initial_pose(bay_id: str, hoist_m: float, hide_load: bool) -> dict[str, 
     frames = (1, int(stage.GetEndTimeCode()))
     gantry_m = bay_id_position_m(bay_id, "center")
     work_center_scene_y = bay_id_scene_y_m(bay_id, "center")
-    gantry_controller_y = gantry_actual_to_usd(gantry_m)
+    # Initial bay-addressed poses must use the same painted-number centerline
+    # correction as live currentField/currentBay commands.  Using the raw
+    # metre conversion here leaves a 20-ft 3C/063 pose one bay number too far
+    # inland (visually over 64).
+    gantry_controller_y = gantry_bay_id_to_usd(bay_id, "center")
     trolley_m = 0.0
     trolley_usd = 0.0
     hoist_usd = hoist_actual_to_usd(hoist_m)
@@ -119,6 +123,10 @@ def set_initial_pose(bay_id: str, hoist_m: float, hide_load: bool) -> dict[str, 
         "workCenterSceneY": work_center_scene_y,
         "rtgWorkCenterLocalY": RTG_WORK_CENTER_LOCAL_Y_M,
         "rtgBayVisualAlignmentOffsetY": RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M,
+        "rtgBayCenterlineCorrectionY": gantry_controller_y
+        - work_center_scene_y
+        - RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
+        + RTG_WORK_CENTER_LOCAL_Y_M,
         "gantryControllerY": gantry_controller_y,
         "trolleyMeters": trolley_m,
         "hoistMeters": hoist_m,

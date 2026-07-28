@@ -105,6 +105,77 @@ class TaskPositionTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_spreader_size_prefers_plc_limit_signal(self) -> None:
+        self.assertEqual(
+            receiver._requested_spreader_size_ft(
+                {"tool20f": 1, "tool40f": 0},
+                {"containerSize": 40},
+            ),
+            20,
+        )
+        self.assertEqual(
+            receiver._requested_spreader_size_ft(
+                {"tool20f": 0, "tool40f": 1},
+                {"containerSize": 20},
+            ),
+            40,
+        )
+
+    def test_spreader_size_uses_task_while_between_limit_switches(self) -> None:
+        self.assertEqual(
+            receiver._requested_spreader_size_ft(
+                {"tool20f": 0, "tool40f": 0},
+                {"containerSize": 20},
+            ),
+            20,
+        )
+        self.assertEqual(
+            receiver._requested_spreader_size_ft(
+                {"tool20f": 0, "tool40f": 0},
+                {"containerSize": 0},
+                40,
+            ),
+            40,
+        )
+
+    def test_conflicting_spreader_limit_signals_hold_current_size(self) -> None:
+        self.assertIsNone(
+            receiver._requested_spreader_size_ft(
+                {"tool20f": 1, "tool40f": 1},
+                {"containerSize": 20},
+            )
+        )
+
+    def test_dual_lock_signals_latch_through_switching_gap(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+
+        self.assertFalse(
+            driver._resolve_spreader_locked(
+                {"lockState": 0, "unlockState": 1}
+            )
+        )
+        self.assertTrue(
+            driver._resolve_spreader_locked(
+                {"lockState": 1, "unlockState": 0}
+            )
+        )
+        self.assertTrue(
+            driver._resolve_spreader_locked(
+                {"lockState": 0, "unlockState": 0}
+            )
+        )
+        self.assertFalse(
+            driver._resolve_spreader_locked(
+                {"lockState": 0, "unlockState": 1}
+            )
+        )
+
+    def test_legacy_lock_only_signal_does_not_latch(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+
+        self.assertTrue(driver._resolve_spreader_locked({"lockState": 1}))
+        self.assertFalse(driver._resolve_spreader_locked({"lockState": 0}))
+
     def test_truck_center_has_no_visual_camera_offset(self) -> None:
         self.assertEqual(receiver.TASK_TRUCK_VISUAL_X_OFFSET_M, 0.0)
         self.assertEqual(

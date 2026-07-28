@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 import sys
+import time
 
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
@@ -46,6 +47,14 @@ GANTRY_PATH = (
 )
 TROLLEY_PATH = f"{GANTRY_PATH}/ANIM_CTRL_RTG_TROLLEY_TRAVEL"
 HOIST_PATH = f"{TROLLEY_PATH}/ANIM_CTRL_RTG_HOIST_VERTICAL"
+SPREADER_FRONT_TELESCOPE_PATH = (
+    f"{HOIST_PATH}/ANIM_CTRL_SPREADER_TELESCOPE_FRONT"
+)
+SPREADER_REAR_TELESCOPE_PATH = (
+    f"{HOIST_PATH}/ANIM_CTRL_SPREADER_TELESCOPE_REAR"
+)
+SPREADER_TELESCOPE_TRAVEL_M = 1.3375
+SPREADER_TELESCOPE_SPEED_M_S = 0.45
 # Live commands are offsets from the Blender-authored frame-1 pose.  Keeping
 # all three controller origins at zero prevents the first ROS2/WPF command from
 # jumping to a value captured from an earlier validation frame.
@@ -135,16 +144,25 @@ RTG_WORK_CENTER_LOCAL_Y_M = 0.0
 # moves the RTG toward the 1C seaside/start side so the tyres sit closer to the
 # front edge of the live bay-map footprint.
 RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M = -3.4
-# ``currentField`` + ``currentBay`` identifies an authored yard centreline, not
-# a wheel track.  Keep that command on the RTG short-beam/work-centre line even
-# though the continuous PLC metre display retains the wheel-footprint tuning
-# above.  A positive correction cancels the -3.4 m tyre alignment for bay
-# commands, placing the short-beam centre exactly on the bay centreline.
-RTG_BAY_CENTERLINE_CORRECTION_Y_M = -RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
+# The visible yard numbering and RTG footprint were calibrated together with
+# the -3.4 m offset above.  The authored 20-ft bay labels are half a paired
+# (40-ft) slot apart from the corresponding even-bay centre: the old zero
+# correction therefore put a PLC ``currentBay=63`` stop visually over the
+# ``64`` number.  Shift bay-addressed stops by one 20-ft slot toward the
+# seaside so the short-beam/spreader centre is over the middle of the printed
+# ``63`` label and the 20-ft box center.  Continuous big-car metre commands
+# intentionally keep their original calibration.
+RTG_BAY_CENTERLINE_CORRECTION_Y_M = -1.3375
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, float(value)))
+
+
+def _move_toward(value: float, target: float, max_delta: float) -> float:
+    if value < target:
+        return min(value + max_delta, target)
+    return max(value - max_delta, target)
 
 
 def _linear_map(
@@ -286,6 +304,14 @@ class RTGController:
         self._hoist_translate = stage.GetPrimAtPath(HOIST_PATH).GetAttribute(
             "xformOp:translate"
         )
+        self._spreader_front_translate = self._spreader_translate_attr(
+            SPREADER_FRONT_TELESCOPE_PATH
+        )
+        self._spreader_rear_translate = self._spreader_translate_attr(
+            SPREADER_REAR_TELESCOPE_PATH
+        )
+        self._spreader_offset_m = self._read_spreader_offset()
+        self._spreader_last_update_at = time.monotonic()
         self._ropes = UsdGeom.BasisCurves.Get(stage, ROPE_SYSTEM_PATH)
         if not self._ropes:
             raise RuntimeError(f"Missing rope system: {ROPE_SYSTEM_PATH}")
@@ -297,6 +323,36 @@ class RTGController:
         return UsdPhysics.DriveAPI.Get(
             joint.GetPrim(), UsdPhysics.Tokens.linear
         ).GetTargetPositionAttr()
+
+    def _spreader_translate_attr(self, prim_path: str):
+        prim = self.stage.GetPrimAtPath(prim_path)
+        if not prim:
+            return None
+        xform = UsdGeom.Xformable(prim)
+        # Blender/USD may author the telescoping op with a suffix while the
+        # runtime helper historically looked only for the unsuffixed name.
+        # Reuse any existing translate op before attempting to add one; USD
+        # rejects adding ``rtgTelescoping`` a second time.
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                return op.GetAttr()
+        with Usd.EditContext(self.stage, self._session):
+            return xform.AddTranslateOp(
+                UsdGeom.XformOp.PrecisionDouble,
+                "rtgTelescoping",
+            ).GetAttr()
+
+    def _read_spreader_offset(self) -> float:
+        if not self._spreader_front_translate:
+            return 0.0
+        value = self._spreader_front_translate.Get()
+        if value is None:
+            return 0.0
+        return _clamp(
+            float(value[1]),
+            0.0,
+            SPREADER_TELESCOPE_TRAVEL_M,
+        )
 
     def _set_gantry_controller_y(self, controller_y: float) -> None:
         """Write one already-calibrated controller Y to both gantry controls."""
@@ -375,6 +431,39 @@ class RTGController:
         """Set hoist height while keeping the spreader at least 0.5 m above ground."""
         return self.set_hoist(_clamp(height_m, *HOIST_SOFT_LIMITS))
 
+    def set_spreader_size(
+        self,
+        size_ft: int,
+        *,
+        smooth: bool = True,
+    ) -> float | None:
+        """Move both telescopic end carriages to the requested ISO box length."""
+        if size_ft not in (20, 40):
+            raise ValueError(f"Unsupported spreader size: {size_ft!r}")
+        if not self._spreader_front_translate or not self._spreader_rear_translate:
+            return None
+
+        now = time.monotonic()
+        elapsed = _clamp(now - self._spreader_last_update_at, 0.0, 0.5)
+        self._spreader_last_update_at = now
+        target = SPREADER_TELESCOPE_TRAVEL_M if size_ft == 20 else 0.0
+        if smooth:
+            offset = _move_toward(
+                self._spreader_offset_m,
+                target,
+                SPREADER_TELESCOPE_SPEED_M_S * elapsed,
+            )
+        else:
+            offset = target
+
+        with Usd.EditContext(self.stage, self._session):
+            self._spreader_front_translate.Set(Gf.Vec3d(0.0, offset, 0.0))
+            self._spreader_rear_translate.Set(Gf.Vec3d(0.0, -offset, 0.0))
+        self._spreader_offset_m = offset
+
+        contraction = offset / SPREADER_TELESCOPE_TRAVEL_M
+        return 40.0 - 20.0 * contraction
+
     def set_positions(
         self, *, gantry_m: float, trolley_m: float, hoist_m: float
     ) -> tuple[float, float, float]:
@@ -421,6 +510,7 @@ __all__ = [
     "RTG_WORK_CENTER_LOCAL_Y_M",
     "TROLLEY_ENGINEERING_LIMITS",
     "TROLLEY_SOFT_LIMITS",
+    "SPREADER_TELESCOPE_TRAVEL_M",
     "YARD_TOTAL_LENGTH_M",
     "gantry_actual_to_usd",
     "gantry_bay_id_to_usd",

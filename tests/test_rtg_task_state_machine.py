@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,8 @@ SCRIPT_DIR = PROJECT_ROOT / "omniverse" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from rtg_simulation_driver import _task_from_payload  # noqa: E402
+from rtg_simulation_driver import RtgSimulationDriver  # noqa: E402
 from rtg_task_state_machine import (  # noqa: E402
     OperationState,
     OperationTask,
@@ -37,6 +40,63 @@ def plc(**overrides):
 
 
 class OperationStateMachineTests(unittest.TestCase):
+    def test_simulation_reaches_complete_for_all_work_types(self) -> None:
+        scenarios = (
+            ("LOAD", None, "3C6321"),
+            ("UNLOAD", "3C6321", None),
+            ("SWITCH", "3C6321", "3C6351"),
+        )
+        for work_type, start_pos, end_pos in scenarios:
+            simulator = RtgSimulationDriver()
+            simulator.publish(
+                {
+                    "work_type": work_type,
+                    "start_pos": start_pos,
+                    "end_pos": end_pos,
+                    "bay_map": "441000",
+                    "container_size": 20,
+                    "task_id": f"sim-{work_type.lower()}",
+                }
+            )
+            now = time.monotonic()
+            for tick in range(1600):
+                current = now + tick * 0.05
+                pose = simulator._make_pose(current)
+                transition = simulator._machine.update(  # type: ignore[union-attr]
+                    PlcOperationSnapshot(
+                        field=simulator._task.operation.source.field,  # type: ignore[union-attr]
+                        bay=simulator._current_bay,
+                        trolley_m=simulator._current_trolley,
+                        hoist_m=simulator._current_hoist,
+                        locked=simulator._lock,
+                    ),
+                    current,
+                )
+                if transition is not None:
+                    simulator._state_entered_at = current
+                if simulator.state in ("COMPLETE", "FAULT"):
+                    break
+            self.assertEqual(simulator.state, "COMPLETE", work_type)
+
+    def test_simulation_payload_builds_all_three_work_types(self) -> None:
+        load = _task_from_payload(
+            {"work_type": "LOAD", "end_pos": "3C6321", "task_id": "l1"}
+        )
+        unload = _task_from_payload(
+            {"work_type": "UNLOAD", "start_pos": "3C6321", "task_id": "u1"}
+        )
+        switch = _task_from_payload(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C6321",
+                "end_pos": "3C6351",
+                "task_id": "s1",
+            }
+        )
+        self.assertEqual(load.work_type, "LOAD")
+        self.assertEqual(unload.source.row, 2)
+        self.assertEqual(switch.target.row, 5)
+
     def test_unload_waits_for_gantry_bay_then_starts_truck(self) -> None:
         machine = RtgOperationStateMachine(
             OperationTask(

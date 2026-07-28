@@ -1,0 +1,17 @@
+#usda 1.0
+(
+    customLayerData = {
+        string description = "Persistent virtual scene cameras generated from RTG C1-C33 green marker positions"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "RTGVirtualCameras"
+    {
+        custom string rtg:virtualCameraSource = "Run omniverse/scripts/rtg_virtual_cameras.py save_rtg_virtual_camera_layer() in Kit to bake C01-C33 cameras"
+    }
+}

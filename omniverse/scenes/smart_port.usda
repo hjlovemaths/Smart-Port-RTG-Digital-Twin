@@ -33,6 +33,7 @@
     startTimeCode = 1
     subLayers = [
         @./live_containers.usda@,
+        @./rtg_virtual_cameras.usda@,
         @./rtg_simready.usda@
     ]
     timeCodesPerSecond = 24
@@ -71,11 +72,11 @@ def Xform "World"
                 float exposure:responsivity = 1.1026709
                 float exposure:time = 0.02
                 bool omni:kit:cameraLock = 0
+                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -43.98959918422074)
                 token visibility = "invisible"
-                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -68.32129752438678)
-                float3 xformOp:rotateYXZ = (7.4601583, 13.889879, 0.81765515)
+                float3 xformOp:rotateYXZ = (7.883218, -44.283688, -2.815008)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (160.3591453845531, 63.601169059281474, -334.94100931308475)
+                double3 xformOp:translate = (-18.152084409771124, 1.2561623424033865, -36.32589937365525)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
             }
         }
@@ -2660,7 +2661,7 @@ def "Render" (
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
-                uniform int2 resolution = (1343, 585)
+                uniform int2 resolution = (1343, 604)
             }
         }
     }
@@ -2788,4 +2789,3 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
-

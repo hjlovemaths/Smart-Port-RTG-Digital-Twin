@@ -59,6 +59,153 @@ Omniverse / Isaac Sim     WPF 客户端
 4. 修改 Blender 模型后，先运行 `omniverse/scripts/configure_rtg_roles.py` 修复 RTG 角色和层级，再运行 `omniverse/scripts/export_usd.py` 重新导出。
 5. `omniverse/scenes/rtg_simready.usda` 负责非破坏性的 SimReady 元数据和动态绳索覆盖。
 
+## 运行与调试指令
+
+以下 Python 指令需要在 Omniverse Kit 的 Script Editor 中执行，并且应先打开
+`omniverse/scenes/smart_port.usda`。模拟任务和实时 PLC 接收器会写入同一套
+RTG 会话层变换，二者不要同时运行。
+
+### 1. 发布模拟作业任务
+
+没有 PLC 数据时，可使用模拟驱动完整调试箱区渲染、集卡进出、吊具抓放和
+LOAD、UNLOAD、SWITCH 三种作业状态机：
+
+```python
+try:
+    stop_live_driver()
+except NameError:
+    pass
+
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_simulation_driver.py", encoding="utf-8").read())
+start_simulation()
+```
+
+出箱：从 `3C/063` 的第2排第4层抓箱并放到集卡：
+
+```python
+publish_simulated_task(
+    work_type="UNLOAD",
+    start_pos="3C6324",
+    bay_map="441000",
+    container_size=20,
+    container_no="SIM-UNLOAD-001",
+)
+```
+
+进箱：从集卡抓箱并放到 `3C/063` 的第2排第1层：
+
+```python
+publish_simulated_task(
+    work_type="LOAD",
+    end_pos="3C6321",
+    bay_map="401000",
+    container_size=20,
+    container_no="SIM-LOAD-001",
+)
+```
+
+翻箱：从第2排第3层移动到第5排第1层：
+
+```python
+publish_simulated_task(
+    work_type="SWITCH",
+    start_pos="3C6323",
+    end_pos="3C6351",
+    bay_map="441000",
+    container_size=20,
+    container_no="SIM-SWITCH-001",
+)
+```
+
+位置格式为“堆场 + 贝号 + 排 + 层”，例如 `3C6324` 表示
+`3C/063，第2排，第4层`。常用调试命令：
+
+```python
+get_simulation_status()   # 查看当前状态机阶段和任务
+clear_simulated_task()    # 清除当前模拟任务
+stop_simulation()         # 停止模拟驱动
+```
+
+### 2. 订阅 PLC 和任务消息
+
+实时链路为：
+
+```text
+PLC ZMQ :5515 + task/runinfo ZMQ :7065
+  -> services/rtg_twin_service.py
+  -> TCP 127.0.0.1:48700（每行一个 TwinState JSON）
+  -> omniverse/scripts/rtg_twin_state_receiver.py
+  -> RTG、箱区、集卡和状态机
+```
+
+先在项目根目录的 PowerShell 中启动桥接服务：
+
+```powershell
+python services\rtg_twin_service.py --config services\rtg_twin_service.config.json
+```
+
+然后在 Kit Script Editor 中启动实时接收与模型驱动：
+
+```python
+try:
+    stop_simulation()
+except NameError:
+    pass
+
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_twin_state_receiver.py", encoding="utf-8").read())
+```
+
+脚本默认连接 `127.0.0.1:48700` 并自动调用 `start_live_driver()`。调试命令：
+
+```python
+get_latest_state()         # 查看最近一帧 PLC + 任务快照
+apply_latest_state_once()  # 手工重放最近一帧
+stop_live_driver()         # 停止订阅和场景驱动
+start_live_driver("127.0.0.1", 48700)  # 再次启动或指定地址
+```
+
+只检查服务的数据转换而不持续运行：
+
+```powershell
+python services\rtg_twin_service.py --once
+python services\rtg_twin_service.py --once --plc-json path\to\Yard_PLC_RTG_220.json --task-json path\to\Yard_TaskInfo_RTG_220.json
+```
+
+跳板机主动拉取、消息落盘和 WPF 调试端口说明见
+[`services/README.md`](services/README.md)。
+
+### 3. 创建和打开 RTG 虚拟相机
+
+加载虚拟相机工具：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_virtual_cameras.py", encoding="utf-8").read())
+```
+
+只在当前会话创建 C01-C33，并立即切换到 C01：
+
+```python
+create_rtg_virtual_cameras()
+open_rtg_virtual_camera(1)
+```
+
+切换其他相机：
+
+```python
+open_rtg_virtual_camera(12)
+open_rtg_virtual_camera(33)
+```
+
+将相机永久保存到 `omniverse/scenes/rtg_virtual_cameras.usda`：
+
+```python
+save_rtg_virtual_camera_layer()
+```
+
+该层已经由 `smart_port.usda` 组合，保存后重新打开或重新加载场景即可自动得到
+C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_cameras()`；
+清理当前会话生成的相机使用 `cleanup_rtg_virtual_cameras()`。
+
 ## 目录
 
 - `blender/`：Blender 源模型。
