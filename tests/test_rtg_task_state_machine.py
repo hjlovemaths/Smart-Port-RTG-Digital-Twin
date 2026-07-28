@@ -11,6 +11,7 @@ SCRIPT_DIR = PROJECT_ROOT / "omniverse" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from rtg_simulation_driver import _simulation_task_snapshot  # noqa: E402
 from rtg_simulation_driver import _task_from_payload  # noqa: E402
 from rtg_simulation_driver import RtgSimulationDriver  # noqa: E402
 from rtg_task_state_machine import (  # noqa: E402
@@ -97,6 +98,28 @@ class OperationStateMachineTests(unittest.TestCase):
         self.assertEqual(unload.source.row, 2)
         self.assertEqual(switch.target.row, 5)
 
+    def test_simulation_snapshot_exposes_authoritative_visual_phase(self) -> None:
+        simulator = RtgSimulationDriver()
+        simulator.publish(
+            {
+                "work_type": "UNLOAD",
+                "start_pos": "3C6324",
+                "bay_map": "441000",
+                "container_size": 20,
+                "task_id": "sim-visual-state",
+            }
+        )
+        simulator._machine.state = OperationState.TROLLEY_TO_TARGET  # type: ignore[union-attr]
+
+        snapshot = _simulation_task_snapshot(
+            simulator._task,  # type: ignore[arg-type]
+            simulator._machine,  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(snapshot["stateSource"], "SIMULATION")
+        self.assertEqual(snapshot["operationState"], "TROLLEY_TO_TARGET")
+        self.assertEqual(snapshot["visualPhase"], "CARRYING")
+
     def test_unload_waits_for_gantry_bay_then_starts_truck(self) -> None:
         machine = RtgOperationStateMachine(
             OperationTask(
@@ -145,7 +168,14 @@ class OperationStateMachineTests(unittest.TestCase):
         self.assertEqual(machine.update(plc(trolley_m=15.19, locked=True), now + 0.6).current, OperationState.HOIST_TO_PLACE)
         self.assertEqual(machine.update(plc(trolley_m=15.19, locked=True), now + 0.7).current, OperationState.UNLOCK)
         self.assertEqual(machine.update(plc(trolley_m=15.19, locked=False), now + 0.8).current, OperationState.HOIST_SAFE)
-        self.assertEqual(machine.update(plc(trolley_m=15.19, locked=False, hoist_m=8.0), now + 0.9).current, OperationState.COMPLETE)
+        self.assertEqual(machine.safe_hoist_m, 10.0)
+        self.assertIsNone(
+            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=8.0), now + 0.9)
+        )
+        self.assertEqual(
+            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=10.0), now + 1.0).current,
+            OperationState.COMPLETE,
+        )
 
     def test_unload_requires_truck_exit_after_release(self) -> None:
         machine = RtgOperationStateMachine(

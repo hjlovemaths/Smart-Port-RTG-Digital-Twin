@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -105,6 +106,33 @@ class TaskPositionTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_only_explicit_simulator_phase_bypasses_plc_state_machine(self) -> None:
+        self.assertEqual(
+            receiver._simulated_visual_phase(
+                {
+                    "stateSource": "SIMULATION",
+                    "visualPhase": "CARRYING",
+                }
+            ),
+            receiver.TASK_STATE_CARRYING,
+        )
+        self.assertIsNone(
+            receiver._simulated_visual_phase(
+                {
+                    "stateSource": "PLC",
+                    "visualPhase": "CARRYING",
+                }
+            )
+        )
+        self.assertIsNone(
+            receiver._simulated_visual_phase(
+                {
+                    "stateSource": "SIMULATION",
+                    "visualPhase": "UNKNOWN",
+                }
+            )
+        )
+
     def test_spreader_size_prefers_plc_limit_signal(self) -> None:
         self.assertEqual(
             receiver._requested_spreader_size_ft(
@@ -143,6 +171,26 @@ class TaskVisualPolicyTests(unittest.TestCase):
             receiver._requested_spreader_size_ft(
                 {"tool20f": 1, "tool40f": 1},
                 {"containerSize": 20},
+            )
+        )
+
+    def test_spreader_endpoint_signal_snaps_to_exact_reported_size(self) -> None:
+        self.assertTrue(
+            receiver._spreader_size_limit_confirmed(
+                {"tool20f": 1, "tool40f": 0},
+                20,
+            )
+        )
+        self.assertTrue(
+            receiver._spreader_size_limit_confirmed(
+                {"tool20f": 0, "tool40f": 1},
+                40,
+            )
+        )
+        self.assertFalse(
+            receiver._spreader_size_limit_confirmed(
+                {"tool20f": 0, "tool40f": 0},
+                20,
             )
         )
 
@@ -199,6 +247,122 @@ class TaskVisualPolicyTests(unittest.TestCase):
             receiver.LIVE_HOISTED_LOAD_PATH.startswith("/World/LiveContainers/")
         )
         self.assertNotIn("RTG_PRIMARY_DYNAMIC", receiver.LIVE_HOISTED_LOAD_PATH)
+
+    def test_carried_box_x_matches_truck_and_all_six_row_centres(self) -> None:
+        expected = (
+            (0.67, -4.65),
+            (3.71, -1.0981016666666639),
+            (6.66, 0.4081853333333361),
+            (9.50, 1.9144723333333360),
+            (12.35, 3.4207593333333360),
+            (15.19, 4.9270463333333360),
+            (18.06, 6.4333333333333360),
+        )
+
+        for trolley_m, center_x in expected:
+            with self.subTest(trolley_m=trolley_m):
+                self.assertAlmostEqual(
+                    receiver._carried_box_world_x(trolley_m),
+                    center_x,
+                )
+
+    def test_carried_box_moves_toward_truck_with_the_visible_trolley(self) -> None:
+        source_x = receiver._carried_box_world_x(15.19)
+        halfway_x = receiver._carried_box_world_x(9.50)
+        truck_x = receiver._carried_box_world_x(0.67)
+
+        self.assertGreater(source_x, halfway_x)
+        self.assertGreater(halfway_x, truck_x)
+
+    def test_only_the_20ft_spreader_receives_the_short_box_center_correction(self) -> None:
+        self.assertEqual(receiver._spreader_center_offset_y(20), -0.30)
+        self.assertEqual(receiver._spreader_center_offset_y(40), 0.0)
+        self.assertEqual(receiver._spreader_center_offset_y(None), 0.0)
+
+    def test_locked_source_uses_spreader_target_without_time_lag(self) -> None:
+        class IdentityTransform:
+            def Transform(self, value):
+                return value
+
+            def GetInverse(self):
+                return self
+
+        class SourcePrim:
+            def GetParent(self):
+                return object()
+
+            def GetPath(self):
+                return "/World/LiveContainers/Task/R02_T04_Container"
+
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace(Vec3d=lambda *values: tuple(values))
+        fake_pxr.UsdGeom = types.SimpleNamespace(
+            XformCache=lambda: types.SimpleNamespace(
+                GetLocalToWorldTransform=lambda _prim: IdentityTransform()
+            )
+        )
+
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._last_task_source_path = str(SourcePrim().GetPath())
+        driver._get_xform_scale = lambda _prim: (2.4, 6.1, 2.6)
+        driver._get_xform_translate = lambda _prim: (1.0, 5.0, 2.0)
+        driver._hoisted_container_world_center = (
+            lambda _stage, _height, trolley_m=None: (7.0, 99.0, 8.0)
+        )
+        targets = []
+        driver._move_task_source_to_local_target = (
+            lambda _stage, _source, _parent, target: targets.append(target)
+        )
+        stage = types.SimpleNamespace(
+            GetPrimAtPath=lambda _path: SourcePrim()
+        )
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            with patch.object(receiver.time, "time", return_value=0.01):
+                driver._move_task_source_with_spreader(stage, trolley_m=15.19)
+
+        self.assertEqual(targets, [(7.0, 5.0, 8.0)])
+
+    def test_load_carried_box_keeps_the_task_truck_longitudinal_center(self) -> None:
+        class SourceTransform:
+            def Transform(self, _value):
+                return (101.0, 6.85, 3.0)
+
+        source = object()
+        stage = types.SimpleNamespace(
+            GetPrimAtPath=lambda _path: source,
+        )
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace(Vec3d=lambda *values: tuple(values))
+        fake_pxr.UsdGeom = types.SimpleNamespace(
+            XformCache=lambda: types.SimpleNamespace(
+                GetLocalToWorldTransform=lambda prim: (
+                    SourceTransform() if prim is source else None
+                )
+            )
+        )
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            center = receiver.OmniverseRtgTwinDriver._load_carried_box_world_center(
+                stage,
+                (4.927, 27.0, 7.5),
+            )
+
+        self.assertEqual(center, (4.927, 6.85, 7.5))
+
+    def test_load_target_stack_slot_uses_target_row_and_tier(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+
+        self.assertEqual(
+            driver._load_target_stack_slot({"endPos": "1C423"}),
+            (2, 3),
+        )
+        self.assertIsNone(
+            driver._load_target_stack_slot({"endPos": "1C4"})
+        )
+        self.assertIsNone(
+            driver._load_target_stack_slot({"endPos": "1C427"})
+        )
 
     def test_load_truck_arrives_loaded_and_leaves_empty(self) -> None:
         self.assertTrue(

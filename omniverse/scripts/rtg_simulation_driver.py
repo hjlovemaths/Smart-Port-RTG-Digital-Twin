@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 import time
-import importlib
+import types
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -30,16 +30,33 @@ if not (SCRIPT_DIR / "rtg_task_state_machine.py").is_file():
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from rtg_task_state_machine import (  # noqa: E402
-    OperationState,
-    OperationTask,
-    PlcOperationSnapshot,
-    RtgOperationStateMachine,
-    TaskSlot,
-    WORK_TYPE_LOAD,
-    WORK_TYPE_SWITCH,
-    WORK_TYPE_UNLOAD,
-)
+
+def _load_state_machine_module_from_source() -> types.ModuleType:
+    """Load the state machine source on every Script Editor execution."""
+
+    module_name = "rtg_task_state_machine"
+    module_path = SCRIPT_DIR / f"{module_name}.py"
+    module = types.ModuleType(module_name)
+    module.__file__ = str(module_path)
+    module.__package__ = ""
+    sys.modules[module_name] = module
+    exec(
+        compile(module_path.read_text(encoding="utf-8"), str(module_path), "exec"),
+        module.__dict__,
+    )
+    return module
+
+
+_state_machine_module = _load_state_machine_module_from_source()
+OperationState = _state_machine_module.OperationState
+OperationTask = _state_machine_module.OperationTask
+PlcOperationSnapshot = _state_machine_module.PlcOperationSnapshot
+RtgOperationStateMachine = _state_machine_module.RtgOperationStateMachine
+TaskSlot = _state_machine_module.TaskSlot
+WORK_TYPE_LOAD = _state_machine_module.WORK_TYPE_LOAD
+WORK_TYPE_SWITCH = _state_machine_module.WORK_TYPE_SWITCH
+WORK_TYPE_UNLOAD = _state_machine_module.WORK_TYPE_UNLOAD
+
 from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
 
@@ -121,6 +138,48 @@ class SimulationTask:
     container_size: int
 
 
+def _load_receiver_module_from_source() -> Any:
+    """Load the project receiver source without Kit's stale module cache."""
+
+    module_name = "rtg_twin_state_receiver"
+    module_path = SCRIPT_DIR / f"{module_name}.py"
+    previous = sys.modules.get(module_name)
+    previous_stop = getattr(previous, "stop_live_driver", None)
+    if callable(previous_stop):
+        previous_stop()
+
+    module = types.ModuleType(module_name)
+    module.__file__ = str(module_path)
+    module.__package__ = ""
+    sys.modules[module_name] = module
+    exec(
+        compile(
+            module_path.read_text(encoding="utf-8"),
+            str(module_path),
+            "exec",
+        ),
+        module.__dict__,
+    )
+    return module
+
+
+def _simulation_task_snapshot(
+    task: SimulationTask,
+    machine: RtgOperationStateMachine,
+) -> Dict[str, Any]:
+    """Add the simulator state-machine phase to a normal task snapshot."""
+
+    payload = dict(task.task_payload)
+    payload.update(
+        {
+            "stateSource": "SIMULATION",
+            "operationState": machine.state.value,
+            "visualPhase": machine.visual_phase(),
+        }
+    )
+    return payload
+
+
 class RtgSimulationDriver:
     """Generate a PLC-shaped state stream and apply it on Kit's main thread."""
 
@@ -146,17 +205,11 @@ class RtgSimulationDriver:
     def start(self) -> "RtgSimulationDriver":
         if self._subscription is not None:
             return self
-        # Kit keeps imported Python modules alive between Script Editor runs.
-        # Reload both runtime pieces so the height targets and the visible
-        # grab/place animation are used immediately instead of a stale cached
-        # receiver/controller class.
-        for module_name in ("rtg_live_control", "rtg_twin_state_receiver"):
-            module = sys.modules.get(module_name)
-            if module is not None:
-                importlib.reload(module)
         try:
             import omni.kit.app  # type: ignore
 
+            receiver_module = _load_receiver_module_from_source()
+            self._driver = receiver_module.OmniverseRtgTwinDriver()
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgSimulationDriver"
@@ -249,13 +302,12 @@ class RtgSimulationDriver:
             "rtgName": SIMULATION_RTG_NAME,
             "timestampUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "pose": pose,
-            "task": dict(self._task.task_payload),
+            "task": _simulation_task_snapshot(self._task, self._machine),
         }
         try:
             if self._driver is None:
-                from rtg_twin_state_receiver import OmniverseRtgTwinDriver
-
-                self._driver = OmniverseRtgTwinDriver()
+                receiver_module = _load_receiver_module_from_source()
+                self._driver = receiver_module.OmniverseRtgTwinDriver()
             self._driver.apply_state(state)
         except Exception as exc:
             print(f"[RTG Simulation] apply failed: {exc}")
@@ -291,7 +343,7 @@ class RtgSimulationDriver:
             self._lock = elapsed >= HOIST_TRAVEL_SECONDS + LOCK_SETTLE_SECONDS
         elif state in (OperationState.LOCK, OperationState.HOIST_UP, OperationState.TROLLEY_TO_TARGET):
             self._lock = True
-            self._current_hoist = 6.0
+            self._current_hoist = self._safe_hoist_target_m()
         elif state == OperationState.HOIST_TO_PLACE:
             place_target = self._place_hoist_target_m()
             progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
@@ -299,13 +351,14 @@ class RtgSimulationDriver:
             # machine release it until the truck/target contact height is
             # actually reached.
             self._lock = elapsed >= HOIST_TRAVEL_SECONDS
-            self._current_hoist = 6.0 + (place_target - 6.0) * progress
+            travel_height = self._safe_hoist_target_m()
+            self._current_hoist = travel_height + (place_target - travel_height) * progress
         elif state == OperationState.UNLOCK:
             self._lock = elapsed < UNLOCK_SETTLE_SECONDS
             self._current_hoist = self._place_hoist_target_m()
         elif state in (OperationState.HOIST_SAFE, OperationState.TRUCK_EXITING, OperationState.COMPLETE):
             self._lock = False
-            self._current_hoist = 6.0
+            self._current_hoist = self._safe_hoist_target_m()
         else:
             self._lock = False
             self._current_hoist = 6.0
@@ -343,6 +396,12 @@ class RtgSimulationDriver:
             return TRUCK_PLACE_HOIST_M
         tier = operation.target.tier or 1
         return FIRST_TIER_PICK_HOIST_M + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
+
+    def _safe_hoist_target_m(self) -> float:
+        """Keep the spreader clear of the tallest target during and after placement."""
+
+        assert self._machine is not None
+        return max(6.0, self._machine.safe_hoist_m)
 
     @staticmethod
     def _ramp(current: float, target: float, elapsed: float) -> float:

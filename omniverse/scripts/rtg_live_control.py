@@ -16,6 +16,8 @@ from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 try:
     from yard_coordinate_mapping import (
+        BAY_GAP_M,
+        BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
@@ -28,6 +30,8 @@ try:
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parent))
     from yard_coordinate_mapping import (
+        BAY_GAP_M,
+        BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
@@ -53,7 +57,14 @@ SPREADER_FRONT_TELESCOPE_PATH = (
 SPREADER_REAR_TELESCOPE_PATH = (
     f"{HOIST_PATH}/ANIM_CTRL_SPREADER_TELESCOPE_REAR"
 )
-SPREADER_TELESCOPE_TRAVEL_M = 1.3375
+# The authored spreader is 40 ft long in the compact yard scale.  Moving both
+# telescopic ends inward by half the 40-to-20 ft length difference makes its
+# overall Y length exactly equal to the rendered 20 ft container.
+SPREADER_40FT_LENGTH_M = BAY_LENGTH_M * 2.0 + BAY_GAP_M
+SPREADER_20FT_LENGTH_M = BAY_LENGTH_M
+SPREADER_TELESCOPE_TRAVEL_M = (
+    SPREADER_40FT_LENGTH_M - SPREADER_20FT_LENGTH_M
+) * 0.5
 SPREADER_TELESCOPE_SPEED_M_S = 0.45
 # Live commands are offsets from the Blender-authored frame-1 pose.  Keeping
 # all three controller origins at zero prevents the first ROS2/WPF command from
@@ -153,6 +164,10 @@ RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M = -3.4
 # ``63`` label and the 20-ft box center.  Continuous big-car metre commands
 # intentionally keep their original calibration.
 RTG_BAY_CENTERLINE_CORRECTION_Y_M = -1.3375
+# The 20 ft telescope geometry is slightly biased toward the land-side/right
+# edge of a short box.  Apply this small bay-travel-only correction while the
+# 20 ft end-stop is active; 40 ft work keeps the validated centreline above.
+SPREADER_20FT_CENTER_OFFSET_Y_M = -0.30
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
@@ -249,12 +264,19 @@ def gantry_usd_to_actual(controller_y_m: float) -> float:
     return work_center_scene_y - YARD_LAYOUT_START_Y_M
 
 
-def gantry_bay_to_usd(block: str, bay_number: int, anchor: str = "center") -> float:
+def gantry_bay_to_usd(
+    block: str,
+    bay_number: int,
+    anchor: str = "center",
+    *,
+    center_offset_y: float = 0.0,
+) -> float:
     """Return the Y that puts the RTG short-beam centre on a yard bay line."""
     return (
         bay_scene_y_m(block, bay_number, anchor)
         + RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
         + RTG_BAY_CENTERLINE_CORRECTION_Y_M
+        + float(center_offset_y)
         - RTG_WORK_CENTER_LOCAL_Y_M
     )
 
@@ -375,11 +397,23 @@ class RTGController:
         return actual
 
     def set_gantry_bay(
-        self, block: str, bay_number: int, anchor: str = "center"
+        self,
+        block: str,
+        bay_number: int,
+        anchor: str = "center",
+        *,
+        center_offset_y: float = 0.0,
     ) -> float:
         """Centre the RTG short beam on a yard bay target such as 1C/025."""
         actual = bay_position_m(block, bay_number, anchor)
-        self._set_gantry_controller_y(gantry_bay_to_usd(block, bay_number, anchor))
+        self._set_gantry_controller_y(
+            gantry_bay_to_usd(
+                block,
+                bay_number,
+                anchor,
+                center_offset_y=center_offset_y,
+            )
+        )
         return actual
 
     def set_gantry_bay_id(self, bay_id: str, anchor: str = "center") -> float:
@@ -508,6 +542,9 @@ __all__ = [
     "RTGController",
     "RTG_BAY_CENTERLINE_CORRECTION_Y_M",
     "RTG_WORK_CENTER_LOCAL_Y_M",
+    "SPREADER_20FT_CENTER_OFFSET_Y_M",
+    "SPREADER_20FT_LENGTH_M",
+    "SPREADER_40FT_LENGTH_M",
     "TROLLEY_ENGINEERING_LIMITS",
     "TROLLEY_SOFT_LIMITS",
     "SPREADER_TELESCOPE_TRAVEL_M",

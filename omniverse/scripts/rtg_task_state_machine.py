@@ -87,6 +87,8 @@ class RtgOperationStateMachine:
 
     POSITION_TOLERANCE_M = 0.35
     SAFE_HOIST_M = 4.0
+    SAFE_HOIST_CLEARANCE_M = 2.50
+    MAX_HOIST_M = 15.0
 
     def __init__(
         self,
@@ -122,6 +124,19 @@ class RtgOperationStateMachine:
         if self.task.work_type == WORK_TYPE_UNLOAD:
             return TRUCK_TROLLEY_M
         return self._slot_trolley(self.task.target)
+
+    @property
+    def safe_hoist_m(self) -> float:
+        """Return a clearance height that keeps the spreader above its target."""
+
+        if self.task.work_type not in (WORK_TYPE_LOAD, WORK_TYPE_SWITCH):
+            return self.SAFE_HOIST_M
+        tier = self.task.target.tier or 1
+        target_contact_m = max(1, tier) * self.SAFE_HOIST_CLEARANCE_M
+        return min(
+            self.MAX_HOIST_M,
+            max(self.SAFE_HOIST_M, target_contact_m + self.SAFE_HOIST_CLEARANCE_M),
+        )
 
     def update(self, plc: PlcOperationSnapshot, now: float) -> Optional[StateTransition]:
         """Advance at most one state, based solely on the latest PLC snapshot."""
@@ -186,7 +201,7 @@ class RtgOperationStateMachine:
             if not plc.locked:
                 next_state = (OperationState.HOIST_SAFE, "PLC unlock confirmed")
         elif self.state == OperationState.HOIST_SAFE:
-            if plc.hoist_m is None or plc.hoist_m >= self.SAFE_HOIST_M:
+            if plc.hoist_m is None or plc.hoist_m >= self.safe_hoist_m:
                 next_state = (
                     OperationState.TRUCK_EXITING
                     if self.uses_truck

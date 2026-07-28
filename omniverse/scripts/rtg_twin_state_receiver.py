@@ -106,6 +106,20 @@ TASK_STATE_READY_TO_PICK = "READY_TO_PICK"
 TASK_STATE_CARRYING = "CARRYING"
 TASK_STATE_PLACED = "PLACED"
 TASK_STATE_TRUCK_EXITING = "TRUCK_EXITING"
+TASK_VISUAL_STATES = frozenset(
+    (
+        TASK_STATE_IDLE,
+        TASK_STATE_GANTRY_TO_SOURCE,
+        TASK_STATE_TRUCK_APPROACH,
+        TASK_STATE_TRUCK_WAITING,
+        TASK_STATE_READY_TO_PICK,
+        TASK_STATE_CARRYING,
+        TASK_STATE_PLACED,
+        TASK_STATE_TRUCK_EXITING,
+        "COMPLETE",
+        "FAULT",
+    )
+)
 
 WORK_TYPE_LOAD = "LOAD"
 WORK_TYPE_UNLOAD = "UNLOAD"
@@ -125,6 +139,24 @@ TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
 # the travel direction.  Stopping exactly on the bay centre makes the truck look
 # like it has driven a little past the work position, so hold it back slightly.
 TASK_TRUCK_STOP_Y_OFFSET_M = 2.0
+SPREADER_20FT_CENTER_OFFSET_Y_M = -0.30
+# Calibrated world-space container centres for the PLC trolley stops.  The RTG
+# asset has an inverted/non-uniform X hierarchy, so transforming the rope
+# points through that hierarchy and then writing the result under
+# /World/LiveContainers can make an attached box travel in the opposite
+# direction from the visible trolley.  These stops are the same row centres
+# used by the bay-map renderer and keep the carried box on the spreader from
+# the truck lane through rows 6..1.
+TROLLEY_CARRIED_BOX_X_CALIBRATION = (
+    (0.48, TRUCK_OPERATING_LANE_CENTER_X_M),
+    (1.00, TRUCK_OPERATING_LANE_CENTER_X_M),
+    (3.71, -1.0981016666666639),  # row 6
+    (6.66, 0.4081853333333361),   # row 5
+    (9.50, 1.9144723333333360),   # row 4
+    (12.35, 3.4207593333333360),  # row 3
+    (15.19, 4.9270463333333360),  # row 2
+    (18.06, 6.4333333333333360),  # row 1
+)
 # Local attachment point on ANIM_CTRL_RTG_HOIST_VERTICAL. The carried box is
 # authored at world scope so it keeps the source box dimensions instead of
 # inheriting RTG_PRIMARY_DYNAMIC's non-uniform X scale.
@@ -137,6 +169,47 @@ RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
 
 def _hoisted_container_local_center_z(container_height: float) -> float:
     return SPREADER_CONTAINER_CONTACT_LOCAL_Z - float(container_height) * 0.5
+
+
+def _carried_box_world_x(trolley_m: Optional[float]) -> Optional[float]:
+    """Map a PLC trolley reading to the matching rendered lane/row centre."""
+
+    if trolley_m is None:
+        return None
+    value = float(trolley_m)
+    points = TROLLEY_CARRIED_BOX_X_CALIBRATION
+    if value <= points[0][0]:
+        return points[0][1]
+    for (source_a, target_a), (source_b, target_b) in zip(points, points[1:]):
+        if value <= source_b:
+            if math.isclose(source_a, source_b):
+                return target_b
+            ratio = (value - source_a) / (source_b - source_a)
+            return target_a + (target_b - target_a) * ratio
+    return points[-1][1]
+
+
+def _spreader_center_offset_y(size_ft: Optional[int]) -> float:
+    """Return the short-box-only bay-travel correction for the visible spreader."""
+
+    return SPREADER_20FT_CENTER_OFFSET_Y_M if size_ft == 20 else 0.0
+
+
+def _simulated_visual_phase(task: Dict[str, Any]) -> Optional[str]:
+    """Return the simulator's authoritative visual phase when explicitly marked.
+
+    The PLC-free simulator already executes the same formal operation state
+    machine.  Running a second, independently timed machine in the scene
+    receiver can lag behind the short simulator animation and leave the source
+    box in ``TROLLEY_TO_SOURCE`` after the simulator has already unlocked it.
+    Real PLC tasks do not carry ``stateSource=SIMULATION`` and continue to use
+    the receiver's PLC-driven state machine.
+    """
+
+    if str(task.get("stateSource") or "").strip().upper() != "SIMULATION":
+        return None
+    phase = str(task.get("visualPhase") or "").strip().upper()
+    return phase if phase in TASK_VISUAL_STATES else None
 
 
 @dataclass
@@ -194,6 +267,21 @@ def _requested_spreader_size_ft(
     if size in (40, 2, 45, 3):
         return 40
     return inferred_task_size_ft if inferred_task_size_ft in (20, 40) else None
+
+
+def _spreader_size_limit_confirmed(
+    pose: Dict[str, Any],
+    requested_size_ft: Optional[int],
+) -> bool:
+    """Return whether PLC has confirmed the requested telescope endpoint."""
+
+    tool_20 = _as_int(pose.get("tool20f"), 0) != 0
+    tool_40 = _as_int(pose.get("tool40f"), 0) != 0
+    if tool_20 == tool_40:
+        return False
+    return (requested_size_ft == 20 and tool_20) or (
+        requested_size_ft == 40 and tool_40
+    )
 
 
 def _field_name(value: Any) -> Optional[str]:
@@ -643,11 +731,27 @@ class OmniverseRtgTwinDriver:
         trolley_m = _as_float(pose.get("trolleyMeter"))
         hoist_m = _as_float(pose.get("hoistMeter"))
         gantry_m = _as_float(pose.get("bigcarElecDistance"))
+        task_stack_key = self._task_stack_key(task)
+        inferred_spreader_size_ft = (
+            task_stack_key[3] if task_stack_key is not None else None
+        )
+        requested_spreader_size_ft = _requested_spreader_size_ft(
+            pose,
+            task,
+            inferred_spreader_size_ft,
+        )
+        spreader_center_offset_y = _spreader_center_offset_y(
+            requested_spreader_size_ft
+        )
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
         if field and bay > 0:
-            applied_gantry_m = controller.set_gantry_bay(field, bay)
+            applied_gantry_m = controller.set_gantry_bay(
+                field,
+                bay,
+                center_offset_y=spreader_center_offset_y,
+            )
             gantry_source = f"{field}/{bay:03d}"
         elif gantry_m is not None:
             applied_gantry_m = controller.set_gantry_safe(gantry_m)
@@ -662,17 +766,17 @@ class OmniverseRtgTwinDriver:
         applied_hoist_m = (
             controller.set_hoist_safe(hoist_m) if hoist_m is not None else None
         )
-        task_stack_key = self._task_stack_key(task)
-        inferred_spreader_size_ft = (
-            task_stack_key[3] if task_stack_key is not None else None
-        )
-        requested_spreader_size_ft = _requested_spreader_size_ft(
-            pose,
-            task,
-            inferred_spreader_size_ft,
-        )
         applied_spreader_size_ft = (
-            controller.set_spreader_size(requested_spreader_size_ft)
+            controller.set_spreader_size(
+                requested_spreader_size_ft,
+                # An asserted 20/40 ft limit switch is an actual endpoint, not
+                # a request to begin a synthetic transition.  Snap the visual
+                # to that exact ISO length so the 20 ft spreader and box match.
+                smooth=not _spreader_size_limit_confirmed(
+                    pose,
+                    requested_spreader_size_ft,
+                ),
+            )
             if requested_spreader_size_ft is not None
             else None
         )
@@ -684,6 +788,7 @@ class OmniverseRtgTwinDriver:
             "hoistMeter": applied_hoist_m,
             "spreaderSizeFt": applied_spreader_size_ft,
             "spreaderTargetSizeFt": requested_spreader_size_ft,
+            "spreaderCenterOffsetY": spreader_center_offset_y,
         }
         self._sync_task_stack(stage, task)
         if _task_work_type(task) == WORK_TYPE_SWITCH:
@@ -859,6 +964,7 @@ class OmniverseRtgTwinDriver:
             flow_state,
             truck_progress,
             pose,
+            task,
         )
 
     def _task_vehicle_key(
@@ -905,6 +1011,7 @@ class OmniverseRtgTwinDriver:
             flow_state,
             1.0,
             pose,
+            task,
         )
 
     def _remove_task_vehicle(self, stage: Any) -> None:
@@ -944,6 +1051,25 @@ class OmniverseRtgTwinDriver:
         truck/container renderer.  The detailed state is also authored on the
         live prim so the UI and diagnostics can show the true task phase.
         """
+
+        simulated_phase = _simulated_visual_phase(task)
+        if simulated_phase is not None:
+            operation_state = str(
+                task.get("operationState") or simulated_phase
+            ).strip().upper()
+            self._set_operation_state_attr(stage, operation_state)
+            if simulated_phase != self._task_flow_state:
+                now = time.time()
+                self._task_flow_state = simulated_phase
+                self._task_flow_state_started_at = now
+                if simulated_phase == TASK_STATE_TRUCK_APPROACH:
+                    self._task_vehicle_started_at = now
+                self._set_task_flow_attr(stage, simulated_phase)
+                self._log(
+                    "simulation flow -> "
+                    f"{simulated_phase} operation={operation_state} task={key[-1]}"
+                )
+            return simulated_phase
 
         if self._operation_task_key != key:
             self._operation_task_key = key
@@ -1358,6 +1484,7 @@ class OmniverseRtgTwinDriver:
         flow_state: str,
         truck_progress: float,
         pose: Optional[Dict[str, Any]] = None,
+        task: Optional[Dict[str, Any]] = None,
     ) -> None:
         from pxr import Gf, Usd
         from build_live_containers import (
@@ -1399,11 +1526,15 @@ class OmniverseRtgTwinDriver:
                 if stale_copy:
                     stage.RemovePrim(stale_copy.GetPath())
                 if carrying:
-                    # Blend the exact source box from its stack slot to the
-                    # spreader over a short lift interval.  This makes the
-                    # grab visible instead of snapping the box to the
-                    # spreader on the first lock frame.
-                    self._move_task_source_with_spreader(stage, animate=True)
+                    # Lock is the attachment boundary.  From this frame on
+                    # the exact source box must share the spreader's target
+                    # transform with no extra interpolation; otherwise the
+                    # trolley moves ahead while the box spends a second
+                    # chasing it and the two visibly separate.
+                    self._move_task_source_with_spreader(
+                        stage,
+                        trolley_m=_as_float((pose or {}).get("trolleyMeter")),
+                    )
                 elif work_type == WORK_TYPE_UNLOAD and flow_state in (
                     TASK_STATE_PLACED,
                     TASK_STATE_TRUCK_EXITING,
@@ -1426,6 +1557,14 @@ class OmniverseRtgTwinDriver:
                         False,
                     )
                 return
+
+            if (
+                work_type == WORK_TYPE_LOAD
+                and task is not None
+                and flow_state
+                in (TASK_STATE_PLACED, TASK_STATE_TRUCK_EXITING, "COMPLETE")
+            ):
+                self._commit_load_to_task_stack(stage, task)
 
             if not carrying:
                 old = stage.GetPrimAtPath(LIVE_HOISTED_LOAD_PATH)
@@ -1458,10 +1597,21 @@ class OmniverseRtgTwinDriver:
                 source_scale[2] if source_scale is not None else scale[2]
             )
             world_center = self._hoisted_container_world_center(
-                stage, attachment_height
+                stage,
+                attachment_height,
+                trolley_m=_as_float((pose or {}).get("trolleyMeter")),
             )
             if world_center is None:
                 return
+            if work_type == WORK_TYPE_LOAD:
+                # The RTG payload hierarchy has a model-local longitudinal
+                # offset.  A LOAD box starts on the task truck, so retain that
+                # exact world Y after lock and only let the trolley/hoist
+                # update X/Z.  Otherwise the generated blue copy can appear
+                # several bays ahead of the truck it was picked from.
+                world_center = self._load_carried_box_world_center(
+                    stage, world_center
+                )
             center = self._live_container_local_point(stage, world_center)
             if not load:
                 self._create_hoisted_container_visual(
@@ -1556,9 +1706,170 @@ class OmniverseRtgTwinDriver:
             return self._last_task_source_path
         return f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer"
 
+    def _load_target_stack_slot(
+        self, task: Dict[str, Any]
+    ) -> Optional[tuple[int, int]]:
+        """Return the row/tier that receives an inbound LOAD box."""
+
+        parsed = self._parse_task_position_details(
+            task.get("endPos") or task.get("targetPos")
+        )
+        if parsed is None:
+            return None
+        _block, _bay_number, row, tier = parsed
+        if row is None or tier is None or not 1 <= row <= 6 or not 1 <= tier <= 6:
+            return None
+        return row, tier
+
+    def _commit_load_to_task_stack(self, stage: Any, task: Dict[str, Any]) -> bool:
+        """Materialize a released truck box in the live target bay map."""
+
+        target = self._load_target_stack_slot(task)
+        if target is None:
+            return False
+        row, tier = target
+        target_path = f"{LIVE_TASK_STACK_PATH}/R{row:02d}_T{tier:02d}_Container"
+        if stage.GetPrimAtPath(target_path):
+            return True
+
+        from pxr import Gf, Sdf, UsdGeom, UsdShade
+        from build_live_containers import (
+            CONTAINER_VISUAL_HEIGHT_Z_M,
+            CONTAINER_WIDTH_X_M,
+            PAD_TOP_Z_M,
+            ROW_GAP_X_M,
+            STACK_FLOOR_CLEARANCE_M,
+            TIER_GAP_Z_M,
+            container_center_y_for_bay,
+            container_length_for_bay,
+            create_container_box,
+            create_container_details,
+            material,
+            reference_first_row_center_x_m,
+        )
+
+        stack = stage.GetPrimAtPath(LIVE_TASK_STACK_PATH)
+        source = stage.GetPrimAtPath(f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer")
+        if not stack or not source:
+            return False
+        block_attr = stack.GetAttribute("live:block")
+        bay_attr = stack.GetAttribute("live:bayNumber")
+        size_attr = stack.GetAttribute("live:containerSizeFt")
+        pattern_attr = stack.GetAttribute("live:bayMapPattern")
+        block = block_attr.Get() if block_attr else None
+        bay_number = bay_attr.Get() if bay_attr else None
+        container_size_ft = size_attr.Get() if size_attr else None
+        pattern = pattern_attr.Get() if pattern_attr else None
+        if (
+            not block
+            or bay_number is None
+            or container_size_ft not in (20, 40)
+            or not isinstance(pattern, str)
+            or not re.fullmatch(r"\d{6}", pattern)
+        ):
+            return False
+
+        current_height = int(pattern[row - 1])
+        if tier > current_height + 1:
+            self._log(
+                f"cannot place LOAD at row={row} tier={tier}: "
+                f"bay map {pattern} has a gap"
+            )
+            return False
+        new_height = max(current_height, tier)
+        effective_pattern = (
+            pattern[: row - 1] + str(new_height) + pattern[row:]
+        )
+        source_scale = self._get_xform_scale(source)
+        scale = source_scale or Gf.Vec3f(
+            CONTAINER_WIDTH_X_M,
+            container_length_for_bay(block, int(bay_number), int(container_size_ft)),
+            CONTAINER_VISUAL_HEIGHT_Z_M,
+        )
+        binding = UsdShade.MaterialBindingAPI(source).ComputeBoundMaterial()
+        bound_material = binding[0] if binding else None
+        if not bound_material:
+            bound_material = material(
+                stage,
+                "TaskPlacedLoadFallback",
+                Gf.Vec3f(0.04, 0.20, 0.48),
+            )
+
+        row_pitch = CONTAINER_WIDTH_X_M + ROW_GAP_X_M
+        first_row_center_x = reference_first_row_center_x_m(6)
+        leftmost_stack_x = first_row_center_x - 5 * row_pitch
+        x = leftmost_stack_x + (6 - row) * row_pitch
+        y = container_center_y_for_bay(block, int(bay_number), int(container_size_ft))
+        z = (
+            PAD_TOP_Z_M
+            + STACK_FLOOR_CLEARANCE_M
+            + (tier - 0.5) * float(scale[2])
+            + (tier - 1) * TIER_GAP_Z_M
+        )
+        center = Gf.Vec3d(x, y, z)
+        create_container_box(
+            stage,
+            target_path,
+            center,
+            scale,
+            bound_material,
+            bay_id=f"{block}/{int(bay_number):03d}",
+            row=row,
+            tier=tier,
+            tiers=new_height,
+        )
+        create_container_details(stage, target_path, center, scale)
+        placed = stage.GetPrimAtPath(target_path)
+        placed.CreateAttribute("live:source", Sdf.ValueTypeNames.Token).Set(
+            "load_placement"
+        )
+        placed.CreateAttribute("live:taskId", Sdf.ValueTypeNames.String).Set(
+            str(task.get("taskId") or "")
+        )
+        for row_tier in range(1, new_height + 1):
+            row_prim = stage.GetPrimAtPath(
+                f"{LIVE_TASK_STACK_PATH}/R{row:02d}_T{row_tier:02d}_Container"
+            )
+            if row_prim:
+                attr = row_prim.GetAttribute("live:tiers")
+                if attr:
+                    attr.Set(new_height)
+        stack.CreateAttribute(
+            "live:effectiveBayMapPattern", Sdf.ValueTypeNames.String
+        ).Set(effective_pattern)
+        self._log(
+            f"placed LOAD into row={row} tier={tier}; "
+            f"bayMap {pattern} -> {effective_pattern}"
+        )
+        return True
+
+    @staticmethod
+    def _load_carried_box_world_center(stage: Any, fallback_center: Any) -> Any:
+        """Keep a truck-picked box on the source truck's longitudinal centre."""
+
+        from pxr import Gf, UsdGeom
+
+        source = stage.GetPrimAtPath(f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer")
+        if not source:
+            return fallback_center
+        source_world = UsdGeom.XformCache().GetLocalToWorldTransform(source).Transform(
+            Gf.Vec3d(0.0, 0.0, 0.0)
+        )
+        source_y = float(source_world[1])
+        if not math.isfinite(source_y):
+            return fallback_center
+        return Gf.Vec3d(
+            float(fallback_center[0]),
+            source_y,
+            float(fallback_center[2]),
+        )
+
     @staticmethod
     def _hoisted_container_world_center(
-        stage: Any, container_height: float
+        stage: Any,
+        container_height: float,
+        *,
+        trolley_m: Optional[float] = None,
     ) -> Any:
         """Return the carried-box centre from the rendered rope lower ends.
 
@@ -1611,8 +1922,9 @@ class OmniverseRtgTwinDriver:
             + float(LOWER_ROPE_VISIBLE_OFFSET_Z)
             - _hoisted_container_local_center_z(container_height)
         )
+        calibrated_x = _carried_box_world_x(trolley_m)
         values = (
-            float(rope_world[0]),
+            float(rope_world[0]) if calibrated_x is None else calibrated_x,
             float(rope_world[1]),
             float(rope_world[2]) - local_vertical_drop,
         )
@@ -1682,7 +1994,10 @@ class OmniverseRtgTwinDriver:
         self._task_source_truck_local_center = None
 
     def _move_task_source_with_spreader(
-        self, stage: Any, *, animate: bool = False
+        self,
+        stage: Any,
+        *,
+        trolley_m: Optional[float] = None,
     ) -> None:
         """Attach the original task-stack source container to the spreader."""
 
@@ -1705,31 +2020,32 @@ class OmniverseRtgTwinDriver:
             )
             return
 
+        source_key = str(source.GetPath())
+        source_origin_local = self._task_source_original_translates.get(
+            source_key,
+            source_translate,
+        )
+        parent_world = UsdGeom.XformCache().GetLocalToWorldTransform(parent)
+        source_origin_world = parent_world.Transform(source_origin_local)
         spreader_world = self._hoisted_container_world_center(
-            stage, float(source_scale[2])
+            stage,
+            float(source_scale[2]),
+            trolley_m=trolley_m,
         )
         if spreader_world is None:
             self._log("cannot attach source: spreader transform unavailable")
             return
-        parent_world = UsdGeom.XformCache().GetLocalToWorldTransform(parent)
+        # The source box already owns the authoritative bay centre.  Preserve
+        # that world Y while carrying: the RTG payload/rope hierarchy has a
+        # model-local longitudinal offset, and applying it to a world-authored
+        # bay-map box a second time makes the box drift in depth and appear to
+        # detach from the spreader as the trolley returns to the truck.
+        spreader_world = Gf.Vec3d(
+            float(spreader_world[0]),
+            float(source_origin_world[1]),
+            float(spreader_world[2]),
+        )
         target_local = parent_world.GetInverse().Transform(spreader_world)
-        if animate:
-            source_key = str(source.GetPath())
-            start_local = self._task_source_original_translates.get(
-                source_key, source_translate
-            )
-            progress = min(
-                1.0,
-                max(0.0, (time.time() - self._task_flow_state_started_at) / 1.0),
-            )
-            target_local = Gf.Vec3d(
-                float(start_local[0])
-                + (float(target_local[0]) - float(start_local[0])) * progress,
-                float(start_local[1])
-                + (float(target_local[1]) - float(start_local[1])) * progress,
-                float(start_local[2])
-                + (float(target_local[2]) - float(start_local[2])) * progress,
-            )
         was_moved = self._task_source_has_moved
         self._move_task_source_to_local_target(stage, source, parent, target_local)
         if not was_moved:
@@ -1992,6 +2308,17 @@ class OmniverseRtgTwinDriver:
             bay_text = digits[:-2]
             row = int(digits[-2])
             tier = int(digits[-1])
+        elif (
+            len(digits) == 3
+            and digits[0] != "0"
+            and 1 <= int(digits[1]) <= 6
+            and 1 <= int(digits[2]) <= 6
+        ):
+            # Accept compact task positions such as 1C423 for bay 4, row 2,
+            # tier 3 as well as the zero-padded 1C0423 form used by PLCs.
+            bay_text = digits[0]
+            row = int(digits[1])
+            tier = int(digits[2])
         else:
             bay_text = digits
             row = None
