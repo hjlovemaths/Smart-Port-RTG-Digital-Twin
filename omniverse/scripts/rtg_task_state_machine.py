@@ -27,12 +27,27 @@ ROW_TROLLEY_M = {
 }
 
 
+def bay_heights_from_pattern(value: object) -> tuple[int, ...]:
+    """Parse the current six-row bay map into physical stack heights.
+
+    The operation feeds use ``bayMap`` in R01..R06 order, such as ``441000``.
+    Returning an empty tuple for an unavailable pattern keeps the state machine
+    backward compatible with PLC payloads that do not provide a bay map.
+    """
+
+    pattern = str(value or "").strip()
+    if len(pattern) != 6 or not pattern.isdigit():
+        return ()
+    return tuple(int(height) for height in pattern)
+
+
 class OperationState(str, Enum):
     IDLE = "IDLE"
     VALIDATE_TASK = "VALIDATE_TASK"
     GANTRY_TO_SOURCE = "GANTRY_TO_SOURCE"
     TRUCK_APPROACH = "TRUCK_APPROACH"
     TRUCK_WAITING = "TRUCK_WAITING"
+    HOIST_TO_SOURCE_CLEARANCE = "HOIST_TO_SOURCE_CLEARANCE"
     TROLLEY_TO_SOURCE = "TROLLEY_TO_SOURCE"
     HOIST_TO_PICK = "HOIST_TO_PICK"
     VISION_CONFIRM = "VISION_CONFIRM"
@@ -62,6 +77,7 @@ class OperationTask:
     source: TaskSlot
     target: TaskSlot
     vision_required: bool = False
+    bay_heights: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -86,9 +102,11 @@ class RtgOperationStateMachine:
     """Shared state machine for LOAD, UNLOAD and SWITCH tasks."""
 
     POSITION_TOLERANCE_M = 0.35
+    HEIGHT_TOLERANCE_M = 0.01
     SAFE_HOIST_M = 4.0
-    SAFE_HOIST_CLEARANCE_M = 2.50
-    MAX_HOIST_M = 15.0
+    CONTAINER_TIER_HEIGHT_M = 2.60
+    TRANSFER_CLEARANCE_M = 1.0
+    MAX_HOIST_M = 18.0
 
     def __init__(
         self,
@@ -108,6 +126,7 @@ class RtgOperationStateMachine:
         self.truck_settle_seconds = truck_settle_seconds
         self.truck_exit_seconds = truck_exit_seconds
         self.state_timeout_seconds = state_timeout_seconds
+        self._source_approach_required_m: Optional[float] = None
 
     @property
     def uses_truck(self) -> bool:
@@ -127,15 +146,95 @@ class RtgOperationStateMachine:
 
     @property
     def safe_hoist_m(self) -> float:
-        """Return a clearance height that keeps the spreader above its target."""
+        """Return a clearance height above the box being cleared after release."""
 
-        if self.task.work_type not in (WORK_TYPE_LOAD, WORK_TYPE_SWITCH):
+        if self.task.work_type == WORK_TYPE_UNLOAD:
+            # The box comes from the yard, so clear its source tier before
+            # travelling back toward the truck.  A fixed 6 m height is below
+            # the third tier and made the loaded spreader visibly descend.
+            tier = self.task.source.tier or 1
+        elif self.task.work_type in (WORK_TYPE_LOAD, WORK_TYPE_SWITCH):
+            tier = self.task.target.tier or 1
+        else:
             return self.SAFE_HOIST_M
-        tier = self.task.target.tier or 1
-        target_contact_m = max(1, tier) * self.SAFE_HOIST_CLEARANCE_M
+        target_contact_m = max(1, tier) * self.CONTAINER_TIER_HEIGHT_M
         return min(
             self.MAX_HOIST_M,
-            max(self.SAFE_HOIST_M, target_contact_m + self.SAFE_HOIST_CLEARANCE_M),
+            max(
+                self.SAFE_HOIST_M,
+                target_contact_m + self.CONTAINER_TIER_HEIGHT_M,
+            ),
+        )
+
+    @property
+    def transfer_rows(self) -> tuple[int, ...]:
+        """Return the yard rows crossed while carrying the container."""
+
+        return self._rows_between(self.source_trolley_m, self.target_trolley_m)
+
+    @property
+    def source_approach_hoist_m(self) -> float:
+        """Empty-spreader height needed before travelling to the source box."""
+
+        if self._source_approach_required_m is not None:
+            return self._source_approach_required_m
+        return self._source_approach_hoist_for(TRUCK_TROLLEY_M)
+
+    @property
+    def source_approach_clearance_possible(self) -> bool:
+        return self.source_approach_hoist_m <= self.MAX_HOIST_M
+
+    @property
+    def transfer_obstacle_tier(self) -> int:
+        """Tallest stack tier in the current bay while carrying a box."""
+
+        if len(self.task.bay_heights) != len(ROW_TROLLEY_M):
+            return 0
+        # Lift above the highest originally occupied stack in this bay before
+        # trolley travel.  Even when the picked box was the top tier of that
+        # row, treating it as already removed could start horizontal travel at
+        # a lower height than the pick/raise visual and scrape an adjacent row.
+        return max(self.task.bay_heights)
+
+    @property
+    def transfer_hoist_m(self) -> float:
+        """Minimum PLC hoist height that clears every crossed stack.
+
+        Once a box is locked, ``hoistMeter`` reports the height of that box's
+        bottom face.  The RTG task protocol therefore requires one metre from
+        the tallest stack top to the reported value; the carried box height is
+        intentionally not added a second time.
+        """
+
+        obstacle_clearance_m = (
+            self.transfer_obstacle_tier * self.CONTAINER_TIER_HEIGHT_M
+            + self.TRANSFER_CLEARANCE_M
+        )
+        return round(max(self.safe_hoist_m, obstacle_clearance_m), 3)
+
+    @property
+    def transfer_clearance_possible(self) -> bool:
+        """Whether the RTG can carry this box over the current bay map."""
+
+        return self.transfer_hoist_m <= self.MAX_HOIST_M
+
+    @property
+    def transfer_clearance_fault_reason(self) -> str:
+        rows = ",".join(f"R{row:02d}" for row in self.transfer_rows) or "none"
+        return (
+            "transfer clearance blocked: "
+            f"travelRows={rows} bayTallestTier={self.transfer_obstacle_tier} "
+            f"requires={self.transfer_hoist_m:.1f}m max={self.MAX_HOIST_M:.1f}m"
+        )
+
+    def source_approach_fault_reason(self, start_trolley_m: Optional[float]) -> str:
+        rows = self._source_approach_rows(start_trolley_m)
+        row_text = ",".join(f"R{row:02d}" for row in rows) or "none"
+        return (
+            "source approach clearance blocked: "
+            f"rows={row_text} tallestTier={self._obstacle_tier(rows)} "
+            f"requires={self.source_approach_hoist_m:.1f}m "
+            f"max={self.MAX_HOIST_M:.1f}m"
         )
 
     def update(self, plc: PlcOperationSnapshot, now: float) -> Optional[StateTransition]:
@@ -152,13 +251,23 @@ class RtgOperationStateMachine:
 
         next_state: Optional[tuple[OperationState, str]] = None
         if self.state == OperationState.VALIDATE_TASK:
-            next_state = (OperationState.GANTRY_TO_SOURCE, "task validated")
+            # Reject an impossible loaded transfer before travelling to and
+            # locking the source box.  Otherwise the visual can leave a
+            # locked box sitting on its stack while the eventual transfer
+            # check faults, which looks like a spreader embedded in cargo.
+            if not self.transfer_clearance_possible:
+                next_state = (
+                    OperationState.FAULT,
+                    self.transfer_clearance_fault_reason,
+                )
+            else:
+                next_state = (OperationState.GANTRY_TO_SOURCE, "task validated")
         elif self.state == OperationState.GANTRY_TO_SOURCE:
             if self._at_slot(plc, self.task.source):
                 next_state = (
                     OperationState.TRUCK_APPROACH
                     if self.uses_truck
-                    else OperationState.TROLLEY_TO_SOURCE,
+                    else OperationState.HOIST_TO_SOURCE_CLEARANCE,
                     "gantry reached source bay",
                 )
         elif self.state == OperationState.TRUCK_APPROACH:
@@ -166,7 +275,24 @@ class RtgOperationStateMachine:
                 next_state = (OperationState.TRUCK_WAITING, "truck reached bay")
         elif self.state == OperationState.TRUCK_WAITING:
             if now - self.entered_at >= self.truck_settle_seconds:
-                next_state = (OperationState.TROLLEY_TO_SOURCE, "truck settled")
+                next_state = (
+                    OperationState.HOIST_TO_SOURCE_CLEARANCE,
+                    "truck settled",
+                )
+        elif self.state == OperationState.HOIST_TO_SOURCE_CLEARANCE:
+            if not self.source_approach_clearance_possible:
+                next_state = (
+                    OperationState.FAULT,
+                    self.source_approach_fault_reason(plc.trolley_m),
+                )
+            elif (
+                plc.hoist_m is not None
+                and plc.hoist_m >= self.source_approach_hoist_m
+            ):
+                next_state = (
+                    OperationState.TROLLEY_TO_SOURCE,
+                    f"source approach clear at {self.source_approach_hoist_m:.1f}m",
+                )
         elif self.state == OperationState.TROLLEY_TO_SOURCE:
             if self._at_trolley(plc, self.source_trolley_m):
                 next_state = (OperationState.HOIST_TO_PICK, "trolley reached source")
@@ -188,9 +314,21 @@ class RtgOperationStateMachine:
             if plc.locked:
                 next_state = (OperationState.HOIST_UP, "lock confirmed")
         elif self.state == OperationState.HOIST_UP:
-            # Lock remaining true prevents a trolley transfer with a released box.
-            if plc.locked:
-                next_state = (OperationState.TROLLEY_TO_TARGET, "load lifted")
+            # Horizontal travel is only permitted after the suspended box
+            # clears every stack represented by the current bay map.
+            if not self.transfer_clearance_possible:
+                next_state = (
+                    OperationState.FAULT,
+                    self.transfer_clearance_fault_reason,
+                )
+            elif plc.locked and (
+                plc.hoist_m is not None
+                and plc.hoist_m + self.HEIGHT_TOLERANCE_M >= self.transfer_hoist_m
+            ):
+                next_state = (
+                    OperationState.TROLLEY_TO_TARGET,
+                    f"load lifted clear at {self.transfer_hoist_m:.1f}m",
+                )
         elif self.state == OperationState.TROLLEY_TO_TARGET:
             if self._at_trolley(plc, self.target_trolley_m):
                 next_state = (OperationState.HOIST_TO_PLACE, "trolley reached target")
@@ -214,6 +352,10 @@ class RtgOperationStateMachine:
 
         if next_state is None:
             return None
+        if next_state[0] == OperationState.HOIST_TO_SOURCE_CLEARANCE:
+            self._source_approach_required_m = self._source_approach_hoist_for(
+                plc.trolley_m
+            )
         return self._transition(next_state[0], now, next_state[1])
 
     def visual_phase(self) -> str:
@@ -227,6 +369,7 @@ class RtgOperationStateMachine:
             return "TRUCK_WAITING"
         if self.state in (
             OperationState.VALIDATE_TASK,
+            OperationState.HOIST_TO_SOURCE_CLEARANCE,
             OperationState.TROLLEY_TO_SOURCE,
             OperationState.HOIST_TO_PICK,
             OperationState.VISION_CONFIRM,
@@ -266,6 +409,40 @@ class RtgOperationStateMachine:
         if slot.row not in ROW_TROLLEY_M:
             raise ValueError(f"Task slot needs a valid row: {slot!r}")
         return ROW_TROLLEY_M[slot.row]
+
+    @classmethod
+    def _rows_between(cls, start_trolley_m: float, end_trolley_m: float) -> tuple[int, ...]:
+        lower = min(start_trolley_m, end_trolley_m)
+        upper = max(start_trolley_m, end_trolley_m)
+        return tuple(
+            row
+            for row, trolley_m in sorted(ROW_TROLLEY_M.items())
+            if lower - cls.POSITION_TOLERANCE_M
+            <= trolley_m
+            <= upper + cls.POSITION_TOLERANCE_M
+        )
+
+    def _source_approach_rows(
+        self, start_trolley_m: Optional[float]
+    ) -> tuple[int, ...]:
+        if start_trolley_m is None:
+            # Without a trolley position, include every row rather than allow
+            # an empty spreader to move through an unknown high stack.
+            return tuple(sorted(ROW_TROLLEY_M))
+        return self._rows_between(float(start_trolley_m), self.source_trolley_m)
+
+    def _source_approach_hoist_for(self, start_trolley_m: Optional[float]) -> float:
+        obstacle_clearance_m = (
+            self._obstacle_tier(self._source_approach_rows(start_trolley_m))
+            * self.CONTAINER_TIER_HEIGHT_M
+            + self.TRANSFER_CLEARANCE_M
+        )
+        return round(max(self.SAFE_HOIST_M, obstacle_clearance_m), 3)
+
+    def _obstacle_tier(self, rows: tuple[int, ...]) -> int:
+        if len(self.task.bay_heights) != len(ROW_TROLLEY_M):
+            return 0
+        return max((self.task.bay_heights[row - 1] for row in rows), default=0)
 
     @classmethod
     def _at_trolley(cls, plc: PlcOperationSnapshot, target_m: float) -> bool:

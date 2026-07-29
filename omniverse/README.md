@@ -55,7 +55,7 @@ validation, but the engineering limits now match the real 1C-4C yard:
 | --- | ---: | ---: | ---: |
 | Gantry engineering travel | 0.00 to 1,961.00 m | 1.00 to 1,960.00 m | 1.50 m/s |
 | Trolley engineering travel | 0.00 to 18.06 m | 0.00 to 18.06 m | 1.00 m/s |
-| Hoist engineering height | 0.00 to 15.00 m | 0.50 to 14.70 m | 0.90 m/s |
+| Hoist engineering height | 0.00 to 18.00 m | 0.50 to 17.70 m | 0.90 m/s |
 
 The hard limits describe the physical stroke. The soft limits describe the
 normal command envelope used by WPF/ROS2 so regular commands keep clearance
@@ -80,16 +80,16 @@ the current six-row container layout:
 | Trolley 15.19 m, row 2 centre | X = -5.881315 |
 | Trolley 18.06 m, row 1 centre | X = -6.903150 |
 | Hoist 0 m, engineering zero | Z = -2.465000 |
-| Hoist 2.5 m, spreader on tier-1 container top | Z = -1.525647 |
-| Hoist +2.5 m, one physical container tier | Z += 0.939353 |
-| Hoist 15 m, highest position | Z = 3.171118 |
+| Hoist 2.6 m, spreader on tier-1 container top | Z = -1.525647 |
+| Hoist +2.6 m, one physical container tier | Z += 0.939353 |
+| Hoist 18 m, highest position | Z = 4.038213 |
 
 The stop table is implemented only in `scripts/rtg_live_control.py` and maps
 PLC readings to the positions already validated by the `task.txt` animation.
 It does not reposition the RTG model, truck, container rows, or scripted demo.
 
 Therefore `set_gantry()` accepts 0-1,961 m from the 1C/001 seaside origin,
-`set_trolley()` accepts 0-18.06 actual metres, and `set_hoist()` accepts 0-15
+`set_trolley()` accepts 0-18.06 actual metres, and `set_hoist()` accepts 0-18
 actual metres. Reverse conversion helpers are provided for status values sent
 back to WPF/ROS2. The rope visual continues to use the mapped USD hoist
 position, so it remains attached throughout the full engineering range.
@@ -261,10 +261,10 @@ tier separator lines, and draws a red outline around the bay-map footprint.
 `scenes/smart_port.usda` sublayers `live_containers.usda`, so reloading the
 stage shows the current live stack without changing the Blender source asset.
 
-Each physical container tier is treated as 2.5 m, so a six-tier stack is
-15.0 m high in engineering coordinates. The compressed visual stack keeps its
+Each physical container tier is treated as 2.6 m, so a six-tier stack is
+15.6 m high in engineering coordinates. The compressed visual stack keeps its
 existing 0.904353 m box height plus 0.035 m tier gap; live hoist movement maps
-each physical 2.5 m increment to that 0.939353 m visual tier pitch.
+each physical 2.6 m increment to that 0.939353 m visual tier pitch.
 
 ## Real-scale 1C-4C yard layout
 

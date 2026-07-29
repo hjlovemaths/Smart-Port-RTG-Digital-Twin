@@ -74,7 +74,7 @@ def apply_motion_check_animation() -> Path:
     gantry_forward = gantry_bay_id_to_usd("1C/007")
     trolley_left = trolley_actual_to_usd(0.0)
     trolley_right = trolley_actual_to_usd(18.0)
-    hoist_high = hoist_actual_to_usd(15.0)
+    hoist_high = hoist_actual_to_usd(18.0)
     hoist_low_safe = hoist_actual_to_usd(0.5)
 
     gantry_samples = (

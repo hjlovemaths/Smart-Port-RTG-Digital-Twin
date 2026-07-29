@@ -104,6 +104,28 @@ class TaskPositionTests(unittest.TestCase):
             f"{receiver.LIVE_TASK_STACK_PATH}/R02_T03_Container",
         )
 
+    def test_operation_state_machine_receives_current_bay_heights(self) -> None:
+        machine = self.driver._build_operation_state_machine(
+            {
+                "workType": "UNLOAD",
+                "startPos": "3C6323",
+                "bayMap": "233400",
+            },
+            ("UNLOAD", "3C", 63, "233400", 20, "clearance-live"),
+        )
+
+        self.assertIsNotNone(machine)
+        self.assertEqual(machine.task.bay_heights, (2, 3, 3, 4, 0, 0))
+        self.assertEqual(machine.transfer_hoist_m, 11.4)
+
+
+class GantryCrossbeamAlignmentTests(unittest.TestCase):
+    def test_alignment_delta_moves_crossbeam_to_rendered_box_center(self) -> None:
+        self.assertAlmostEqual(
+            receiver._gantry_crossbeam_alignment_delta_y(18.45, 16.8125),
+            1.6375,
+        )
+
 
 class TaskVisualPolicyTests(unittest.TestCase):
     def test_only_explicit_simulator_phase_bypasses_plc_state_machine(self) -> None:
@@ -230,6 +252,34 @@ class TaskVisualPolicyTests(unittest.TestCase):
             receiver.TRUCK_OPERATING_LANE_CENTER_X_M
             + receiver.TASK_TRUCK_VISUAL_X_OFFSET_M,
             -4.65,
+        )
+
+    def test_20ft_load_box_sits_at_the_front_of_a_40ft_chassis(self) -> None:
+        container_length_y = 6.1
+        trailer_length_y, trailer_center_y, cab_center_y = receiver._task_trailer_layout(
+            container_length_y,
+            20,
+        )
+
+        trailer_front_y = trailer_center_y - trailer_length_y * 0.5
+        box_front_y = -container_length_y * 0.5
+        self.assertGreater(trailer_length_y, container_length_y * 2.0)
+        self.assertAlmostEqual(
+            box_front_y - trailer_front_y,
+            receiver.TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M,
+        )
+        self.assertLess(cab_center_y, box_front_y)
+
+    def test_20ft_and_40ft_loads_use_their_visible_hook_centres(self) -> None:
+        bay_centre_y = 24.75
+
+        self.assertEqual(
+            receiver._task_truck_stop_y_for_box_center(bay_centre_y, 20),
+            24.9,
+        )
+        self.assertEqual(
+            receiver._task_truck_stop_y_for_box_center(bay_centre_y, 40),
+            25.2,
         )
 
     def test_hoisted_box_top_meets_spreader_contact_plane(self) -> None:

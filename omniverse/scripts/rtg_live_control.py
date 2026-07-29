@@ -125,16 +125,16 @@ TROLLEY_USD_LIMITS = (
     TROLLEY_PLC_STOP_CALIBRATION[0][1],
     TROLLEY_PLC_STOP_CALIBRATION[-1][1],
 )
-HOIST_ENGINEERING_LIMITS = (0.0, 15.0)
-HOIST_SOFT_LIMITS = (0.5, 14.7)
-# One physical container tier is 2.5 m. Match that increment to the
+HOIST_ENGINEERING_LIMITS = (0.0, 18.0)
+HOIST_SOFT_LIMITS = (0.5, 17.7)
+# One physical container tier is 2.6 m. Match that increment to the
 # compressed visual container pitch used by the live stack.
-HOIST_ACTUAL_TIER_HEIGHT_M = 2.50
+HOIST_ACTUAL_TIER_HEIGHT_M = 2.60
 HOIST_VISUAL_TIER_HEIGHT_M = 0.904353 + 0.035
 HOIST_USD_PER_ENGINEERING_M = (
     HOIST_VISUAL_TIER_HEIGHT_M / HOIST_ACTUAL_TIER_HEIGHT_M
 )
-HOIST_FIRST_TIER_ENGINEERING_M = 2.50
+HOIST_FIRST_TIER_ENGINEERING_M = 2.60
 # Tier-1 top is Z=1.024353 and the spreader lock contact plane is Z=2.55,
 # so this offset puts the lock feet directly on the first-layer box.
 HOIST_USD_AT_FIRST_TIER = -1.525647
@@ -164,6 +164,15 @@ RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M = -3.4
 # ``63`` label and the 20-ft box center.  Continuous big-car metre commands
 # intentionally keep their original calibration.
 RTG_BAY_CENTERLINE_CORRECTION_Y_M = -1.3375
+# The blue lower-portal crossbeam ``lower_portal_crossbeam_x+5.8`` spans
+# Y=1.625..8.375 in its gantry parent, so its vertical centreline is Y=5.0.
+# A 40 ft bay stop must put that physical line, not the RTG root or the beam
+# object's origin at Y=10.0, on the paired-even-bay/container centre.
+RTG_LOWER_PORTAL_CROSSBEAM_CENTER_LOCAL_Y_M = 5.0
+# The fixed gantry visual offset is -3.4 m. Together with the base correction,
+# this value makes the 40 ft controller Y exactly ``bay_scene_y - 5.0``:
+# ``controller_y + lower_portal_crossbeam_center_y == container_center_y``.
+RTG_40FT_BAY_CENTERLINE_FINE_OFFSET_Y_M = -0.2625
 # The 20 ft telescope geometry is slightly biased toward the land-side/right
 # edge of a short box.  Apply this small bay-travel-only correction while the
 # 20 ft end-stop is active; 40 ft work keeps the validated centreline above.
@@ -270,12 +279,27 @@ def gantry_bay_to_usd(
     anchor: str = "center",
     *,
     center_offset_y: float = 0.0,
+    container_size_ft: int | None = None,
 ) -> float:
-    """Return the Y that puts the RTG short-beam centre on a yard bay line."""
+    """Return the Y that puts the RTG short-beam centre on a yard bay line.
+
+    The 40 ft even-bay centreline needs only a small adjustment from the
+    established printed-bay calibration; removing the correction entirely
+    parks the RTG visibly behind the long-box red centreline.
+    """
+
+    bay_centre_correction = (
+        RTG_BAY_CENTERLINE_CORRECTION_Y_M
+        + (
+            RTG_40FT_BAY_CENTERLINE_FINE_OFFSET_Y_M
+            if container_size_ft == 40
+            else 0.0
+        )
+    )
     return (
         bay_scene_y_m(block, bay_number, anchor)
         + RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M
-        + RTG_BAY_CENTERLINE_CORRECTION_Y_M
+        + bay_centre_correction
         + float(center_offset_y)
         - RTG_WORK_CENTER_LOCAL_Y_M
     )
@@ -403,6 +427,7 @@ class RTGController:
         anchor: str = "center",
         *,
         center_offset_y: float = 0.0,
+        container_size_ft: int | None = None,
     ) -> float:
         """Centre the RTG short beam on a yard bay target such as 1C/025."""
         actual = bay_position_m(block, bay_number, anchor)
@@ -412,6 +437,7 @@ class RTGController:
                 bay_number,
                 anchor,
                 center_offset_y=center_offset_y,
+                container_size_ft=container_size_ft,
             )
         )
         return actual
@@ -445,25 +471,39 @@ class RTGController:
         """Set trolley travel while keeping inside the normal soft-limit envelope."""
         return self.set_trolley(_clamp(position_m, *TROLLEY_SOFT_LIMITS))
 
-    def set_hoist(self, height_m: float) -> float:
-        """Set actual spreader height and update lower rope endpoints atomically."""
+    def set_hoist(self, height_m: float, *, carried_load: bool = False) -> float:
+        """Set the PLC hoist value and update the rendered hoist atomically.
+
+        For a locked task load, the PLC value is the suspended container's
+        bottom-face height.  The rendered spreader and rope lower ends must
+        sit one physical tier above that point, while the reported PLC value
+        and its 18 m operating limit remain unchanged.
+        """
         actual = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
-        value = hoist_actual_to_usd(actual)
+        drive_value = hoist_actual_to_usd(actual)
+        visual_value = drive_value
+        if carried_load:
+            visual_value += HOIST_ACTUAL_TIER_HEIGHT_M * HOIST_USD_PER_ENGINEERING_M
         with Usd.EditContext(self.stage, self._session):
-            self._hoist.Set(value)
+            # Keep the drive target in PLC metres.  The session transform is
+            # the visual load-bottom compensation described above.
+            self._hoist.Set(drive_value)
             self._hoist_translate.Set(
                 Gf.Vec3d(
                     HOIST_BASE_TRANSLATE[0],
                     HOIST_BASE_TRANSLATE[1],
-                    HOIST_BASE_TRANSLATE[2] + value,
+                    HOIST_BASE_TRANSLATE[2] + visual_value,
                 )
             )
-            self._ropes.GetPointsAttr().Set(_rope_points(value))
+            self._ropes.GetPointsAttr().Set(_rope_points(visual_value))
         return actual
 
-    def set_hoist_safe(self, height_m: float) -> float:
+    def set_hoist_safe(self, height_m: float, *, carried_load: bool = False) -> float:
         """Set hoist height while keeping the spreader at least 0.5 m above ground."""
-        return self.set_hoist(_clamp(height_m, *HOIST_SOFT_LIMITS))
+        return self.set_hoist(
+            _clamp(height_m, *HOIST_SOFT_LIMITS),
+            carried_load=carried_load,
+        )
 
     def set_spreader_size(
         self,

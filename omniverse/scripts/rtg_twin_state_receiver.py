@@ -81,12 +81,20 @@ OperationTask = _state_machine_module.OperationTask
 PlcOperationSnapshot = _state_machine_module.PlcOperationSnapshot
 RtgOperationStateMachine = _state_machine_module.RtgOperationStateMachine
 TaskSlot = _state_machine_module.TaskSlot
+bay_heights_from_pattern = _state_machine_module.bay_heights_from_pattern
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 LIVE_TASK_STACK_PATH = "/World/LiveContainers/LiveTaskStack"
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
+# The live stack uses this box as the physical bay-centre reference whenever
+# the pattern contains it.  Every box in a stack shares the same bay Y centre,
+# so it represents the rendered 40 ft work line without relying on ground text.
+RTG_CROSSBEAM_ALIGNMENT_CONTAINER_PATH = (
+    f"{LIVE_TASK_STACK_PATH}/R02_T02_Container"
+)
+RTG_LOWER_PORTAL_CROSSBEAM_NAME = "lower_portal_crossbeam_x_5_8"
 RTG_HOIST_PATH = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
     "ANIM_CTRL_RTG_TROLLEY_TRAVEL/ANIM_CTRL_RTG_HOIST_VERTICAL"
@@ -135,10 +143,14 @@ TRUCK_OPERATING_LANE_CENTER_X_M = -4.65
 # At the truck trolley stop, the spreader world centre is -4.65 m. Keep the
 # trailer root on that same centreline instead of adding a camera-view offset.
 TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
-# The truck root is the trailer/container centre, while the cab protrudes in
-# the travel direction.  Stopping exactly on the bay centre makes the truck look
-# like it has driven a little past the work position, so hold it back slightly.
-TASK_TRUCK_STOP_Y_OFFSET_M = 2.0
+# The visible hook centre is calibrated against the live bay container centre.
+# The 20 ft spreader needs its established short-box centre correction while
+# the 40 ft spreader remains on the long-box centreline. Keep the final visual
+# adjustment small after the observed box-past-hook stop. Do not use the rope
+# curve for this: it contains a separate asset-local Y offset.
+TASK_TRUCK_LONG_BOX_HOOK_OFFSET_Y_M = 0.45
+TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M = 0.25
+TASK_TRUCK_LOADED_BOX_LOCAL_Y_M = 0.0
 SPREADER_20FT_CENTER_OFFSET_Y_M = -0.30
 # Calibrated world-space container centres for the PLC trolley stops.  The RTG
 # asset has an inverted/non-uniform X hierarchy, so transforming the rope
@@ -169,6 +181,14 @@ RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
 
 def _hoisted_container_local_center_z(container_height: float) -> float:
     return SPREADER_CONTAINER_CONTACT_LOCAL_Z - float(container_height) * 0.5
+
+
+def _gantry_crossbeam_alignment_delta_y(
+    container_center_y: float, crossbeam_center_y: float
+) -> float:
+    """Return the gantry Y correction that puts the beam on a box centreline."""
+
+    return float(container_center_y) - float(crossbeam_center_y)
 
 
 def _carried_box_world_x(trolley_m: Optional[float]) -> Optional[float]:
@@ -346,6 +366,41 @@ def _truck_box_visible(work_type: str, flow_state: str) -> bool:
         # Outbound/UNLOAD arrives empty and leaves after the box is released.
         return flow_state in (TASK_STATE_PLACED, TASK_STATE_TRUCK_EXITING)
     return False
+
+
+def _task_trailer_layout(
+    container_length_y: float,
+    container_size_ft: int,
+) -> tuple[float, float, float]:
+    """Return trailer length, centre and cab centre for a task truck.
+
+    A 20 ft box rides at the front of a 40 ft chassis, immediately behind the
+    tractor. Its local centre remains at zero so the established RTG alignment
+    remains valid; the spare deck extends rearward.
+    """
+
+    minimum_trailer_length = 5.8
+    if container_size_ft == 20:
+        minimum_trailer_length = container_length_y * 2.0 + 0.55
+    trailer_length_y = max(container_length_y + 0.55, minimum_trailer_length)
+    trailer_center_y = (
+        (trailer_length_y - container_length_y) * 0.5
+        - TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M
+    )
+    cab_center_y = trailer_center_y - trailer_length_y * 0.5 - 0.95
+    return trailer_length_y, trailer_center_y, cab_center_y
+
+
+def _task_truck_stop_y_for_box_center(
+    box_bay_center_y: float,
+    container_size_ft: int,
+) -> float:
+    """Return the box-centre parking Y for the visible RTG hook centre."""
+
+    return float(box_bay_center_y) + (
+        TASK_TRUCK_LONG_BOX_HOOK_OFFSET_Y_M
+        + _spreader_center_offset_y(container_size_ft)
+    )
 
 
 def _outbound_source_visible(work_type: str, flow_state: str) -> bool:
@@ -656,6 +711,9 @@ class OmniverseRtgTwinDriver:
         self._subscription = None
         self._controller = None
         self._controller_stage_id: Optional[int] = None
+        self._crossbeam_stage_id: Optional[int] = None
+        self._lower_portal_crossbeam_path: Optional[str] = None
+        self._lower_portal_crossbeam_checked: bool = False
         self._last_applied_key: Optional[tuple[Any, ...]] = None
         self._last_task_stack_key: Optional[tuple[Any, ...]] = None
         self._last_task_vehicle_key: Optional[tuple[Any, ...]] = None
@@ -693,6 +751,9 @@ class OmniverseRtgTwinDriver:
         self._subscription = None
         self._controller = None
         self._controller_stage_id = None
+        self._crossbeam_stage_id = None
+        self._lower_portal_crossbeam_path = None
+        self._lower_portal_crossbeam_checked = False
         self._last_applied_key = None
         if self._status_overlay is not None:
             self._status_overlay.destroy()
@@ -744,6 +805,10 @@ class OmniverseRtgTwinDriver:
             requested_spreader_size_ft
         )
 
+        # Create the physical stack before positioning the RTG so the rendered
+        # container centre is available as the final gantry reference.
+        self._sync_task_stack(stage, task)
+
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
         if field and bay > 0:
@@ -751,20 +816,35 @@ class OmniverseRtgTwinDriver:
                 field,
                 bay,
                 center_offset_y=spreader_center_offset_y,
+                container_size_ft=requested_spreader_size_ft,
             )
+            # Keep gantry stopping on the stable fixed yard mapping. The
+            # crossbeam measurement is exposed as a read-only diagnostic until
+            # its parent hierarchy is verified in the active USD stage.
+            crossbeam_alignment_y = None
             gantry_source = f"{field}/{bay:03d}"
         elif gantry_m is not None:
             applied_gantry_m = controller.set_gantry_safe(gantry_m)
+            crossbeam_alignment_y = None
             gantry_source = "bigcarElecDistance"
         else:
             applied_gantry_m = None
+            crossbeam_alignment_y = None
             gantry_source = "none"
 
         applied_trolley_m = (
             controller.set_trolley_safe(trolley_m) if trolley_m is not None else None
         )
+        carried_task_load = (
+            bool(task)
+            and _task_work_type(task)
+            in (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
+            and _pose_spreader_locked(pose)
+        )
         applied_hoist_m = (
-            controller.set_hoist_safe(hoist_m) if hoist_m is not None else None
+            controller.set_hoist_safe(hoist_m, carried_load=carried_task_load)
+            if hoist_m is not None
+            else None
         )
         applied_spreader_size_ft = (
             controller.set_spreader_size(
@@ -789,8 +869,8 @@ class OmniverseRtgTwinDriver:
             "spreaderSizeFt": applied_spreader_size_ft,
             "spreaderTargetSizeFt": requested_spreader_size_ft,
             "spreaderCenterOffsetY": spreader_center_offset_y,
+            "crossbeamAlignmentY": crossbeam_alignment_y,
         }
-        self._sync_task_stack(stage, task)
         if _task_work_type(task) == WORK_TYPE_SWITCH:
             self._sync_task_switch(stage, task, pose)
         else:
@@ -821,6 +901,87 @@ class OmniverseRtgTwinDriver:
                 f"resolvedLocked={_pose_spreader_locked(pose)}"
             )
         return applied
+
+    def report_crossbeam_alignment(self) -> Optional[Dict[str, Any]]:
+        """Report, without changing pose, the live box-to-crossbeam offset."""
+
+        stage = self._current_stage()
+        if stage is None:
+            self._log("cannot report crossbeam alignment: no active USD stage")
+            return None
+
+        container = stage.GetPrimAtPath(RTG_CROSSBEAM_ALIGNMENT_CONTAINER_PATH)
+        crossbeam = self._lower_portal_crossbeam_prim(stage)
+        if not container or not crossbeam:
+            self._log(
+                "cannot report crossbeam alignment: reference box or "
+                "lower portal crossbeam was not found"
+            )
+            return None
+
+        container_center = self._world_bbox_center(container)
+        crossbeam_center = self._world_bbox_center(crossbeam)
+        if container_center is None or crossbeam_center is None:
+            self._log("cannot report crossbeam alignment: empty USD bounds")
+            return None
+
+        result = {
+            "containerPath": RTG_CROSSBEAM_ALIGNMENT_CONTAINER_PATH,
+            "crossbeamPath": str(crossbeam.GetPath()),
+            "containerCenter": tuple(float(value) for value in container_center),
+            "crossbeamCenter": tuple(float(value) for value in crossbeam_center),
+            "deltaY": _gantry_crossbeam_alignment_delta_y(
+                container_center[1], crossbeam_center[1]
+            ),
+        }
+        self._log(f"crossbeam alignment measurement: {result}")
+        return result
+
+    def _lower_portal_crossbeam_prim(self, stage: Any):
+        """Find and cache the authored lower portal crossbeam on this stage."""
+
+        stage_id = id(stage)
+        if self._crossbeam_stage_id != stage_id:
+            self._crossbeam_stage_id = stage_id
+            self._lower_portal_crossbeam_path = None
+            self._lower_portal_crossbeam_checked = False
+
+        if self._lower_portal_crossbeam_path:
+            cached = stage.GetPrimAtPath(self._lower_portal_crossbeam_path)
+            if cached:
+                return cached
+            self._lower_portal_crossbeam_path = None
+
+        if self._lower_portal_crossbeam_checked:
+            return None
+        self._lower_portal_crossbeam_checked = True
+
+        target_name = RTG_LOWER_PORTAL_CROSSBEAM_NAME.casefold()
+        for prim in stage.Traverse():
+            if prim.GetName().casefold() == target_name:
+                self._lower_portal_crossbeam_path = str(prim.GetPath())
+                self._log(
+                    "using lower portal crossbeam for live stack alignment: "
+                    f"{self._lower_portal_crossbeam_path}"
+                )
+                return prim
+        return None
+
+    @staticmethod
+    def _world_bbox_center(prim: Any):
+        """Return a prim's composed world-space bounds centre, or ``None``."""
+
+        from pxr import Usd, UsdGeom
+
+        cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        bounds = cache.ComputeWorldBound(prim).ComputeAlignedBox()
+        if bounds.IsEmpty():
+            return None
+        return (bounds.GetMin() + bounds.GetMax()) * 0.5
 
     def _resolve_spreader_locked(self, pose: Dict[str, Any]) -> bool:
         """Latch the two PLC end-position signals into one stable lock state."""
@@ -1077,13 +1238,13 @@ class OmniverseRtgTwinDriver:
                 task, key
             )
             # Reloading the Script Editor while a PLC task is already locked
-            # must resume the visible carried source instead of replaying every
-            # pre-pick state from the beginning.
+            # resumes at the lift check.  Do not skip directly to trolley
+            # travel: the current bay map may require more clearance first.
             if (
                 self._operation_state_machine is not None
                 and _pose_spreader_locked(pose)
             ):
-                self._operation_state_machine.state = OperationState.TROLLEY_TO_TARGET
+                self._operation_state_machine.state = OperationState.HOIST_UP
                 self._operation_state_machine.entered_at = time.time()
                 self._log(f"resumed locked operation task={key[-1]}")
             if self._operation_state_machine is None:
@@ -1127,7 +1288,7 @@ class OmniverseRtgTwinDriver:
         task: Dict[str, Any],
         key: tuple[str, str, int, str, int, str],
     ) -> Optional[RtgOperationStateMachine]:
-        work_type, block, bay_number, _pattern, _size, task_id = key
+        work_type, block, bay_number, pattern, _size, task_id = key
         source_details = self._parse_task_position_details(
             task.get("startPos") or task.get("sourcePos")
         )
@@ -1172,6 +1333,7 @@ class OmniverseRtgTwinDriver:
                     source=source,
                     target=target,
                     vision_required=bool(task.get("visionRequired", False)),
+                    bay_heights=bay_heights_from_pattern(pattern),
                 ),
                 truck_approach_seconds=TRUCK_APPROACH_SECONDS,
                 truck_settle_seconds=TRUCK_SETTLE_SECONDS,
@@ -1303,7 +1465,10 @@ class OmniverseRtgTwinDriver:
         container_length_y = container_length_for_bay(
             block, bay_number, container_size_ft
         )
-        trailer_length_y = max(container_length_y + 0.55, 5.8)
+        trailer_length_y, trailer_center_y, cab_center_y = _task_trailer_layout(
+            container_length_y,
+            container_size_ft,
+        )
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             old = stage.GetPrimAtPath(LIVE_TASK_TRUCK_PATH)
@@ -1330,32 +1495,32 @@ class OmniverseRtgTwinDriver:
             self._create_task_cube(
                 stage,
                 f"{LIVE_TASK_TRUCK_PATH}/Trailer",
-                Gf.Vec3d(0.0, 0.0, 0.36),
+                Gf.Vec3d(0.0, trailer_center_y, 0.36),
                 Gf.Vec3f(2.25, trailer_length_y, 0.18),
                 Gf.Vec3f(0.28, 0.24, 0.18),
             )
             self._create_task_cube(
                 stage,
                 f"{LIVE_TASK_TRUCK_PATH}/Cab",
-                Gf.Vec3d(0.0, -trailer_length_y * 0.5 - 0.95, 0.66),
+                Gf.Vec3d(0.0, cab_center_y, 0.66),
                 Gf.Vec3f(1.65, 1.35, 0.78),
                 Gf.Vec3f(0.92, 0.90, 0.84),
             )
             self._create_task_cube(
                 stage,
                 f"{LIVE_TASK_TRUCK_PATH}/CabWindshield",
-                Gf.Vec3d(0.0, -trailer_length_y * 0.5 - 1.64, 0.83),
+                Gf.Vec3d(0.0, cab_center_y - 0.69, 0.83),
                 Gf.Vec3f(1.15, 0.05, 0.30),
                 Gf.Vec3f(0.02, 0.04, 0.055),
             )
             for index, (x, y) in enumerate(
                 (
-                    (-1.00, -trailer_length_y * 0.36),
-                    (1.00, -trailer_length_y * 0.36),
-                    (-1.00, trailer_length_y * 0.36),
-                    (1.00, trailer_length_y * 0.36),
-                    (-0.84, -trailer_length_y * 0.5 - 1.02),
-                    (0.84, -trailer_length_y * 0.5 - 1.02),
+                    (-1.00, trailer_center_y - trailer_length_y * 0.36),
+                    (1.00, trailer_center_y - trailer_length_y * 0.36),
+                    (-1.00, trailer_center_y + trailer_length_y * 0.36),
+                    (1.00, trailer_center_y + trailer_length_y * 0.36),
+                    (-0.84, cab_center_y - 0.07),
+                    (0.84, cab_center_y - 0.07),
                 ),
                 start=1,
             ):
@@ -1382,7 +1547,7 @@ class OmniverseRtgTwinDriver:
             create_container_box(
                 stage,
                 truck_box_path,
-                Gf.Vec3d(0.0, 0.0, box_center_z),
+                Gf.Vec3d(0.0, TASK_TRUCK_LOADED_BOX_LOCAL_Y_M, box_center_z),
                 truck_box_scale,
                 truck_box_material,
                 bay_id=f"{block}/{bay_number:03d}",
@@ -1393,7 +1558,7 @@ class OmniverseRtgTwinDriver:
             create_container_details(
                 stage,
                 truck_box_path,
-                Gf.Vec3d(0.0, 0.0, box_center_z),
+                Gf.Vec3d(0.0, TASK_TRUCK_LOADED_BOX_LOCAL_Y_M, box_center_z),
                 truck_box_scale,
             )
 
@@ -1411,9 +1576,9 @@ class OmniverseRtgTwinDriver:
         )
 
         lane_center_x = self._task_truck_lane_center_x()
-        target_y = (
-            container_center_y_for_bay(block, bay_number, container_size_ft)
-            + TASK_TRUCK_STOP_Y_OFFSET_M
+        target_y = _task_truck_stop_y_for_box_center(
+            container_center_y_for_bay(block, bay_number, container_size_ft),
+            container_size_ft,
         )
         start_y = target_y + 16.0
         exit_y = target_y - 18.0
@@ -1475,6 +1640,7 @@ class OmniverseRtgTwinDriver:
             TRUCK_OPERATING_LANE_CENTER_X_M + TASK_TRUCK_VISUAL_X_OFFSET_M
         )
         return min(max(visual_center_x, lane_left_x), lane_right_x)
+
 
     def _sync_task_visuals(
         self,
@@ -2629,6 +2795,13 @@ def apply_latest_state_once() -> Optional[Dict[str, Any]]:
         return None
     driver = _driver or OmniverseRtgTwinDriver()
     return driver.apply_state(_receiver.latest_state)
+
+
+def report_live_crossbeam_alignment() -> Optional[Dict[str, Any]]:
+    """Print the actual lower-crossbeam and R02/T02 box centre difference."""
+
+    driver = _driver or OmniverseRtgTwinDriver()
+    return driver.report_crossbeam_alignment()
 
 
 if __name__ == "__main__":

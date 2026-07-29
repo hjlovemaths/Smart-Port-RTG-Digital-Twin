@@ -138,7 +138,7 @@ def set_initial_pose(bay_id: str, hoist_m: float, hide_load: bool) -> dict[str, 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bay", default="1C/005")
-    parser.add_argument("--hoist", type=float, default=15.0)
+    parser.add_argument("--hoist", type=float, default=18.0)
     parser.add_argument("--show-load", action="store_true")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else None)
     print(set_initial_pose(args.bay, args.hoist, not args.show_load))

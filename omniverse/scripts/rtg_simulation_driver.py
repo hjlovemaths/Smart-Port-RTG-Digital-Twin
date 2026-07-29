@@ -56,6 +56,7 @@ TaskSlot = _state_machine_module.TaskSlot
 WORK_TYPE_LOAD = _state_machine_module.WORK_TYPE_LOAD
 WORK_TYPE_SWITCH = _state_machine_module.WORK_TYPE_SWITCH
 WORK_TYPE_UNLOAD = _state_machine_module.WORK_TYPE_UNLOAD
+bay_heights_from_pattern = _state_machine_module.bay_heights_from_pattern
 
 from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
@@ -68,11 +69,10 @@ HOIST_TRAVEL_SECONDS = 1.4
 LOCK_SETTLE_SECONDS = 0.45
 UNLOCK_SETTLE_SECONDS = 0.45
 # The live visual compresses one physical container tier to the authored USD
-# pitch, but PLC hoist values remain engineering metres.  Tier 1 therefore
-# starts at 2.5 m and tier 4 must be picked at 10.0 m, not at the old fixed
-# 2.5 m target.
-PHYSICAL_TIER_HEIGHT_M = 2.50
-FIRST_TIER_PICK_HOIST_M = 2.50
+# pitch, but PLC hoist values remain engineering metres.  The yard model uses
+# a 2.6 m physical tier, so tier 1's top is 2.6 m and tier 4's top is 10.4 m.
+PHYSICAL_TIER_HEIGHT_M = 2.60
+FIRST_TIER_PICK_HOIST_M = 2.60
 # The simulated truck trailer top is slightly above the tier-1 yard top.
 # This is the engineering hoist value that puts the spreader contact plane on
 # the truck box when the outbound box is released.
@@ -127,6 +127,9 @@ def _task_from_payload(payload: Dict[str, Any]) -> OperationTask:
         source=source,
         target=target,
         vision_required=bool(payload.get("vision_required", payload.get("visionRequired", False))),
+        bay_heights=bay_heights_from_pattern(
+            payload.get("bay_map") or payload.get("bayMap")
+        ),
     )
 
 
@@ -334,16 +337,40 @@ class RtgSimulationDriver:
             trolley_target = self._machine.target_trolley_m
             self._current_trolley = self._ramp(self._current_trolley, trolley_target, elapsed)
 
-        if state == OperationState.HOIST_TO_PICK:
+        if state == OperationState.HOIST_TO_SOURCE_CLEARANCE:
+            approach_height = self._source_approach_hoist_target_m()
+            progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
+            self._current_hoist = 6.0 + (approach_height - 6.0) * progress
+            self._lock = False
+        elif state == OperationState.TROLLEY_TO_SOURCE:
+            self._current_hoist = self._source_approach_hoist_target_m()
+            self._lock = False
+        elif state == OperationState.HOIST_TO_PICK:
             pick_target = self._pick_hoist_target_m()
             progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
-            self._current_hoist = 6.0 + (pick_target - 6.0) * progress
+            approach_height = self._source_approach_hoist_target_m()
+            self._current_hoist = approach_height + (pick_target - approach_height) * progress
             # Lock only after the spreader has reached the tier-appropriate
             # contact height and the twist-lock has had time to settle.
             self._lock = elapsed >= HOIST_TRAVEL_SECONDS + LOCK_SETTLE_SECONDS
-        elif state in (OperationState.LOCK, OperationState.HOIST_UP, OperationState.TROLLEY_TO_TARGET):
+            if self._lock:
+                # A locked task reports the bottom face of the picked box,
+                # not the empty spreader's contact plane.  The receiver adds
+                # the physical box height back only for rendering, so there
+                # is no visual jump at lock.
+                self._current_hoist = self._pick_load_bottom_hoist_m()
+        elif state == OperationState.LOCK:
             self._lock = True
-            self._current_hoist = self._safe_hoist_target_m()
+            self._current_hoist = self._pick_load_bottom_hoist_m()
+        elif state == OperationState.HOIST_UP:
+            self._lock = True
+            progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
+            pick_height = self._pick_load_bottom_hoist_m()
+            travel_height = self._transfer_hoist_target_m()
+            self._current_hoist = pick_height + (travel_height - pick_height) * progress
+        elif state == OperationState.TROLLEY_TO_TARGET:
+            self._lock = True
+            self._current_hoist = self._transfer_hoist_target_m()
         elif state == OperationState.HOIST_TO_PLACE:
             place_target = self._place_hoist_target_m()
             progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
@@ -351,11 +378,17 @@ class RtgSimulationDriver:
             # machine release it until the truck/target contact height is
             # actually reached.
             self._lock = elapsed >= HOIST_TRAVEL_SECONDS
-            travel_height = self._safe_hoist_target_m()
+            travel_height = self._transfer_hoist_target_m()
             self._current_hoist = travel_height + (place_target - travel_height) * progress
+            if self._lock:
+                self._current_hoist = self._place_load_bottom_hoist_m()
         elif state == OperationState.UNLOCK:
             self._lock = elapsed < UNLOCK_SETTLE_SECONDS
-            self._current_hoist = self._place_hoist_target_m()
+            self._current_hoist = (
+                self._place_load_bottom_hoist_m()
+                if self._lock
+                else self._place_hoist_target_m()
+            )
         elif state in (OperationState.HOIST_SAFE, OperationState.TRUCK_EXITING, OperationState.COMPLETE):
             self._lock = False
             self._current_hoist = self._safe_hoist_target_m()
@@ -397,11 +430,39 @@ class RtgSimulationDriver:
         tier = operation.target.tier or 1
         return FIRST_TIER_PICK_HOIST_M + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
 
+    def _pick_load_bottom_hoist_m(self) -> float:
+        """Return the locked source container's bottom-face height."""
+
+        return max(0.0, self._pick_hoist_target_m() - PHYSICAL_TIER_HEIGHT_M)
+
+    def _place_load_bottom_hoist_m(self) -> float:
+        """Return the locked destination container's bottom-face height."""
+
+        return max(0.0, self._place_hoist_target_m() - PHYSICAL_TIER_HEIGHT_M)
+
     def _safe_hoist_target_m(self) -> float:
         """Keep the spreader clear of the tallest target during and after placement."""
 
         assert self._machine is not None
         return max(6.0, self._machine.safe_hoist_m)
+
+    def _source_approach_hoist_target_m(self) -> float:
+        """Keep the empty spreader clear while it travels to the source row."""
+
+        assert self._machine is not None
+        return min(
+            self._machine.MAX_HOIST_M,
+            max(6.0, self._machine.source_approach_hoist_m),
+        )
+
+    def _transfer_hoist_target_m(self) -> float:
+        """Raise to the bay-map clearance height before any trolley travel."""
+
+        assert self._machine is not None
+        return min(
+            self._machine.MAX_HOIST_M,
+            max(6.0, self._machine.transfer_hoist_m),
+        )
 
     @staticmethod
     def _ramp(current: float, target: float, elapsed: float) -> float:
@@ -427,6 +488,15 @@ def stop_simulation() -> None:
     if _simulation is not None:
         _simulation.stop()
         _simulation = None
+
+
+def report_simulated_crossbeam_alignment() -> Optional[Dict[str, Any]]:
+    """Report the live model centres used to calibrate a simulated 40 ft stop."""
+
+    if _simulation is None or _simulation._driver is None:
+        print("[RTG Simulation] no active simulation driver to measure")
+        return None
+    return _simulation._driver.report_crossbeam_alignment()
 
 
 def publish_simulated_task(
