@@ -246,6 +246,27 @@ instances can be authored later from live terminal data.
 
 ## Runtime container generation
 
+Inventory is mode-isolated: `data/yard_inventory.sim.json` contains the
+deterministic random simulation yard, while `data/yard_inventory.live.json` is
+the non-random live cache. On stage load the selected mode rebuilds occupied
+bays below `/World/LiveContainers/YardInventory`. Task stacks, trucks, and
+hoisted proxies remain session-layer actors; successful LOAD, UNLOAD, and
+SWITCH completion updates only that mode's JSON inventory atomically and
+rebuilds the affected bays. Repeated completion messages are ignored through
+the persisted task ledger.
+
+Live startup treats its local file as potentially stale. A task-provided
+six-digit `bayMap` authoritatively reconciles the affected bay. Missing data,
+cross-bay SWITCH without `targetBayMap`, corrupt JSON, or failed persistence
+leaves the task in `PENDING` inventory-sync state instead of clearing visuals
+or crashing the Kit driver.
+
+Regenerate the deterministic development snapshot with:
+
+```powershell
+python omniverse\scripts\generate_yard_inventory.py --seed 20260729
+```
+
 `scripts/build_live_containers.py` generates lightweight container stacks into
 `scenes/live_containers.usda`. The current demo command is:
 
@@ -258,8 +279,9 @@ The pattern is parsed one digit per row from right to left. For example,
 tiers, and so on toward the left. The generated layer writes one schematic stack
 column per row, adds `live:bayId`, `live:row`, and `live:tiers` metadata, draws
 tier separator lines, and draws a red outline around the bay-map footprint.
-`scenes/smart_port.usda` sublayers `live_containers.usda`, so reloading the
-stage shows the current live stack without changing the Blender source asset.
+`live_containers.usda` is retained as an offline demo/validation layer but is
+not sublayered by the production `smart_port.usda` stage, avoiding overlap with
+the persistent runtime inventory.
 
 Each physical container tier is treated as 2.6 m, so a six-tier stack is
 15.6 m high in engineering coordinates. The compressed visual stack keeps its

@@ -25,6 +25,8 @@ from rtg_task_state_machine import (  # noqa: E402
     WORK_TYPE_SWITCH,
     WORK_TYPE_UNLOAD,
     bay_heights_from_pattern,
+    parse_container_height_m,
+    resolve_container_height_m,
 )
 from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
@@ -44,6 +46,32 @@ def plc(**overrides):
 
 
 class OperationStateMachineTests(unittest.TestCase):
+    def test_container_height_parser_accepts_task_feed_formats(self) -> None:
+        self.assertEqual(parse_container_height_m("2.591"), 2.591)
+        self.assertEqual(parse_container_height_m("2591"), 2.591)
+        self.assertEqual(parse_container_height_m("289.6cm"), 2.896)
+        self.assertEqual(parse_container_height_m("9'6\""), 2.896)
+
+    def test_explicit_height_overrides_container_type_fallback(self) -> None:
+        self.assertEqual(resolve_container_height_m(None, "40GP"), 2.591)
+        self.assertEqual(resolve_container_height_m(None, "40HC"), 2.896)
+        self.assertEqual(resolve_container_height_m(2.6, "40HC"), 2.6)
+
+    def test_inventory_heights_are_summed_for_safe_clearance(self) -> None:
+        machine = RtgOperationStateMachine(
+            OperationTask(
+                "mixed-height-stack",
+                WORK_TYPE_LOAD,
+                TaskSlot("3C", 63),
+                TaskSlot("3C", 63, 1, 3),
+                bay_heights=(2, 0, 0, 0, 0, 0),
+                container_height_m=2.6,
+                bay_slot_heights_m=((2.591, 2.896), (), (), (), (), ()),
+            )
+        )
+
+        self.assertAlmostEqual(machine.safe_hoist_m, 10.687)
+
     def test_publish_renders_20ft_spreader_preflight_before_update(self) -> None:
         class RenderDriver:
             def __init__(self) -> None:
@@ -291,6 +319,20 @@ class OperationStateMachineTests(unittest.TestCase):
         # reports the loaded box's bottom face, not the 10.4 m lock plane.
         self.assertTrue(simulator._lock)
         self.assertAlmostEqual(simulator._current_hoist, 7.8)
+
+    def test_simulation_uses_real_plc_truck_contact_height(self) -> None:
+        simulator = RtgSimulationDriver()
+        simulator.publish(
+            {
+                "work_type": "LOAD",
+                "end_pos": "3C6321",
+                "bay_map": "001000",
+                "container_size": 20,
+                "task_id": "sim-truck-contact",
+            }
+        )
+
+        self.assertAlmostEqual(simulator._pick_hoist_target_m(), 4.32)
 
     def test_simulation_keeps_switch_locked_until_the_box_rests_on_target(self) -> None:
         simulator = RtgSimulationDriver()

@@ -12,17 +12,22 @@ PLC ZMQ + 任务 ZMQ
 
 ## 启动
 
-先在 Omniverse 里运行：
+推荐先在 PowerShell 启动服务：
+
+```powershell
+python services\rtg_twin_service.py --config services\rtg_twin_service.config.json
+```
+
+再打开 `omniverse/scenes/smart_port.usda`，在 Omniverse Kit Script Editor
+执行：
 
 ```python
 exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_twin_state_receiver.py", encoding="utf-8").read())
 ```
 
-然后启动服务：
-
-```powershell
-python services\rtg_twin_service.py --config services\rtg_twin_service.config.json
-```
+接收脚本会自动调用 `start_live_driver()` 并连接 `127.0.0.1:48700`，不要与
+`rtg_simulation_driver.py` 同时运行。真实库存使用
+`omniverse/data/yard_inventory.live.json`，不会读取随机仿真库存。
 
 默认配置使用 RCMS 里当前看到的 RTG_220 端口：
 
@@ -52,7 +57,13 @@ python services\rtg_twin_service.py --once --plc-json path\to\Yard_PLC_RTG_220.j
 最新 PLC 姿态 + 当前任务缓存 = TwinState
 ```
 
-收到任务完成 runinfo 后会清空任务缓存，避免旧任务一直带到 Omniverse。
+收到任务完成 runinfo 后，服务会把当前任务标记为 `COMPLETED` 并继续发布，
+让 Omniverse 有机会按 `taskId` 完成一次幂等库存结算。下一条任务消息会替换
+这个终态任务；服务不再在完成消息到达时直接丢失任务身份。
+
+任务中的六位 `bay_map` 会作为本次作业贝位的权威快照发送给 Omniverse。
+跨贝翻箱如有 `target_bay_map` 也会转发为 `targetBayMap`；缺少必要快照时，
+接收器会将库存同步状态标记为 `PENDING` 并阻止错误结算。
 
 ## 跳板机转发模式：本机主动拉取（推荐）
 

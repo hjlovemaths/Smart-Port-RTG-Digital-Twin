@@ -1,0 +1,2535 @@
+{
+  "anchors": [
+    {
+      "bayId": "1C/001",
+      "bayNumber": 1,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/002",
+      "bayNumber": 2,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/003",
+      "bayNumber": 3,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/004",
+      "bayNumber": 4,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/005",
+      "bayNumber": 5,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/006",
+      "bayNumber": 6,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/007",
+      "bayNumber": 7,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/008",
+      "bayNumber": 8,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/009",
+      "bayNumber": 9,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/010",
+      "bayNumber": 10,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/011",
+      "bayNumber": 11,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/012",
+      "bayNumber": 12,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/013",
+      "bayNumber": 13,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/014",
+      "bayNumber": 14,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/015",
+      "bayNumber": 15,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/016",
+      "bayNumber": 16,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/017",
+      "bayNumber": 17,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/018",
+      "bayNumber": 18,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/019",
+      "bayNumber": 19,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/020",
+      "bayNumber": 20,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/021",
+      "bayNumber": 21,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/022",
+      "bayNumber": 22,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/023",
+      "bayNumber": 23,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/024",
+      "bayNumber": 24,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/025",
+      "bayNumber": 25,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/026",
+      "bayNumber": 26,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/027",
+      "bayNumber": 27,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/028",
+      "bayNumber": 28,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/029",
+      "bayNumber": 29,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/030",
+      "bayNumber": 30,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/031",
+      "bayNumber": 31,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/032",
+      "bayNumber": 32,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/033",
+      "bayNumber": 33,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/034",
+      "bayNumber": 34,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/035",
+      "bayNumber": 35,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/036",
+      "bayNumber": 36,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/037",
+      "bayNumber": 37,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/038",
+      "bayNumber": 38,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/039",
+      "bayNumber": 39,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/040",
+      "bayNumber": 40,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/041",
+      "bayNumber": 41,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/042",
+      "bayNumber": 42,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/043",
+      "bayNumber": 43,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/044",
+      "bayNumber": 44,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/045",
+      "bayNumber": 45,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/046",
+      "bayNumber": 46,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/047",
+      "bayNumber": 47,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/048",
+      "bayNumber": 48,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/049",
+      "bayNumber": 49,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/050",
+      "bayNumber": 50,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/051",
+      "bayNumber": 51,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/052",
+      "bayNumber": 52,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/053",
+      "bayNumber": 53,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/054",
+      "bayNumber": 54,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/055",
+      "bayNumber": 55,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/056",
+      "bayNumber": 56,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/057",
+      "bayNumber": 57,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/058",
+      "bayNumber": 58,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/059",
+      "bayNumber": 59,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/060",
+      "bayNumber": 60,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/061",
+      "bayNumber": 61,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/062",
+      "bayNumber": 62,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/063",
+      "bayNumber": 63,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/064",
+      "bayNumber": 64,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/065",
+      "bayNumber": 65,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/066",
+      "bayNumber": 66,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/067",
+      "bayNumber": 67,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/068",
+      "bayNumber": 68,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/069",
+      "bayNumber": 69,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/070",
+      "bayNumber": 70,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/071",
+      "bayNumber": 71,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/072",
+      "bayNumber": 72,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/073",
+      "bayNumber": 73,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/074",
+      "bayNumber": 74,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/075",
+      "bayNumber": 75,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/076",
+      "bayNumber": 76,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/077",
+      "bayNumber": 77,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/078",
+      "bayNumber": 78,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/079",
+      "bayNumber": 79,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/080",
+      "bayNumber": 80,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/081",
+      "bayNumber": 81,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/082",
+      "bayNumber": 82,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/083",
+      "bayNumber": 83,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/084",
+      "bayNumber": 84,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/085",
+      "bayNumber": 85,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/086",
+      "bayNumber": 86,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/087",
+      "bayNumber": 87,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/088",
+      "bayNumber": 88,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/089",
+      "bayNumber": 89,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/090",
+      "bayNumber": 90,
+      "block": "1C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "1C/091",
+      "bayNumber": 91,
+      "block": "1C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/001",
+      "bayNumber": 1,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/002",
+      "bayNumber": 2,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/003",
+      "bayNumber": 3,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/004",
+      "bayNumber": 4,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/005",
+      "bayNumber": 5,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/006",
+      "bayNumber": 6,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/007",
+      "bayNumber": 7,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/008",
+      "bayNumber": 8,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/009",
+      "bayNumber": 9,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/010",
+      "bayNumber": 10,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/011",
+      "bayNumber": 11,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/012",
+      "bayNumber": 12,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/013",
+      "bayNumber": 13,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/014",
+      "bayNumber": 14,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/015",
+      "bayNumber": 15,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/016",
+      "bayNumber": 16,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/017",
+      "bayNumber": 17,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/018",
+      "bayNumber": 18,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/019",
+      "bayNumber": 19,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/020",
+      "bayNumber": 20,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/021",
+      "bayNumber": 21,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/022",
+      "bayNumber": 22,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/023",
+      "bayNumber": 23,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/024",
+      "bayNumber": 24,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/025",
+      "bayNumber": 25,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/026",
+      "bayNumber": 26,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/027",
+      "bayNumber": 27,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/028",
+      "bayNumber": 28,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/029",
+      "bayNumber": 29,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/030",
+      "bayNumber": 30,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/031",
+      "bayNumber": 31,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/032",
+      "bayNumber": 32,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/033",
+      "bayNumber": 33,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/034",
+      "bayNumber": 34,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/035",
+      "bayNumber": 35,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/036",
+      "bayNumber": 36,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/037",
+      "bayNumber": 37,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/038",
+      "bayNumber": 38,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/039",
+      "bayNumber": 39,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/040",
+      "bayNumber": 40,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/041",
+      "bayNumber": 41,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/042",
+      "bayNumber": 42,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/043",
+      "bayNumber": 43,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/044",
+      "bayNumber": 44,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/045",
+      "bayNumber": 45,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/046",
+      "bayNumber": 46,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/047",
+      "bayNumber": 47,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/048",
+      "bayNumber": 48,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/049",
+      "bayNumber": 49,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/050",
+      "bayNumber": 50,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/051",
+      "bayNumber": 51,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/052",
+      "bayNumber": 52,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/053",
+      "bayNumber": 53,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/054",
+      "bayNumber": 54,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/055",
+      "bayNumber": 55,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/056",
+      "bayNumber": 56,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/057",
+      "bayNumber": 57,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/058",
+      "bayNumber": 58,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/059",
+      "bayNumber": 59,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/060",
+      "bayNumber": 60,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/061",
+      "bayNumber": 61,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/062",
+      "bayNumber": 62,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/063",
+      "bayNumber": 63,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/064",
+      "bayNumber": 64,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/065",
+      "bayNumber": 65,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/066",
+      "bayNumber": 66,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/067",
+      "bayNumber": 67,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/068",
+      "bayNumber": 68,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/069",
+      "bayNumber": 69,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/070",
+      "bayNumber": 70,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/071",
+      "bayNumber": 71,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/072",
+      "bayNumber": 72,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/073",
+      "bayNumber": 73,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/074",
+      "bayNumber": 74,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/075",
+      "bayNumber": 75,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/076",
+      "bayNumber": 76,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/077",
+      "bayNumber": 77,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/078",
+      "bayNumber": 78,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/079",
+      "bayNumber": 79,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/080",
+      "bayNumber": 80,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/081",
+      "bayNumber": 81,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/082",
+      "bayNumber": 82,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/083",
+      "bayNumber": 83,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/084",
+      "bayNumber": 84,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/085",
+      "bayNumber": 85,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/086",
+      "bayNumber": 86,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/087",
+      "bayNumber": 87,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/088",
+      "bayNumber": 88,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/089",
+      "bayNumber": 89,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/090",
+      "bayNumber": 90,
+      "block": "2C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "2C/091",
+      "bayNumber": 91,
+      "block": "2C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/001",
+      "bayNumber": 1,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/002",
+      "bayNumber": 2,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/003",
+      "bayNumber": 3,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/004",
+      "bayNumber": 4,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/005",
+      "bayNumber": 5,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/006",
+      "bayNumber": 6,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/007",
+      "bayNumber": 7,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/008",
+      "bayNumber": 8,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/009",
+      "bayNumber": 9,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/010",
+      "bayNumber": 10,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/011",
+      "bayNumber": 11,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/012",
+      "bayNumber": 12,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/013",
+      "bayNumber": 13,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/014",
+      "bayNumber": 14,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/015",
+      "bayNumber": 15,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/016",
+      "bayNumber": 16,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/017",
+      "bayNumber": 17,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/018",
+      "bayNumber": 18,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/019",
+      "bayNumber": 19,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/020",
+      "bayNumber": 20,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/021",
+      "bayNumber": 21,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/022",
+      "bayNumber": 22,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/023",
+      "bayNumber": 23,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/024",
+      "bayNumber": 24,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/025",
+      "bayNumber": 25,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/026",
+      "bayNumber": 26,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/027",
+      "bayNumber": 27,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/028",
+      "bayNumber": 28,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/029",
+      "bayNumber": 29,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/030",
+      "bayNumber": 30,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/031",
+      "bayNumber": 31,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/032",
+      "bayNumber": 32,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/033",
+      "bayNumber": 33,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/034",
+      "bayNumber": 34,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/035",
+      "bayNumber": 35,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/036",
+      "bayNumber": 36,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/037",
+      "bayNumber": 37,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/038",
+      "bayNumber": 38,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/039",
+      "bayNumber": 39,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/040",
+      "bayNumber": 40,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/041",
+      "bayNumber": 41,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/042",
+      "bayNumber": 42,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/043",
+      "bayNumber": 43,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/044",
+      "bayNumber": 44,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/045",
+      "bayNumber": 45,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/046",
+      "bayNumber": 46,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/047",
+      "bayNumber": 47,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/048",
+      "bayNumber": 48,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/049",
+      "bayNumber": 49,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/050",
+      "bayNumber": 50,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/051",
+      "bayNumber": 51,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/052",
+      "bayNumber": 52,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/053",
+      "bayNumber": 53,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/054",
+      "bayNumber": 54,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/055",
+      "bayNumber": 55,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/056",
+      "bayNumber": 56,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/057",
+      "bayNumber": 57,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/058",
+      "bayNumber": 58,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/059",
+      "bayNumber": 59,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/060",
+      "bayNumber": 60,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/061",
+      "bayNumber": 61,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/062",
+      "bayNumber": 62,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/063",
+      "bayNumber": 63,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/064",
+      "bayNumber": 64,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/065",
+      "bayNumber": 65,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/066",
+      "bayNumber": 66,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/067",
+      "bayNumber": 67,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/068",
+      "bayNumber": 68,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/069",
+      "bayNumber": 69,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/070",
+      "bayNumber": 70,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/071",
+      "bayNumber": 71,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/072",
+      "bayNumber": 72,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/073",
+      "bayNumber": 73,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/074",
+      "bayNumber": 74,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/075",
+      "bayNumber": 75,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/076",
+      "bayNumber": 76,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/077",
+      "bayNumber": 77,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/078",
+      "bayNumber": 78,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/079",
+      "bayNumber": 79,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/080",
+      "bayNumber": 80,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/081",
+      "bayNumber": 81,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/082",
+      "bayNumber": 82,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/083",
+      "bayNumber": 83,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/084",
+      "bayNumber": 84,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/085",
+      "bayNumber": 85,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/086",
+      "bayNumber": 86,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/087",
+      "bayNumber": 87,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/088",
+      "bayNumber": 88,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/089",
+      "bayNumber": 89,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/090",
+      "bayNumber": 90,
+      "block": "3C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "3C/091",
+      "bayNumber": 91,
+      "block": "3C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/001",
+      "bayNumber": 1,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/002",
+      "bayNumber": 2,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/003",
+      "bayNumber": 3,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/004",
+      "bayNumber": 4,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/005",
+      "bayNumber": 5,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/006",
+      "bayNumber": 6,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/007",
+      "bayNumber": 7,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/008",
+      "bayNumber": 8,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/009",
+      "bayNumber": 9,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/010",
+      "bayNumber": 10,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/011",
+      "bayNumber": 11,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/012",
+      "bayNumber": 12,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/013",
+      "bayNumber": 13,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/014",
+      "bayNumber": 14,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/015",
+      "bayNumber": 15,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/016",
+      "bayNumber": 16,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/017",
+      "bayNumber": 17,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/018",
+      "bayNumber": 18,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/019",
+      "bayNumber": 19,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/020",
+      "bayNumber": 20,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/021",
+      "bayNumber": 21,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/022",
+      "bayNumber": 22,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/023",
+      "bayNumber": 23,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/024",
+      "bayNumber": 24,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/025",
+      "bayNumber": 25,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/026",
+      "bayNumber": 26,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/027",
+      "bayNumber": 27,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/028",
+      "bayNumber": 28,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/029",
+      "bayNumber": 29,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/030",
+      "bayNumber": 30,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/031",
+      "bayNumber": 31,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/032",
+      "bayNumber": 32,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/033",
+      "bayNumber": 33,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/034",
+      "bayNumber": 34,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/035",
+      "bayNumber": 35,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/036",
+      "bayNumber": 36,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/037",
+      "bayNumber": 37,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/038",
+      "bayNumber": 38,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/039",
+      "bayNumber": 39,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/040",
+      "bayNumber": 40,
+      "block": "4C",
+      "logicalSizeFt": 40,
+      "occupiedBy": null,
+      "status": "empty"
+    },
+    {
+      "bayId": "4C/041",
+      "bayNumber": 41,
+      "block": "4C",
+      "logicalSizeFt": 20,
+      "occupiedBy": null,
+      "status": "empty"
+    }
+  ],
+  "blocks": {
+    "1C": 91,
+    "2C": 91,
+    "3C": 91,
+    "4C": 41
+  },
+  "completedTasks": {},
+  "createdAtUtc": "2026-07-29T06:08:01Z",
+  "schema": "smart-port-yard-inventory/v1",
+  "seed": null,
+  "stacks": {},
+  "stats": {
+    "anchorCount": 314,
+    "completedTaskCount": 0,
+    "containerCount": 0,
+    "initializedStackCount": 0,
+    "occupiedStackCount": 0
+  },
+  "updatedAtUtc": "2026-07-29T06:08:01Z"
+}

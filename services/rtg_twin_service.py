@@ -203,6 +203,18 @@ class TwinStateCache:
             self._task = None
             self._task_at = None
 
+    def complete_task(self) -> bool:
+        """Publish one durable terminal task instead of dropping its identity."""
+
+        with self._lock:
+            if self._task is None:
+                return False
+            self._task = dict(self._task)
+            self._task["_twin_operation_state"] = "COMPLETED"
+            self._task["_twin_completed_at"] = utc_now_iso()
+            self._task_at = time.time()
+            return True
+
     def build_state(self) -> Dict[str, Any]:
         with self._lock:
             plc = dict(self._plc) if self._plc else None
@@ -264,6 +276,14 @@ class TwinStateCache:
         if task is None:
             return None
         bay_map = text_value(task.get("bay_map"))
+        bay_slot_heights = parse_json_maybe(
+            task.get("bay_slot_heights")
+            or task.get("baySlotHeights")
+        )
+        target_bay_map = text_value(
+            task.get("target_bay_map")
+            or task.get("targetBayMap")
+        )
         return {
             "taskId": text_value(task.get("task_id")),
             "taskState": int_value(task.get("task_state"), 0),
@@ -279,7 +299,11 @@ class TwinStateCache:
             "carType": text_value(task.get("car_type")),
             "carNo": text_value(task.get("car_no")),
             "bayMap": bay_map,
+            "targetBayMap": target_bay_map,
             "bayMapLayers": bay_map_layers(bay_map),
+            "baySlotHeights": bay_slot_heights,
+            "operationState": text_value(task.get("_twin_operation_state")),
+            "completedAtUtc": text_value(task.get("_twin_completed_at")),
             "taskAgeSeconds": round(task_age, 3) if task_age is not None else None,
         }
 
@@ -463,7 +487,7 @@ class RtgTwinService:
         if cmd_id == "cmd_rcms_taskinfo":
             self.cache.update_task(content)
         elif is_task_complete_runinfo(cmd_id, content):
-            self.cache.clear_task()
+            self.cache.complete_task()
 
     def _log_state_summary(self, state: Dict[str, Any]) -> None:
         now = time.time()

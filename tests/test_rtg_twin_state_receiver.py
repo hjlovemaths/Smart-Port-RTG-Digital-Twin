@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -128,6 +129,255 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_live_and_simulation_modes_use_different_default_files(self) -> None:
+        live = receiver.OmniverseRtgTwinDriver(
+            inventory_mode=receiver.INVENTORY_MODE_LIVE
+        )
+        simulation = receiver.OmniverseRtgTwinDriver(
+            inventory_mode=receiver.INVENTORY_MODE_SIMULATION
+        )
+
+        self.assertNotEqual(live._inventory_path, simulation._inventory_path)
+        self.assertTrue(str(live._inventory_path).endswith("yard_inventory.live.json"))
+        self.assertTrue(
+            str(simulation._inventory_path).endswith("yard_inventory.sim.json")
+        )
+        self.assertFalse(live._inventory_full_sync_ready)
+        self.assertTrue(simulation._inventory_full_sync_ready)
+
+    def test_corrupt_live_cache_degrades_to_pending_empty_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yard_inventory.live.json"
+            path.write_text("{not valid json", encoding="utf-8")
+
+            driver = receiver.OmniverseRtgTwinDriver(
+                path,
+                inventory_mode=receiver.INVENTORY_MODE_LIVE,
+            )
+
+        self.assertIsNotNone(driver._inventory_load_error)
+        self.assertEqual(driver._inventory.to_dict()["stats"]["containerCount"], 0)
+        self.assertFalse(driver._inventory_full_sync_ready)
+
+    def test_live_task_without_bay_map_stays_pending_and_cannot_settle(self) -> None:
+        class InventoryDriver(receiver.OmniverseRtgTwinDriver):
+            def _render_inventory_bay(self, _stage, _stack_key):
+                return None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            driver = InventoryDriver(
+                Path(temp_dir) / "yard_inventory.live.json",
+                inventory_mode=receiver.INVENTORY_MODE_LIVE,
+            )
+            task = {
+                "taskId": "offline-drift",
+                "workType": "UNLOAD",
+                "startPos": "3C6321",
+                "containerSize": 20,
+                "operationState": "COMPLETED",
+            }
+            prepared = driver._prepare_inventory_task(object(), task)
+
+            self.assertEqual(
+                prepared["inventorySyncState"],
+                receiver.INVENTORY_SYNC_PENDING,
+            )
+            self.assertFalse(driver._settle_inventory_task(object(), prepared))
+            self.assertNotIn(
+                "offline-drift",
+                driver._inventory.completed_tasks,
+            )
+
+    def test_live_task_bay_map_reconciles_offline_drift_before_settlement(self) -> None:
+        class InventoryDriver(receiver.OmniverseRtgTwinDriver):
+            def _render_inventory_bay(self, _stage, _stack_key):
+                return None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yard_inventory.live.json"
+            driver = InventoryDriver(
+                path,
+                inventory_mode=receiver.INVENTORY_MODE_LIVE,
+            )
+            task = {
+                "taskId": "offline-reconciled",
+                "workType": "UNLOAD",
+                "startPos": "3C6321",
+                "containerSize": 20,
+                "containerNo": "REAL-BOX",
+                "bayMap": "010000",
+                "operationState": "COMPLETED",
+            }
+            prepared = driver._prepare_inventory_task(object(), task)
+
+            self.assertEqual(
+                prepared["inventorySyncState"],
+                receiver.INVENTORY_SYNC_READY,
+            )
+            self.assertTrue(driver._settle_inventory_task(object(), prepared))
+            self.assertEqual(
+                driver._inventory.stack_pattern(
+                    driver._inventory.stack("3C", 63, 20)
+                ),
+                "000000",
+            )
+
+    def test_live_cross_bay_switch_requires_target_bay_map(self) -> None:
+        class InventoryDriver(receiver.OmniverseRtgTwinDriver):
+            def _render_inventory_bay(self, _stage, _stack_key):
+                return None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            driver = InventoryDriver(
+                Path(temp_dir) / "yard_inventory.live.json",
+                inventory_mode=receiver.INVENTORY_MODE_LIVE,
+            )
+            task = {
+                "taskId": "cross-bay-sync",
+                "workType": "SWITCH",
+                "startPos": "2C1111",
+                "endPos": "2C3551",
+                "containerSize": 20,
+                "containerNo": "CROSS-BAY",
+                "bayMap": "100000",
+            }
+
+            pending = driver._prepare_inventory_task(object(), task)
+            self.assertEqual(
+                pending["inventorySyncState"],
+                receiver.INVENTORY_SYNC_PENDING,
+            )
+
+            driver._active_inventory_task_key = None
+            ready = driver._prepare_inventory_task(
+                object(),
+                dict(task, targetBayMap="000000"),
+            )
+            self.assertEqual(
+                ready["inventorySyncState"],
+                receiver.INVENTORY_SYNC_READY,
+            )
+            self.assertTrue(driver._settle_inventory_task(object(), ready))
+
+    def test_failed_inventory_save_rolls_back_in_memory_transaction(self) -> None:
+        class InventoryDriver(receiver.OmniverseRtgTwinDriver):
+            def _render_inventory_bay(self, _stage, _stack_key):
+                return None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yard_inventory.live.json"
+            driver = InventoryDriver(
+                path,
+                inventory_mode=receiver.INVENTORY_MODE_LIVE,
+            )
+            task = {
+                "taskId": "save-failure",
+                "workType": "LOAD",
+                "endPos": "3C6321",
+                "containerSize": 20,
+                "containerNo": "SAVE-FAIL-BOX",
+                "bayMap": "000000",
+                "operationState": "COMPLETED",
+            }
+            prepared = driver._prepare_inventory_task(object(), task)
+            driver._inventory.save = lambda _path: (_ for _ in ()).throw(
+                OSError("disk full")
+            )
+
+            self.assertFalse(driver._settle_inventory_task(object(), prepared))
+            self.assertNotIn("save-failure", driver._inventory.completed_tasks)
+            self.assertEqual(
+                driver._inventory.stack_pattern(
+                    driver._inventory.stack("3C", 63, 20)
+                ),
+                "000000",
+            )
+
+    def test_receiver_commits_completed_task_to_persistent_inventory(self) -> None:
+        class InventoryDriver(receiver.OmniverseRtgTwinDriver):
+            def __init__(self, path):
+                super().__init__(path, inventory_autosave=True)
+                self.rendered = []
+
+            def _render_inventory_bay(self, _stage, stack_key):
+                self.rendered.append(stack_key)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yard_inventory.json"
+            driver = InventoryDriver(path)
+            task = {
+                "taskId": "receiver-load-1",
+                "workType": "LOAD",
+                "endPos": "3C6321",
+                "containerSize": 20,
+                "containerNo": "RECEIVER-BOX",
+                "containerHeight": 2.591,
+                "bayMap": "000000",
+            }
+            prepared = driver._prepare_inventory_task(object(), task)
+            completed = dict(prepared, operationState="COMPLETED")
+
+            self.assertTrue(driver._settle_inventory_task(object(), completed))
+            self.assertTrue(path.is_file())
+            self.assertEqual(
+                driver._inventory.stack_pattern(
+                    driver._inventory.stack("3C", 63, 20)
+                ),
+                "010000",
+            )
+            self.assertEqual(
+                driver._inventory.stack("3C", 63, 20)["rows"][1][0][
+                    "containerNo"
+                ],
+                "RECEIVER-BOX",
+            )
+
+            rendered_count = len(driver.rendered)
+            self.assertTrue(driver._settle_inventory_task(object(), completed))
+            self.assertEqual(len(driver.rendered), rendered_count)
+
+    def test_explicit_container_height_is_independent_from_20_or_40ft_length(self) -> None:
+        gp_40 = {"containerSize": 40, "containerHeight": "2.591", "containerType": "40GP"}
+        hc_40 = {"containerSize": 40, "containerHeight": "2896mm", "containerType": "40HC"}
+
+        self.assertEqual(receiver._task_container_height_m(gp_40), 2.591)
+        self.assertEqual(receiver._task_container_height_m(hc_40), 2.896)
+
+    def test_container_type_is_only_a_height_fallback(self) -> None:
+        self.assertEqual(
+            receiver._task_container_height_m(
+                {"containerSize": 40, "containerType": "40HC"}
+            ),
+            2.896,
+        )
+        self.assertEqual(
+            receiver._task_container_height_m(
+                {
+                    "containerSize": 40,
+                    "containerHeight": "2.60",
+                    "containerType": "40HC",
+                }
+            ),
+            2.6,
+        )
+
+    def test_future_bay_inventory_overrides_each_slot_height(self) -> None:
+        heights = receiver._task_bay_slot_heights_m(
+            {
+                "containerHeight": 2.896,
+                "baySlotHeights": {
+                    "R01_T01": 2.591,
+                    "R01_T02": {"containerType": "40HC"},
+                },
+            },
+            "210000",
+            source_row=1,
+            source_tier=2,
+        )
+
+        self.assertEqual(heights[0], (2.591, 2.896))
+        self.assertEqual(heights[1], (2.6,))
+
     def test_task_completion_detection_accepts_simulator_and_terminal_states(self) -> None:
         self.assertTrue(
             receiver._task_is_complete(
@@ -272,6 +522,44 @@ class TaskVisualPolicyTests(unittest.TestCase):
                 }
             )
         )
+
+    def test_only_simulated_locked_load_uses_bottom_face_hoist_compensation(self) -> None:
+        self.assertTrue(
+            receiver._hoist_uses_simulated_load_bottom(
+                {"stateSource": "SIMULATION"}
+            )
+        )
+        self.assertFalse(
+            receiver._hoist_uses_simulated_load_bottom(
+                {"stateSource": "PLC"}
+            )
+        )
+        self.assertFalse(receiver._hoist_uses_simulated_load_bottom({}))
+
+    def test_task_truck_box_top_matches_4_32m_plc_contact_height(self) -> None:
+        container_height = 0.904353
+        tier_gap = 0.035
+        trailer_center_z, box_center_z = receiver._task_truck_vertical_layout(
+            container_height,
+            tier_gap,
+        )
+        box_bottom_z = box_center_z - container_height * 0.5
+        expected_bottom_z = (
+            receiver.PLC_TRUCK_CONTACT_HOIST_M
+            - receiver.PLC_CONTAINER_TIER_HEIGHT_M
+        ) * (container_height + tier_gap) / receiver.PLC_CONTAINER_TIER_HEIGHT_M
+
+        self.assertAlmostEqual(box_bottom_z, expected_bottom_z)
+        self.assertAlmostEqual(trailer_center_z + 0.09, box_bottom_z)
+
+    def test_high_cube_changes_box_height_without_raising_trailer(self) -> None:
+        standard = receiver._container_visual_height_z(2.591)
+        high_cube = receiver._container_visual_height_z(2.896)
+        standard_layout = receiver._task_truck_vertical_layout(standard, 0.035)
+        high_cube_layout = receiver._task_truck_vertical_layout(high_cube, 0.035)
+
+        self.assertAlmostEqual(standard_layout[0], high_cube_layout[0])
+        self.assertGreater(high_cube_layout[1], standard_layout[1])
 
     def test_spreader_size_prefers_plc_limit_signal(self) -> None:
         self.assertEqual(

@@ -65,6 +65,30 @@ Omniverse / Isaac Sim     WPF 客户端
 `omniverse/scenes/smart_port.usda`。模拟任务和实时 PLC 接收器会写入同一套
 RTG 会话层变换，二者不要同时运行。
 
+### 脚本入口速查
+
+| 文件 | 在哪里运行 | 用途 | 是否直接运行 |
+|---|---|---|---|
+| `omniverse/scripts/rtg_simulation_driver.py` | Omniverse Kit Script Editor | 启动虚拟任务、随机仿真库存和 RTG 动画 | 是，用 `exec(open(...).read())` |
+| `omniverse/scripts/rtg_twin_state_receiver.py` | Omniverse Kit Script Editor | 接收真实 TwinState、驱动场景并维护真实库存 | 是，用 `exec(open(...).read())` |
+| `services/rtg_twin_service.py` | 项目根目录 PowerShell | 订阅 PLC/RCMS，向 Omniverse 发布 TwinState | 是，用系统 Python |
+| `omniverse/scripts/generate_yard_inventory.py` | 项目根目录 PowerShell | 生成仿真随机库存或空的真实库存缓存 | 是，用系统 Python |
+| `omniverse/scripts/yard_inventory.py` | 由上述脚本自动导入 | 库存模型、原子保存、任务结算 | 否 |
+| `omniverse/scripts/rtg_task_state_machine.py` | 由仿真器和接收器自动导入 | LOAD/UNLOAD/SWITCH 状态机 | 否 |
+| `omniverse/scripts/rtg_live_control.py` | 由接收器自动导入 | RTG 大车、小车、吊具和伸缩吊具控制 | 否 |
+
+推荐按以下二选一流程运行：
+
+```text
+仿真：打开 smart_port.usda
+  -> 在 Script Editor 执行 rtg_simulation_driver.py
+  -> 调用 publish_simulated_task(...)
+
+真实：PowerShell 启动 services/rtg_twin_service.py
+  -> 打开 smart_port.usda
+  -> 在 Script Editor 执行 rtg_twin_state_receiver.py
+```
+
 ### 1. 发布模拟作业任务
 
 没有 PLC 数据时，可使用模拟驱动完整调试箱区渲染、集卡进出、吊具抓放和
@@ -79,6 +103,10 @@ except NameError:
 exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_simulation_driver.py", encoding="utf-8").read())
 start_simulation()
 ```
+
+`exec(...)` 加载脚本后不会连接 PLC；`start_simulation()` 创建仿真更新循环，
+并自动读取 `omniverse/data/yard_inventory.sim.json`。重复执行脚本会先停止
+旧仿真，避免两个更新循环同时控制 RTG。
 
 出箱：从 `3C/063` 的第2排第4层抓箱并放到集卡：
 
@@ -155,13 +183,28 @@ except NameError:
 exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_twin_state_receiver.py", encoding="utf-8").read())
 ```
 
-脚本默认连接 `127.0.0.1:48700` 并自动调用 `start_live_driver()`。调试命令：
+`exec(...)` 会自动调用 `start_live_driver()`，连接 `127.0.0.1:48700`，
+并读取 `omniverse/data/yard_inventory.live.json`。无需再手工调用一次
+`start_live_driver()`；只有停止后重启或修改地址时才需要调用它。
+
+调试命令：
 
 ```python
-get_latest_state()         # 查看最近一帧 PLC + 任务快照
-apply_latest_state_once()  # 手工重放最近一帧
-stop_live_driver()         # 停止订阅和场景驱动
-start_live_driver("127.0.0.1", 48700)  # 再次启动或指定地址
+get_latest_state()             # 查看最近一帧 PLC + 任务快照
+apply_latest_state_once()      # 手工重放最近一帧
+get_yard_inventory_status()    # 查看模式、同步状态、统计和已结算任务
+reload_yard_inventory()        # 重载本地缓存；真实模式仍保持待同步
+stop_live_driver()             # 停止 TCP 接收和场景更新
+start_live_driver("127.0.0.1", 48700)  # 停止后重新启动
+```
+
+如果业务系统能导出一份与库存 JSON 同结构的权威全场快照，在 Script Editor
+中调用：
+
+```python
+synchronize_live_yard_inventory(
+    r"D:\path\authoritative_inventory.json"
+)
 ```
 
 只检查服务的数据转换而不持续运行：
@@ -174,7 +217,59 @@ python services\rtg_twin_service.py --once --plc-json path\to\Yard_PLC_RTG_220.j
 跳板机主动拉取、消息落盘和 WPF 调试端口说明见
 [`services/README.md`](services/README.md)。
 
-### 3. 创建和打开 RTG 虚拟相机
+### 3. 全场持久化箱区库存
+
+仿真和真实库存使用完全隔离的文件：
+
+- `omniverse/data/yard_inventory.sim.json`：固定随机种子的虚拟库存，只由
+  `rtg_simulation_driver.py` 使用。
+- `omniverse/data/yard_inventory.live.json`：真实链路的本地缓存，初始为空，
+  绝不加载随机箱子。
+
+两份快照都覆盖 1C-4C 的全部 314 个逻辑贝位，记录箱子的尺寸、高度、类型和
+来源任务。Omniverse 将当前模式的库存恢复到
+`/World/LiveContainers/YardInventory`；任务执行期间仅使用临时工作箱区和
+车辆对象。
+
+真实模式每次启动都将本地文件视为可能过期的缓存：
+
+- 任务带有合法 `bayMap` 时，先用权威箱区图校准本次作业贝位，再允许结算。
+- 缺少 `bayMap` 时标记为 `PENDING`，保留现场并阻止错误库存写入。
+- 跨贝 `SWITCH` 还需要 `targetBayMap`，或先同步一份权威全场快照。
+- 快照损坏、源箱不匹配或写盘失败时降级并限频告警，不会让 Kit 驱动崩溃；
+  写盘失败会同时回滚内存事务。
+
+成功任务按 `taskId` 幂等结算：
+
+- `LOAD`：向目标排层增加箱子。
+- `UNLOAD`：从源排层移除箱子。
+- `SWITCH`：将源箱移动到目标排层，可跨贝位。
+
+结算采用原子文件替换。失败、取消或无法定位源箱时不会修改库存，也不会清除
+任务现场。任务成功后只清理集卡、吊起箱和临时工作箱区，持久箱区继续保留。
+
+需要重新生成可复现的随机初始快照时，在项目根目录运行：
+
+```powershell
+python omniverse\scripts\generate_yard_inventory.py --mode random --seed 20260729
+```
+
+省略 `--output` 时固定写入
+`omniverse/data/yard_inventory.sim.json`，不会覆盖真实库存。
+
+生成空的真实库存缓存：
+
+```powershell
+python omniverse\scripts\generate_yard_inventory.py --mode empty --output omniverse\data\yard_inventory.live.json
+```
+
+这条命令会覆盖真实库存缓存，只应在初始化或明确需要重置测试数据时执行。
+
+可分别用 `SMART_PORT_SIM_INVENTORY_PATH` 和
+`SMART_PORT_LIVE_INVENTORY_PATH` 指定库存文件。两种模式不接受同一个
+通用默认变量，避免误把随机仿真库存接入真实链路。
+
+### 4. 创建和打开 RTG 虚拟相机
 
 加载虚拟相机工具：
 

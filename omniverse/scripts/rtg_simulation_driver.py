@@ -65,6 +65,7 @@ WORK_TYPE_LOAD = _state_machine_module.WORK_TYPE_LOAD
 WORK_TYPE_SWITCH = _state_machine_module.WORK_TYPE_SWITCH
 WORK_TYPE_UNLOAD = _state_machine_module.WORK_TYPE_UNLOAD
 bay_heights_from_pattern = _state_machine_module.bay_heights_from_pattern
+resolve_container_height_m = _state_machine_module.resolve_container_height_m
 
 from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
@@ -90,7 +91,8 @@ WAITING_HOIST_M = 18.0
 # The simulated truck trailer top is slightly above the tier-1 yard top.
 # This is the engineering hoist value that puts the spreader contact plane on
 # the truck box when the outbound box is released.
-TRUCK_PLACE_HOIST_M = 3.64
+# The real PLC reports a 4.32 m spreader contact height on a truck-mounted box.
+TRUCK_PLACE_HOIST_M = 4.32
 TRUCK_APPROACH_SECONDS = 2.5
 TRUCK_SETTLE_SECONDS = 0.8
 # Keep this equal to the task-truck renderer's exit animation duration.  A
@@ -137,6 +139,10 @@ def _task_from_payload(payload: Dict[str, Any]) -> OperationTask:
     else:
         source = _parse_position(start_value)
         target = _parse_position(end_value)
+    container_height_m = resolve_container_height_m(
+        payload.get("container_height", payload.get("containerHeight")),
+        payload.get("container_type", payload.get("containerType")),
+    )
     return OperationTask(
         task_id=str(payload.get("task_id") or payload.get("taskId") or int(time.time() * 1000)),
         work_type=work_type,
@@ -146,6 +152,7 @@ def _task_from_payload(payload: Dict[str, Any]) -> OperationTask:
         bay_heights=bay_heights_from_pattern(
             payload.get("bay_map") or payload.get("bayMap")
         ),
+        container_height_m=container_height_m,
     )
 
 
@@ -235,7 +242,9 @@ class RtgSimulationDriver:
             import omni.kit.app  # type: ignore
 
             receiver_module = _load_receiver_module_from_source()
-            self._driver = receiver_module.OmniverseRtgTwinDriver()
+            self._driver = receiver_module.OmniverseRtgTwinDriver(
+                inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
+            )
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgSimulationDriver"
@@ -270,7 +279,8 @@ class RtgSimulationDriver:
             "startPos": payload.get("start_pos") or payload.get("startPos"),
             "endPos": payload.get("end_pos") or payload.get("endPos"),
             "containerSize": container_size,
-            "containerHeight": payload.get("container_height", payload.get("containerHeight", 2.9)),
+            "containerHeight": operation.container_height_m,
+            "containerType": payload.get("container_type", payload.get("containerType")),
             "containerNo": payload.get("container_no", payload.get("containerNo", "SIM-" + operation.task_id)),
             "bayMap": bay_map,
             "state": "ACTIVE",
@@ -420,7 +430,9 @@ class RtgSimulationDriver:
         try:
             if self._driver is None:
                 receiver_module = _load_receiver_module_from_source()
-                self._driver = receiver_module.OmniverseRtgTwinDriver()
+                self._driver = receiver_module.OmniverseRtgTwinDriver(
+                    inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
+                )
             applied = self._driver.apply_state(state)
             if applied is not None and self._last_state is None:
                 print(
@@ -565,9 +577,16 @@ class RtgSimulationDriver:
         operation = self._task.operation
         if operation.work_type == WORK_TYPE_LOAD:
             # LOAD picks the box that arrived on the truck.
-            return TRUCK_PLACE_HOIST_M
+            return (
+                TRUCK_PLACE_HOIST_M
+                - PHYSICAL_TIER_HEIGHT_M
+                + operation.container_height_m
+            )
         tier = operation.source.tier or 1
-        return FIRST_TIER_PICK_HOIST_M + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
+        return (
+            operation.container_height_m
+            + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
+        )
 
     def _place_hoist_target_m(self) -> float:
         """Return the engineering height for the destination contact plane."""
@@ -575,19 +594,34 @@ class RtgSimulationDriver:
         assert self._task is not None
         operation = self._task.operation
         if operation.work_type == WORK_TYPE_UNLOAD:
-            return TRUCK_PLACE_HOIST_M
+            return (
+                TRUCK_PLACE_HOIST_M
+                - PHYSICAL_TIER_HEIGHT_M
+                + operation.container_height_m
+            )
         tier = operation.target.tier or 1
-        return FIRST_TIER_PICK_HOIST_M + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
+        return (
+            operation.container_height_m
+            + (max(1, tier) - 1) * PHYSICAL_TIER_HEIGHT_M
+        )
 
     def _pick_load_bottom_hoist_m(self) -> float:
         """Return the locked source container's bottom-face height."""
 
-        return max(0.0, self._pick_hoist_target_m() - PHYSICAL_TIER_HEIGHT_M)
+        assert self._task is not None
+        return max(
+            0.0,
+            self._pick_hoist_target_m() - self._task.operation.container_height_m,
+        )
 
     def _place_load_bottom_hoist_m(self) -> float:
         """Return the locked destination container's bottom-face height."""
 
-        return max(0.0, self._place_hoist_target_m() - PHYSICAL_TIER_HEIGHT_M)
+        assert self._task is not None
+        return max(
+            0.0,
+            self._place_hoist_target_m() - self._task.operation.container_height_m,
+        )
 
     def _safe_hoist_target_m(self) -> float:
         """Return the empty-spreader parking height used after task completion."""
@@ -654,6 +688,8 @@ def publish_simulated_task(
     end_pos: Optional[str] = None,
     bay_map: str = "123456",
     container_size: int = 20,
+    container_height: Optional[float] = None,
+    container_type: Optional[str] = None,
     task_id: Optional[str] = None,
     container_no: Optional[str] = None,
     vision_required: bool = False,
@@ -673,6 +709,8 @@ def publish_simulated_task(
             "end_pos": end_pos,
             "bay_map": bay_map,
             "container_size": container_size,
+            "container_height": container_height,
+            "container_type": container_type,
             "task_id": task_id,
             "container_no": container_no,
             "vision_required": vision_required,

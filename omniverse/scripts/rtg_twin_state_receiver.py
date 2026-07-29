@@ -22,8 +22,10 @@ Stop later with:
 
 from __future__ import annotations
 
+import copy
 import json
 import math
+import os
 import re
 import socket
 import sys
@@ -82,11 +84,27 @@ PlcOperationSnapshot = _state_machine_module.PlcOperationSnapshot
 RtgOperationStateMachine = _state_machine_module.RtgOperationStateMachine
 TaskSlot = _state_machine_module.TaskSlot
 bay_heights_from_pattern = _state_machine_module.bay_heights_from_pattern
+resolve_container_height_m = _state_machine_module.resolve_container_height_m
+
+from yard_inventory import (  # noqa: E402
+    DEFAULT_LIVE_INVENTORY_PATH,
+    DEFAULT_SIM_INVENTORY_PATH,
+    YardInventory,
+    bay_id as inventory_bay_id,
+    normalize_bay_number as normalize_inventory_bay_number,
+    parse_task_position as parse_inventory_task_position,
+)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 LIVE_TASK_STACK_PATH = "/World/LiveContainers/LiveTaskStack"
+YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
+INVENTORY_MODE_LIVE = "live"
+INVENTORY_MODE_SIMULATION = "simulation"
+INVENTORY_SYNC_READY = "READY"
+INVENTORY_SYNC_PENDING = "PENDING"
+INVENTORY_WARNING_INTERVAL_SECONDS = 5.0
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
 # The live stack uses this box as the physical bay-centre reference whenever
 # the pattern contains it.  Every box in a stack shares the same bay Y centre,
@@ -152,6 +170,10 @@ TASK_TRUCK_LOADED_BOX_LOCAL_Y_M = 0.0
 # support area below the rendered 1.306 m container width.
 TASK_TRUCK_TRAILER_WIDTH_X_M = 2.00
 TASK_TRUCK_TRAILER_WHEEL_X_M = 0.88
+PLC_CONTAINER_TIER_HEIGHT_M = 2.60
+PLC_TRUCK_CONTACT_HOIST_M = 4.32
+REFERENCE_CONTAINER_VISUAL_HEIGHT_Z_M = 0.904353
+REFERENCE_TIER_GAP_Z_M = 0.035
 SPREADER_20FT_CENTER_OFFSET_Y_M = -0.30
 # Calibrated world-space container centres for the PLC trolley stops.  The RTG
 # asset has an inverted/non-uniform X hierarchy, so transforming the rope
@@ -182,6 +204,77 @@ RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
 
 def _hoisted_container_local_center_z(container_height: float) -> float:
     return SPREADER_CONTAINER_CONTACT_LOCAL_Z - float(container_height) * 0.5
+
+
+def _task_container_height_m(task: Dict[str, Any]) -> float:
+    return resolve_container_height_m(
+        task.get("containerHeight"),
+        task.get("containerType"),
+    )
+
+
+def _container_visual_height_z(container_height_m: float) -> float:
+    return (
+        REFERENCE_CONTAINER_VISUAL_HEIGHT_Z_M
+        * float(container_height_m)
+        / PLC_CONTAINER_TIER_HEIGHT_M
+    )
+
+
+def _task_bay_slot_heights_m(
+    task: Dict[str, Any],
+    pattern: str,
+    source_row: Optional[int] = None,
+    source_tier: Optional[int] = None,
+) -> tuple[tuple[float, ...], ...]:
+    """Resolve per-slot heights, ready for future yard-inventory snapshots.
+
+    ``baySlotHeights`` may be a six-row list or a mapping keyed by
+    ``R01_T01``. Missing slots keep the current 2.6 m engineering default.
+    """
+
+    raw = task.get("baySlotHeights")
+    current_height_m = _task_container_height_m(task)
+    rows = []
+    for row in range(1, 7):
+        tier_count = int(pattern[row - 1]) if len(pattern) == 6 else 0
+        row_values = []
+        for tier in range(1, tier_count + 1):
+            value = None
+            if isinstance(raw, (list, tuple)) and len(raw) >= row:
+                raw_row = raw[row - 1]
+                if isinstance(raw_row, (list, tuple)) and len(raw_row) >= tier:
+                    value = raw_row[tier - 1]
+            elif isinstance(raw, dict):
+                for key in (
+                    f"R{row:02d}_T{tier:02d}",
+                    f"R{row:02d}T{tier:02d}",
+                    f"{row}-{tier}",
+                ):
+                    if key in raw:
+                        value = raw[key]
+                        break
+
+            if isinstance(value, dict):
+                height_m = resolve_container_height_m(
+                    value.get("height")
+                    or value.get("containerHeight")
+                    or value.get("cntr_height"),
+                    value.get("type")
+                    or value.get("containerType")
+                    or value.get("cntr_type"),
+                )
+            else:
+                height_m = _state_machine_module.parse_container_height_m(value)
+
+            if height_m is None:
+                if row == source_row and tier == source_tier:
+                    height_m = current_height_m
+                else:
+                    height_m = PLC_CONTAINER_TIER_HEIGHT_M
+            row_values.append(float(height_m))
+        rows.append(tuple(row_values))
+    return tuple(rows)
 
 
 def _gantry_crossbeam_alignment_delta_y(
@@ -231,6 +324,12 @@ def _simulated_visual_phase(task: Dict[str, Any]) -> Optional[str]:
         return None
     phase = str(task.get("visualPhase") or "").strip().upper()
     return phase if phase in TASK_VISUAL_STATES else None
+
+
+def _hoist_uses_simulated_load_bottom(task: Dict[str, Any]) -> bool:
+    """Return whether a locked hoist value needs one-tier visual compensation."""
+
+    return str(task.get("stateSource") or "").strip().upper() == "SIMULATION"
 
 
 def _task_is_complete(task: Dict[str, Any]) -> bool:
@@ -403,6 +502,25 @@ def _task_trailer_layout(
     )
     cab_center_y = trailer_center_y - trailer_length_y * 0.5 - 0.95
     return trailer_length_y, trailer_center_y, cab_center_y
+
+
+def _task_truck_vertical_layout(
+    container_height_z: float,
+    tier_gap_z: float,
+) -> tuple[float, float]:
+    """Return trailer and box local Z centres for the 4.32 m PLC contact point."""
+
+    reference_visual_tier_pitch = (
+        REFERENCE_CONTAINER_VISUAL_HEIGHT_Z_M + float(tier_gap_z)
+    )
+    box_bottom_z = (
+        PLC_TRUCK_CONTACT_HOIST_M - PLC_CONTAINER_TIER_HEIGHT_M
+    ) * reference_visual_tier_pitch / PLC_CONTAINER_TIER_HEIGHT_M
+    trailer_height_z = 0.18
+    return (
+        box_bottom_z - trailer_height_z * 0.5,
+        box_bottom_z + float(container_height_z) * 0.5,
+    )
 
 
 def _task_truck_stop_y_for_box_center(
@@ -728,7 +846,58 @@ class RtgTwinStateReceiver:
 class OmniverseRtgTwinDriver:
     """Apply RtgTwinState snapshots to the current Omniverse USD stage."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        inventory_path: Optional[Path] = None,
+        *,
+        inventory_mode: str = INVENTORY_MODE_LIVE,
+        inventory_autosave: bool = True,
+    ) -> None:
+        mode = str(inventory_mode or "").strip().lower()
+        if mode not in {INVENTORY_MODE_LIVE, INVENTORY_MODE_SIMULATION}:
+            raise ValueError("inventory_mode must be 'live' or 'simulation'")
+        mode_environment_name = (
+            "SMART_PORT_SIM_INVENTORY_PATH"
+            if mode == INVENTORY_MODE_SIMULATION
+            else "SMART_PORT_LIVE_INVENTORY_PATH"
+        )
+        configured_inventory_path = os.environ.get(mode_environment_name)
+        default_inventory_path = (
+            DEFAULT_SIM_INVENTORY_PATH
+            if mode == INVENTORY_MODE_SIMULATION
+            else DEFAULT_LIVE_INVENTORY_PATH
+        )
+        self._inventory_mode = mode
+        self._inventory_path = Path(
+            inventory_path
+            or configured_inventory_path
+            or default_inventory_path
+        )
+        self._inventory_load_error: Optional[str] = None
+        try:
+            self._inventory = YardInventory.load(self._inventory_path)
+        except Exception as exc:  # noqa: BLE001 - a bad cache must not stop Kit
+            self._inventory = YardInventory.empty()
+            self._inventory_load_error = str(exc)
+        self._inventory_autosave = bool(inventory_autosave)
+        self._inventory_full_sync_ready = mode == INVENTORY_MODE_SIMULATION
+        self._inventory_sync_reason = (
+            None
+            if self._inventory_full_sync_ready
+            else self._inventory_load_error
+            or "live inventory requires startup synchronization"
+        )
+        self._active_inventory_sync_state = (
+            INVENTORY_SYNC_READY
+            if self._inventory_full_sync_ready
+            else INVENTORY_SYNC_PENDING
+        )
+        self._active_inventory_sync_reason: Optional[str] = self._inventory_sync_reason
+        self._last_inventory_warning_at = 0.0
+        self._inventory_stage_id: Optional[int] = None
+        self._inventory_rendered_revisions: Dict[str, int] = {}
+        self._hidden_inventory_paths: set[str] = set()
+        self._active_inventory_task_key: Optional[tuple[Any, ...]] = None
         self._latest_state: Optional[Dict[str, Any]] = None
         self._latest_lock = threading.Lock()
         self._subscription = None
@@ -784,6 +953,10 @@ class OmniverseRtgTwinDriver:
         self._last_task_stack_key = None
         self._last_task_vehicle_key = None
         self._cleared_completed_task_key = None
+        self._inventory_stage_id = None
+        self._inventory_rendered_revisions.clear()
+        self._hidden_inventory_paths.clear()
+        self._active_inventory_task_key = None
         self._spreader_task_key = None
         self._spreader_task_target_size_ft = None
         if self._status_overlay is not None:
@@ -813,9 +986,14 @@ class OmniverseRtgTwinDriver:
         if stage is None:
             return None
 
+        self._sync_inventory_scene(stage)
         controller = self._controller_for_stage(stage)
         pose = dict(state.get("pose") or {})
-        task = state.get("task") or {}
+        task = dict(state.get("task") or {})
+        if task:
+            task = self._prepare_inventory_task(stage, task)
+            state = dict(state)
+            state["task"] = task
         pose[RESOLVED_LOCKED_KEY] = self._resolve_spreader_locked(pose)
 
         field = _field_name(pose.get("currentField"))
@@ -834,17 +1012,19 @@ class OmniverseRtgTwinDriver:
             requested_spreader_size_ft
         )
 
-        # A completed task owns no remaining yard map, truck, or carried box.
-        # Keep the RTG pose above it intact while the scene waits for the next
-        # task to render a fresh bay map.
+        # A completed task changes the durable yard inventory exactly once.
+        # Only its truck, carried-box proxy, and disposable working stack are
+        # removed; every persistent inventory bay remains in the world.
         task_complete = _task_is_complete(task)
         if task_complete:
-            self._clear_completed_task_visuals(stage, task)
+            if self._settle_inventory_task(stage, task):
+                self._clear_completed_task_visuals(stage, task)
         else:
             self._cleared_completed_task_key = None
             # Create the physical stack before positioning the RTG so the
             # rendered container centre is available as the final reference.
             self._sync_task_stack(stage, task)
+            self._hide_inventory_bay_for_task(stage, task)
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
@@ -872,14 +1052,18 @@ class OmniverseRtgTwinDriver:
         applied_trolley_m = (
             controller.set_trolley_safe(trolley_m) if trolley_m is not None else None
         )
-        carried_task_load = (
+        simulated_bottom_face_load = (
             bool(task)
             and _task_work_type(task)
             in (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
             and _pose_spreader_locked(pose)
+            and _hoist_uses_simulated_load_bottom(task)
         )
         applied_hoist_m = (
-            controller.set_hoist_safe(hoist_m, carried_load=carried_task_load)
+            controller.set_hoist_safe(
+                hoist_m,
+                carried_load=simulated_bottom_face_load,
+            )
             if hoist_m is not None
             else None
         )
@@ -1037,6 +1221,303 @@ class OmniverseRtgTwinDriver:
             )
         return self._spreader_locked
 
+    @staticmethod
+    def _inventory_task_key(task: Dict[str, Any]) -> tuple[Any, ...]:
+        return (
+            str(task.get("taskId") or ""),
+            _task_work_type(task),
+            str(task.get("startPos") or task.get("sourcePos") or ""),
+            str(task.get("endPos") or task.get("targetPos") or ""),
+            str(task.get("containerNo") or ""),
+        )
+
+    @staticmethod
+    def _inventory_stack_path(stack_key: str) -> str:
+        block, bay_text = stack_key.split("/", 1)
+        return f"{YARD_INVENTORY_ROOT_PATH}/Bay_{block}_{int(bay_text):03d}"
+
+    def _sync_inventory_scene(self, stage: Any) -> None:
+        """Restore the complete persistent inventory when a stage is opened."""
+
+        stage_id = id(stage)
+        if self._inventory_stage_id == stage_id:
+            return
+
+        from pxr import Sdf, Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            old = stage.GetPrimAtPath(YARD_INVENTORY_ROOT_PATH)
+            if old:
+                stage.RemovePrim(old.GetPath())
+            root = UsdGeom.Xform.Define(stage, YARD_INVENTORY_ROOT_PATH).GetPrim()
+            root.CreateAttribute("inventory:schema", Sdf.ValueTypeNames.String).Set(
+                "smart-port-yard-inventory/v1"
+            )
+            root.CreateAttribute("inventory:path", Sdf.ValueTypeNames.String).Set(
+                str(self._inventory_path)
+            )
+            root.CreateAttribute("inventory:mode", Sdf.ValueTypeNames.Token).Set(
+                self._inventory_mode
+            )
+            root.CreateAttribute(
+                "inventory:startupSyncReady", Sdf.ValueTypeNames.Bool
+            ).Set(bool(self._inventory_full_sync_ready))
+            if self._inventory_sync_reason:
+                root.CreateAttribute(
+                    "inventory:syncReason", Sdf.ValueTypeNames.String
+                ).Set(self._inventory_sync_reason)
+
+        self._inventory_stage_id = stage_id
+        self._inventory_rendered_revisions.clear()
+        self._hidden_inventory_paths.clear()
+        for stack in self._inventory.active_stacks():
+            self._render_inventory_bay(stage, stack["bayId"])
+        stats = self._inventory.to_dict()["stats"]
+        self._log(
+            "restored persistent yard inventory "
+            f"mode={self._inventory_mode} "
+            f"stacks={stats['occupiedStackCount']} "
+            f"containers={stats['containerCount']} path={self._inventory_path}"
+        )
+        if self._inventory_load_error:
+            self._warn_inventory(
+                "inventory cache could not be loaded; using empty pending state: "
+                f"{self._inventory_load_error}"
+            )
+
+    def _prepare_inventory_task(
+        self, stage: Any, task: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Reconcile one new task snapshot and return its inventory-backed view."""
+
+        key = self._inventory_task_key(task)
+        if key != self._active_inventory_task_key:
+            self._restore_hidden_inventory(stage)
+            changed: set[str] = set()
+            sync_state = INVENTORY_SYNC_READY
+            sync_reason: Optional[str] = None
+            inventory_before = copy.deepcopy(self._inventory)
+            try:
+                bay_map = str(task.get("bayMap") or "").strip()
+                has_authoritative_bay_map = bool(re.fullmatch(r"\d{6}", bay_map))
+                if (
+                    self._inventory_mode == INVENTORY_MODE_LIVE
+                    and not self._inventory_full_sync_ready
+                    and not has_authoritative_bay_map
+                ):
+                    sync_state = INVENTORY_SYNC_PENDING
+                    sync_reason = (
+                        "live task has no authoritative six-digit bayMap"
+                    )
+                else:
+                    changed.update(
+                        self._inventory.reconcile_task_snapshot(task)
+                    )
+
+                if (
+                    sync_state == INVENTORY_SYNC_READY
+                    and self._inventory_mode == INVENTORY_MODE_LIVE
+                    and _task_work_type(task) == WORK_TYPE_SWITCH
+                ):
+                    source_key = self._task_inventory_bay_key(
+                        task,
+                        task.get("startPos") or task.get("sourcePos"),
+                    )
+                    target_key = self._task_inventory_bay_key(
+                        task,
+                        task.get("endPos") or task.get("targetPos"),
+                    )
+                    if (
+                        source_key
+                        and target_key
+                        and source_key != target_key
+                        and not self._inventory_full_sync_ready
+                    ):
+                        target_bay_map = str(
+                            task.get("targetBayMap") or ""
+                        ).strip()
+                        if not re.fullmatch(r"\d{6}", target_bay_map):
+                            sync_state = INVENTORY_SYNC_PENDING
+                            sync_reason = (
+                                "cross-bay SWITCH requires targetBayMap or "
+                                "a full authoritative inventory sync"
+                            )
+                        else:
+                            target_task = dict(task)
+                            target_task["workType"] = WORK_TYPE_LOAD
+                            target_task["bayMap"] = target_bay_map
+                            changed.update(
+                                self._inventory.reconcile_task_snapshot(
+                                    target_task
+                                )
+                            )
+
+                if sync_state == INVENTORY_SYNC_READY and changed:
+                    if self._inventory_autosave:
+                        self._inventory.save(self._inventory_path)
+                    for stack_key in changed:
+                        self._render_inventory_bay(stage, stack_key)
+                elif sync_state != INVENTORY_SYNC_READY:
+                    self._inventory = inventory_before
+            except Exception as exc:  # noqa: BLE001 - stale data is recoverable
+                self._inventory = inventory_before
+                sync_state = INVENTORY_SYNC_PENDING
+                sync_reason = f"inventory reconciliation failed: {exc}"
+
+            self._active_inventory_sync_state = sync_state
+            self._active_inventory_sync_reason = sync_reason
+            self._active_inventory_task_key = key
+            if sync_state != INVENTORY_SYNC_READY:
+                self._warn_inventory(
+                    f"task={task.get('taskId') or '--'} pending synchronization: "
+                    f"{sync_reason}"
+                )
+
+        result = (
+            self._inventory.enrich_task(task)
+            if self._active_inventory_sync_state == INVENTORY_SYNC_READY
+            else dict(task)
+        )
+        result["inventoryMode"] = self._inventory_mode
+        result["inventorySyncState"] = self._active_inventory_sync_state
+        result["inventorySyncReason"] = self._active_inventory_sync_reason
+        return result
+
+    def _settle_inventory_task(
+        self, stage: Any, task: Dict[str, Any]
+    ) -> bool:
+        """Commit a successful LOAD/UNLOAD/SWITCH transaction exactly once."""
+
+        if (
+            self._inventory_mode == INVENTORY_MODE_LIVE
+            and task.get("inventorySyncState") != INVENTORY_SYNC_READY
+        ):
+            self._warn_inventory(
+                "inventory commit blocked; keeping task visuals "
+                f"task={task.get('taskId') or '--'} "
+                f"reason={task.get('inventorySyncReason') or 'pending synchronization'}"
+            )
+            return False
+
+        inventory_before = copy.deepcopy(self._inventory)
+        try:
+            transaction = self._inventory.settle_task(task)
+            if transaction.get("applied") and self._inventory_autosave:
+                self._inventory.save(self._inventory_path)
+            if transaction.get("applied"):
+                for stack_key in transaction.get("changedBays") or ():
+                    self._render_inventory_bay(stage, str(stack_key))
+                self._log(
+                    "inventory committed "
+                    f"task={transaction.get('taskId')} "
+                    f"workType={transaction.get('workType')} "
+                    f"bays={transaction.get('changedBays')}"
+                )
+            return True
+        except Exception as exc:  # noqa: BLE001 - retain task visuals for retry
+            self._inventory = inventory_before
+            self._warn_inventory(
+                "inventory commit failed; keeping task visuals "
+                f"task={task.get('taskId') or '--'} error={exc}"
+            )
+            return False
+
+    def _task_inventory_bay_key(
+        self, task: Dict[str, Any], position: Any
+    ) -> Optional[str]:
+        details = parse_inventory_task_position(position)
+        if details is None:
+            return None
+        block, bay_number, _row, _tier = details
+        size_ft = self._container_size_ft(task.get("containerSize"), bay_number)
+        try:
+            normalized = normalize_inventory_bay_number(
+                block, bay_number, size_ft
+            )
+        except ValueError:
+            return None
+        return inventory_bay_id(block, normalized)
+
+    def _warn_inventory(self, message: str) -> None:
+        now = time.time()
+        if now - self._last_inventory_warning_at < INVENTORY_WARNING_INTERVAL_SECONDS:
+            return
+        self._last_inventory_warning_at = now
+        self._log(message)
+
+    def _render_inventory_bay(self, stage: Any, stack_key: str) -> None:
+        """Rebuild one persistent bay from the inventory source of truth."""
+
+        from pxr import Sdf, Usd, UsdGeom
+
+        root_path = self._inventory_stack_path(stack_key)
+        stack = self._inventory.stacks.get(stack_key)
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            old = stage.GetPrimAtPath(root_path)
+            if old:
+                stage.RemovePrim(old.GetPath())
+            if stack is None or not any(stack["rows"]):
+                self._inventory_rendered_revisions.pop(stack_key, None)
+                self._hidden_inventory_paths.discard(root_path)
+                return
+
+            root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
+            pattern = self._inventory.stack_pattern(stack)
+            root.CreateAttribute("inventory:bayId", Sdf.ValueTypeNames.String).Set(
+                stack_key
+            )
+            root.CreateAttribute("inventory:block", Sdf.ValueTypeNames.String).Set(
+                stack["block"]
+            )
+            root.CreateAttribute("inventory:bayNumber", Sdf.ValueTypeNames.Int).Set(
+                int(stack["bayNumber"])
+            )
+            root.CreateAttribute(
+                "inventory:containerSizeFt", Sdf.ValueTypeNames.Int
+            ).Set(int(stack["containerSizeFt"]))
+            root.CreateAttribute("inventory:bayMap", Sdf.ValueTypeNames.String).Set(
+                pattern
+            )
+            root.CreateAttribute("inventory:revision", Sdf.ValueTypeNames.Int).Set(
+                int(stack["revision"])
+            )
+            slot_heights = tuple(
+                tuple(float(item.get("heightM") or PLC_CONTAINER_TIER_HEIGHT_M)
+                      for item in row)
+                for row in stack["rows"]
+            )
+            self._create_live_stack_geometry(
+                stage,
+                root_path,
+                stack["block"],
+                int(stack["bayNumber"]),
+                pattern,
+                int(stack["containerSizeFt"]),
+                slot_heights,
+                include_truck_lane=False,
+            )
+            self._inventory_rendered_revisions[stack_key] = int(stack["revision"])
+
+    def _hide_inventory_bay_for_task(
+        self, stage: Any, task: Dict[str, Any]
+    ) -> None:
+        stack_key = str(task.get("inventoryBayId") or "")
+        if not stack_key:
+            return
+        path = self._inventory_stack_path(stack_key)
+        prim = stage.GetPrimAtPath(path)
+        if not prim:
+            return
+        self._set_visibility(prim, False)
+        self._hidden_inventory_paths.add(path)
+
+    def _restore_hidden_inventory(self, stage: Any) -> None:
+        for path in tuple(self._hidden_inventory_paths):
+            prim = stage.GetPrimAtPath(path)
+            if prim:
+                self._set_visibility(prim, True)
+        self._hidden_inventory_paths.clear()
+
     def _sync_status_overlay(
         self, state: Dict[str, Any], applied: Dict[str, Any]
     ) -> None:
@@ -1078,6 +1559,20 @@ class OmniverseRtgTwinDriver:
                 return
 
             block, bay_number, pattern, container_size_ft = key
+            source_row = None
+            source_tier = None
+            if _task_work_type(task) in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH):
+                source_details = self._parse_task_position_details(
+                    task.get("startPos") or task.get("sourcePos")
+                )
+                if source_details is not None:
+                    _field, _bay, source_row, source_tier = source_details
+            slot_heights_m = _task_bay_slot_heights_m(
+                task,
+                pattern,
+                source_row,
+                source_tier,
+            )
             root = UsdGeom.Xform.Define(stage, LIVE_TASK_STACK_PATH).GetPrim()
             root.CreateAttribute("live:source", Sdf.ValueTypeNames.Token).Set(
                 "rtg_twin_state"
@@ -1092,6 +1587,9 @@ class OmniverseRtgTwinDriver:
             root.CreateAttribute("live:containerSizeFt", Sdf.ValueTypeNames.Int).Set(
                 container_size_ft
             )
+            root.CreateAttribute(
+                "live:taskContainerHeightMeters", Sdf.ValueTypeNames.Double
+            ).Set(_task_container_height_m(task))
 
             self._create_live_stack_geometry(
                 stage,
@@ -1100,6 +1598,7 @@ class OmniverseRtgTwinDriver:
                 bay_number,
                 pattern,
                 container_size_ft,
+                slot_heights_m,
             )
             self._log(
                 f"rendered live task stack {block}/{bay_number:03d} "
@@ -1118,6 +1617,8 @@ class OmniverseRtgTwinDriver:
             str(task.get("taskId") or ""),
             str(task.get("startPos") or task.get("sourcePos") or ""),
             str(task.get("endPos") or task.get("targetPos") or ""),
+            round(_task_container_height_m(task), 3),
+            repr(task.get("baySlotHeights")),
         )
 
     def _discard_task_visuals(self, stage: Any, *, remove_stack: bool) -> None:
@@ -1125,6 +1626,7 @@ class OmniverseRtgTwinDriver:
 
         from pxr import Usd
 
+        self._restore_hidden_inventory(stage)
         paths = [
             LIVE_TASK_TRUCK_PATH,
             LIVE_HOISTED_LOAD_PATH,
@@ -1198,6 +1700,7 @@ class OmniverseRtgTwinDriver:
                 container_size_ft,
                 task_id,
                 work_type,
+                _task_container_height_m(task),
             )
             self._log(
                 f"rendered {'inbound loaded' if work_type == WORK_TYPE_LOAD else 'outbound empty'} "
@@ -1495,6 +1998,38 @@ class OmniverseRtgTwinDriver:
             return None
 
         try:
+            container_height_m = _task_container_height_m(task)
+            source_row = source.row if work_type in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH) else None
+            source_tier = source.tier if work_type in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH) else None
+            slot_heights_m = _task_bay_slot_heights_m(
+                task,
+                pattern,
+                source_row,
+                source_tier,
+            )
+            if work_type == WORK_TYPE_UNLOAD:
+                placement_contact_m = (
+                    PLC_TRUCK_CONTACT_HOIST_M
+                    - PLC_CONTAINER_TIER_HEIGHT_M
+                    + container_height_m
+                )
+            else:
+                target_tier = max(1, target.tier or 1)
+                target_row_heights = (
+                    slot_heights_m[target.row - 1]
+                    if target.row is not None and len(slot_heights_m) >= target.row
+                    else ()
+                )
+                support_height_m = sum(target_row_heights[: target_tier - 1])
+                missing_support_tiers = max(
+                    0,
+                    target_tier - 1 - len(target_row_heights),
+                )
+                placement_contact_m = (
+                    support_height_m
+                    + missing_support_tiers * PLC_CONTAINER_TIER_HEIGHT_M
+                    + container_height_m
+                )
             return RtgOperationStateMachine(
                 OperationTask(
                     task_id=task_id,
@@ -1503,10 +2038,13 @@ class OmniverseRtgTwinDriver:
                     target=target,
                     vision_required=bool(task.get("visionRequired", False)),
                     bay_heights=bay_heights_from_pattern(pattern),
+                    container_height_m=container_height_m,
+                    bay_slot_heights_m=slot_heights_m,
                 ),
                 truck_approach_seconds=TRUCK_APPROACH_SECONDS,
                 truck_settle_seconds=TRUCK_SETTLE_SECONDS,
                 truck_exit_seconds=TRUCK_EXIT_SECONDS,
+                placement_load_bottom_m=placement_contact_m,
             )
         except ValueError as exc:
             self._log(f"invalid operation task: {exc}")
@@ -1619,12 +2157,14 @@ class OmniverseRtgTwinDriver:
         container_size_ft: int,
         task_id: str,
         work_type: str,
+        container_height_m: float,
     ) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom
         from build_live_containers import (
             CONTAINER_VISUAL_HEIGHT_Z_M,
             CONTAINER_WIDTH_X_M,
             PAD_TOP_Z_M,
+            TIER_GAP_Z_M,
             container_length_for_bay,
             create_container_box,
             create_container_details,
@@ -1634,9 +2174,14 @@ class OmniverseRtgTwinDriver:
         container_length_y = container_length_for_bay(
             block, bay_number, container_size_ft
         )
+        container_visual_height_z = _container_visual_height_z(container_height_m)
         trailer_length_y, trailer_center_y, cab_center_y = _task_trailer_layout(
             container_length_y,
             container_size_ft,
+        )
+        trailer_center_z, box_center_z = _task_truck_vertical_layout(
+            container_visual_height_z,
+            TIER_GAP_Z_M,
         )
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
@@ -1659,12 +2204,15 @@ class OmniverseRtgTwinDriver:
             root.CreateAttribute("live:containerSizeFt", Sdf.ValueTypeNames.Int).Set(
                 container_size_ft
             )
+            root.CreateAttribute(
+                "live:containerHeightMeters", Sdf.ValueTypeNames.Double
+            ).Set(float(container_height_m))
             self._set_xform_translate(root, Gf.Vec3d(0.0, 0.0, PAD_TOP_Z_M))
 
             self._create_task_cube(
                 stage,
                 f"{LIVE_TASK_TRUCK_PATH}/Trailer",
-                Gf.Vec3d(0.0, trailer_center_y, 0.36),
+                Gf.Vec3d(0.0, trailer_center_y, trailer_center_z),
                 Gf.Vec3f(TASK_TRUCK_TRAILER_WIDTH_X_M, trailer_length_y, 0.18),
                 Gf.Vec3f(0.28, 0.24, 0.18),
             )
@@ -1713,12 +2261,11 @@ class OmniverseRtgTwinDriver:
                     Gf.Vec3f(0.015, 0.015, 0.013),
                 )
 
-            box_center_z = 0.36 + 0.09 + CONTAINER_VISUAL_HEIGHT_Z_M * 0.5
             truck_box_path = f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer"
             truck_box_scale = Gf.Vec3f(
                 CONTAINER_WIDTH_X_M,
                 container_length_y,
-                CONTAINER_VISUAL_HEIGHT_Z_M,
+                container_visual_height_z,
             )
             truck_box_material = material(
                 stage,
@@ -2146,11 +2693,21 @@ class OmniverseRtgTwinDriver:
         leftmost_stack_x = first_row_center_x - 5 * row_pitch
         x = leftmost_stack_x + (6 - row) * row_pitch
         y = container_center_y_for_bay(block, int(bay_number), int(container_size_ft))
+        slot_heights_m = _task_bay_slot_heights_m(task, pattern)
+        support_heights_m = slot_heights_m[row - 1][: max(0, tier - 1)]
+        support_visual_height_z = sum(
+            _container_visual_height_z(height_m) for height_m in support_heights_m
+        )
+        missing_support_tiers = max(0, tier - 1 - len(support_heights_m))
+        support_visual_height_z += (
+            missing_support_tiers * CONTAINER_VISUAL_HEIGHT_Z_M
+        )
         z = (
             PAD_TOP_Z_M
             + STACK_FLOOR_CLEARANCE_M
-            + (tier - 0.5) * float(scale[2])
+            + support_visual_height_z
             + (tier - 1) * TIER_GAP_Z_M
+            + float(scale[2]) * 0.5
         )
         center = Gf.Vec3d(x, y, z)
         create_container_box(
@@ -2715,6 +3272,9 @@ class OmniverseRtgTwinDriver:
         bay_number: int,
         pattern: str,
         container_size_ft: int,
+        slot_heights_m: tuple[tuple[float, ...], ...],
+        *,
+        include_truck_lane: bool = True,
     ) -> None:
         from pxr import Gf, Sdf, UsdShade
         from build_live_containers import (
@@ -2757,20 +3317,23 @@ class OmniverseRtgTwinDriver:
 
         for row_index, height in enumerate(heights, start=1):
             x = column_centers[row_index - 1]
+            bottom_z = PAD_TOP_Z_M + STACK_FLOOR_CLEARANCE_M
             for tier in range(1, height + 1):
-                z = (
-                    PAD_TOP_Z_M
-                    + STACK_FLOOR_CLEARANCE_M
-                    + (tier - 0.5) * CONTAINER_VISUAL_HEIGHT_Z_M
-                    + (tier - 1) * TIER_GAP_Z_M
+                actual_height_m = (
+                    slot_heights_m[row_index - 1][tier - 1]
+                    if len(slot_heights_m) >= row_index
+                    and len(slot_heights_m[row_index - 1]) >= tier
+                    else PLC_CONTAINER_TIER_HEIGHT_M
                 )
+                visual_height_z = _container_visual_height_z(actual_height_m)
+                z = bottom_z + visual_height_z * 0.5
                 container_path = f"{root_path}/R{row_index:02d}_T{tier:02d}_Container"
                 mat = materials[(row_index * 3 + tier * 5) % len(materials)]
                 create_container_box(
                     stage,
                     container_path,
                     Gf.Vec3d(x, bay_center_y, z),
-                    Gf.Vec3f(row_width, container_length_y, CONTAINER_VISUAL_HEIGHT_Z_M),
+                    Gf.Vec3f(row_width, container_length_y, visual_height_z),
                     mat,
                     bay_id=f"{block}/{bay_number:03d}",
                     row=row_index,
@@ -2781,10 +3344,16 @@ class OmniverseRtgTwinDriver:
                     stage,
                     container_path,
                     Gf.Vec3d(x, bay_center_y, z),
-                    Gf.Vec3f(row_width, container_length_y, CONTAINER_VISUAL_HEIGHT_Z_M),
+                    Gf.Vec3f(row_width, container_length_y, visual_height_z),
                 )
+                container = stage.GetPrimAtPath(container_path)
+                container.CreateAttribute(
+                    "live:containerHeightMeters", Sdf.ValueTypeNames.Double
+                ).Set(actual_height_m)
+                bottom_z += visual_height_z + TIER_GAP_Z_M
 
-        create_truck_lane_markings(stage, f"{root_path}/TruckLane")
+        if include_truck_lane:
+            create_truck_lane_markings(stage, f"{root_path}/TruckLane")
 
     def _current_stage(self):
         try:
@@ -2906,6 +3475,24 @@ class OmniverseRtgTwinDriver:
                 prim, "rtg:bayMap", Sdf.ValueTypeNames.String, task.get("bayMap")
             )
             self._set_attr(
+                prim,
+                "rtg:inventoryMode",
+                Sdf.ValueTypeNames.String,
+                task.get("inventoryMode") or self._inventory_mode,
+            )
+            self._set_attr(
+                prim,
+                "rtg:inventorySyncState",
+                Sdf.ValueTypeNames.String,
+                task.get("inventorySyncState"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:inventorySyncReason",
+                Sdf.ValueTypeNames.String,
+                task.get("inventorySyncReason"),
+            )
+            self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
             )
 
@@ -2947,7 +3534,7 @@ def start_live_driver(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> Rtg
     global _driver
     if _driver is not None:
         _driver.stop()
-    _driver = OmniverseRtgTwinDriver()
+    _driver = OmniverseRtgTwinDriver(inventory_mode=INVENTORY_MODE_LIVE)
     _driver.start()
     return start_receiver(host, port, on_state=_driver.enqueue)
 
@@ -2984,6 +3571,82 @@ def report_live_crossbeam_alignment() -> Optional[Dict[str, Any]]:
 
     driver = _driver or OmniverseRtgTwinDriver()
     return driver.report_crossbeam_alignment()
+
+
+def get_yard_inventory_status() -> Dict[str, Any]:
+    """Return inventory path, statistics, and the completed-task ledger."""
+
+    driver = _driver or OmniverseRtgTwinDriver()
+    snapshot = driver._inventory.to_dict()
+    return {
+        "path": str(driver._inventory_path),
+        "mode": driver._inventory_mode,
+        "startupSyncReady": driver._inventory_full_sync_ready,
+        "syncReason": driver._inventory_sync_reason,
+        "loadError": driver._inventory_load_error,
+        "activeTaskSyncState": driver._active_inventory_sync_state,
+        "activeTaskSyncReason": driver._active_inventory_sync_reason,
+        "stats": snapshot["stats"],
+        "completedTasks": snapshot["completedTasks"],
+    }
+
+
+def reload_yard_inventory() -> Optional[Dict[str, Any]]:
+    """Reload the durable snapshot and rebuild the inventory scene."""
+
+    global _driver
+    driver = _driver or OmniverseRtgTwinDriver()
+    try:
+        driver._inventory = YardInventory.load(driver._inventory_path)
+        driver._inventory_load_error = None
+    except Exception as exc:  # noqa: BLE001 - report cache failure without crash
+        driver._inventory = YardInventory.empty()
+        driver._inventory_load_error = str(exc)
+    if driver._inventory_mode == INVENTORY_MODE_LIVE:
+        driver._inventory_full_sync_ready = False
+        driver._inventory_sync_reason = (
+            driver._inventory_load_error
+            or "reloaded live cache requires authoritative synchronization"
+        )
+        driver._active_inventory_task_key = None
+    driver._inventory_stage_id = None
+    stage = driver._current_stage()
+    if stage is None:
+        return None
+    driver._sync_inventory_scene(stage)
+    if _driver is None:
+        _driver = driver
+    return get_yard_inventory_status()
+
+
+def synchronize_live_yard_inventory(
+    authoritative_snapshot_path: str,
+) -> Optional[Dict[str, Any]]:
+    """Replace the live cache with one authoritative whole-yard snapshot."""
+
+    global _driver
+    driver = _driver or OmniverseRtgTwinDriver(
+        inventory_mode=INVENTORY_MODE_LIVE
+    )
+    if driver._inventory_mode != INVENTORY_MODE_LIVE:
+        raise RuntimeError("Cannot load a live snapshot into simulation mode")
+    authoritative = YardInventory.load(Path(authoritative_snapshot_path))
+    driver._inventory = authoritative
+    if driver._inventory_autosave:
+        driver._inventory.save(driver._inventory_path)
+    driver._inventory_load_error = None
+    driver._inventory_full_sync_ready = True
+    driver._inventory_sync_reason = None
+    driver._active_inventory_sync_state = INVENTORY_SYNC_READY
+    driver._active_inventory_sync_reason = None
+    driver._active_inventory_task_key = None
+    driver._inventory_stage_id = None
+    stage = driver._current_stage()
+    if stage is not None:
+        driver._sync_inventory_scene(stage)
+    if _driver is None:
+        _driver = driver
+    return get_yard_inventory_status()
 
 
 if __name__ == "__main__":

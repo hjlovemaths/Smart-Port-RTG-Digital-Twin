@@ -9,12 +9,78 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import re
 from typing import Optional
 
 
 WORK_TYPE_LOAD = "LOAD"       # truck -> yard
 WORK_TYPE_UNLOAD = "UNLOAD"   # yard -> truck
 WORK_TYPE_SWITCH = "SWITCH"   # yard -> yard
+
+DEFAULT_CONTAINER_HEIGHT_M = 2.60
+STANDARD_CONTAINER_HEIGHT_M = 2.591
+HIGH_CUBE_CONTAINER_HEIGHT_M = 2.896
+MIN_CONTAINER_HEIGHT_M = 2.20
+MAX_CONTAINER_HEIGHT_M = 3.20
+
+
+def parse_container_height_m(value: object) -> Optional[float]:
+    """Parse common task height formats into metres."""
+
+    if value is None or isinstance(value, bool):
+        return None
+    text = str(value).strip().lower().replace(",", ".")
+    if not text:
+        return None
+
+    feet_inches = re.search(
+        r"(?P<feet>\d+(?:\.\d+)?)\s*(?:ft|feet|foot|')"
+        r"(?:\s*(?P<inches>\d+(?:\.\d+)?)\s*(?:in|inch|inches|\"))?",
+        text,
+    )
+    if feet_inches:
+        feet = float(feet_inches.group("feet"))
+        inches = float(feet_inches.group("inches") or 0.0)
+        height_m = feet * 0.3048 + inches * 0.0254
+    else:
+        match = re.search(r"[-+]?\d+(?:\.\d+)?", text)
+        if not match:
+            return None
+        height_m = float(match.group(0))
+        if "mm" in text or 2200.0 <= height_m <= 3200.0:
+            height_m /= 1000.0
+        elif "cm" in text or 220.0 <= height_m <= 320.0:
+            height_m /= 100.0
+
+    if MIN_CONTAINER_HEIGHT_M <= height_m <= MAX_CONTAINER_HEIGHT_M:
+        return round(height_m, 3)
+    return None
+
+
+def resolve_container_height_m(
+    value: object,
+    container_type: object = None,
+) -> float:
+    """Prefer explicit task height and use ISO/type text only as fallback."""
+
+    explicit = parse_container_height_m(value)
+    if explicit is not None:
+        return explicit
+
+    type_text = str(container_type or "").strip().upper()
+    compact = re.sub(r"[^A-Z0-9\u4e00-\u9fff]", "", type_text)
+    iso_code = re.search(r"\b[A-Z0-9](?P<height>[245])(?:[A-Z0-9]{2,3})\b", type_text)
+    if (
+        (iso_code and iso_code.group("height") == "5")
+        or "HC" in compact
+        or "HQ" in compact
+        or "HIGHCUBE" in compact
+        or "\u9ad8\u7bb1" in compact
+    ):
+        return HIGH_CUBE_CONTAINER_HEIGHT_M
+    if type_text:
+        return STANDARD_CONTAINER_HEIGHT_M
+    return DEFAULT_CONTAINER_HEIGHT_M
 
 TRUCK_TROLLEY_M = 0.67
 ROW_TROLLEY_M = {
@@ -78,6 +144,8 @@ class OperationTask:
     target: TaskSlot
     vision_required: bool = False
     bay_heights: tuple[int, ...] = ()
+    container_height_m: float = DEFAULT_CONTAINER_HEIGHT_M
+    bay_slot_heights_m: tuple[tuple[float, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -154,17 +222,19 @@ class RtgOperationStateMachine:
             # The box comes from the yard, so clear its source tier before
             # travelling back toward the truck.  A fixed 6 m height is below
             # the third tier and made the loaded spreader visibly descend.
-            tier = self.task.source.tier or 1
+            slot = self.task.source
         elif self.task.work_type in (WORK_TYPE_LOAD, WORK_TYPE_SWITCH):
-            tier = self.task.target.tier or 1
+            slot = self.task.target
         else:
             return self.SAFE_HOIST_M
-        target_contact_m = max(1, tier) * self.CONTAINER_TIER_HEIGHT_M
+        target_contact_m = (
+            self._slot_support_height_m(slot) + self.task.container_height_m
+        )
         return min(
             self.MAX_HOIST_M,
             max(
                 self.SAFE_HOIST_M,
-                target_contact_m + self.CONTAINER_TIER_HEIGHT_M,
+                target_contact_m + self.task.container_height_m,
             ),
         )
 
@@ -209,7 +279,7 @@ class RtgOperationStateMachine:
         """
 
         obstacle_clearance_m = (
-            self.transfer_obstacle_tier * self.CONTAINER_TIER_HEIGHT_M
+            self._obstacle_height_m(tuple(sorted(ROW_TROLLEY_M)))
             + self.TRANSFER_CLEARANCE_M
         )
         return round(max(self.safe_hoist_m, obstacle_clearance_m), 3)
@@ -459,11 +529,52 @@ class RtgOperationStateMachine:
 
     def _source_approach_hoist_for(self, start_trolley_m: Optional[float]) -> float:
         obstacle_clearance_m = (
-            self._obstacle_tier(self._source_approach_rows(start_trolley_m))
-            * self.CONTAINER_TIER_HEIGHT_M
+            self._obstacle_height_m(self._source_approach_rows(start_trolley_m))
             + self.TRANSFER_CLEARANCE_M
         )
         return round(max(self.SAFE_HOIST_M, obstacle_clearance_m), 3)
+
+    def _obstacle_height_m(self, rows: tuple[int, ...]) -> float:
+        if len(self.task.bay_heights) != len(ROW_TROLLEY_M):
+            return 0.0
+        heights = []
+        for row in rows:
+            tier_count = self.task.bay_heights[row - 1]
+            slot_heights = (
+                self.task.bay_slot_heights_m[row - 1]
+                if len(self.task.bay_slot_heights_m) == len(ROW_TROLLEY_M)
+                else ()
+            )
+            if len(slot_heights) >= tier_count:
+                height_m = sum(slot_heights[:tier_count])
+            else:
+                height_m = tier_count * self.CONTAINER_TIER_HEIGHT_M
+            if not slot_heights and (
+                self.task.work_type in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
+                and self.task.source.row == row
+                and self.task.source.tier == tier_count
+            ):
+                height_m += (
+                    self.task.container_height_m - self.CONTAINER_TIER_HEIGHT_M
+                )
+            heights.append(height_m)
+        return max(heights, default=0.0)
+
+    def _slot_support_height_m(self, slot: TaskSlot) -> float:
+        tier = max(1, slot.tier or 1)
+        if (
+            slot.row is not None
+            and 1 <= slot.row <= len(ROW_TROLLEY_M)
+            and len(self.task.bay_slot_heights_m) == len(ROW_TROLLEY_M)
+        ):
+            row_heights = self.task.bay_slot_heights_m[slot.row - 1]
+            known_supports = row_heights[: tier - 1]
+            return (
+                sum(known_supports)
+                + max(0, tier - 1 - len(known_supports))
+                * self.CONTAINER_TIER_HEIGHT_M
+            )
+        return (tier - 1) * self.CONTAINER_TIER_HEIGHT_M
 
     def _obstacle_tier(self, rows: tuple[int, ...]) -> int:
         if len(self.task.bay_heights) != len(ROW_TROLLEY_M):

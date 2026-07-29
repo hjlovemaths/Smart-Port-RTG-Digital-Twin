@@ -497,10 +497,10 @@ class RTGController:
     def set_hoist(self, height_m: float, *, carried_load: bool = False) -> float:
         """Set the PLC hoist value and update the rendered hoist atomically.
 
-        For a locked task load, the PLC value is the suspended container's
-        bottom-face height.  The rendered spreader and rope lower ends must
-        sit one physical tier above that point, while the reported PLC value
-        and its 18 m operating limit remain unchanged.
+        ``carried_load`` is retained for the PLC-free simulator, whose locked
+        snapshots report the suspended container's bottom-face height.  Real
+        PLC snapshots report the spreader contact height directly and must
+        call this method without that simulation-only compensation.
         """
         actual = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
         drive_value = hoist_actual_to_usd(actual)
@@ -508,8 +508,8 @@ class RTGController:
         if carried_load:
             visual_value += HOIST_ACTUAL_TIER_HEIGHT_M * HOIST_USD_PER_ENGINEERING_M
         with Usd.EditContext(self.stage, self._session):
-            # Keep the drive target in PLC metres.  The session transform is
-            # the visual load-bottom compensation described above.
+            # Keep the drive target in engineering metres.  Only simulated
+            # bottom-face snapshots receive the visual one-tier compensation.
             self._hoist.Set(drive_value)
             self._hoist_translate.Set(
                 Gf.Vec3d(
