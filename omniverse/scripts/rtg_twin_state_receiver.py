@@ -136,11 +136,10 @@ WORK_TYPE_SWITCH = "SWITCH"
 TRUCK_APPROACH_SECONDS = 5.0
 TRUCK_SETTLE_SECONDS = 1.5
 TRUCK_EXIT_SECONDS = 4.0
-# Match the visually tuned truck lane used by apply_task_sequence_demo.py.  The
-# geometric lane centre is too far outside the RTG leg from the normal operator
-# camera; -4.65 m keeps the truck inside the lane but closer to the stack.
-TRUCK_OPERATING_LANE_CENTER_X_M = -4.65
-# At the truck trolley stop, the spreader world centre is -4.65 m. Keep the
+# Move the task truck and its painted lane 0.90 m toward the container side.
+# The companion trolley calibration puts the visible spreader at -3.75 m too.
+TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
+# At the truck trolley stop, the spreader world centre is -3.75 m. Keep the
 # trailer root on that same centreline instead of adding a camera-view offset.
 TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
 # 40 ft truck stops use the same physical box-centre mark for LOAD and UNLOAD.
@@ -149,6 +148,10 @@ TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
 TASK_TRUCK_LONG_BOX_HOOK_OFFSET_Y_M = 0.45
 TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M = 0.25
 TASK_TRUCK_LOADED_BOX_LOCAL_Y_M = 0.0
+# Keep the blue task-trailer deck visibly narrower without reducing the box
+# support area below the rendered 1.306 m container width.
+TASK_TRUCK_TRAILER_WIDTH_X_M = 2.00
+TASK_TRUCK_TRAILER_WHEEL_X_M = 0.88
 SPREADER_20FT_CENTER_OFFSET_Y_M = -0.30
 # Calibrated world-space container centres for the PLC trolley stops.  The RTG
 # asset has an inverted/non-uniform X hierarchy, so transforming the rope
@@ -1503,7 +1506,7 @@ class OmniverseRtgTwinDriver:
                 stage,
                 f"{LIVE_TASK_TRUCK_PATH}/Trailer",
                 Gf.Vec3d(0.0, trailer_center_y, 0.36),
-                Gf.Vec3f(2.25, trailer_length_y, 0.18),
+                Gf.Vec3f(TASK_TRUCK_TRAILER_WIDTH_X_M, trailer_length_y, 0.18),
                 Gf.Vec3f(0.28, 0.24, 0.18),
             )
             self._create_task_cube(
@@ -1522,10 +1525,22 @@ class OmniverseRtgTwinDriver:
             )
             for index, (x, y) in enumerate(
                 (
-                    (-1.00, trailer_center_y - trailer_length_y * 0.36),
-                    (1.00, trailer_center_y - trailer_length_y * 0.36),
-                    (-1.00, trailer_center_y + trailer_length_y * 0.36),
-                    (1.00, trailer_center_y + trailer_length_y * 0.36),
+                    (
+                        -TASK_TRUCK_TRAILER_WHEEL_X_M,
+                        trailer_center_y - trailer_length_y * 0.36,
+                    ),
+                    (
+                        TASK_TRUCK_TRAILER_WHEEL_X_M,
+                        trailer_center_y - trailer_length_y * 0.36,
+                    ),
+                    (
+                        -TASK_TRUCK_TRAILER_WHEEL_X_M,
+                        trailer_center_y + trailer_length_y * 0.36,
+                    ),
+                    (
+                        TASK_TRUCK_TRAILER_WHEEL_X_M,
+                        trailer_center_y + trailer_length_y * 0.36,
+                    ),
                     (-0.84, cab_center_y - 0.07),
                     (0.84, cab_center_y - 0.07),
                 ),
@@ -1638,13 +1653,10 @@ class OmniverseRtgTwinDriver:
     @staticmethod
     def _task_truck_lane_center_x() -> float:
         from build_live_containers import (
-            BAY_WIDTH_M,
-            LEFT_INNER_SAFETY_X_M,
-            TRUCK_LANE_WIDTH_X_M,
+            truck_lane_bounds_x,
         )
 
-        lane_left_x = -BAY_WIDTH_M * 0.5 + LEFT_INNER_SAFETY_X_M
-        lane_right_x = lane_left_x + TRUCK_LANE_WIDTH_X_M
+        lane_left_x, lane_right_x = truck_lane_bounds_x()
         visual_center_x = (
             TRUCK_OPERATING_LANE_CENTER_X_M + TASK_TRUCK_VISUAL_X_OFFSET_M
         )

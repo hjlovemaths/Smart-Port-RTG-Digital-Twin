@@ -111,9 +111,10 @@ TROLLEY_SOFT_LIMITS = TROLLEY_ENGINEERING_LIMITS
 # These USD positions come directly from the validated task.txt animation.
 # Only the live PLC conversion uses this table; the RTG model, container rows,
 # truck model, and scripted animation remain on their authored coordinates.
+TROLLEY_TRUCK_STOP_USD_X = 0.005003036169343086
 TROLLEY_PLC_STOP_CALIBRATION = (
-    (0.48, 0.6155620378536059),   # truck centre
-    (1.00, 0.6155620378536059),   # hold the real 0.63 m reading over the truck
+    (0.48, TROLLEY_TRUCK_STOP_USD_X),  # shifted task-truck centre
+    (1.00, TROLLEY_TRUCK_STOP_USD_X),  # hold the real 0.63 m reading at truck
     (3.71, -1.7939748547136125),  # row 6
     (6.66, -2.8158098726906840),  # row 5
     (9.50, -3.8376448906677547),  # row 4

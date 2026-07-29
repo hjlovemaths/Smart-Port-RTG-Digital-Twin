@@ -54,3 +54,11 @@ class GantryBayMappingTests(unittest.TestCase):
             controller_y + mapping.RTG_LOWER_PORTAL_CROSSBEAM_CENTER_LOCAL_Y_M,
             mapping.bay_scene_y_m("3C", 66),
         )
+
+    def test_trolley_truck_stop_uses_the_shifted_task_lane_centre(self) -> None:
+        mapping = self.live_control
+
+        self.assertAlmostEqual(
+            mapping.trolley_actual_to_usd(0.48),
+            mapping.TROLLEY_TRUCK_STOP_USD_X,
+        )

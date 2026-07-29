@@ -48,6 +48,9 @@ MAX_STACK_HEIGHT_Z_M = CONTAINER_ACTUAL_HEIGHT_M * MAX_STACK_TIERS
 ROW_GAP_X_M = 0.20
 LEFT_INNER_SAFETY_X_M = 1.20
 TRUCK_LANE_WIDTH_X_M = 5.00
+# Shift the painted truck lane and its task parking line toward the container
+# side without changing the rendered stack-row coordinates.
+TRUCK_LANE_LATERAL_OFFSET_X_M = 0.90
 RIGHT_INNER_SAFETY_X_M = 1.50
 REFERENCE_LEFT_INNER_SAFETY_X_M = 2.00
 REFERENCE_TRUCK_LANE_WIDTH_X_M = 3.20
@@ -92,6 +95,17 @@ def reference_first_row_center_x_m(row_count: int) -> float:
         + reference_row_width * 0.5
     )
     return reference_leftmost_stack_x + (row_count - 1) * reference_row_pitch
+
+
+def truck_lane_bounds_x() -> tuple[float, float]:
+    """Return the laterally shifted live truck-lane edge coordinates."""
+
+    lane_left_x = (
+        -BAY_WIDTH_M * 0.5
+        + LEFT_INNER_SAFETY_X_M
+        + TRUCK_LANE_LATERAL_OFFSET_X_M
+    )
+    return lane_left_x, lane_left_x + TRUCK_LANE_WIDTH_X_M
 
 
 def parse_pattern(pattern: str) -> list[int]:
@@ -287,8 +301,7 @@ def create_truck_lane_markings(stage: Usd.Stage, path: str) -> None:
     yard_lane_y_max = YARD_LAYOUT_START_Y_M + YARD_TOTAL_LENGTH_M
     yard_lane_center_y = (yard_lane_y_min + yard_lane_y_max) * 0.5
     yard_lane_length = yard_lane_y_max - yard_lane_y_min
-    lane_left_x = -BAY_WIDTH_M * 0.5 + LEFT_INNER_SAFETY_X_M
-    lane_right_x = lane_left_x + TRUCK_LANE_WIDTH_X_M
+    lane_left_x, lane_right_x = truck_lane_bounds_x()
     lane_mid_x = (lane_left_x + lane_right_x) * 0.5
     truck_lane_width = lane_right_x - lane_left_x
 
@@ -416,8 +429,7 @@ def create_yard_ground_markings(
     yard_lane_y_max = YARD_LAYOUT_START_Y_M + YARD_TOTAL_LENGTH_M
     yard_lane_center_y = (yard_lane_y_min + yard_lane_y_max) * 0.5
     yard_lane_length = yard_lane_y_max - yard_lane_y_min
-    lane_left_x = -BAY_WIDTH_M * 0.5 + LEFT_INNER_SAFETY_X_M
-    lane_right_x = lane_left_x + TRUCK_LANE_WIDTH_X_M
+    lane_left_x, lane_right_x = truck_lane_bounds_x()
     lane_mid_x = (lane_left_x + lane_right_x) * 0.5
 
     truck_lane_width = lane_right_x - lane_left_x

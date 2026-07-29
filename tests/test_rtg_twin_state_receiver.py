@@ -251,8 +251,13 @@ class TaskVisualPolicyTests(unittest.TestCase):
         self.assertEqual(
             receiver.TRUCK_OPERATING_LANE_CENTER_X_M
             + receiver.TASK_TRUCK_VISUAL_X_OFFSET_M,
-            -4.65,
+            -3.75,
         )
+
+    def test_task_trailer_deck_is_narrower_but_still_supports_the_box(self) -> None:
+        self.assertEqual(receiver.TASK_TRUCK_TRAILER_WIDTH_X_M, 2.0)
+        self.assertEqual(receiver.TASK_TRUCK_TRAILER_WHEEL_X_M, 0.88)
+        self.assertGreater(receiver.TASK_TRUCK_TRAILER_WIDTH_X_M, 1.306287)
 
     def test_20ft_load_box_sits_at_the_front_of_a_40ft_chassis(self) -> None:
         container_length_y = 6.1
@@ -324,7 +329,7 @@ class TaskVisualPolicyTests(unittest.TestCase):
 
     def test_carried_box_x_matches_truck_and_all_six_row_centres(self) -> None:
         expected = (
-            (0.67, -4.65),
+            (0.67, -3.75),
             (3.71, -1.0981016666666639),
             (6.66, 0.4081853333333361),
             (9.50, 1.9144723333333360),
