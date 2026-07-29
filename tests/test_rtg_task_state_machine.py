@@ -153,6 +153,41 @@ class OperationStateMachineTests(unittest.TestCase):
         self.assertTrue(simulator._lock)
         self.assertAlmostEqual(simulator._current_hoist, 7.8)
 
+    def test_simulation_keeps_switch_locked_until_the_box_rests_on_target(self) -> None:
+        simulator = RtgSimulationDriver()
+        simulator.publish(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C6321",
+                "end_pos": "3C6353",
+                "bay_map": "441000",
+                "container_size": 20,
+                "task_id": "sim-place-lock",
+            }
+        )
+        now = time.monotonic()
+        simulator._machine.state = OperationState.HOIST_TO_PLACE  # type: ignore[union-attr]
+        simulator._state_entered_at = now
+
+        simulator._make_pose(now + 0.7)
+        self.assertTrue(simulator._lock)
+        self.assertGreater(simulator._current_hoist, 5.2)
+
+        simulator._make_pose(now + 1.4)
+        self.assertTrue(simulator._lock)
+        self.assertAlmostEqual(simulator._current_hoist, 5.2)
+        transition = simulator._machine.update(  # type: ignore[union-attr]
+            PlcOperationSnapshot(
+                field="3C",
+                bay=63,
+                trolley_m=simulator._current_trolley,
+                hoist_m=simulator._current_hoist,
+                locked=simulator._lock,
+            ),
+            now + 1.4,
+        )
+        self.assertEqual(transition.current, OperationState.UNLOCK)
+
     def test_unload_waits_for_gantry_bay_then_starts_truck(self) -> None:
         machine = RtgOperationStateMachine(
             OperationTask(
@@ -212,14 +247,20 @@ class OperationStateMachineTests(unittest.TestCase):
             OperationState.TROLLEY_TO_TARGET,
         )
         self.assertEqual(machine.update(plc(trolley_m=15.19, locked=True), now + 0.8).current, OperationState.HOIST_TO_PLACE)
-        self.assertEqual(machine.update(plc(trolley_m=15.19, locked=True), now + 0.9).current, OperationState.UNLOCK)
-        self.assertEqual(machine.update(plc(trolley_m=15.19, locked=False), now + 1.0).current, OperationState.HOIST_SAFE)
-        self.assertEqual(machine.safe_hoist_m, 10.4)
         self.assertIsNone(
-            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=8.0), now + 1.1)
+            machine.update(plc(trolley_m=15.19, locked=True, hoist_m=10.4), now + 0.9)
         )
         self.assertEqual(
-            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=10.4), now + 1.2).current,
+            machine.update(plc(trolley_m=15.19, locked=True, hoist_m=5.2), now + 1.0).current,
+            OperationState.UNLOCK,
+        )
+        self.assertEqual(machine.update(plc(trolley_m=15.19, locked=False), now + 1.1).current, OperationState.HOIST_SAFE)
+        self.assertEqual(machine.safe_hoist_m, 10.4)
+        self.assertIsNone(
+            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=8.0), now + 1.2)
+        )
+        self.assertEqual(
+            machine.update(plc(trolley_m=15.19, locked=False, hoist_m=10.4), now + 1.3).current,
             OperationState.COMPLETE,
         )
 

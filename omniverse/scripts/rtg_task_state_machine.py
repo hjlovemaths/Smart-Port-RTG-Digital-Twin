@@ -116,6 +116,7 @@ class RtgOperationStateMachine:
         truck_settle_seconds: float = 1.5,
         truck_exit_seconds: float = 4.0,
         state_timeout_seconds: float = 120.0,
+        placement_load_bottom_m: Optional[float] = None,
     ) -> None:
         if task.work_type not in (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH):
             raise ValueError(f"Unsupported RTG work type: {task.work_type!r}")
@@ -126,6 +127,7 @@ class RtgOperationStateMachine:
         self.truck_settle_seconds = truck_settle_seconds
         self.truck_exit_seconds = truck_exit_seconds
         self.state_timeout_seconds = state_timeout_seconds
+        self._placement_load_bottom_m = placement_load_bottom_m
         self._source_approach_required_m: Optional[float] = None
 
     @property
@@ -217,6 +219,21 @@ class RtgOperationStateMachine:
         """Whether the RTG can carry this box over the current bay map."""
 
         return self.transfer_hoist_m <= self.MAX_HOIST_M
+
+    @property
+    def placement_load_bottom_hoist_m(self) -> Optional[float]:
+        """Return the locked container bottom height required before release."""
+
+        if self._placement_load_bottom_m is not None:
+            return self._placement_load_bottom_m
+        # A yard placement has an explicit target tier.  While carrying, the
+        # PLC reports the bottom face of the box, so tier N rests at the top
+        # of tier N-1.  UNLOAD releases onto an external truck whose deck
+        # height is supplied by the PLC/simulator rather than the bay map.
+        if self.task.work_type == WORK_TYPE_UNLOAD:
+            return None
+        tier = self.task.target.tier or 1
+        return max(0.0, (max(1, tier) - 1) * self.CONTAINER_TIER_HEIGHT_M)
 
     @property
     def transfer_clearance_fault_reason(self) -> str:
@@ -333,8 +350,17 @@ class RtgOperationStateMachine:
             if self._at_trolley(plc, self.target_trolley_m):
                 next_state = (OperationState.HOIST_TO_PLACE, "trolley reached target")
         elif self.state == OperationState.HOIST_TO_PLACE:
-            if plc.locked:
-                next_state = (OperationState.UNLOCK, "at placement height")
+            placement_bottom_m = self.placement_load_bottom_hoist_m
+            placed_at_target = (
+                placement_bottom_m is None
+                or (
+                    plc.hoist_m is not None
+                    and plc.hoist_m
+                    <= placement_bottom_m + self.HEIGHT_TOLERANCE_M
+                )
+            )
+            if plc.locked and placed_at_target:
+                next_state = (OperationState.UNLOCK, "load settled at placement height")
         elif self.state == OperationState.UNLOCK:
             if not plc.locked:
                 next_state = (OperationState.HOIST_SAFE, "PLC unlock confirmed")

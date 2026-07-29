@@ -258,6 +258,7 @@ class RtgSimulationDriver:
             truck_approach_seconds=TRUCK_APPROACH_SECONDS,
             truck_settle_seconds=TRUCK_SETTLE_SECONDS,
             truck_exit_seconds=TRUCK_EXIT_SECONDS,
+            placement_load_bottom_m=self._place_load_bottom_hoist_m(),
         )
         self._started_at = time.monotonic()
         self._state_entered_at = self._started_at
@@ -372,16 +373,17 @@ class RtgSimulationDriver:
             self._lock = True
             self._current_hoist = self._transfer_hoist_target_m()
         elif state == OperationState.HOIST_TO_PLACE:
-            place_target = self._place_hoist_target_m()
             progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
-            # Keep the box locked while lowering, but do not let the state
-            # machine release it until the truck/target contact height is
-            # actually reached.
-            self._lock = elapsed >= HOIST_TRAVEL_SECONDS
+            # Keep the box locked for the complete lowering motion.  The
+            # carried PLC value is the box bottom, so interpolate to its
+            # resting bottom height; the receiver supplies the matching
+            # spreader/rope compensation while the twist-lock remains closed.
+            self._lock = True
             travel_height = self._transfer_hoist_target_m()
-            self._current_hoist = travel_height + (place_target - travel_height) * progress
-            if self._lock:
-                self._current_hoist = self._place_load_bottom_hoist_m()
+            place_load_bottom = self._place_load_bottom_hoist_m()
+            self._current_hoist = travel_height + (
+                place_load_bottom - travel_height
+            ) * progress
         elif state == OperationState.UNLOCK:
             self._lock = elapsed < UNLOCK_SETTLE_SECONDS
             self._current_hoist = (
