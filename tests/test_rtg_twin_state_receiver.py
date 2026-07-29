@@ -338,9 +338,13 @@ class TaskVisualPolicyTests(unittest.TestCase):
                 "bayMap": "000000",
             }
             prepared = driver._prepare_inventory_task(object(), task)
+            # Task preparation uses the temporary animated stack, so it must not
+            # rebuild the persistent inventory bay before immediately hiding it.
+            self.assertEqual(driver.rendered, [])
             completed = dict(prepared, operationState="COMPLETED")
 
             self.assertTrue(driver._settle_inventory_task(object(), completed))
+            self.assertEqual(driver.rendered, ["3C/063"])
             self.assertTrue(path.is_file())
             self.assertEqual(
                 driver._inventory.stack_pattern(

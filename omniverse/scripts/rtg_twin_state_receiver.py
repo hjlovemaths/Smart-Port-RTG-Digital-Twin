@@ -1369,8 +1369,11 @@ class OmniverseRtgTwinDriver:
                 if sync_state == INVENTORY_SYNC_READY and changed:
                     if self._inventory_autosave:
                         self._inventory.save(self._inventory_path)
-                    for stack_key in changed:
-                        self._render_inventory_bay(stage, stack_key)
+                    # The task scene immediately hides its source/target bays and
+                    # renders the animated task stack.  Rebuilding those persistent
+                    # bays here only creates a frame hitch, then discards the result.
+                    # Keep the inventory model authoritative and update its visuals
+                    # once the task transaction has actually settled.
                 elif sync_state != INVENTORY_SYNC_READY:
                     self._inventory = inventory_before
             except Exception as exc:  # noqa: BLE001 - stale data is recoverable
