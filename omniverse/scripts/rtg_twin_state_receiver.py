@@ -1145,6 +1145,20 @@ class OmniverseRtgTwinDriver:
         self._log(f"crossbeam alignment measurement: {result}")
         return result
 
+    def restore_inventory_scene(self) -> Optional[Dict[str, Any]]:
+        """Restore the selected inventory immediately, before any task arrives."""
+
+        stage = self._current_stage()
+        if stage is None:
+            self._log("cannot restore yard inventory: no active USD stage")
+            return None
+        self._sync_inventory_scene(stage)
+        return {
+            "mode": self._inventory_mode,
+            "path": str(self._inventory_path),
+            "stats": self._inventory.to_dict()["stats"],
+        }
+
     def _lower_portal_crossbeam_prim(self, stage: Any):
         """Find and cache the authored lower portal crossbeam on this stage."""
 

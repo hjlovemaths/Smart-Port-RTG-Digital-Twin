@@ -106,7 +106,9 @@ start_simulation()
 
 `exec(...)` 加载脚本后不会连接 PLC；`start_simulation()` 创建仿真更新循环，
 并自动读取 `omniverse/data/yard_inventory.sim.json`。重复执行脚本会先停止
-旧仿真，避免两个更新循环同时控制 RTG。
+旧仿真，避免两个更新循环同时控制 RTG。调用 `start_simulation()` 后会立即
+显示随机箱区，不需要先发布任务；控制台应输出 `stacks=62`、
+`containers=574`。
 
 出箱：从 `3C/063` 的第2排第4层抓箱并放到集卡：
 

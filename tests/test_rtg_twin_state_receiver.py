@@ -129,6 +129,29 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_inventory_can_restore_before_first_task_state(self) -> None:
+        class RestoreDriver(receiver.OmniverseRtgTwinDriver):
+            def __init__(self):
+                super().__init__(
+                    inventory_mode=receiver.INVENTORY_MODE_SIMULATION,
+                    inventory_autosave=False,
+                )
+                self.stage = object()
+                self.synced = []
+
+            def _current_stage(self):
+                return self.stage
+
+            def _sync_inventory_scene(self, stage):
+                self.synced.append(stage)
+
+        driver = RestoreDriver()
+        status = driver.restore_inventory_scene()
+
+        self.assertEqual(driver.synced, [driver.stage])
+        self.assertEqual(status["mode"], receiver.INVENTORY_MODE_SIMULATION)
+        self.assertEqual(status["stats"]["containerCount"], 574)
+
     def test_live_and_simulation_modes_use_different_default_files(self) -> None:
         live = receiver.OmniverseRtgTwinDriver(
             inventory_mode=receiver.INVENTORY_MODE_LIVE

@@ -245,11 +245,15 @@ class RtgSimulationDriver:
             self._driver = receiver_module.OmniverseRtgTwinDriver(
                 inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
             )
+            inventory_status = self._driver.restore_inventory_scene()
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgSimulationDriver"
             )
-            print("[RTG Simulation] started (no PLC/TCP required)")
+            print(
+                "[RTG Simulation] started (no PLC/TCP required) "
+                f"inventory={inventory_status or 'stage unavailable'}"
+            )
         except Exception as exc:
             print(f"[RTG Simulation] unable to start update loop: {exc}")
         return self
