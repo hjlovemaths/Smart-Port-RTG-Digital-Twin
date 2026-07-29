@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from rtg_simulation_driver import _simulation_task_snapshot  # noqa: E402
 from rtg_simulation_driver import _task_from_payload  # noqa: E402
 from rtg_simulation_driver import RtgSimulationDriver  # noqa: E402
+from rtg_simulation_driver import WAITING_HOIST_M  # noqa: E402
 from rtg_task_state_machine import (  # noqa: E402
     OperationState,
     OperationTask,
@@ -25,6 +26,7 @@ from rtg_task_state_machine import (  # noqa: E402
     WORK_TYPE_UNLOAD,
     bay_heights_from_pattern,
 )
+from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
 
 def plc(**overrides):
@@ -42,6 +44,143 @@ def plc(**overrides):
 
 
 class OperationStateMachineTests(unittest.TestCase):
+    def test_publish_renders_20ft_spreader_preflight_before_update(self) -> None:
+        class RenderDriver:
+            def __init__(self) -> None:
+                self.states = []
+
+            def apply_state(self, state):
+                self.states.append(state)
+                return {
+                    "spreaderSizeFt": 20.0,
+                    "spreaderTargetSizeFt": 20,
+                }
+
+        simulator = RtgSimulationDriver()
+        renderer = RenderDriver()
+        simulator._driver = renderer
+
+        simulator.publish(
+            {
+                "work_type": "UNLOAD",
+                "start_pos": "3C6544",
+                "bay_map": "123456",
+                "container_size": 20,
+                "task_id": "sim-20ft-preflight",
+            }
+        )
+
+        self.assertEqual(len(renderer.states), 1)
+        initial_state = renderer.states[0]
+        self.assertEqual(initial_state["task"]["containerSize"], 20)
+        self.assertEqual(initial_state["pose"]["tool20f"], 1)
+        self.assertEqual(initial_state["pose"]["tool40f"], 0)
+        self.assertEqual(initial_state["task"]["operationState"], "GANTRY_TO_SOURCE")
+        self.assertEqual(initial_state["task"]["visualPhase"], "GANTRY_TO_SOURCE")
+
+    def test_waiting_submission_starts_only_after_complete_high_wait(self) -> None:
+        class RenderDriver:
+            def apply_state(self, state):
+                return None
+
+        simulator = RtgSimulationDriver()
+        simulator._driver = RenderDriver()
+        simulator.submit(
+            {
+                "work_type": "UNLOAD",
+                "start_pos": "3C6544",
+                "bay_map": "123456",
+                "container_size": 20,
+                "task_id": "sim-first",
+            },
+            wait_for_previous=True,
+        )
+        queued = simulator.submit(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C6544",
+                "end_pos": "3C6556",
+                "bay_map": "123456",
+                "container_size": 20,
+                "task_id": "sim-second",
+            },
+            wait_for_previous=True,
+        )
+        self.assertEqual(queued["state"], "QUEUED")
+        self.assertEqual(simulator._task.operation.task_id, "sim-first")  # type: ignore[union-attr]
+
+        simulator._machine.state = OperationState.COMPLETE  # type: ignore[union-attr]
+        simulator._current_hoist = WAITING_HOIST_M - 0.02
+        self.assertFalse(simulator._start_next_queued_task_if_ready())
+        self.assertEqual(simulator._task.operation.task_id, "sim-first")  # type: ignore[union-attr]
+
+        simulator._current_hoist = WAITING_HOIST_M
+        self.assertTrue(simulator._start_next_queued_task_if_ready())
+        self.assertEqual(simulator._task.operation.task_id, "sim-second")  # type: ignore[union-attr]
+        self.assertEqual(simulator._pending_tasks, [])
+
+    def test_queued_sixth_tier_switch_starts_next_task_after_parking(self) -> None:
+        """A sixth-tier placement must reach COMPLETE before queue handoff."""
+
+        class RenderDriver:
+            def apply_state(self, state):
+                return None
+
+        simulator = RtgSimulationDriver()
+        simulator._driver = RenderDriver()
+        simulator.submit(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C4344",
+                "end_pos": "3C4356",
+                "bay_map": "123456",
+                "container_size": 20,
+                "task_id": "sixth-tier-first",
+            },
+            wait_for_previous=True,
+        )
+        simulator.submit(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C6644",
+                "end_pos": "3C6656",
+                "bay_map": "123456",
+                "container_size": 40,
+                "task_id": "sixth-tier-second",
+            },
+            wait_for_previous=True,
+        )
+
+        now = time.monotonic()
+        started_next_task = False
+        for tick in range(1600):
+            current = now + tick * 0.05
+            simulator._make_pose(current)
+            transition = simulator._machine.update(  # type: ignore[union-attr]
+                PlcOperationSnapshot(
+                    field=simulator._task.operation.source.field,  # type: ignore[union-attr]
+                    bay=simulator._current_bay,
+                    trolley_m=simulator._current_trolley,
+                    hoist_m=simulator._current_hoist,
+                    locked=simulator._lock,
+                    vision_confirmed=True,
+                ),
+                current,
+            )
+            if transition is not None:
+                simulator._state_entered_at = current
+            if simulator._start_next_queued_task_if_ready():
+                started_next_task = True
+                break
+
+        self.assertTrue(started_next_task)
+        self.assertEqual(simulator.state, "GANTRY_TO_SOURCE")
+        self.assertEqual(
+            simulator._task.operation.task_id,  # type: ignore[union-attr]
+            "sixth-tier-second",
+        )
+        self.assertEqual(simulator._pending_tasks, [])
+
     def test_simulation_reaches_complete_for_all_work_types(self) -> None:
         scenarios = (
             ("LOAD", None, "3C6321"),
@@ -187,6 +326,93 @@ class OperationStateMachineTests(unittest.TestCase):
             now + 1.4,
         )
         self.assertEqual(transition.current, OperationState.UNLOCK)
+
+    def test_completed_simulation_parks_high_and_keeps_its_pose_for_next_task(self) -> None:
+        simulator = RtgSimulationDriver()
+        simulator.publish(
+            {
+                "work_type": "SWITCH",
+                "start_pos": "3C6544",
+                "end_pos": "3C6556",
+                "bay_map": "123456",
+                "container_size": 20,
+                "task_id": "sim-waiting-pose",
+            }
+        )
+        now = time.monotonic()
+        simulator._machine.state = OperationState.COMPLETE  # type: ignore[union-attr]
+        simulator._state_entered_at = now
+        simulator._current_gantry = 42.0
+        simulator._current_gantry_bay = 65.0
+        simulator._current_trolley = 15.19
+        simulator._current_hoist = 10.4
+        simulator._current_bay = 65
+
+        parked_pose = simulator._make_pose(now + 1.8)
+        self.assertAlmostEqual(parked_pose["hoistMeter"], 18.0)
+        self.assertAlmostEqual(parked_pose["bigcarElecDistance"], 42.0)
+        self.assertAlmostEqual(parked_pose["trolleyMeter"], 15.19)
+
+        simulator.publish(
+            {
+                "work_type": "UNLOAD",
+                "start_pos": "3C6321",
+                "bay_map": "441000",
+                "container_size": 20,
+                "task_id": "sim-next-task",
+            }
+        )
+        next_pose = simulator._make_pose(simulator._started_at)
+        self.assertAlmostEqual(next_pose["hoistMeter"], 18.0)
+        self.assertAlmostEqual(next_pose["bigcarElecDistance"], 42.0)
+        self.assertAlmostEqual(next_pose["trolleyMeter"], 15.19)
+        self.assertEqual(next_pose["currentBay"], 0)
+
+        simulator._machine.state = OperationState.GANTRY_TO_SOURCE  # type: ignore[union-attr]
+        simulator._state_entered_at = now
+        target_gantry = bay_position_m("3C", 63)
+        moving_pose = simulator._make_pose(now + 1.25)
+        self.assertEqual(moving_pose["currentBay"], 0)
+        self.assertGreater(
+            abs(moving_pose["bigcarElecDistance"] - 42.0),
+            0.001,
+        )
+        self.assertLess(
+            abs(moving_pose["bigcarElecDistance"] - target_gantry),
+            abs(42.0 - target_gantry),
+        )
+
+        arrived_pose = simulator._make_pose(now + 2.0)
+        self.assertEqual(arrived_pose["currentBay"], 63)
+        self.assertAlmostEqual(arrived_pose["bigcarElecDistance"], target_gantry, places=3)
+
+    def test_gantry_travels_at_one_bay_per_second(self) -> None:
+        simulator = RtgSimulationDriver()
+        simulator.publish(
+            {
+                "work_type": "UNLOAD",
+                "start_pos": "3C6644",
+                "bay_map": "123456",
+                "container_size": 40,
+                "task_id": "sim-one-bay-per-second",
+            }
+        )
+        now = time.monotonic()
+        simulator._machine.state = OperationState.GANTRY_TO_SOURCE  # type: ignore[union-attr]
+        simulator._state_entered_at = now
+        simulator._current_gantry = bay_position_m("3C", 60)
+        simulator._current_gantry_bay = 60.0
+        simulator._gantry_motion_start_m = None
+        simulator._gantry_motion_start_bay = None
+        simulator._gantry_motion_target_m = None
+
+        midpoint = simulator._make_pose(now + 3.0)
+        self.assertEqual(midpoint["currentBay"], 0)
+        self.assertAlmostEqual(simulator._current_gantry_bay, 63.0)
+
+        arrived = simulator._make_pose(now + 6.0)
+        self.assertEqual(arrived["currentBay"], 66)
+        self.assertAlmostEqual(simulator._current_gantry_bay, 66.0)
 
     def test_unload_waits_for_gantry_bay_then_starts_truck(self) -> None:
         machine = RtgOperationStateMachine(

@@ -128,6 +128,124 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_task_completion_detection_accepts_simulator_and_terminal_states(self) -> None:
+        self.assertTrue(
+            receiver._task_is_complete(
+                {
+                    "stateSource": "SIMULATION",
+                    "visualPhase": "COMPLETE",
+                    "state": "ACTIVE",
+                }
+            )
+        )
+        self.assertTrue(receiver._task_is_complete({"operationState": "DONE"}))
+        self.assertTrue(receiver._task_is_complete({"state": "COMPLETED"}))
+        self.assertFalse(
+            receiver._task_is_complete(
+                {
+                    "stateSource": "SIMULATION",
+                    "visualPhase": "GANTRY_TO_SOURCE",
+                    "state": "ACTIVE",
+                }
+            )
+        )
+
+    def test_task_stack_render_key_changes_for_each_task_identity(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+        first = {
+            "taskId": "switch-20",
+            "workType": "SWITCH",
+            "startPos": "3C4344",
+            "endPos": "3C4356",
+            "containerSize": 20,
+            "bayMap": "123456",
+        }
+        second = dict(
+            first,
+            taskId="switch-40",
+            startPos="3C6644",
+            endPos="3C6656",
+            containerSize=40,
+        )
+
+        self.assertNotEqual(
+            driver._task_stack_render_key(first),
+            driver._task_stack_render_key(second),
+        )
+
+    def test_spreader_only_transforms_when_a_new_task_needs_a_new_size(self) -> None:
+        class Controller:
+            def __init__(self) -> None:
+                self.current_size = 20.0
+                self.commands = []
+
+            def current_spreader_size_ft(self):
+                return self.current_size
+
+            def set_spreader_size(self, size_ft, *, smooth):
+                self.commands.append((size_ft, smooth))
+                self.current_size = float(size_ft)
+                return self.current_size
+
+        driver = receiver.OmniverseRtgTwinDriver()
+        controller = Controller()
+        first_task = {
+            "taskId": "task-40",
+            "workType": "SWITCH",
+            "startPos": "3C6321",
+            "endPos": "3C6351",
+            "containerSize": 40,
+        }
+
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, first_task),
+            (40.0, 40),
+        )
+        self.assertEqual(controller.commands, [(40, True)])
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, first_task),
+            (40.0, 40),
+        )
+        self.assertEqual(controller.commands, [(40, True)])
+
+        # A USD animation sample may reset the composed transform during an
+        # active task.  The receiver repairs that mismatch, but leaves a
+        # matching endpoint alone on the following frame.
+        controller.current_size = 20.0
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, first_task),
+            (40.0, 40),
+        )
+        self.assertEqual(controller.commands, [(40, True), (40, True)])
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, first_task),
+            (40.0, 40),
+        )
+        self.assertEqual(controller.commands, [(40, True), (40, True)])
+
+        matching_task = dict(first_task, taskId="task-40-repeat")
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, matching_task),
+            (40.0, 40),
+        )
+        self.assertEqual(controller.commands, [(40, True), (40, True), (40, True)])
+
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, {}),
+            (40.0, None),
+        )
+        self.assertEqual(controller.commands, [(40, True), (40, True), (40, True)])
+
+        next_task = dict(first_task, taskId="task-20", containerSize=20)
+        self.assertEqual(
+            driver._sync_spreader_size_for_task(controller, next_task),
+            (20.0, 20),
+        )
+        self.assertEqual(
+            controller.commands,
+            [(40, True), (40, True), (40, True), (20, True)],
+        )
+
     def test_only_explicit_simulator_phase_bypasses_plc_state_machine(self) -> None:
         self.assertEqual(
             receiver._simulated_visual_phase(

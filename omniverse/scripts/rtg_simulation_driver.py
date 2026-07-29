@@ -24,6 +24,14 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 
+# Script Editor executes this file into its existing global namespace.  Stop a
+# previous update subscription before redefining the module globals; otherwise
+# the old simulation keeps applying stale pose and spreader-size commands.
+_previous_simulation = globals().get("_simulation")
+if _previous_simulation is not None:
+    _previous_simulation.stop()
+
+
 SCRIPT_DIR = Path(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts")
 if not (SCRIPT_DIR / "rtg_task_state_machine.py").is_file():
     SCRIPT_DIR = Path(__file__).resolve().parent
@@ -63,7 +71,9 @@ from yard_coordinate_mapping import bay_position_m  # noqa: E402
 
 SIMULATION_RTG_NAME = "RTG_SIM_220"
 SIMULATION_TICK_SECONDS = 0.05
-GANTRY_TRAVEL_SECONDS = 2.5
+# Use the yard's bay numbers as the operator-facing gantry distance unit.
+# At the default setting, a move from bay 43 to bay 66 takes 23 seconds.
+GANTRY_SPEED_BAYS_PER_SECOND = 1.0
 TROLLEY_TRAVEL_SECONDS = 1.8
 HOIST_TRAVEL_SECONDS = 1.4
 LOCK_SETTLE_SECONDS = 0.45
@@ -73,13 +83,19 @@ UNLOCK_SETTLE_SECONDS = 0.45
 # a 2.6 m physical tier, so tier 1's top is 2.6 m and tier 4's top is 10.4 m.
 PHYSICAL_TIER_HEIGHT_M = 2.60
 FIRST_TIER_PICK_HOIST_M = 2.60
+# Keep the empty spreader at the configured 18 m hoist limit between jobs.
+# This must satisfy ``RtgOperationStateMachine.safe_hoist_m`` for a sixth-tier
+# placement, otherwise the first task remains in HOIST_SAFE and blocks its queue.
+WAITING_HOIST_M = 18.0
 # The simulated truck trailer top is slightly above the tier-1 yard top.
 # This is the engineering hoist value that puts the spreader contact plane on
 # the truck box when the outbound box is released.
 TRUCK_PLACE_HOIST_M = 3.64
 TRUCK_APPROACH_SECONDS = 2.5
 TRUCK_SETTLE_SECONDS = 0.8
-TRUCK_EXIT_SECONDS = 2.0
+# Keep this equal to the task-truck renderer's exit animation duration.  A
+# shorter state duration would clear the truck root before its exit is drawn.
+TRUCK_EXIT_SECONDS = 4.0
 
 
 def _parse_position(value: str) -> TaskSlot:
@@ -198,8 +214,15 @@ class RtgSimulationDriver:
         self._current_hoist = 6.0
         self._current_bay = 1
         self._current_gantry = 0.0
+        self._current_gantry_bay = 1.0
+        self._gantry_motion_start_m: Optional[float] = None
+        self._gantry_motion_start_bay: Optional[float] = None
+        self._gantry_motion_target_m: Optional[float] = None
+        self._gantry_motion_duration_seconds = 0.0
         self._lock = False
         self._unlock_requested_at = 0.0
+        self._pending_tasks: list[Dict[str, Any]] = []
+        self._submission_sequence = 0
 
     @property
     def state(self) -> Optional[str]:
@@ -226,6 +249,7 @@ class RtgSimulationDriver:
         self._subscription = None
         self._task = None
         self._machine = None
+        self._pending_tasks.clear()
         if self._driver is not None:
             self._driver.stop()
         self._driver = None
@@ -263,21 +287,81 @@ class RtgSimulationDriver:
         self._started_at = time.monotonic()
         self._state_entered_at = self._started_at
         self._last_state = None
-        self._current_bay = operation.source.bay
-        self._current_gantry = bay_position_m(operation.source.field, operation.source.bay)
-        self._current_trolley = 0.67
-        self._current_hoist = 6.0
+        # Preserve the completed task's RTG pose.  The next task moves from
+        # this waiting position instead of redrawing the machine at a fixed
+        # initial bay, trolley, and hoist coordinate.
+        self._current_bay = 0
+        self._gantry_motion_start_m = None
+        self._gantry_motion_start_bay = None
+        self._gantry_motion_target_m = None
+        self._gantry_motion_duration_seconds = 0.0
         self._lock = False
+        # Begin with an explicit gantry phase.  The task stack may render now,
+        # but the truck, trolley, hoist, and grab sequence remain dormant
+        # until the gantry has reached the source bay.
+        transition = self._machine.update(
+            PlcOperationSnapshot(
+                field=operation.source.field,
+                bay=self._current_bay,
+                trolley_m=self._current_trolley,
+                hoist_m=self._current_hoist,
+                locked=self._lock,
+                vision_confirmed=True,
+            ),
+            self._started_at,
+        )
+        if transition is not None:
+            self._state_entered_at = self._started_at
+            self._last_state = transition.current
         print(
             f"[RTG Simulation] published {operation.work_type} task={operation.task_id} "
             f"source={operation.source} target={operation.target} bayMap={bay_map}"
         )
+        # Apply the task envelope before the update stream advances the state
+        # machine.  The receiver begins a smooth 20/40 ft transition while
+        # the gantry visibly travels toward its source bay.
+        self._apply_render_state(self._make_pose(self._started_at))
         return dict(task_payload)
 
     def clear(self) -> None:
         self._task = None
         self._machine = None
+        self._pending_tasks.clear()
         print("[RTG Simulation] task cleared")
+
+    def submit(self, payload: Dict[str, Any], *, wait_for_previous: bool) -> Dict[str, Any]:
+        """Publish now or queue a task until the current job has fully parked."""
+
+        if not wait_for_previous:
+            return self.publish(payload)
+
+        queued_payload = dict(payload)
+        if not (queued_payload.get("task_id") or queued_payload.get("taskId")):
+            self._submission_sequence += 1
+            queued_payload["task_id"] = (
+                f"SIM-{int(time.time() * 1000)}-{self._submission_sequence}"
+            )
+        operation = _task_from_payload(queued_payload)
+        ready_for_new_task = (
+            self._machine is None
+            or (
+                self._machine.state == OperationState.COMPLETE
+                and self._current_hoist >= WAITING_HOIST_M - 0.01
+            )
+        )
+        if ready_for_new_task and not self._pending_tasks:
+            return self.publish(queued_payload)
+
+        self._pending_tasks.append(queued_payload)
+        print(
+            f"[RTG Simulation] queued task={operation.task_id} "
+            f"behind={len(self._pending_tasks)} active={self.state}"
+        )
+        return {
+            "taskId": operation.task_id,
+            "state": "QUEUED",
+            "queuedBehind": len(self._pending_tasks),
+        }
 
     def _on_update(self, _event: Any) -> None:
         if self._task is None or self._machine is None:
@@ -302,6 +386,31 @@ class RtgSimulationDriver:
                 f"[RTG Simulation] {transition.previous.value} -> "
                 f"{transition.current.value}: {transition.reason}"
             )
+        self._apply_render_state(pose)
+        self._start_next_queued_task_if_ready()
+
+    def _start_next_queued_task_if_ready(self) -> bool:
+        """Start one queued task only after the prior RTG reaches high wait."""
+
+        if (
+            not self._pending_tasks
+            or self._machine is None
+            or self._machine.state != OperationState.COMPLETE
+            or self._current_hoist < WAITING_HOIST_M - 0.01
+        ):
+            return False
+        payload = self._pending_tasks.pop(0)
+        print(
+            f"[RTG Simulation] previous task complete; starting queued task "
+            f"remaining={len(self._pending_tasks)}"
+        )
+        self.publish(payload)
+        return True
+
+    def _apply_render_state(self, pose: Dict[str, Any]) -> None:
+        """Send one already-built pose to the live renderer immediately."""
+
+        assert self._task is not None and self._machine is not None
         state = {
             "rtgName": SIMULATION_RTG_NAME,
             "timestampUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -312,7 +421,13 @@ class RtgSimulationDriver:
             if self._driver is None:
                 receiver_module = _load_receiver_module_from_source()
                 self._driver = receiver_module.OmniverseRtgTwinDriver()
-            self._driver.apply_state(state)
+            applied = self._driver.apply_state(state)
+            if applied is not None and self._last_state is None:
+                print(
+                    "[RTG Simulation] task preflight "
+                    f"spreader={applied.get('spreaderSizeFt')}"
+                    f"->{applied.get('spreaderTargetSizeFt')}ft"
+                )
         except Exception as exc:
             print(f"[RTG Simulation] apply failed: {exc}")
 
@@ -324,12 +439,36 @@ class RtgSimulationDriver:
         source = operation.source
         target = operation.target
         if state == OperationState.GANTRY_TO_SOURCE:
-            progress = min(1.0, elapsed / GANTRY_TRAVEL_SECONDS)
-            self._current_bay = source.bay if progress >= 1.0 else 1
-            self._current_gantry = bay_position_m(source.field, source.bay) * progress
-        else:
-            self._current_bay = source.bay
-            self._current_gantry = bay_position_m(source.field, source.bay)
+            target_gantry = bay_position_m(source.field, source.bay)
+            if self._gantry_motion_target_m != target_gantry:
+                self._gantry_motion_start_m = self._current_gantry
+                self._gantry_motion_start_bay = self._current_gantry_bay
+                self._gantry_motion_target_m = target_gantry
+                self._gantry_motion_duration_seconds = abs(
+                    float(source.bay) - self._current_gantry_bay
+                ) / GANTRY_SPEED_BAYS_PER_SECOND
+            start_gantry = self._gantry_motion_start_m
+            if start_gantry is None:
+                start_gantry = self._current_gantry
+                self._gantry_motion_start_m = start_gantry
+            start_bay = self._gantry_motion_start_bay
+            if start_bay is None:
+                start_bay = self._current_gantry_bay
+                self._gantry_motion_start_bay = start_bay
+            duration = self._gantry_motion_duration_seconds
+            progress = 1.0 if duration <= 0.0 else min(1.0, elapsed / duration)
+            # A one-bay-per-second command must stay linear rather than use an
+            # easing curve, otherwise the visible speed varies during travel.
+            self._current_gantry = start_gantry + (
+                target_gantry - start_gantry
+            ) * progress
+            self._current_gantry_bay = start_bay + (
+                float(source.bay) - start_bay
+            ) * progress
+            # While travelling, publish continuous gantry metres rather than
+            # a bay number.  The receiver would otherwise snap the RTG to the
+            # source bay on the first motion frame.
+            self._current_bay = source.bay if progress >= 1.0 else 0
 
         if state in (OperationState.TROLLEY_TO_SOURCE, OperationState.HOIST_TO_PICK):
             trolley_target = self._machine.source_trolley_m
@@ -340,8 +479,11 @@ class RtgSimulationDriver:
 
         if state == OperationState.HOIST_TO_SOURCE_CLEARANCE:
             approach_height = self._source_approach_hoist_target_m()
-            progress = min(1.0, max(0.0, elapsed / HOIST_TRAVEL_SECONDS))
-            self._current_hoist = 6.0 + (approach_height - 6.0) * progress
+            self._current_hoist = self._ramp(
+                self._current_hoist,
+                approach_height,
+                elapsed,
+            )
             self._lock = False
         elif state == OperationState.TROLLEY_TO_SOURCE:
             self._current_hoist = self._source_approach_hoist_target_m()
@@ -393,10 +535,15 @@ class RtgSimulationDriver:
             )
         elif state in (OperationState.HOIST_SAFE, OperationState.TRUCK_EXITING, OperationState.COMPLETE):
             self._lock = False
-            self._current_hoist = self._safe_hoist_target_m()
+            self._current_hoist = self._ramp(
+                self._current_hoist,
+                self._safe_hoist_target_m(),
+                elapsed,
+            )
         else:
             self._lock = False
-            self._current_hoist = 6.0
+            # VALIDATE_TASK preserves the current waiting pose until the
+            # first commanded motion phase starts.
 
         return {
             "currentField": source.field,
@@ -443,10 +590,9 @@ class RtgSimulationDriver:
         return max(0.0, self._place_hoist_target_m() - PHYSICAL_TIER_HEIGHT_M)
 
     def _safe_hoist_target_m(self) -> float:
-        """Keep the spreader clear of the tallest target during and after placement."""
+        """Return the empty-spreader parking height used after task completion."""
 
-        assert self._machine is not None
-        return max(6.0, self._machine.safe_hoist_m)
+        return WAITING_HOIST_M
 
     def _source_approach_hoist_target_m(self) -> float:
         """Keep the empty spreader clear while it travels to the source row."""
@@ -511,10 +657,16 @@ def publish_simulated_task(
     task_id: Optional[str] = None,
     container_no: Optional[str] = None,
     vision_required: bool = False,
+    wait_for_previous: bool = True,
 ) -> Dict[str, Any]:
-    """Publish one simulated LOAD/UNLOAD/SWITCH task to the running loop."""
+    """Publish or queue one simulated LOAD/UNLOAD/SWITCH task.
+
+    By default, start this task only after the active task reaches ``COMPLETE``
+    and its empty spreader has reached high wait. Set
+    ``wait_for_previous=False`` only to deliberately replace an active task.
+    """
     simulator = start_simulation()
-    return simulator.publish(
+    return simulator.submit(
         {
             "work_type": work_type,
             "start_pos": start_pos,
@@ -524,7 +676,8 @@ def publish_simulated_task(
             "task_id": task_id,
             "container_no": container_no,
             "vision_required": vision_required,
-        }
+        },
+        wait_for_previous=wait_for_previous,
     )
 
 
@@ -540,6 +693,7 @@ def get_simulation_status() -> Dict[str, Any]:
         "running": _simulation._subscription is not None,
         "state": _simulation.state,
         "task": dict(_simulation._task.task_payload),
+        "queuedTaskCount": len(_simulation._pending_tasks),
     }
 
 

@@ -65,7 +65,14 @@ SPREADER_20FT_LENGTH_M = BAY_LENGTH_M
 SPREADER_TELESCOPE_TRAVEL_M = (
     SPREADER_40FT_LENGTH_M - SPREADER_20FT_LENGTH_M
 ) * 0.5
-SPREADER_TELESCOPE_SPEED_M_S = 0.45
+# Reach the opposite ISO endpoint during the visible gantry approach, without
+# snapping on the task's first render frame.
+SPREADER_TELESCOPE_SPEED_M_S = 0.60
+# This is deliberately separate from the Blender-authored transform.  The
+# authored attribute contains timeline samples, which override a default live
+# value as the stage plays.  A dedicated additive op remains stable at every
+# timeline frame.
+SPREADER_LIVE_TELESCOPE_OP_SUFFIX = "rtgLiveTelescoping"
 # Live commands are offsets from the Blender-authored frame-1 pose.  Keeping
 # all three controller origins at zero prevents the first ROS2/WPF command from
 # jumping to a value captured from an earlier validation frame.
@@ -127,7 +134,9 @@ TROLLEY_USD_LIMITS = (
     TROLLEY_PLC_STOP_CALIBRATION[-1][1],
 )
 HOIST_ENGINEERING_LIMITS = (0.0, 18.0)
-HOIST_SOFT_LIMITS = (0.5, 17.7)
+# The configured RTG hoist limit is 18 m.  Keep the live controller aligned
+# with the task-state clearance calculation, especially for a sixth-tier box.
+HOIST_SOFT_LIMITS = (0.5, 18.0)
 # One physical container tier is 2.6 m. Match that increment to the
 # compressed visual container pitch used by the live stack.
 HOIST_ACTUAL_TIER_HEIGHT_M = 2.60
@@ -376,18 +385,22 @@ class RTGController:
         if not prim:
             return None
         xform = UsdGeom.Xformable(prim)
-        # Blender/USD may author the telescoping op with a suffix while the
-        # runtime helper historically looked only for the unsuffixed name.
-        # Reuse any existing translate op before attempting to add one; USD
-        # rejects adding ``rtgTelescoping`` a second time.
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                return op.GetAttr()
+        attr_name = f"xformOp:translate:{SPREADER_LIVE_TELESCOPE_OP_SUFFIX}"
+        live_attr = prim.GetAttribute(attr_name)
+        if live_attr:
+            return live_attr
         with Usd.EditContext(self.stage, self._session):
-            return xform.AddTranslateOp(
+            # Do not reuse the authored translate operation.  It has timeline
+            # samples and would reset to the animation value on the next
+            # viewport frame.  This separate additive translate persists for
+            # the live 20/40 ft command without disturbing authored animation.
+            op = xform.AddTranslateOp(
                 UsdGeom.XformOp.PrecisionDouble,
-                "rtgTelescoping",
-            ).GetAttr()
+                SPREADER_LIVE_TELESCOPE_OP_SUFFIX,
+            )
+            attr = op.GetAttr()
+            attr.Set(Gf.Vec3d(0.0, 0.0, 0.0))
+            return attr
 
     def _read_spreader_offset(self) -> float:
         if not self._spreader_front_translate:
@@ -400,6 +413,15 @@ class RTGController:
             0.0,
             SPREADER_TELESCOPE_TRAVEL_M,
         )
+
+    def current_spreader_size_ft(self) -> float | None:
+        """Return the actual rendered spreader length without changing it."""
+
+        if not self._spreader_front_translate or not self._spreader_rear_translate:
+            return None
+        self._spreader_offset_m = self._read_spreader_offset()
+        contraction = self._spreader_offset_m / SPREADER_TELESCOPE_TRAVEL_M
+        return 40.0 - 20.0 * contraction
 
     def _set_gantry_controller_y(self, controller_y: float) -> None:
         """Write one already-calibrated controller Y to both gantry controls."""
@@ -536,8 +558,10 @@ class RTGController:
             self._spreader_rear_translate.Set(Gf.Vec3d(0.0, -offset, 0.0))
         self._spreader_offset_m = offset
 
-        contraction = offset / SPREADER_TELESCOPE_TRAVEL_M
-        return 40.0 - 20.0 * contraction
+        # Report the composed live control value rather than merely the value
+        # requested above, so status output cannot claim a visual endpoint
+        # that USD rejected or failed to compose.
+        return self.current_spreader_size_ft()
 
     def set_positions(
         self, *, gantry_m: float, trolley_m: float, hoist_m: float

@@ -233,6 +233,19 @@ def _simulated_visual_phase(task: Dict[str, Any]) -> Optional[str]:
     return phase if phase in TASK_VISUAL_STATES else None
 
 
+def _task_is_complete(task: Dict[str, Any]) -> bool:
+    """Return whether a task has reached its terminal successful state."""
+
+    if not task:
+        return False
+    if _simulated_visual_phase(task) == "COMPLETE":
+        return True
+    operation_state = str(task.get("operationState") or "").strip().upper()
+    if operation_state in {"COMPLETE", "COMPLETED", "DONE", "FINISHED"}:
+        return True
+    return _task_state_text(task, True) == "DONE"
+
+
 @dataclass
 class RtgTwinReceiverConfig:
     host: str = DEFAULT_HOST
@@ -727,6 +740,7 @@ class OmniverseRtgTwinDriver:
         self._last_applied_key: Optional[tuple[Any, ...]] = None
         self._last_task_stack_key: Optional[tuple[Any, ...]] = None
         self._last_task_vehicle_key: Optional[tuple[Any, ...]] = None
+        self._cleared_completed_task_key: Optional[tuple[str, str, str, str]] = None
         self._last_task_source_path: Optional[str] = None
         self._task_source_has_moved = False
         self._task_source_original_translates: Dict[str, Any] = {}
@@ -737,6 +751,8 @@ class OmniverseRtgTwinDriver:
         self._task_flow_saw_locked: bool = False
         self._spreader_locked: bool = False
         self._spreader_lock_signal_seen: bool = False
+        self._spreader_task_key: Optional[tuple[Any, ...]] = None
+        self._spreader_task_target_size_ft: Optional[int] = None
         self._operation_state_machine: Optional[RtgOperationStateMachine] = None
         self._operation_task_key: Optional[tuple[Any, ...]] = None
         self._status_overlay: Optional[RtgTwinStatusOverlay] = None
@@ -765,6 +781,11 @@ class OmniverseRtgTwinDriver:
         self._lower_portal_crossbeam_path = None
         self._lower_portal_crossbeam_checked = False
         self._last_applied_key = None
+        self._last_task_stack_key = None
+        self._last_task_vehicle_key = None
+        self._cleared_completed_task_key = None
+        self._spreader_task_key = None
+        self._spreader_task_target_size_ft = None
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -802,22 +823,28 @@ class OmniverseRtgTwinDriver:
         trolley_m = _as_float(pose.get("trolleyMeter"))
         hoist_m = _as_float(pose.get("hoistMeter"))
         gantry_m = _as_float(pose.get("bigcarElecDistance"))
-        task_stack_key = self._task_stack_key(task)
-        inferred_spreader_size_ft = (
-            task_stack_key[3] if task_stack_key is not None else None
-        )
-        requested_spreader_size_ft = _requested_spreader_size_ft(
-            pose,
+        (
+            applied_spreader_size_ft,
+            requested_spreader_size_ft,
+        ) = self._sync_spreader_size_for_task(
+            controller,
             task,
-            inferred_spreader_size_ft,
         )
         spreader_center_offset_y = _spreader_center_offset_y(
             requested_spreader_size_ft
         )
 
-        # Create the physical stack before positioning the RTG so the rendered
-        # container centre is available as the final gantry reference.
-        self._sync_task_stack(stage, task)
+        # A completed task owns no remaining yard map, truck, or carried box.
+        # Keep the RTG pose above it intact while the scene waits for the next
+        # task to render a fresh bay map.
+        task_complete = _task_is_complete(task)
+        if task_complete:
+            self._clear_completed_task_visuals(stage, task)
+        else:
+            self._cleared_completed_task_key = None
+            # Create the physical stack before positioning the RTG so the
+            # rendered container centre is available as the final reference.
+            self._sync_task_stack(stage, task)
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
@@ -856,20 +883,6 @@ class OmniverseRtgTwinDriver:
             if hoist_m is not None
             else None
         )
-        applied_spreader_size_ft = (
-            controller.set_spreader_size(
-                requested_spreader_size_ft,
-                # An asserted 20/40 ft limit switch is an actual endpoint, not
-                # a request to begin a synthetic transition.  Snap the visual
-                # to that exact ISO length so the 20 ft spreader and box match.
-                smooth=not _spreader_size_limit_confirmed(
-                    pose,
-                    requested_spreader_size_ft,
-                ),
-            )
-            if requested_spreader_size_ft is not None
-            else None
-        )
 
         applied = {
             "gantryMeter": applied_gantry_m,
@@ -881,10 +894,11 @@ class OmniverseRtgTwinDriver:
             "spreaderCenterOffsetY": spreader_center_offset_y,
             "crossbeamAlignmentY": crossbeam_alignment_y,
         }
-        if _task_work_type(task) == WORK_TYPE_SWITCH:
-            self._sync_task_switch(stage, task, pose)
-        else:
-            self._sync_task_vehicle(stage, task, pose)
+        if not task_complete:
+            if _task_work_type(task) == WORK_TYPE_SWITCH:
+                self._sync_task_switch(stage, task, pose)
+            else:
+                self._sync_task_vehicle(stage, task, pose)
         self._write_status(stage, state, applied)
         self._sync_status_overlay(state, applied)
 
@@ -1041,9 +1055,17 @@ class OmniverseRtgTwinDriver:
 
     def _sync_task_stack(self, stage: Any, task: Dict[str, Any]) -> None:
         key = self._task_stack_key(task)
-        if key == self._last_task_stack_key:
+        render_key = self._task_stack_render_key(task)
+        if render_key == self._last_task_stack_key:
             return
-        self._last_task_stack_key = key
+
+        # Destroy the prior task before creating another map.  In particular,
+        # do not restore a previously carried source box after a new stack has
+        # reused the same Rxx_Txx prim name.
+        # This also clears stale task roots left in the session layer after a
+        # Script Editor reload, when this fresh driver has no in-memory key.
+        self._discard_task_visuals(stage, remove_stack=True)
+        self._last_task_stack_key = render_key
 
         from pxr import Sdf, Usd, UsdGeom
 
@@ -1083,6 +1105,66 @@ class OmniverseRtgTwinDriver:
                 f"rendered live task stack {block}/{bay_number:03d} "
                 f"{container_size_ft}FT bayMap={pattern}"
             )
+
+    def _task_stack_render_key(self, task: Dict[str, Any]) -> Optional[tuple[Any, ...]]:
+        """Return a full task identity for the disposable live bay-map visual."""
+
+        stack_key = self._task_stack_key(task)
+        if stack_key is None:
+            return None
+        return (
+            *stack_key,
+            _task_work_type(task),
+            str(task.get("taskId") or ""),
+            str(task.get("startPos") or task.get("sourcePos") or ""),
+            str(task.get("endPos") or task.get("targetPos") or ""),
+        )
+
+    def _discard_task_visuals(self, stage: Any, *, remove_stack: bool) -> None:
+        """Discard task-owned visuals without restoring a source box into a new map."""
+
+        from pxr import Usd
+
+        paths = [
+            LIVE_TASK_TRUCK_PATH,
+            LIVE_HOISTED_LOAD_PATH,
+            LEGACY_LIVE_HOISTED_LOAD_PATH,
+        ]
+        if remove_stack:
+            paths.insert(0, LIVE_TASK_STACK_PATH)
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            for path in paths:
+                prim = stage.GetPrimAtPath(path)
+                if prim:
+                    stage.RemovePrim(prim.GetPath())
+
+        self._last_task_stack_key = None
+        self._last_task_vehicle_key = None
+        self._last_task_source_path = None
+        self._task_source_has_moved = False
+        self._task_source_original_translates.clear()
+        self._task_source_truck_local_center = None
+        self._task_flow_state = TASK_STATE_IDLE
+        self._task_flow_state_started_at = 0.0
+        self._task_flow_saw_locked = False
+        self._operation_state_machine = None
+        self._operation_task_key = None
+
+    def _clear_completed_task_visuals(self, stage: Any, task: Dict[str, Any]) -> None:
+        """Remove all visuals owned by one successfully completed task."""
+
+        key = (
+            str(task.get("taskId") or ""),
+            _task_work_type(task),
+            str(task.get("startPos") or task.get("sourcePos") or ""),
+            str(task.get("endPos") or task.get("targetPos") or ""),
+        )
+        if key == self._cleared_completed_task_key:
+            return
+
+        self._discard_task_visuals(stage, remove_stack=True)
+        self._cleared_completed_task_key = key
+        self._log(f"cleared completed task visuals task={key[0] or '--'}")
 
     def _sync_task_vehicle(
         self, stage: Any, task: Dict[str, Any], pose: Dict[str, Any]
@@ -1148,6 +1230,83 @@ class OmniverseRtgTwinDriver:
         work_type = _task_work_type(task)
         task_id = str(task.get("taskId") or "")
         return work_type, block, bay_number, pattern, container_size_ft, task_id
+
+    def _spreader_task_request(
+        self, task: Dict[str, Any]
+    ) -> Optional[tuple[tuple[Any, ...], int]]:
+        """Return the identity and requested spreader size of an active task."""
+
+        if not task:
+            return None
+        work_type = _task_work_type(task)
+        if work_type not in (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH):
+            return None
+        start_pos = task.get("startPos") or task.get("sourcePos")
+        end_pos = task.get("endPos") or task.get("targetPos")
+        reference_pos = (
+            start_pos
+            if work_type in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
+            else end_pos
+        ) or end_pos or start_pos
+        parsed = self._parse_task_position(reference_pos)
+        bay_number = parsed[1] if parsed is not None else 0
+        container_size_ft = self._container_size_ft(
+            task.get("containerSize"),
+            bay_number,
+        )
+        if container_size_ft not in (20, 40):
+            return None
+        key = (
+            str(task.get("taskId") or ""),
+            work_type,
+            str(start_pos or ""),
+            str(end_pos or ""),
+            container_size_ft,
+        )
+        return key, container_size_ft
+
+    def _sync_spreader_size_for_task(
+        self,
+        controller: Any,
+        task: Dict[str, Any],
+    ) -> tuple[Optional[float], Optional[int]]:
+        """Apply one size transform only when a new task needs a different tool."""
+
+        request = self._spreader_task_request(task)
+        current_size_ft = controller.current_spreader_size_ft()
+        if request is None:
+            # No task means no telescope command.  Leave the previous size in
+            # place until a distinct task arrives and evaluates it again.
+            self._spreader_task_key = None
+            self._spreader_task_target_size_ft = None
+            return current_size_ft, None
+
+        task_key, target_size_ft = request
+        needs_size_command = (
+            task_key != self._spreader_task_key
+            or current_size_ft is None
+            or abs(current_size_ft - target_size_ft) > 0.01
+        )
+        if needs_size_command:
+            is_new_task = task_key != self._spreader_task_key
+            self._spreader_task_key = task_key
+            self._spreader_task_target_size_ft = target_size_ft
+            # A task boundary is the normal telescope command point.  Advance
+            # toward the endpoint gradually while the gantry approaches; if
+            # an authored USD sample later displaces it, keep progressing from
+            # the composed live value without changing a matched tool.
+            previous_size_ft = current_size_ft
+            current_size_ft = controller.set_spreader_size(
+                target_size_ft,
+                smooth=True,
+            )
+            self._log(
+                f"spreader {'task start' if is_new_task else 'endpoint repair'} "
+                f"current={previous_size_ft} target={target_size_ft}ft "
+                f"applied={current_size_ft}"
+            )
+
+        return current_size_ft, self._spreader_task_target_size_ft
 
     def _sync_task_switch(
         self, stage: Any, task: Dict[str, Any], pose: Dict[str, Any]
@@ -2659,6 +2818,8 @@ class OmniverseRtgTwinDriver:
 
         self._controller = loaded_modules["rtg_live_control"].RTGController(stage)
         self._controller_stage_id = stage_id
+        self._spreader_task_key = None
+        self._spreader_task_target_size_ft = None
         self._log("RTGController reloaded and bound to current stage")
         return self._controller
 
