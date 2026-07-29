@@ -270,16 +270,40 @@ class TaskVisualPolicyTests(unittest.TestCase):
         )
         self.assertLess(cab_center_y, box_front_y)
 
-    def test_20ft_and_40ft_loads_use_their_visible_hook_centres(self) -> None:
+    def test_40ft_load_truck_box_center_matches_the_target_bay_center(self) -> None:
         bay_centre_y = 24.75
 
         self.assertEqual(
-            receiver._task_truck_stop_y_for_box_center(bay_centre_y, 20),
-            24.9,
+            receiver._task_truck_stop_y_for_box_center(
+                bay_centre_y,
+                40,
+                receiver.WORK_TYPE_LOAD,
+            ),
+            bay_centre_y,
         )
+
+    def test_40ft_unload_uses_the_same_box_centre_stop_as_load(self) -> None:
+        bay_centre_y = 24.75
+
         self.assertEqual(
-            receiver._task_truck_stop_y_for_box_center(bay_centre_y, 40),
-            25.2,
+            receiver._task_truck_stop_y_for_box_center(
+                bay_centre_y,
+                40,
+                receiver.WORK_TYPE_UNLOAD,
+            ),
+            bay_centre_y,
+        )
+
+    def test_20ft_load_keeps_the_visible_hook_calibration(self) -> None:
+        bay_centre_y = 24.75
+
+        self.assertEqual(
+            receiver._task_truck_stop_y_for_box_center(
+                bay_centre_y,
+                20,
+                receiver.WORK_TYPE_LOAD,
+            ),
+            24.9,
         )
 
     def test_hoisted_box_top_meets_spreader_contact_plane(self) -> None:

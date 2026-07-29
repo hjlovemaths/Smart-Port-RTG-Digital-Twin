@@ -143,11 +143,9 @@ TRUCK_OPERATING_LANE_CENTER_X_M = -4.65
 # At the truck trolley stop, the spreader world centre is -4.65 m. Keep the
 # trailer root on that same centreline instead of adding a camera-view offset.
 TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
-# The visible hook centre is calibrated against the live bay container centre.
-# The 20 ft spreader needs its established short-box centre correction while
-# the 40 ft spreader remains on the long-box centreline. Keep the final visual
-# adjustment small after the observed box-past-hook stop. Do not use the rope
-# curve for this: it contains a separate asset-local Y offset.
+# 40 ft truck stops use the same physical box-centre mark for LOAD and UNLOAD.
+# This keeps the inbound box and the outbound placed box on the identical bay
+# line, independent of the hook model's local visual offset.
 TASK_TRUCK_LONG_BOX_HOOK_OFFSET_Y_M = 0.45
 TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M = 0.25
 TASK_TRUCK_LOADED_BOX_LOCAL_Y_M = 0.0
@@ -394,8 +392,17 @@ def _task_trailer_layout(
 def _task_truck_stop_y_for_box_center(
     box_bay_center_y: float,
     container_size_ft: int,
+    work_type: str,
 ) -> float:
-    """Return the box-centre parking Y for the visible RTG hook centre."""
+    """Return the task truck root Y for its loaded-container centre.
+
+    The loaded box is authored at local Y=0 under the truck root. For 40 ft
+    LOAD and UNLOAD operations, parking the root directly at the bay centre
+    makes the truck-box centreline and target-box centreline overlap exactly.
+    """
+
+    if container_size_ft == 40 and work_type in (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD):
+        return float(box_bay_center_y)
 
     return float(box_bay_center_y) + (
         TASK_TRUCK_LONG_BOX_HOOK_OFFSET_Y_M
@@ -1115,7 +1122,7 @@ class OmniverseRtgTwinDriver:
 
         flow_state = self._advance_operation_flow(stage, key, task, pose)
         truck_progress = self._update_task_vehicle_pose(
-            stage, block, bay_number, container_size_ft, flow_state
+            stage, block, bay_number, container_size_ft, work_type, flow_state
         )
         self._sync_task_source_visual(stage, work_type, flow_state)
         self._sync_task_visuals(
@@ -1568,6 +1575,7 @@ class OmniverseRtgTwinDriver:
         block: str,
         bay_number: int,
         container_size_ft: int,
+        work_type: str,
         flow_state: str,
     ) -> float:
         from pxr import Gf, Usd
@@ -1579,6 +1587,7 @@ class OmniverseRtgTwinDriver:
         target_y = _task_truck_stop_y_for_box_center(
             container_center_y_for_bay(block, bay_number, container_size_ft),
             container_size_ft,
+            work_type,
         )
         start_y = target_y + 16.0
         exit_y = target_y - 18.0
