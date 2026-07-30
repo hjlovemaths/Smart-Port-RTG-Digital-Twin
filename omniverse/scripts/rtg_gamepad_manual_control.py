@@ -102,6 +102,7 @@ RELEASE_TOPPLE_DROP_PHASE_RATIO = 0.42
 SPREADER_COLLISION_HORIZONTAL_MARGIN_M = 0.08
 SPREADER_COLLISION_VERTICAL_MARGIN_M = 0.08
 SPREADER_COLLISION_TOOL_HEIGHT_M = 0.85
+SPREADER_COLLISION_MIN_HORIZONTAL_MOTION_M = 0.006
 SPREADER_COLLISION_MIN_NUDGE_M = 0.015
 SPREADER_COLLISION_MAX_NUDGE_M = 0.08
 SPREADER_COLLISION_RESPONSE_RATIO = 0.35
@@ -2281,30 +2282,15 @@ class RtgGamepadManualController:
             return 0.0, 0.0
 
         motion_x, motion_y = motion_xy
-        if math.hypot(motion_x, motion_y) > 0.002:
-            if abs(motion_x) >= abs(motion_y):
-                axis_index = 0
-                direction = 1.0 if motion_x >= 0.0 else -1.0
-                penetration = overlap_x
-            else:
-                axis_index = 1
-                direction = 1.0 if motion_y >= 0.0 else -1.0
-                penetration = overlap_y
-        elif overlap_x <= overlap_y:
+        if math.hypot(motion_x, motion_y) < SPREADER_COLLISION_MIN_HORIZONTAL_MOTION_M:
+            return 0.0, 0.0
+        if abs(motion_x) >= abs(motion_y):
             axis_index = 0
-            tool_center_x = (float(tool_minimum[0]) + float(tool_maximum[0])) * 0.5
-            target_center_x = (
-                float(target_minimum[0]) + float(target_maximum[0])
-            ) * 0.5
-            direction = 1.0 if target_center_x >= tool_center_x else -1.0
+            direction = 1.0 if motion_x >= 0.0 else -1.0
             penetration = overlap_x
         else:
             axis_index = 1
-            tool_center_y = (float(tool_minimum[1]) + float(tool_maximum[1])) * 0.5
-            target_center_y = (
-                float(target_minimum[1]) + float(target_maximum[1])
-            ) * 0.5
-            direction = 1.0 if target_center_y >= tool_center_y else -1.0
+            direction = 1.0 if motion_y >= 0.0 else -1.0
             penetration = overlap_y
 
         amount = max(
@@ -2385,8 +2371,7 @@ class RtgGamepadManualController:
             float(probe_center[0]) - float(previous_center[0]),
             float(probe_center[1]) - float(previous_center[1]),
         )
-        vertical_motion = float(probe_center[2]) - float(previous_center[2])
-        if math.hypot(*motion_xy) < 0.001 and abs(vertical_motion) < 0.001:
+        if math.hypot(*motion_xy) < SPREADER_COLLISION_MIN_HORIZONTAL_MOTION_M:
             return
 
         carried_paths = set(self._carried_component_paths or [])

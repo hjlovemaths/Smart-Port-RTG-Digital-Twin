@@ -332,6 +332,17 @@ class GamepadInputMappingTests(unittest.TestCase):
 
         self.assertEqual(delta, (0.0, 0.0))
 
+    def test_collision_nudge_is_zero_without_horizontal_motion(self) -> None:
+        delta = self.manual.RtgGamepadManualController._collision_nudge_delta(
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+            (0.8, -0.5, 0.0),
+            (2.0, 0.5, 1.0),
+            motion_xy=(0.0, 0.0),
+        )
+
+        self.assertEqual(delta, (0.0, 0.0))
+
     def test_collision_nudge_follows_manual_motion_direction(self) -> None:
         delta = self.manual.RtgGamepadManualController._collision_nudge_delta(
             (-1.0, -1.0, 0.0),
