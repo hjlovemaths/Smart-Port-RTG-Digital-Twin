@@ -91,6 +91,20 @@ PICK_LOCK_FOOT_EDGE_TOLERANCE_M = 0.20
 PICK_MIN_CONTACT_FEET = 2
 PICK_HORIZONTAL_TOLERANCE_M = 0.70
 PICK_VERTICAL_TOLERANCE_M = 0.20
+RELEASE_GROUND_SUPPORT_Z_M = 0.12
+RELEASE_SUPPORT_MIN_OVERLAP_RATIO = 0.20
+RELEASE_SUPPORT_Z_TOLERANCE_M = 0.05
+RELEASE_CENTER_STABILITY_MARGIN_M = 0.02
+RELEASE_TOPPLE_ANGLE_DEG = 90.0
+RELEASE_SETTLE_ANIMATION_SECONDS = 0.35
+RELEASE_TOPPLE_ANIMATION_SECONDS = 0.85
+RELEASE_TOPPLE_DROP_PHASE_RATIO = 0.42
+SPREADER_COLLISION_HORIZONTAL_MARGIN_M = 0.08
+SPREADER_COLLISION_VERTICAL_MARGIN_M = 0.08
+SPREADER_COLLISION_TOOL_HEIGHT_M = 0.85
+SPREADER_COLLISION_MIN_NUDGE_M = 0.015
+SPREADER_COLLISION_MAX_NUDGE_M = 0.08
+SPREADER_COLLISION_RESPONSE_RATIO = 0.35
 TROLLEY_ROW_CENTERS_M = {
     1: 18.06,
     2: 15.19,
@@ -411,6 +425,9 @@ class RtgGamepadManualController:
         # bay even though the RTG has not moved.
         self._gantry_bay_reference: Optional[tuple[str, int, float]] = None
         self._lock_foot_paths: Optional[tuple[str, ...]] = None
+        self._last_collision_probe_center_world: Any = None
+        self._last_collision_notice_at = 0.0
+        self._pending_release_animations: list[dict[str, Any]] = []
         # Alignment needs Kit to evaluate the newly-authored transforms before
         # each measurement.  Keep this tiny state machine on update frames
         # instead of estimating the red twist-lock offset from a different RTG
@@ -437,6 +454,7 @@ class RtgGamepadManualController:
             cause = self._gamepad_start_error or "controller is disconnected"
             self._log(f"Gamepad unavailable; keyboard-only manual mode enabled: {cause}")
         self._activate_camera(stage, "GLOBAL")
+        self._ensure_manual_collision_api(stage)
         import omni.kit.app  # type: ignore
 
         stream = omni.kit.app.get_app().get_update_event_stream()
@@ -514,6 +532,8 @@ class RtgGamepadManualController:
         # events, rather than making payload motion depend on another stick
         # event being emitted.
         self._move_carried_container(stage)
+        self._advance_release_animations(stage)
+        self._nudge_containers_touched_by_spreader(stage, elapsed)
         self._write_status(stage, connected=gamepad_connected)
         self._previous_buttons = state.buttons
 
@@ -547,7 +567,7 @@ class RtgGamepadManualController:
         if just_pressed(XINPUT_GAMEPAD_A):
             command_triggered = True
             if self._carried_source_path:
-                self._release_container()
+                self._release_container(stage)
             else:
                 self._pick_container(stage)
         if just_pressed(XINPUT_GAMEPAD_X):
@@ -595,7 +615,7 @@ class RtgGamepadManualController:
             return command_triggered
         if "G" in actions:
             if self._carried_source_path:
-                self._release_container()
+                self._release_container(stage)
             else:
                 self._pick_container(stage)
             command_triggered = True
@@ -935,6 +955,7 @@ class RtgGamepadManualController:
         # spreader jump and makes an imperfect manual alignment visibly fail.
         self._carried_lock_offset_world = candidate_center - lock_center
         self._capture_carried_attachment(stage)
+        self._last_collision_probe_center_world = None
         self._log(
             f"Container locked: {self._carried_source_path} "
             f"(row={current_row_id}, lockFeet={candidate_foot_count}, "
@@ -1256,14 +1277,244 @@ class RtgGamepadManualController:
                 f"but residual is {maximum_error:.03f} m."
             )
 
-    def _release_container(self) -> None:
-        self._log(f"Container released: {self._carried_source_path}")
+    def _release_container(self, stage: Any = None) -> None:
+        support_note = ""
+        if stage is not None and self._carried_source_path:
+            support_note = self._settle_released_container(stage)
+        self._log(f"Container released: {self._carried_source_path}{support_note}")
         self._carried_source_path = None
         self._carried_component_paths = []
         self._carried_lock_offset_world = None
         self._carried_component_origins_world = {}
         self._carried_component_offsets_x = {}
         self._carried_hoist_origin_world = None
+        self._last_collision_probe_center_world = None
+
+    def _settle_released_container(self, stage: Any) -> str:
+        """Drop the released payload vertically and topple it if its centre is unsupported."""
+
+        if not self._carried_source_path:
+            return ""
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+
+        source = stage.GetPrimAtPath(self._carried_source_path)
+        if not source:
+            return ""
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        source_bounds = self._world_container_bounds(bbox_cache, source)
+        if source_bounds is None:
+            return ""
+        source_minimum, source_maximum = source_bounds
+        component_paths = set(self._carried_component_paths or [self._carried_source_path])
+        supports = []
+        support_roots_seen = set()
+        for prim in stage.Traverse():
+            if "Container" not in prim.GetName():
+                continue
+            root = self._live_container_root(prim)
+            path = str(root.GetPath())
+            if path in component_paths or path in support_roots_seen:
+                continue
+            support_roots_seen.add(path)
+            bounds = self._world_container_bounds(bbox_cache, root)
+            if bounds is None:
+                continue
+            supports.append((path, bounds[0], bounds[1]))
+
+        support_z, support_path = self._release_support_from_bounds(
+            source_minimum,
+            source_maximum,
+            supports,
+        )
+        support_bounds_by_path = {
+            path: (support_minimum, support_maximum)
+            for path, support_minimum, support_maximum in supports
+        }
+        selected_support_bounds = support_bounds_by_path.get(support_path)
+        z_delta = support_z - float(source_minimum[2])
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
+        support_location = None
+        if support_path != "ground":
+            support_location = self._live_container_location(
+                stage.GetPrimAtPath(support_path)
+            )
+        topple_plan = None
+        if selected_support_bounds is not None:
+            topple_plan = self._release_topple_plan(
+                source_minimum,
+                source_maximum,
+                selected_support_bounds[0],
+                selected_support_bounds[1],
+            )
+        released_location = self._released_location_from_support(
+            current_bay_id=current_bay_id,
+            current_row=current_row,
+            support_location=support_location,
+        )
+        release_mode = "rigid_toppled" if topple_plan is not None else "rigid_settled"
+        topple_note = ""
+        animation_components: list[dict[str, Any]] = []
+        cache = UsdGeom.XformCache()
+        if topple_plan is not None:
+            axis, fall_sign, pivot_edge = topple_plan
+            angle_degrees = self._topple_angle_degrees(axis, fall_sign)
+            angle_radians = math.radians(angle_degrees)
+            dropped_minimum = (
+                float(source_minimum[0]),
+                float(source_minimum[1]),
+                float(source_minimum[2]) + z_delta,
+            )
+            dropped_maximum = (
+                float(source_maximum[0]),
+                float(source_maximum[1]),
+                float(source_maximum[2]) + z_delta,
+            )
+            source_center = self._bounds_center(dropped_minimum, dropped_maximum)
+            if axis == "Y":
+                pivot = (pivot_edge, source_center[1], support_z)
+                rotate_degrees = (0.0, angle_degrees, 0.0)
+            else:
+                pivot = (source_center[0], pivot_edge, support_z)
+                rotate_degrees = (angle_degrees, 0.0, 0.0)
+            rotated_source_points = [
+                self._rotate_point_around_axis(point, pivot, axis, angle_radians)
+                for point in self._bounds_corners(dropped_minimum, dropped_maximum)
+            ]
+            rotated_minimum, _rotated_maximum = self._bounds_from_points(
+                rotated_source_points
+            )
+            final_lift_z = support_z - float(rotated_minimum[2])
+            for path in component_paths:
+                component = stage.GetPrimAtPath(path)
+                if not component:
+                    continue
+                origin_world = cache.GetLocalToWorldTransform(component).Transform(
+                    Gf.Vec3d()
+                )
+                start_origin = self._point_tuple(origin_world)
+                dropped_origin = (
+                    start_origin[0],
+                    start_origin[1],
+                    start_origin[2] + z_delta,
+                )
+                rotated_origin = self._rotate_point_around_axis(
+                    dropped_origin, pivot, axis, angle_radians
+                )
+                final_origin = (
+                    float(rotated_origin[0]),
+                    float(rotated_origin[1]),
+                    float(rotated_origin[2]) + final_lift_z,
+                )
+                animation_components.append(
+                    {
+                        "path": path,
+                        "start": start_origin,
+                        "drop": dropped_origin,
+                        "final": final_origin,
+                        "startRotate": self._get_rotate_xyz_degrees(component),
+                        "finalRotate": rotate_degrees,
+                    }
+                )
+            topple_note = (
+                f" toppledAxis={axis} toppledAngle={angle_degrees:+.0f}deg"
+            )
+        elif abs(z_delta) > 0.001:
+            for path in component_paths:
+                component = stage.GetPrimAtPath(path)
+                if not component:
+                    continue
+                origin_world = cache.GetLocalToWorldTransform(component).Transform(
+                    Gf.Vec3d()
+                )
+                start_origin = self._point_tuple(origin_world)
+                final_origin = (
+                    start_origin[0],
+                    start_origin[1],
+                    start_origin[2] + z_delta,
+                )
+                current_rotate = self._get_rotate_xyz_degrees(component)
+                animation_components.append(
+                    {
+                        "path": path,
+                        "start": start_origin,
+                        "drop": final_origin,
+                        "final": final_origin,
+                        "startRotate": current_rotate,
+                        "finalRotate": current_rotate,
+                    }
+                )
+        if animation_components:
+            self._queue_release_animation(
+                animation_components,
+                toppled=topple_plan is not None,
+            )
+        for path in component_paths:
+            prim = stage.GetPrimAtPath(path)
+            if not prim:
+                continue
+            try:
+                UsdPhysics.CollisionAPI.Apply(prim)
+                rigid_body = UsdPhysics.RigidBodyAPI.Apply(prim)
+                rigid_body.CreateRigidBodyEnabledAttr(False)
+            except Exception:
+                pass
+            release_mode_attr = prim.GetAttribute(
+                "live:manualReleaseMode"
+            ) or prim.CreateAttribute(
+                "live:manualReleaseMode",
+                Sdf.ValueTypeNames.Token,
+            )
+            release_mode_attr.Set(release_mode)
+            support_attr = prim.GetAttribute(
+                "live:manualSupportPath"
+            ) or prim.CreateAttribute(
+                "live:manualSupportPath",
+                Sdf.ValueTypeNames.String,
+            )
+            support_attr.Set(support_path)
+            toppled_attr = prim.GetAttribute(
+                "live:manualToppled"
+            ) or prim.CreateAttribute(
+                "live:manualToppled",
+                Sdf.ValueTypeNames.Bool,
+            )
+            toppled_attr.Set(topple_plan is not None)
+            if path == self._carried_source_path and released_location is not None:
+                bay_id, row, tier = released_location
+                bay_attr = prim.GetAttribute("live:bayId") or prim.CreateAttribute(
+                    "live:bayId",
+                    Sdf.ValueTypeNames.String,
+                )
+                bay_attr.Set(bay_id)
+                row_attr = prim.GetAttribute("live:row") or prim.CreateAttribute(
+                    "live:row",
+                    Sdf.ValueTypeNames.Int,
+                )
+                row_attr.Set(row)
+                tier_attr = prim.GetAttribute("live:tier") or prim.CreateAttribute(
+                    "live:tier",
+                    Sdf.ValueTypeNames.Int,
+                )
+                tier_attr.Set(tier)
+                tiers_attr = prim.GetAttribute("live:tiers") or prim.CreateAttribute(
+                    "live:tiers",
+                    Sdf.ValueTypeNames.Int,
+                )
+                tiers_attr.Set(tier)
+        return (
+            f" ({release_mode} deltaZ={z_delta:+.02f} m "
+            f"support={support_path}{topple_note})"
+        )
 
     def _capture_carried_attachment(self, stage: Any) -> None:
         """Capture the payload and primary-hoist world origins at lock time."""
@@ -1354,9 +1605,300 @@ class RtgGamepadManualController:
             attr.Set(value)
 
     @staticmethod
+    def _set_rotate_xyz_degrees(prim: Any, degrees: tuple[float, float, float]) -> None:
+        from pxr import Gf, UsdGeom
+
+        xform = UsdGeom.Xformable(prim)
+        ordered_ops = list(xform.GetOrderedXformOps())
+        ops_by_name = {op.GetOpName(): op for op in ordered_ops}
+        translate_op = ops_by_name.get("xformOp:translate")
+        scale_op = ops_by_name.get("xformOp:scale")
+        rotate_op = ops_by_name.get("xformOp:rotateXYZ")
+        if rotate_op is None:
+            rotate_op = xform.AddRotateXYZOp()
+        xform_order = []
+        if translate_op is not None:
+            xform_order.append(translate_op)
+        xform_order.append(rotate_op)
+        if scale_op is not None:
+            xform_order.append(scale_op)
+        preserved_names = {op.GetOpName() for op in xform_order}
+        xform_order.extend(
+            op for op in ordered_ops if op.GetOpName() not in preserved_names
+        )
+        try:
+            xform.SetXformOpOrder(xform_order)
+        except Exception:
+            pass
+        rotate_op.GetAttr().Set(Gf.Vec3f(*degrees))
+
+    @staticmethod
+    def _get_rotate_xyz_degrees(prim: Any) -> tuple[float, float, float]:
+        attr = prim.GetAttribute("xformOp:rotateXYZ") if prim else None
+        value = attr.Get() if attr else None
+        if value is None:
+            return 0.0, 0.0, 0.0
+        try:
+            return float(value[0]), float(value[1]), float(value[2])
+        except (TypeError, ValueError, IndexError):
+            return 0.0, 0.0, 0.0
+
+    @staticmethod
     def _get_scale(prim: Any) -> Any:
         attr = prim.GetAttribute("xformOp:scale") if prim else None
         return attr.Get() if attr else None
+
+    @staticmethod
+    def _bounds_center(minimum: Any, maximum: Any) -> tuple[float, float, float]:
+        return (
+            (float(minimum[0]) + float(maximum[0])) * 0.5,
+            (float(minimum[1]) + float(maximum[1])) * 0.5,
+            (float(minimum[2]) + float(maximum[2])) * 0.5,
+        )
+
+    @staticmethod
+    def _point_tuple(point: Any) -> tuple[float, float, float]:
+        return (float(point[0]), float(point[1]), float(point[2]))
+
+    @staticmethod
+    def _lerp_tuple(
+        start: Any,
+        end: Any,
+        ratio: float,
+    ) -> tuple[float, float, float]:
+        clamped = max(0.0, min(1.0, float(ratio)))
+        return (
+            float(start[0]) + (float(end[0]) - float(start[0])) * clamped,
+            float(start[1]) + (float(end[1]) - float(start[1])) * clamped,
+            float(start[2]) + (float(end[2]) - float(start[2])) * clamped,
+        )
+
+    @staticmethod
+    def _ease_out_cubic(ratio: float) -> float:
+        clamped = max(0.0, min(1.0, float(ratio)))
+        return 1.0 - (1.0 - clamped) ** 3
+
+    @staticmethod
+    def _bounds_corners(minimum: Any, maximum: Any) -> list[tuple[float, float, float]]:
+        return [
+            (float(x), float(y), float(z))
+            for x in (minimum[0], maximum[0])
+            for y in (minimum[1], maximum[1])
+            for z in (minimum[2], maximum[2])
+        ]
+
+    @staticmethod
+    def _bounds_from_points(
+        points: list[tuple[float, float, float]],
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return (
+            (
+                min(point[0] for point in points),
+                min(point[1] for point in points),
+                min(point[2] for point in points),
+            ),
+            (
+                max(point[0] for point in points),
+                max(point[1] for point in points),
+                max(point[2] for point in points),
+            ),
+        )
+
+    @staticmethod
+    def _rotate_point_around_axis(
+        point: Any,
+        pivot: Any,
+        axis: str,
+        angle_radians: float,
+    ) -> tuple[float, float, float]:
+        px = float(point[0]) - float(pivot[0])
+        py = float(point[1]) - float(pivot[1])
+        pz = float(point[2]) - float(pivot[2])
+        cosine = math.cos(angle_radians)
+        sine = math.sin(angle_radians)
+        if axis == "X":
+            rotated = (
+                px,
+                py * cosine - pz * sine,
+                py * sine + pz * cosine,
+            )
+        elif axis == "Y":
+            rotated = (
+                px * cosine + pz * sine,
+                py,
+                -px * sine + pz * cosine,
+            )
+        else:
+            raise ValueError(f"Unsupported topple axis: {axis}")
+        return (
+            rotated[0] + float(pivot[0]),
+            rotated[1] + float(pivot[1]),
+            rotated[2] + float(pivot[2]),
+        )
+
+    @staticmethod
+    def _release_topple_plan(
+        released_minimum: Any,
+        released_maximum: Any,
+        support_minimum: Any,
+        support_maximum: Any,
+    ) -> Optional[tuple[str, int, float]]:
+        """Return the support-edge axis to topple over when the centre is unsupported."""
+
+        center = RtgGamepadManualController._bounds_center(
+            released_minimum, released_maximum
+        )
+        margin = RELEASE_CENTER_STABILITY_MARGIN_M
+        x_under = float(support_minimum[0]) + margin - center[0]
+        x_over = center[0] - (float(support_maximum[0]) - margin)
+        y_under = float(support_minimum[1]) + margin - center[1]
+        y_over = center[1] - (float(support_maximum[1]) - margin)
+        x_excess = x_under if x_under > 0.0 else x_over if x_over > 0.0 else 0.0
+        y_excess = y_under if y_under > 0.0 else y_over if y_over > 0.0 else 0.0
+        if x_excess <= 0.0 and y_excess <= 0.0:
+            return None
+        if x_excess >= y_excess:
+            fall_sign = -1 if x_under > 0.0 else 1
+            pivot_edge = (
+                float(support_minimum[0])
+                if fall_sign < 0
+                else float(support_maximum[0])
+            )
+            return "Y", fall_sign, pivot_edge
+        fall_sign = -1 if y_under > 0.0 else 1
+        pivot_edge = (
+            float(support_minimum[1])
+            if fall_sign < 0
+            else float(support_maximum[1])
+        )
+        return "X", fall_sign, pivot_edge
+
+    @staticmethod
+    def _topple_angle_degrees(axis: str, fall_sign: int) -> float:
+        sign = 1.0 if int(fall_sign) >= 0 else -1.0
+        if axis == "Y":
+            return RELEASE_TOPPLE_ANGLE_DEG * sign
+        if axis == "X":
+            return -RELEASE_TOPPLE_ANGLE_DEG * sign
+        raise ValueError(f"Unsupported topple axis: {axis}")
+
+    def _translate_components_by_world_delta(
+        self,
+        stage: Any,
+        component_paths: set[str] | list[str] | tuple[str, ...],
+        world_delta: Any,
+    ) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        cache = UsdGeom.XformCache()
+        delta = Gf.Vec3d(
+            float(world_delta[0]),
+            float(world_delta[1]),
+            float(world_delta[2]),
+        )
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            for path in component_paths:
+                component = stage.GetPrimAtPath(path)
+                if not component:
+                    continue
+                parent = component.GetParent()
+                if not parent:
+                    continue
+                origin_world = cache.GetLocalToWorldTransform(component).Transform(
+                    Gf.Vec3d()
+                )
+                target_world = origin_world + delta
+                parent_world = cache.GetLocalToWorldTransform(parent)
+                self._set_translate(
+                    component,
+                    parent_world.GetInverse().Transform(target_world),
+                )
+
+    def _queue_release_animation(
+        self,
+        components: list[dict[str, Any]],
+        *,
+        toppled: bool,
+    ) -> None:
+        if not hasattr(self, "_pending_release_animations"):
+            self._pending_release_animations = []
+        self._pending_release_animations.append(
+            {
+                "startedAt": time.monotonic(),
+                "duration": (
+                    RELEASE_TOPPLE_ANIMATION_SECONDS
+                    if toppled
+                    else RELEASE_SETTLE_ANIMATION_SECONDS
+                ),
+                "toppled": toppled,
+                "components": components,
+            }
+        )
+
+    def _advance_release_animations(self, stage: Any) -> None:
+        animations = getattr(self, "_pending_release_animations", [])
+        if not animations:
+            return
+        from pxr import Gf, Usd, UsdGeom
+
+        now = time.monotonic()
+        remaining = []
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            for animation in animations:
+                duration = max(float(animation.get("duration", 0.001)), 0.001)
+                progress = (now - float(animation.get("startedAt", now))) / duration
+                complete = progress >= 1.0
+                clamped = 1.0 if complete else max(0.0, min(1.0, progress))
+                toppled = bool(animation.get("toppled"))
+                cache = UsdGeom.XformCache()
+                for component_state in animation.get("components", []):
+                    component = stage.GetPrimAtPath(component_state["path"])
+                    if not component:
+                        continue
+                    parent = component.GetParent()
+                    if not parent:
+                        continue
+                    if toppled:
+                        drop_phase = RELEASE_TOPPLE_DROP_PHASE_RATIO
+                        if clamped <= drop_phase:
+                            drop_ratio = self._ease_out_cubic(clamped / drop_phase)
+                            target_world = self._lerp_tuple(
+                                component_state["start"],
+                                component_state["drop"],
+                                drop_ratio,
+                            )
+                            rotate = component_state["startRotate"]
+                        else:
+                            topple_ratio = self._ease_out_cubic(
+                                (clamped - drop_phase) / (1.0 - drop_phase)
+                            )
+                            target_world = self._lerp_tuple(
+                                component_state["drop"],
+                                component_state["final"],
+                                topple_ratio,
+                            )
+                            rotate = self._lerp_tuple(
+                                component_state["startRotate"],
+                                component_state["finalRotate"],
+                                topple_ratio,
+                            )
+                    else:
+                        settle_ratio = self._ease_out_cubic(clamped)
+                        target_world = self._lerp_tuple(
+                            component_state["start"],
+                            component_state["final"],
+                            settle_ratio,
+                        )
+                        rotate = component_state["finalRotate"]
+                    parent_world = cache.GetLocalToWorldTransform(parent)
+                    self._set_translate(
+                        component,
+                        parent_world.GetInverse().Transform(Gf.Vec3d(*target_world)),
+                    )
+                    self._set_rotate_xyz_degrees(component, rotate)
+                if not complete:
+                    remaining.append(animation)
+        self._pending_release_animations = remaining
 
     def _spreader_lock_foot_points(self, stage: Any) -> list[Any]:
         """Return the primary RTG's visible lock-foot contact points in world space."""
@@ -1432,6 +1974,63 @@ class RtgGamepadManualController:
         return TROLLEY_ROW_CENTERS_M[int(row)] - float(self._trolley_m)
 
     @staticmethod
+    def _xy_overlap_area(
+        minimum_a: Any,
+        maximum_a: Any,
+        minimum_b: Any,
+        maximum_b: Any,
+    ) -> float:
+        overlap_x = max(
+            0.0,
+            min(float(maximum_a[0]), float(maximum_b[0]))
+            - max(float(minimum_a[0]), float(minimum_b[0])),
+        )
+        overlap_y = max(
+            0.0,
+            min(float(maximum_a[1]), float(maximum_b[1]))
+            - max(float(minimum_a[1]), float(minimum_b[1])),
+        )
+        return overlap_x * overlap_y
+
+    @staticmethod
+    def _release_support_from_bounds(
+        released_minimum: Any,
+        released_maximum: Any,
+        support_bounds: list[tuple[str, Any, Any]],
+    ) -> tuple[float, str]:
+        footprint_area = max(
+            (
+                float(released_maximum[0]) - float(released_minimum[0])
+            )
+            * (
+                float(released_maximum[1]) - float(released_minimum[1])
+            ),
+            0.001,
+        )
+        best_z = RELEASE_GROUND_SUPPORT_Z_M
+        best_path = "ground"
+        released_top_z = float(released_maximum[2])
+        for path, support_minimum, support_maximum in support_bounds:
+            support_top_z = float(support_maximum[2])
+            if support_top_z > released_top_z + RELEASE_SUPPORT_Z_TOLERANCE_M:
+                continue
+            overlap_ratio = (
+                RtgGamepadManualController._xy_overlap_area(
+                    released_minimum,
+                    released_maximum,
+                    support_minimum,
+                    support_maximum,
+                )
+                / footprint_area
+            )
+            if overlap_ratio < RELEASE_SUPPORT_MIN_OVERLAP_RATIO:
+                continue
+            if support_top_z > best_z:
+                best_z = support_top_z
+                best_path = path
+        return best_z, best_path
+
+    @staticmethod
     def _carried_box_world_x(trolley_m: Optional[float]) -> Optional[float]:
         """Map trolley metres to the rendered carried-box world X centre."""
 
@@ -1459,6 +2058,66 @@ class RtgGamepadManualController:
         except (TypeError, ValueError):
             return None
         return row if row in TROLLEY_ROW_CENTERS_M else None
+
+    @staticmethod
+    def _live_container_root(prim: Any) -> Any:
+        """Return the main container prim for a detail prim when possible."""
+
+        if not prim:
+            return prim
+        bay_attr = prim.GetAttribute("live:bayId")
+        if bay_attr:
+            return prim
+        name = str(prim.GetName())
+        marker = "_Container"
+        marker_index = name.find(marker)
+        if marker_index < 0:
+            return prim
+        root_name = name[: marker_index + len(marker)]
+        if root_name == name:
+            return prim
+        parent = prim.GetParent()
+        if not parent:
+            return prim
+        try:
+            root = parent.GetChild(root_name)
+        except Exception:
+            return prim
+        return root if root else prim
+
+    @staticmethod
+    def _live_container_location(prim: Any) -> Optional[tuple[str, int, int]]:
+        if not prim:
+            return None
+        root = RtgGamepadManualController._live_container_root(prim)
+        bay_attr = root.GetAttribute("live:bayId")
+        row_attr = root.GetAttribute("live:row")
+        tier_attr = root.GetAttribute("live:tier")
+        if not bay_attr or not row_attr or not tier_attr:
+            return None
+        bay_id = str(bay_attr.Get() or "").strip()
+        try:
+            row = int(row_attr.Get())
+            tier = int(tier_attr.Get())
+        except (TypeError, ValueError):
+            return None
+        if not bay_id or row not in TROLLEY_ROW_CENTERS_M or tier < 1:
+            return None
+        return bay_id, row, tier
+
+    @staticmethod
+    def _released_location_from_support(
+        *,
+        current_bay_id: Optional[str],
+        current_row: Optional[int],
+        support_location: Optional[tuple[str, int, int]],
+    ) -> Optional[tuple[str, int, int]]:
+        if support_location is not None:
+            bay_id, row, tier = support_location
+            return bay_id, row, tier + 1
+        if current_bay_id is not None and current_row is not None:
+            return current_bay_id, current_row, 1
+        return None
 
     @staticmethod
     def _world_container_bounds(bbox_cache: Any, prim: Any) -> Optional[tuple[Any, Any]]:
@@ -1530,6 +2189,297 @@ class RtgGamepadManualController:
 
         points = self._spreader_lock_foot_points(stage)
         return self._lock_foot_center(points) if points else None
+
+    def _ensure_manual_collision_api(self, stage: Any) -> None:
+        """Mark the visible lock feet as collision participants for manual mode."""
+
+        try:
+            from pxr import Usd, UsdPhysics
+
+            self._spreader_lock_foot_points(stage)
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for path in self._lock_foot_paths or ():
+                    prim = stage.GetPrimAtPath(path)
+                    if prim:
+                        UsdPhysics.CollisionAPI.Apply(prim)
+        except Exception:
+            # The deterministic contact response below still works when a Kit
+            # build lacks authoring support for the physics schema.
+            return
+
+    @staticmethod
+    def _expanded_bounds(
+        minimum: Any,
+        maximum: Any,
+        *,
+        margin_xy: float,
+        margin_z: float,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return (
+            (
+                float(minimum[0]) - margin_xy,
+                float(minimum[1]) - margin_xy,
+                float(minimum[2]) - margin_z,
+            ),
+            (
+                float(maximum[0]) + margin_xy,
+                float(maximum[1]) + margin_xy,
+                float(maximum[2]) + margin_z,
+            ),
+        )
+
+    @staticmethod
+    def _union_bounds(
+        bounds: list[tuple[Any, Any]],
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        minimum = (
+            min(float(bound[0][0]) for bound in bounds),
+            min(float(bound[0][1]) for bound in bounds),
+            min(float(bound[0][2]) for bound in bounds),
+        )
+        maximum = (
+            max(float(bound[1][0]) for bound in bounds),
+            max(float(bound[1][1]) for bound in bounds),
+            max(float(bound[1][2]) for bound in bounds),
+        )
+        return minimum, maximum
+
+    @staticmethod
+    def _axis_overlap(
+        minimum_a: Any,
+        maximum_a: Any,
+        minimum_b: Any,
+        maximum_b: Any,
+        axis_index: int,
+    ) -> float:
+        return max(
+            0.0,
+            min(float(maximum_a[axis_index]), float(maximum_b[axis_index]))
+            - max(float(minimum_a[axis_index]), float(minimum_b[axis_index])),
+        )
+
+    @staticmethod
+    def _collision_nudge_delta(
+        tool_minimum: Any,
+        tool_maximum: Any,
+        target_minimum: Any,
+        target_maximum: Any,
+        motion_xy: tuple[float, float] = (0.0, 0.0),
+    ) -> tuple[float, float]:
+        """Return a small horizontal displacement caused by tool/container contact."""
+
+        overlap_x = RtgGamepadManualController._axis_overlap(
+            tool_minimum, tool_maximum, target_minimum, target_maximum, 0
+        )
+        overlap_y = RtgGamepadManualController._axis_overlap(
+            tool_minimum, tool_maximum, target_minimum, target_maximum, 1
+        )
+        overlap_z = RtgGamepadManualController._axis_overlap(
+            tool_minimum, tool_maximum, target_minimum, target_maximum, 2
+        )
+        if overlap_x <= 0.0 or overlap_y <= 0.0 or overlap_z <= 0.0:
+            return 0.0, 0.0
+
+        motion_x, motion_y = motion_xy
+        if math.hypot(motion_x, motion_y) > 0.002:
+            if abs(motion_x) >= abs(motion_y):
+                axis_index = 0
+                direction = 1.0 if motion_x >= 0.0 else -1.0
+                penetration = overlap_x
+            else:
+                axis_index = 1
+                direction = 1.0 if motion_y >= 0.0 else -1.0
+                penetration = overlap_y
+        elif overlap_x <= overlap_y:
+            axis_index = 0
+            tool_center_x = (float(tool_minimum[0]) + float(tool_maximum[0])) * 0.5
+            target_center_x = (
+                float(target_minimum[0]) + float(target_maximum[0])
+            ) * 0.5
+            direction = 1.0 if target_center_x >= tool_center_x else -1.0
+            penetration = overlap_x
+        else:
+            axis_index = 1
+            tool_center_y = (float(tool_minimum[1]) + float(tool_maximum[1])) * 0.5
+            target_center_y = (
+                float(target_minimum[1]) + float(target_maximum[1])
+            ) * 0.5
+            direction = 1.0 if target_center_y >= tool_center_y else -1.0
+            penetration = overlap_y
+
+        amount = max(
+            SPREADER_COLLISION_MIN_NUDGE_M,
+            min(
+                SPREADER_COLLISION_MAX_NUDGE_M,
+                penetration * SPREADER_COLLISION_RESPONSE_RATIO,
+            ),
+        )
+        if axis_index == 0:
+            return direction * amount, 0.0
+        return 0.0, direction * amount
+
+    def _manual_tool_collision_bounds(self, stage: Any, bbox_cache: Any) -> Optional[tuple[Any, Any]]:
+        """Return an approximate AABB for the spreader plus any carried payload."""
+
+        bounds: list[tuple[Any, Any]] = []
+        if self._carried_source_path:
+            source = stage.GetPrimAtPath(self._carried_source_path)
+            if source:
+                source_bounds = self._world_container_bounds(bbox_cache, source)
+                if source_bounds is not None:
+                    bounds.append(
+                        self._expanded_bounds(
+                            source_bounds[0],
+                            source_bounds[1],
+                            margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                            margin_z=SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                        )
+                    )
+        lock_foot_points = self._spreader_lock_foot_points(stage)
+        if lock_foot_points:
+            minimum = (
+                min(float(point[0]) for point in lock_foot_points),
+                min(float(point[1]) for point in lock_foot_points),
+                min(float(point[2]) for point in lock_foot_points)
+                - SPREADER_COLLISION_VERTICAL_MARGIN_M,
+            )
+            maximum = (
+                max(float(point[0]) for point in lock_foot_points),
+                max(float(point[1]) for point in lock_foot_points),
+                min(float(point[2]) for point in lock_foot_points)
+                + SPREADER_COLLISION_TOOL_HEIGHT_M,
+            )
+            bounds.append(
+                self._expanded_bounds(
+                    minimum,
+                    maximum,
+                    margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    margin_z=0.0,
+                )
+            )
+        if not bounds:
+            return None
+        return self._union_bounds(bounds)
+
+    def _nudge_containers_touched_by_spreader(self, stage: Any, elapsed: float) -> None:
+        """Apply a tiny deterministic side push when the spreader/payload overlaps boxes."""
+
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        tool_bounds = self._manual_tool_collision_bounds(stage, bbox_cache)
+        if tool_bounds is None:
+            self._last_collision_probe_center_world = None
+            return
+        tool_minimum, tool_maximum = tool_bounds
+        probe_center = self._bounds_center(tool_minimum, tool_maximum)
+        previous_center = self._last_collision_probe_center_world
+        self._last_collision_probe_center_world = probe_center
+        if previous_center is None:
+            return
+        motion_xy = (
+            float(probe_center[0]) - float(previous_center[0]),
+            float(probe_center[1]) - float(previous_center[1]),
+        )
+        vertical_motion = float(probe_center[2]) - float(previous_center[2])
+        if math.hypot(*motion_xy) < 0.001 and abs(vertical_motion) < 0.001:
+            return
+
+        carried_paths = set(self._carried_component_paths or [])
+        carried_root = self._carried_source_path or ""
+        animating_paths = {
+            str(component_state.get("path", ""))
+            for animation in getattr(self, "_pending_release_animations", [])
+            for component_state in animation.get("components", [])
+        }
+        nudges: list[tuple[str, tuple[float, float]]] = []
+        seen_roots: set[str] = set()
+        for prim in stage.Traverse():
+            if "Container" not in prim.GetName():
+                continue
+            root = self._live_container_root(prim)
+            root_path = str(root.GetPath())
+            if (
+                root_path in seen_roots
+                or root_path == carried_root
+                or root_path in carried_paths
+                or root_path in animating_paths
+            ):
+                continue
+            seen_roots.add(root_path)
+            if not root.GetAttribute("live:bayId"):
+                continue
+            bounds = self._world_container_bounds(bbox_cache, root)
+            if bounds is None:
+                continue
+            delta_xy = self._collision_nudge_delta(
+                tool_minimum,
+                tool_maximum,
+                bounds[0],
+                bounds[1],
+                motion_xy,
+            )
+            if delta_xy != (0.0, 0.0):
+                nudges.append((root_path, delta_xy))
+
+        if not nudges:
+            return
+        max_shift = 0.0
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            for root_path, delta_xy in nudges:
+                root = stage.GetPrimAtPath(root_path)
+                if not root:
+                    continue
+                component_paths = [
+                    str(component.GetPath())
+                    for component in self._container_components(root)
+                ]
+                for component_path in component_paths:
+                    component = stage.GetPrimAtPath(component_path)
+                    if not component:
+                        continue
+                    parent = component.GetParent()
+                    if not parent:
+                        continue
+                    origin_world = UsdGeom.XformCache().GetLocalToWorldTransform(
+                        component
+                    ).Transform(Gf.Vec3d())
+                    target_world = origin_world + Gf.Vec3d(
+                        delta_xy[0], delta_xy[1], 0.0
+                    )
+                    parent_world = UsdGeom.XformCache().GetLocalToWorldTransform(parent)
+                    self._set_translate(
+                        component,
+                        parent_world.GetInverse().Transform(target_world),
+                    )
+                    try:
+                        UsdPhysics.CollisionAPI.Apply(component)
+                    except Exception:
+                        pass
+                max_shift = max(max_shift, math.hypot(*delta_xy))
+                shift_attr = root.GetAttribute(
+                    "live:manualCollisionShiftMeters"
+                ) or root.CreateAttribute(
+                    "live:manualCollisionShiftMeters",
+                    Sdf.ValueTypeNames.Double,
+                )
+                prior_shift = shift_attr.Get() if shift_attr else 0.0
+                try:
+                    prior_shift = float(prior_shift or 0.0)
+                except (TypeError, ValueError):
+                    prior_shift = 0.0
+                shift_attr.Set(prior_shift + math.hypot(*delta_xy))
+        now = time.monotonic()
+        if now - self._last_collision_notice_at > 0.75:
+            self._last_collision_notice_at = now
+            self._log(
+                "Manual collision response nudged "
+                f"{len(nudges)} container(s), maxShift={max_shift:.02f} m."
+            )
 
     def _write_status(self, stage: Any, *, connected: bool) -> None:
         from pxr import Sdf, Usd, UsdGeom

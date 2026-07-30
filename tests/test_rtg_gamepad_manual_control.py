@@ -245,6 +245,177 @@ class GamepadInputMappingTests(unittest.TestCase):
             (-1.0981016666666639 + 0.4081853333333361) * 0.5,
         )
 
+    def test_release_support_defaults_to_ground(self) -> None:
+        support_z, support_path = (
+            self.manual.RtgGamepadManualController._release_support_from_bounds(
+                (-1.0, -1.0, 4.0),
+                (1.0, 1.0, 5.0),
+                [],
+            )
+        )
+
+        self.assertAlmostEqual(support_z, self.manual.RELEASE_GROUND_SUPPORT_Z_M)
+        self.assertEqual(support_path, "ground")
+
+    def test_release_support_uses_highest_overlapping_container_top(self) -> None:
+        supports = [
+            ("/World/Lower", (-1.0, -1.0, 0.0), (1.0, 1.0, 2.0)),
+            ("/World/Upper", (-1.0, -1.0, 2.0), (1.0, 1.0, 3.0)),
+            ("/World/Side", (5.0, 5.0, 0.0), (7.0, 7.0, 4.0)),
+        ]
+
+        support_z, support_path = (
+            self.manual.RtgGamepadManualController._release_support_from_bounds(
+                (-1.0, -1.0, 4.0),
+                (1.0, 1.0, 5.0),
+                supports,
+            )
+        )
+
+        self.assertEqual(support_z, 3.0)
+        self.assertEqual(support_path, "/World/Upper")
+
+    def test_release_support_ignores_containers_above_payload(self) -> None:
+        support_z, support_path = (
+            self.manual.RtgGamepadManualController._release_support_from_bounds(
+                (-1.0, -1.0, 1.0),
+                (1.0, 1.0, 2.0),
+                [("/World/Above", (-1.0, -1.0, 2.2), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertAlmostEqual(support_z, self.manual.RELEASE_GROUND_SUPPORT_Z_M)
+        self.assertEqual(support_path, "ground")
+
+    def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
+        plan = self.manual.RtgGamepadManualController._release_topple_plan(
+            (-1.0, -1.0, 3.0),
+            (1.0, 1.0, 4.0),
+            (-1.2, -1.2, 0.0),
+            (1.2, 1.2, 3.0),
+        )
+
+        self.assertIsNone(plan)
+
+    def test_release_topple_plan_uses_support_edge_when_center_overhangs(self) -> None:
+        plan = self.manual.RtgGamepadManualController._release_topple_plan(
+            (1.2, -1.0, 3.0),
+            (3.2, 1.0, 4.0),
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 3.0),
+        )
+
+        self.assertEqual(plan, ("Y", 1, 1.0))
+        self.assertEqual(
+            self.manual.RtgGamepadManualController._topple_angle_degrees("Y", 1),
+            90.0,
+        )
+
+    def test_rotate_point_around_y_axis_can_topple_center_downward(self) -> None:
+        rotated = self.manual.RtgGamepadManualController._rotate_point_around_axis(
+            (2.0, 0.0, 1.0),
+            (1.0, 0.0, 0.0),
+            "Y",
+            3.141592653589793 / 2.0,
+        )
+
+        self.assertAlmostEqual(rotated[0], 2.0)
+        self.assertAlmostEqual(rotated[2], -1.0)
+
+    def test_collision_nudge_is_zero_without_overlap(self) -> None:
+        delta = self.manual.RtgGamepadManualController._collision_nudge_delta(
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+            (5.0, 5.0, 0.0),
+            (6.0, 6.0, 1.0),
+        )
+
+        self.assertEqual(delta, (0.0, 0.0))
+
+    def test_collision_nudge_follows_manual_motion_direction(self) -> None:
+        delta = self.manual.RtgGamepadManualController._collision_nudge_delta(
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+            (0.8, -0.5, 0.0),
+            (2.0, 0.5, 1.0),
+            motion_xy=(0.2, 0.0),
+        )
+
+        self.assertGreater(delta[0], 0.0)
+        self.assertEqual(delta[1], 0.0)
+        self.assertLessEqual(
+            delta[0], self.manual.SPREADER_COLLISION_MAX_NUDGE_M
+        )
+
+    def test_released_location_stacks_on_support_container_metadata(self) -> None:
+        released = (
+            self.manual.RtgGamepadManualController._released_location_from_support(
+                current_bay_id="1C/019",
+                current_row=5,
+                support_location=("1C/019", 6, 2),
+            )
+        )
+
+        self.assertEqual(released, ("1C/019", 6, 3))
+
+    def test_released_location_uses_current_row_on_ground(self) -> None:
+        released = (
+            self.manual.RtgGamepadManualController._released_location_from_support(
+                current_bay_id="1C/019",
+                current_row=6,
+                support_location=None,
+            )
+        )
+
+        self.assertEqual(released, ("1C/019", 6, 1))
+
+    def test_live_container_location_normalizes_detail_prim(self) -> None:
+        class Attr:
+            def __init__(self, value: object) -> None:
+                self._value = value
+
+            def Get(self) -> object:
+                return self._value
+
+        class Prim:
+            def __init__(
+                self,
+                name: str,
+                attrs: dict[str, object] | None = None,
+                parent: object = None,
+            ) -> None:
+                self._name = name
+                self._attrs = attrs or {}
+                self._parent = parent
+
+            def GetName(self) -> str:
+                return self._name
+
+            def GetParent(self) -> object:
+                return self._parent
+
+            def GetAttribute(self, name: str) -> object:
+                return Attr(self._attrs[name]) if name in self._attrs else None
+
+        class Parent:
+            def __init__(self) -> None:
+                self.root = Prim(
+                    "R06_T02_Container",
+                    {"live:bayId": "1C/019", "live:row": 6, "live:tier": 2},
+                    self,
+                )
+
+            def GetChild(self, name: str) -> object:
+                return self.root if name == "R06_T02_Container" else None
+
+        parent = Parent()
+        detail = Prim("R06_T02_Container_WeatheredTop", parent=parent)
+
+        self.assertEqual(
+            self.manual.RtgGamepadManualController._live_container_location(detail),
+            ("1C/019", 6, 2),
+        )
+
     def test_live_container_row_reads_inventory_row_attribute(self) -> None:
         class Attr:
             def __init__(self, value: object) -> None:
