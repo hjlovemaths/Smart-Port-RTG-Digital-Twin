@@ -15,6 +15,7 @@ from rtg_simulation_driver import _simulation_task_snapshot  # noqa: E402
 from rtg_simulation_driver import _task_from_payload  # noqa: E402
 from rtg_simulation_driver import RtgSimulationDriver  # noqa: E402
 from rtg_simulation_driver import WAITING_HOIST_M  # noqa: E402
+from rtg_simulation_scenarios import _position  # noqa: E402
 from rtg_task_state_machine import (  # noqa: E402
     OperationState,
     OperationTask,
@@ -46,6 +47,10 @@ def plc(**overrides):
 
 
 class OperationStateMachineTests(unittest.TestCase):
+    def test_scenario_positions_use_two_digit_bay_numbers(self) -> None:
+        self.assertEqual(_position("3C", 62, 1, 3), "3C6213")
+        self.assertEqual(len(_position("3C", 62, 1, 3)), 6)
+
     def test_container_height_parser_accepts_task_feed_formats(self) -> None:
         self.assertEqual(parse_container_height_m("2.591"), 2.591)
         self.assertEqual(parse_container_height_m("2591"), 2.591)
@@ -408,13 +413,13 @@ class OperationStateMachineTests(unittest.TestCase):
         self.assertAlmostEqual(next_pose["hoistMeter"], 18.0)
         self.assertAlmostEqual(next_pose["bigcarElecDistance"], 42.0)
         self.assertAlmostEqual(next_pose["trolleyMeter"], 15.19)
-        self.assertEqual(next_pose["currentBay"], 0)
+        self.assertEqual(next_pose["currentBay"], 65)
 
         simulator._machine.state = OperationState.GANTRY_TO_SOURCE  # type: ignore[union-attr]
         simulator._state_entered_at = now
         target_gantry = bay_position_m("3C", 63)
         moving_pose = simulator._make_pose(now + 1.25)
-        self.assertEqual(moving_pose["currentBay"], 0)
+        self.assertEqual(moving_pose["currentBay"], 64)
         self.assertGreater(
             abs(moving_pose["bigcarElecDistance"] - 42.0),
             0.001,
@@ -449,7 +454,7 @@ class OperationStateMachineTests(unittest.TestCase):
         simulator._gantry_motion_target_m = None
 
         midpoint = simulator._make_pose(now + 3.0)
-        self.assertEqual(midpoint["currentBay"], 0)
+        self.assertEqual(midpoint["currentBay"], 63)
         self.assertAlmostEqual(simulator._current_gantry_bay, 63.0)
 
         arrived = simulator._make_pose(now + 6.0)

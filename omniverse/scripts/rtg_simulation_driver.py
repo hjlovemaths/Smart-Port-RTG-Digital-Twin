@@ -481,10 +481,15 @@ class RtgSimulationDriver:
             self._current_gantry_bay = start_bay + (
                 float(source.bay) - start_bay
             ) * progress
-            # While travelling, publish continuous gantry metres rather than
-            # a bay number.  The receiver would otherwise snap the RTG to the
-            # source bay on the first motion frame.
-            self._current_bay = source.bay if progress >= 1.0 else 0
+            # Keep publishing continuous gantry metres for motion control, but
+            # expose the nearest bay for the status overlay while travelling.
+            # The receiver keeps using the metres during GANTRY_TO_SOURCE, so
+            # this display value cannot snap the RTG to its final bay.
+            self._current_bay = (
+                source.bay
+                if progress >= 1.0
+                else max(1, int(round(self._current_gantry_bay)))
+            )
 
         if state in (OperationState.TROLLEY_TO_SOURCE, OperationState.HOIST_TO_PICK):
             trolley_target = self._machine.source_trolley_m

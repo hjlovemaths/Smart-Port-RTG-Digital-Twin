@@ -1001,6 +1001,9 @@ class OmniverseRtgTwinDriver:
         trolley_m = _as_float(pose.get("trolleyMeter"))
         hoist_m = _as_float(pose.get("hoistMeter"))
         gantry_m = _as_float(pose.get("bigcarElecDistance"))
+        task_is_gantry_traveling = str(
+            task.get("operationState") or task.get("visualPhase") or ""
+        ).upper() == "GANTRY_TO_SOURCE"
         (
             applied_spreader_size_ft,
             requested_spreader_size_ft,
@@ -1028,7 +1031,7 @@ class OmniverseRtgTwinDriver:
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
-        if field and bay > 0:
+        if field and bay > 0 and not task_is_gantry_traveling:
             applied_gantry_m = controller.set_gantry_bay(
                 field,
                 bay,

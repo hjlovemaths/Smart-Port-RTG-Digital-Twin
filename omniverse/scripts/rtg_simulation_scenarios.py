@@ -84,7 +84,10 @@ SCENARIO_MAX_TIERS = min(5, MAX_TIERS)
 
 
 def _position(block: str, bay_number: int, row: int, tier: int) -> str:
-    return f"{block}{int(bay_number):03d}{int(row)}{int(tier)}"
+    bay = int(bay_number)
+    if not 0 <= bay <= 99:
+        raise ValueError("six-character task positions support bay numbers 00-99")
+    return f"{block}{bay:02d}{int(row)}{int(tier)}"
 
 
 def _normalize_work_types(values: Iterable[str]) -> tuple[str, ...]:
