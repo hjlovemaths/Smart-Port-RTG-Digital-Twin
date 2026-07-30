@@ -55,6 +55,21 @@ class GantryBayMappingTests(unittest.TestCase):
             mapping.bay_scene_y_m("3C", 66),
         )
 
+    def test_bay_stop_round_trip_recovers_twenty_foot_gantry_center(self) -> None:
+        mapping = self.live_control
+        controller_y = mapping.gantry_bay_to_usd(
+            "1C",
+            19,
+            container_size_ft=20,
+            center_offset_y=mapping.SPREADER_20FT_CENTER_OFFSET_Y_M,
+        )
+        engineering_m = mapping.gantry_usd_to_actual(controller_y)
+
+        self.assertAlmostEqual(
+            mapping.gantry_actual_to_bay_center_m(engineering_m, 20),
+            mapping.bay_scene_y_m("1C", 19) - mapping.YARD_LAYOUT_START_Y_M,
+        )
+
     def test_trolley_truck_stop_uses_the_shifted_task_lane_centre(self) -> None:
         mapping = self.live_control
 

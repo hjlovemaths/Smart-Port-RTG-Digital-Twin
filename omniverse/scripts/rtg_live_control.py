@@ -283,6 +283,26 @@ def gantry_usd_to_actual(controller_y_m: float) -> float:
     return work_center_scene_y - YARD_LAYOUT_START_Y_M
 
 
+def gantry_actual_to_bay_center_m(
+    position_m: float,
+    container_size_ft: int | None,
+) -> float:
+    """Undo bay-stop visual calibration for business-bay resolution.
+
+    ``get_positions()`` intentionally returns the continuous engineering
+    coordinate, but bay-addressed stops include visual centreline corrections.
+    Reversing those corrections recovers the yard coordinate beneath the
+    physical gantry centre, which is what current-bay reporting must use.
+    """
+
+    correction = RTG_BAY_CENTERLINE_CORRECTION_Y_M
+    if container_size_ft == 40:
+        correction += RTG_40FT_BAY_CENTERLINE_FINE_OFFSET_Y_M
+    elif container_size_ft == 20:
+        correction += SPREADER_20FT_CENTER_OFFSET_Y_M
+    return float(position_m) - correction
+
+
 def gantry_bay_to_usd(
     block: str,
     bay_number: int,
@@ -581,6 +601,30 @@ class RTGController:
             self.set_hoist_safe(hoist_m),
         )
 
+    def get_positions(self) -> tuple[float, float, float]:
+        """Return the current engineering positions of the three RTG axes.
+
+        This is intentionally based on the same drive attributes written by
+        the live controller, so a manual operator can take over from the last
+        PLC pose without an initial movement jump.
+        """
+
+        gantry_value = self._gantry.Get()
+        trolley_value = self._trolley.Get()
+        hoist_value = self._hoist.Get()
+        gantry = gantry_usd_to_actual(float(gantry_value or 0.0))
+        trolley = trolley_usd_to_actual(float(trolley_value or 0.0))
+        hoist = hoist_usd_to_actual(float(hoist_value or 0.0))
+        return gantry, trolley, hoist
+
+    def get_gantry_bay_center_m(self) -> float:
+        """Return the gantry-centre yard coordinate used to resolve a bay."""
+
+        gantry_m, _trolley_m, _hoist_m = self.get_positions()
+        size = self.current_spreader_size_ft()
+        size_ft = None if size is None else (20 if float(size) < 30.0 else 40)
+        return gantry_actual_to_bay_center_m(gantry_m, size_ft)
+
     def set_bay_positions(
         self,
         *,
@@ -615,6 +659,7 @@ __all__ = [
     "SPREADER_TELESCOPE_TRAVEL_M",
     "YARD_TOTAL_LENGTH_M",
     "gantry_actual_to_usd",
+    "gantry_actual_to_bay_center_m",
     "gantry_bay_id_to_usd",
     "gantry_bay_to_usd",
     "gantry_usd_to_actual",
