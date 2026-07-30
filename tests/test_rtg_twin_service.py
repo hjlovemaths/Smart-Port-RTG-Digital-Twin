@@ -14,6 +14,52 @@ from rtg_twin_service import TwinStateCache  # noqa: E402
 
 
 class TwinStateCacheTests(unittest.TestCase):
+    def test_malformed_seven_digit_bay_map_is_rejected(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        accepted = cache.update_task(
+            {
+                "task_id": "bad-map",
+                "task_state": 1,
+                "task_type": 1,
+                "task_work_type": "LOAD",
+                "task_endpos": "3C6223",
+                "cntr_size": 40,
+                "bay_map": "5300025",
+            }
+        )
+
+        self.assertFalse(accepted)
+        self.assertIsNone(cache.build_state()["task"])
+
+    def test_invalid_task_does_not_replace_last_valid_task(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        cache.update_task(
+            {
+                "task_id": "good-map",
+                "task_state": 1,
+                "task_type": 1,
+                "task_work_type": "LOAD",
+                "task_endpos": "3C6223",
+                "cntr_size": 40,
+                "bay_map": "530025",
+            }
+        )
+
+        accepted = cache.update_task(
+            {
+                "task_id": "bad-map",
+                "task_state": 1,
+                "task_type": 1,
+                "task_work_type": "LOAD",
+                "task_endpos": "3C6223",
+                "cntr_size": 40,
+                "bay_map": "5300025",
+            }
+        )
+
+        self.assertFalse(accepted)
+        self.assertEqual(cache.build_state()["task"]["taskId"], "good-map")
+
     def test_completion_keeps_terminal_task_for_inventory_settlement(self) -> None:
         cache = TwinStateCache("RTG_220", 3.0, 1800.0)
         cache.update_task(

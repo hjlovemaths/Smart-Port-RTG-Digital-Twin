@@ -1026,8 +1026,8 @@ class OmniverseRtgTwinDriver:
             self._cleared_completed_task_key = None
             # Create the physical stack before positioning the RTG so the
             # rendered container centre is available as the final reference.
-            self._sync_task_stack(stage, task)
-            self._hide_inventory_bay_for_task(stage, task)
+            if self._sync_task_stack(stage, task):
+                self._hide_inventory_bay_for_task(stage, task)
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
@@ -1554,11 +1554,15 @@ class OmniverseRtgTwinDriver:
                 self._last_error_at = now
                 self._log(f"status overlay failed: {exc}")
 
-    def _sync_task_stack(self, stage: Any, task: Dict[str, Any]) -> None:
+    def _sync_task_stack(self, stage: Any, task: Dict[str, Any]) -> bool:
         key = self._task_stack_key(task)
         render_key = self._task_stack_render_key(task)
         if render_key == self._last_task_stack_key:
-            return
+            # Older Script Editor reloads may have left the optional task lane
+            # under the same live stack.  Remove it even when the map key did
+            # not change.
+            self._remove_task_truck_lane(stage)
+            return stage.GetPrimAtPath(LIVE_TASK_STACK_PATH) is not None
 
         # Destroy the prior task before creating another map.  In particular,
         # do not restore a previously carried source box after a new stack has
@@ -1576,7 +1580,12 @@ class OmniverseRtgTwinDriver:
                 stage.RemovePrim(old.GetPath())
 
             if key is None:
-                return
+                self._log(
+                    "task bay-map visual skipped: missing or invalid task map "
+                    f"task={task.get('taskId') or '--'} "
+                    f"bayMap={task.get('bayMap') or '--'}"
+                )
+                return False
 
             block, bay_number, pattern, container_size_ft = key
             source_row = None
@@ -1619,11 +1628,16 @@ class OmniverseRtgTwinDriver:
                 pattern,
                 container_size_ft,
                 slot_heights_m,
+                include_truck_lane=False,
             )
+            root = stage.GetPrimAtPath(LIVE_TASK_STACK_PATH)
+            if root:
+                UsdGeom.Imageable(root).MakeVisible()
             self._log(
                 f"rendered live task stack {block}/{bay_number:03d} "
                 f"{container_size_ft}FT bayMap={pattern}"
             )
+            return bool(root and any(int(height) > 0 for height in pattern))
 
     def _task_stack_render_key(self, task: Dict[str, Any]) -> Optional[tuple[Any, ...]]:
         """Return a full task identity for the disposable live bay-map visual."""
@@ -1671,6 +1685,18 @@ class OmniverseRtgTwinDriver:
         self._task_flow_saw_locked = False
         self._operation_state_machine = None
         self._operation_task_key = None
+
+    @staticmethod
+    def _remove_task_truck_lane(stage: Any) -> None:
+        """Remove legacy lane markings owned by the disposable task stack."""
+
+        from pxr import Usd
+
+        lane_path = f"{LIVE_TASK_STACK_PATH}/TruckLane"
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            lane = stage.GetPrimAtPath(lane_path)
+            if lane:
+                stage.RemovePrim(lane.GetPath())
 
     def _clear_completed_task_visuals(self, stage: Any, task: Dict[str, Any]) -> None:
         """Remove all visuals owned by one successfully completed task."""

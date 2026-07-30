@@ -8,6 +8,7 @@ Typical Omniverse Kit Script Editor use:
         encoding="utf-8",
     ).read())
     start_deterministic_scenarios(task_count=6, seed=20260729)
+    continue_deterministic_scenarios(task_count=2, seed=20260730)
 
 The default run resets only the simulation inventory, plans legal tasks from a
 copy of that snapshot, and submits the complete queue to rtg_simulation_driver.
@@ -43,7 +44,9 @@ if str(SCRIPT_DIR) not in sys.path:
 
 
 _previous_stop_scenarios = globals().get("stop_deterministic_scenarios")
-if callable(_previous_stop_scenarios):
+_previous_scenario_runner = globals().get("_scenario_runner")
+_previous_simulation = globals().get("_simulation")
+if callable(_previous_stop_scenarios) and _previous_scenario_runner is None:
     try:
         _previous_stop_scenarios()
     except Exception as exc:  # noqa: BLE001 - Script Editor reload cleanup
@@ -62,6 +65,11 @@ exec(
     ),
     globals(),
 )
+# Re-executing this file is how the Kit Script Editor picks up new helper
+# functions.  Keep the active simulator object alive so a code reload does not
+# clear the current yard model or task queue.
+if _previous_scenario_runner is not None and _previous_simulation is not None:
+    globals()["_simulation"] = _previous_simulation
 
 
 from yard_inventory import (  # noqa: E402
@@ -378,6 +386,7 @@ class DeterministicScenarioRunner:
     inventory_seed: int
     tasks: list[Dict[str, Any]]
     expected_projection: Dict[str, Any]
+    expected_inventory: YardInventory
     simulator: Any
     reset_inventory: bool
 
@@ -416,7 +425,7 @@ class DeterministicScenarioRunner:
         stop_simulation()
 
 
-_scenario_runner: Optional[DeterministicScenarioRunner] = None
+_scenario_runner: Optional[DeterministicScenarioRunner] = _previous_scenario_runner
 
 
 def preview_deterministic_scenarios(
@@ -489,6 +498,7 @@ def start_deterministic_scenarios(
         inventory_seed=int(inventory_seed),
         tasks=tasks,
         expected_projection=_inventory_projection(expected_inventory),
+        expected_inventory=expected_inventory,
         simulator=simulator,
         reset_inventory=bool(reset_inventory),
     )
@@ -500,6 +510,69 @@ def start_deterministic_scenarios(
     for index, task in enumerate(tasks, start=1):
         print(
             f"[RTG Scenarios] {index:02d} {task['workType']} "
+            f"{task.get('startPos') or 'TRUCK'} -> "
+            f"{task.get('endPos') or 'TRUCK'} "
+            f"bayMap={task['bayMap']} task={task['taskId']}"
+        )
+    return _scenario_runner.status()
+
+
+def continue_deterministic_scenarios(
+    *,
+    task_count: int = 1,
+    seed: int = DEFAULT_SCENARIO_SEED,
+    work_types: Sequence[str] = DEFAULT_WORK_TYPES,
+    block: Optional[str] = DEFAULT_BLOCK,
+    bay_min: Optional[int] = DEFAULT_BAY_MIN,
+    bay_max: Optional[int] = DEFAULT_BAY_MAX,
+) -> Dict[str, Any]:
+    """Append tasks while reusing the current simulator and yard model.
+
+    Call ``start_deterministic_scenarios`` once for the initial run, then use
+    this function for additional work.  Planning starts from the previous
+    run's expected post-task inventory, so tasks appended while earlier work
+    is still queued remain consistent with the eventual inventory.
+    """
+
+    global _scenario_runner
+    if _scenario_runner is None:
+        raise RuntimeError(
+            "No deterministic scenario is active; call "
+            "start_deterministic_scenarios() once first"
+        )
+
+    simulator = _scenario_runner.simulator
+    if getattr(simulator, "_subscription", None) is None:
+        raise RuntimeError(
+            "The deterministic simulator is stopped; call "
+            "start_deterministic_scenarios() to create a new run"
+        )
+
+    planning_inventory = copy.deepcopy(_scenario_runner.expected_inventory)
+    tasks, expected_inventory = plan_deterministic_scenarios(
+        planning_inventory,
+        task_count=task_count,
+        seed=seed,
+        work_types=work_types,
+        block=block,
+        bay_min=bay_min,
+        bay_max=bay_max,
+    )
+    for task in tasks:
+        simulator.submit(task, wait_for_previous=True)
+
+    _scenario_runner.tasks.extend(tasks)
+    _scenario_runner.expected_inventory = expected_inventory
+    _scenario_runner.expected_projection = _inventory_projection(expected_inventory)
+    print(
+        "[RTG Scenarios] appended deterministic run "
+        f"tasks={len(tasks)} seed={seed} "
+        f"area={block or '*'} {bay_min or '*'}-{bay_max or '*'} "
+        "(reused current yard model)"
+    )
+    for index, task in enumerate(tasks, start=1):
+        print(
+            f"[RTG Scenarios] appended {index:02d} {task['workType']} "
             f"{task.get('startPos') or 'TRUCK'} -> "
             f"{task.get('endPos') or 'TRUCK'} "
             f"bayMap={task['bayMap']} task={task['taskId']}"

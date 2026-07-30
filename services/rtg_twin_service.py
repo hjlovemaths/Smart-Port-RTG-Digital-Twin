@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 import math
+import re
 import socket
 import sys
 import threading
@@ -37,6 +38,7 @@ except ImportError:  # pragma: no cover - handled at runtime for deployment clar
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = SCRIPT_DIR / "rtg_twin_service.config.json"
 SCHEMA = "smart-port-rtg-twin-state/v1"
+BAY_MAP_PATTERN = re.compile(r"^\d{6}$")
 
 
 def utc_now_iso() -> str:
@@ -86,7 +88,21 @@ def text_value(value: Any) -> Optional[str]:
 
 def bay_map_layers(bay_map: Any) -> list[int]:
     text = text_value(bay_map) or ""
+    if text and not BAY_MAP_PATTERN.fullmatch(text):
+        return []
     return [int(ch) if ch.isdigit() else 0 for ch in text]
+
+
+def invalid_task_bay_map(task: Optional[Dict[str, Any]]) -> Optional[tuple[str, str]]:
+    """Return the first malformed map field, while allowing an omitted map."""
+
+    if not task:
+        return None
+    for key in ("bay_map", "target_bay_map", "targetBayMap"):
+        value = text_value(task.get(key))
+        if value is not None and not BAY_MAP_PATTERN.fullmatch(value):
+            return key, value
+    return None
 
 
 def is_task_active(task: Optional[Dict[str, Any]]) -> bool:
@@ -189,7 +205,19 @@ class TwinStateCache:
             self._plc = dict(plc_model)
             self._plc_at = time.time()
 
-    def update_task(self, task_model: Optional[Dict[str, Any]]) -> None:
+    def update_task(self, task_model: Optional[Dict[str, Any]]) -> bool:
+        invalid_map = invalid_task_bay_map(task_model)
+        if invalid_map is not None:
+            field, value = invalid_map
+            task_id = text_value((task_model or {}).get("task_id")) or "<unknown>"
+            logging.warning(
+                "rejecting task=%s: %s=%r is invalid; expected exactly six digits "
+                "(one height digit for each yard row)",
+                task_id,
+                field,
+                value,
+            )
+            return False
         with self._lock:
             if is_task_active(task_model):
                 self._task = dict(task_model or {})
@@ -197,6 +225,7 @@ class TwinStateCache:
             else:
                 self._task = None
                 self._task_at = None
+        return True
 
     def clear_task(self) -> None:
         with self._lock:
