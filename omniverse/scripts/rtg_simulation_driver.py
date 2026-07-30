@@ -230,6 +230,7 @@ class RtgSimulationDriver:
         self._unlock_requested_at = 0.0
         self._pending_tasks: list[Dict[str, Any]] = []
         self._submission_sequence = 0
+        self._next_task_start_pending = False
 
     @property
     def state(self) -> Optional[str]:
@@ -263,6 +264,7 @@ class RtgSimulationDriver:
         self._task = None
         self._machine = None
         self._pending_tasks.clear()
+        self._next_task_start_pending = False
         if self._driver is not None:
             self._driver.stop()
         self._driver = None
@@ -341,6 +343,7 @@ class RtgSimulationDriver:
         self._task = None
         self._machine = None
         self._pending_tasks.clear()
+        self._next_task_start_pending = False
         print("[RTG Simulation] task cleared")
 
     def submit(self, payload: Dict[str, Any], *, wait_for_previous: bool) -> Dict[str, Any]:
@@ -380,6 +383,14 @@ class RtgSimulationDriver:
     def _on_update(self, _event: Any) -> None:
         if self._task is None or self._machine is None:
             return
+
+        # Give Kit one frame to present the completed task before the next
+        # queued task creates its working stack and vehicle visuals.
+        if self._next_task_start_pending:
+            self._next_task_start_pending = False
+            if self._start_next_queued_task_if_ready():
+                return
+
         now = time.monotonic()
         pose = self._make_pose(now)
         transition = self._machine.update(
@@ -401,7 +412,16 @@ class RtgSimulationDriver:
                 f"{transition.current.value}: {transition.reason}"
             )
         self._apply_render_state(pose)
-        self._start_next_queued_task_if_ready()
+        if self._next_task_is_ready():
+            self._next_task_start_pending = True
+
+    def _next_task_is_ready(self) -> bool:
+        return bool(
+            self._pending_tasks
+            and self._machine is not None
+            and self._machine.state == OperationState.COMPLETE
+            and self._current_hoist >= WAITING_HOIST_M - 0.01
+        )
 
     def _start_next_queued_task_if_ready(self) -> bool:
         """Start one queued task only after the prior RTG reaches high wait."""

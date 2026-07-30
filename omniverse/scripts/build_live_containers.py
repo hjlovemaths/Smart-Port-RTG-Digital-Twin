@@ -128,6 +128,9 @@ def parse_pattern(pattern: str) -> list[int]:
 
 def material(stage: Usd.Stage, name: str, color: Gf.Vec3f) -> UsdShade.Material:
     material_path = f"{LIVE_ROOT_PATH}/Looks/{name}"
+    existing = UsdShade.Material.Get(stage, Sdf.Path(material_path))
+    if existing:
+        return existing
     mat = UsdShade.Material.Define(stage, material_path)
     shader = UsdShade.Shader.Define(stage, f"{material_path}/PreviewSurface")
     shader.CreateIdAttr("UsdPreviewSurface")
