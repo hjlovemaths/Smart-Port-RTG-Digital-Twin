@@ -81,8 +81,8 @@ HOIST_PATH = (
 )
 GANTRY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL"
 YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
-GLOBAL_CAMERA_PATH = f"{GANTRY_PATH}/REMOTE_MANUAL_GLOBAL_CAMERA"
-SPREADER_UNDERSIDE_CAMERA_PATH = f"{TROLLEY_PATH}/REMOTE_MANUAL_TROLLEY_CAMERA"
+TROLLEY_CAMERA_PATH = f"{TROLLEY_PATH}/REMOTE_MANUAL_TROLLEY_CAMERA"
+KIT_DEFAULT_CAMERA_PATH = "/OmniverseKit_Persp"
 
 # XInput button masks.  XInput is available on supported Windows gamepads
 # without installing pygame or opening a second application window.
@@ -1012,7 +1012,12 @@ class RtgGamepadManualController:
     def _activate_camera(self, stage: Any, mode: str) -> None:
         """Select an RTG-attached operational view in the active viewport."""
 
-        camera_path = self._ensure_manual_camera(stage, mode)
+        if mode == "GLOBAL":
+            camera_path = KIT_DEFAULT_CAMERA_PATH
+        elif mode == "SPREADER_UNDERSIDE":
+            camera_path = self._ensure_trolley_camera(stage)
+        else:
+            raise ValueError(f"Unknown manual camera mode: {mode}")
         try:
             from omni.kit.viewport.utility import get_active_viewport  # type: ignore
 
@@ -1024,7 +1029,7 @@ class RtgGamepadManualController:
             self._log(f"Could not switch to {mode} view: {exc}")
             return
         self._active_camera_mode = mode
-        label = "RTG global" if mode == "GLOBAL" else "trolley overhead"
+        label = "RTG default camera" if mode == "GLOBAL" else "trolley overhead"
         self._log(f"Switched to {label} view.")
 
     @staticmethod
@@ -1042,36 +1047,20 @@ class RtgGamepadManualController:
             matrix.SetTranslate(eye)
             return matrix
 
-    def _ensure_manual_camera(self, stage: Any, mode: str) -> str:
-        """Author the two camera mounts in the session layer on first use."""
+    def _ensure_trolley_camera(self, stage: Any) -> str:
+        """Author the trolley overhead camera in the session layer on first use."""
 
-        from pxr import Gf, Usd, UsdGeom, UsdPhysics
+        from pxr import Gf, Usd, UsdGeom
 
-        if mode == "GLOBAL":
-            path = GLOBAL_CAMERA_PATH
-            # Parent to gantry: this operational overview travels with the RTG
-            # while still keeping the complete machine and work zone in frame.
-            eye = Gf.Vec3d(16.0, -26.0, 17.0)
-            target = Gf.Vec3d(0.0, 0.0, 3.0)
-            up = Gf.Vec3d(0.0, 0.0, 1.0)
-        elif mode == "SPREADER_UNDERSIDE":
-            path = SPREADER_UNDERSIDE_CAMERA_PATH
-            # Parent to trolley: camera looks straight down from the trolley
-            # frame so the operator sees the spreader, lock feet, and
-            # surrounding container tops from above.  The camera stays on the
-            # trolley regardless of hoist height, giving a stable aerial view.
-            eye = Gf.Vec3d(2.55, -5.0, 8.0)
-            target = Gf.Vec3d(2.55, -5.0, 0.0)
-            up = Gf.Vec3d(0.0, 1.0, 0.0)
-        else:
-            raise ValueError(f"Unknown manual camera mode: {mode}")
+        path = TROLLEY_CAMERA_PATH
+        eye = Gf.Vec3d(2.55, -5.0, 8.0)
+        target = Gf.Vec3d(2.55, -5.0, 0.0)
+        up = Gf.Vec3d(0.0, 1.0, 0.0)
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, path)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(
-                18.0 if mode == "GLOBAL" else self._trolley_camera_focal_length_mm
-            )
+            camera.CreateFocalLengthAttr(self._trolley_camera_focal_length_mm)
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
             prim = camera.GetPrim()
             xform = UsdGeom.Xformable(prim)
@@ -1090,23 +1079,27 @@ class RtgGamepadManualController:
             min(40.0, self._trolley_camera_focal_length_mm + delta_mm),
         )
         try:
-            from pxr import UsdGeom
+            from pxr import Sdf, UsdGeom
 
-            prim = stage.GetPrimAtPath(SPREADER_UNDERSIDE_CAMERA_PATH)
-            if prim:
-                focal_attr = UsdGeom.Camera(prim).CreateFocalLengthAttr()
-                focal_attr.Set(self._trolley_camera_focal_length_mm)
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                prim = stage.GetPrimAtPath(TROLLEY_CAMERA_PATH)
+                if not prim:
+                    return
+                camera = UsdGeom.Camera(prim)
+                camera.CreateFocalLengthAttr().Set(self._trolley_camera_focal_length_mm)
         except Exception:
             return
-        # Kit's viewport reads the camera properties once when camera_path is
-        # set; re-assign the same path to make it re-read the changed focal
-        # length from the USD attribute.
+        # Kit's viewport caches camera properties after the initial path
+        # assignment.  Re-assigning the same path is a no-op, so briefly set
+        # an empty path to tear down the cached camera, then re-attach the
+        # same USD prim — this forces a full re-read of every attribute.
         try:
             from omni.kit.viewport.utility import get_active_viewport
 
             viewport = get_active_viewport()
             if viewport is not None:
-                viewport.camera_path = SPREADER_UNDERSIDE_CAMERA_PATH
+                viewport.camera_path = ""
+                viewport.camera_path = TROLLEY_CAMERA_PATH
         except Exception:
             pass
         self._log(
