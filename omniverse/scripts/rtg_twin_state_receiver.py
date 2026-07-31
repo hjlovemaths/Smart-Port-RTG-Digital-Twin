@@ -883,11 +883,29 @@ class RtgTwinStatusOverlay:
                             self._row(ui, label, key, name_style, value_style)
                         ui.Spacer(height=2)
 
+                # Pick a system font that supports Chinese characters when
+                # available; otherwise Kit's bundled UI font will render
+                # CJK text as empty rectangles.
+                _cjk_font = (
+                    "C:/Windows/Fonts/msyh.ttc"
+                )
+                if not Path(_cjk_font).is_file():
+                    _cjk_font = (
+                        "C:/Windows/Fonts/simhei.ttf"
+                    )
+                if not Path(_cjk_font).is_file():
+                    _cjk_font = ""
+
                 with ui.Frame(style=panel_style, height=65):
                     with ui.VStack(spacing=3):
                         ui.Spacer(height=4)
                         ui.Label("RUNINFO", style=title_style, height=18)
-                        info_style = {"color": 0xFFEEDDAA, "font_size": 11}
+                        info_style = {
+                            "color": 0xFFEEDDAA,
+                            "font_size": 11,
+                        }
+                        if _cjk_font:
+                            info_style["font"] = _cjk_font
                         self._runinfo_label = ui.Label(
                             "--", width=248, height=36,
                             word_wrap=True, alignment=ui.Alignment.LEFT,
