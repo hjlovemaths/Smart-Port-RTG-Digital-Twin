@@ -248,7 +248,7 @@ class RtgSimulationDriver:
             self._driver = receiver_module.OmniverseRtgTwinDriver(
                 inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
             )
-            inventory_status = self._driver.restore_inventory_scene()
+            inventory_status = self._driver.restore_inventory_scene(force=True)
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgSimulationDriver"
@@ -469,6 +469,15 @@ class RtgSimulationDriver:
                 self._driver = receiver_module.OmniverseRtgTwinDriver(
                     inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
                 )
+            # Re-sync the full sim inventory periodically.  A concurrently
+            # running live-receiver instance shares the same USD stage and may
+            # have replaced the simulation's 62+ bays with its own 9 live bays.
+            restore = getattr(self._driver, "restore_inventory_scene", None)
+            if callable(restore):
+                now = time.monotonic()
+                if now - getattr(self, "_last_inventory_sync_at", 0.0) > 3.0:
+                    self._last_inventory_sync_at = now
+                    restore(force=True)
             applied = self._driver.apply_state(state)
             if applied is not None and self._last_state is None:
                 print(

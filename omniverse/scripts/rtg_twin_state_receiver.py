@@ -1349,13 +1349,22 @@ class OmniverseRtgTwinDriver:
         self._log(f"crossbeam alignment measurement: {result}")
         return result
 
-    def restore_inventory_scene(self) -> Optional[Dict[str, Any]]:
-        """Restore the selected inventory immediately, before any task arrives."""
+    def restore_inventory_scene(
+        self,
+        *,
+        force: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Restore the selected inventory immediately, before any task arrives.
 
+        When *force* is True the stage-id guard is skipped so the complete
+        yard is rebuilt even if another driver already synced this stage.
+        """
         stage = self._current_stage()
         if stage is None:
             self._log("cannot restore yard inventory: no active USD stage")
             return None
+        if force:
+            self._inventory_stage_id = None
         self._sync_inventory_scene(stage)
         return {
             "mode": self._inventory_mode,
