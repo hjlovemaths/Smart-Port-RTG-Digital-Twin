@@ -2232,7 +2232,13 @@ class RtgGamepadManualController:
     def _deactivate_dynamic_release_for_pick(
         self, stage: Any, source_path: str
     ) -> None:
-        """Stop a previously released body before attaching it to the spreader."""
+        """Stop a previously released body and write its PhysX pose back to USD.
+
+        PhysX authored the dynamic body's world transform each simulation step
+        without updating ``xformOp:translate``.  After disabling the body we must
+        flush that final world position into USD so that ``_capture_carried_attachment``
+        and ``_move_carried_container`` start from the correct post-simulation pose.
+        """
 
         matching = [
             release
@@ -2242,21 +2248,46 @@ class RtgGamepadManualController:
         if not matching:
             return
         try:
-            from pxr import Gf, Usd, UsdPhysics
+            from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 source = stage.GetPrimAtPath(source_path)
                 if source:
+                    # Flush the PhysX-computed world position into the USD local
+                    # translate before disabling the rigid body.  XformCache still
+                    # composes the simulation result while the body is live.
+                    cache = UsdGeom.XformCache()
+                    source_parent = source.GetParent()
+                    if source_parent:
+                        parent_world = Gf.Matrix4d(
+                            cache.GetLocalToWorldTransform(source_parent)
+                        )
+                        source_local = (
+                            cache.GetLocalToWorldTransform(source)
+                            * parent_world.GetInverse()
+                        )
+                        self._set_local_transform_matrix(source, source_local)
+                    for release in matching:
+                        for path in release.get("followers", {}):
+                            component = stage.GetPrimAtPath(path)
+                            if not component or not component.GetParent():
+                                continue
+                            parent_world = Gf.Matrix4d(
+                                cache.GetLocalToWorldTransform(
+                                    component.GetParent()
+                                )
+                            )
+                            local = (
+                                cache.GetLocalToWorldTransform(component)
+                                * parent_world.GetInverse()
+                            )
+                            self._set_local_transform_matrix(component, local)
+
                     body = UsdPhysics.RigidBodyAPI.Get(stage, source.GetPath())
                     if body:
                         body.CreateVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
                         body.CreateAngularVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
                         body.CreateRigidBodyEnabledAttr(False)
-                        # Return kinematic control to USD.  After dynamic release
-                        # PhysX owns the composed world transform; disabling the
-                        # body without making it kinematic leaves the last
-                        # simulated position in a PhysX-authored override that
-                        # _move_carried_container cannot displace.
                         body.CreateKinematicEnabledAttr(True)
         except Exception:
             pass
