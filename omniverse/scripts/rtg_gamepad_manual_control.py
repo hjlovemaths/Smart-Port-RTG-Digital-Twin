@@ -80,6 +80,7 @@ HOIST_PATH = (
     f"{TROLLEY_PATH}/ANIM_CTRL_RTG_HOIST_VERTICAL"
 )
 GANTRY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL"
+YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
 GLOBAL_CAMERA_PATH = f"{GANTRY_PATH}/REMOTE_MANUAL_GLOBAL_CAMERA"
 SPREADER_UNDERSIDE_CAMERA_PATH = f"{TROLLEY_PATH}/REMOTE_MANUAL_TROLLEY_CAMERA"
 
@@ -3722,17 +3723,45 @@ class RtgGamepadManualController:
         return self._lock_foot_center(points) if points else None
 
     def _ensure_manual_collision_api(self, stage: Any) -> None:
-        """Mark the visible lock feet as collision participants for manual mode."""
+        """Mark lock feet and all live yard containers as collision participants.
+
+        Lock feet are the active tool side.  Yard containers are static
+        obstacles — they receive CollisionAPI so that dynamically released
+        boxes bounce off neighbours instead of passing through them.  Static
+        bodies cost nothing at runtime because PhysX only runs when at least
+        one dynamic body is alive.
+        """
 
         try:
             from pxr import Usd, UsdPhysics
 
             self._spreader_lock_foot_points(stage)
+            already_collidable: set[str] = set()
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 for path in self._lock_foot_paths or ():
                     prim = stage.GetPrimAtPath(path)
-                    if prim:
-                        UsdPhysics.CollisionAPI.Apply(prim)
+                    if not prim:
+                        continue
+                    UsdPhysics.CollisionAPI.Apply(prim)
+                    already_collidable.add(str(prim.GetPath()))
+
+                # Walk every container prim in the yard and give it a static
+                # collision body.  Skipping prims that already carry the API
+                # (e.g. the currently released dynamic body) avoids a stale
+                # CollisionAPI that could interfere with the per-release
+                # CollisionEnabled setup in _activate_dynamic_release.
+                for prim in stage.Traverse():
+                    if "Container" not in prim.GetName():
+                        continue
+                    path = str(prim.GetPath())
+                    if path in already_collidable:
+                        continue
+                    bay_attr = prim.GetAttribute("live:bayId")
+                    if not bay_attr and not path.startswith(
+                        YARD_INVENTORY_ROOT_PATH
+                    ):
+                        continue
+                    UsdPhysics.CollisionAPI.Apply(prim)
         except Exception:
             # The deterministic contact response below still works when a Kit
             # build lacks authoring support for the physics schema.
