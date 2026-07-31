@@ -549,7 +549,7 @@ class RtgGamepadManualController:
         if not getattr(self, "_dynamic_releases", None):
             return
         try:
-            from pxr import Usd, UsdPhysics
+            from pxr import Gf, Usd, UsdPhysics
 
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 for release in list(self._dynamic_releases):
