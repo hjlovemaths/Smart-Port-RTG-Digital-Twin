@@ -2217,6 +2217,12 @@ class RtgGamepadManualController:
                         body.CreateVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
                         body.CreateAngularVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
                         body.CreateRigidBodyEnabledAttr(False)
+                        # Return kinematic control to USD.  After dynamic release
+                        # PhysX owns the composed world transform; disabling the
+                        # body without making it kinematic leaves the last
+                        # simulated position in a PhysX-authored override that
+                        # _move_carried_container cannot displace.
+                        body.CreateKinematicEnabledAttr(True)
         except Exception:
             pass
         self._dynamic_releases = [
