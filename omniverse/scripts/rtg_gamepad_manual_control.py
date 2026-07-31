@@ -3627,6 +3627,35 @@ class RtgGamepadManualController:
             # build lacks authoring support for the physics schema.
             return
 
+    def _update_spreader_collision_proxy(self, stage: Any) -> None:
+        """Apply kinematic rigid bodies to the spreader lock feet for PhysX collision.
+
+        The lock feet already receive CollisionAPI in _ensure_manual_collision_api
+        when manual mode first binds the stage.  This method adds RigidBodyAPI
+        (kinematic) so that dynamic released containers can detect and respond
+        to spreader contact during _advance_dynamic_releases.
+
+        The method is a no-op when no dynamic releases are active or when the
+        USD Physics schema is unavailable in the current Kit build.
+        """
+
+        if not self._dynamic_releases:
+            return
+        try:
+            from pxr import Usd, UsdPhysics
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for path in (self._lock_foot_paths or ()):
+                    prim = stage.GetPrimAtPath(path)
+                    if not prim:
+                        continue
+                    UsdPhysics.CollisionAPI.Apply(prim)
+                    rigid_api = UsdPhysics.RigidBodyAPI.Apply(prim)
+                    rigid_api.CreateRigidBodyEnabledAttr(True)
+                    rigid_api.CreateKinematicEnabledAttr(True)
+        except Exception:
+            return
+
     @staticmethod
     def _expanded_bounds(
         minimum: Any,
