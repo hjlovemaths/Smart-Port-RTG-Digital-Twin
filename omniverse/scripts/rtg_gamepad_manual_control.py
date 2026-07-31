@@ -2258,7 +2258,7 @@ class RtgGamepadManualController:
                     target_source_local = (
                         target_source_world * source_parent_world.GetInverse()
                     )
-                    self._set_local_transform_matrix(
+                    self._set_translate_from_matrix(
                         source,
                         target_source_local,
                     )
@@ -2297,9 +2297,11 @@ class RtgGamepadManualController:
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 source = stage.GetPrimAtPath(source_path)
                 if source:
-                    # Flush the PhysX-computed world position into the USD local
-                    # translate before disabling the rigid body.  XformCache still
-                    # composes the simulation result while the body is live.
+                    # Flush the PhysX-computed world position into USD
+                    # xformOp:translate.  _sync_dynamic_release_followers
+                    # may have changed the xform op order to a 4x4 matrix;
+                    # restore a plain 3-component translate so that
+                    # _move_carried_container can move the box again.
                     cache = UsdGeom.XformCache()
                     source_parent = source.GetParent()
                     if source_parent:
@@ -2310,7 +2312,7 @@ class RtgGamepadManualController:
                             cache.GetLocalToWorldTransform(source)
                             * parent_world.GetInverse()
                         )
-                        self._set_local_transform_matrix(source, source_local)
+                        self._set_translate_from_matrix(source, source_local)
                     for release in matching:
                         for path in release.get("followers", {}):
                             component = stage.GetPrimAtPath(path)
@@ -2325,7 +2327,7 @@ class RtgGamepadManualController:
                                 cache.GetLocalToWorldTransform(component)
                                 * parent_world.GetInverse()
                             )
-                            self._set_local_transform_matrix(component, local)
+                            self._set_translate_from_matrix(component, local)
 
                     body = UsdPhysics.RigidBodyAPI.Get(stage, source.GetPath())
                     if body:
@@ -2689,6 +2691,29 @@ class RtgGamepadManualController:
         if matrix_attr and matrix is not None:
             matrix.SetTranslateOnly(value)
             matrix_attr.Set(matrix)
+
+    @staticmethod
+    def _set_translate_from_matrix(prim: Any, matrix: Any) -> None:
+        """Extract the 3D translation from a 4x4 matrix and write it to
+        xformOp:translate on a prim whose order may have been changed by
+        _set_local_transform_matrix during dynamic release.
+
+        The method restores a plain translate-only xform op order so that
+        _move_carried_container can subsequently write positions through
+        the same attribute.
+        """
+        from pxr import Gf, UsdGeom
+
+        local = Gf.Matrix4d(matrix)
+        vec = local.ExtractTranslation()
+        xform = UsdGeom.Xformable(prim)
+        translate_attr = prim.GetAttribute("xformOp:translate")
+        if not translate_attr:
+            translate_attr = xform.AddTranslateOp().GetAttr()
+        else:
+            op = UsdGeom.XformOp(translate_attr)
+            xform.SetXformOpOrder([op])
+        translate_attr.Set(Gf.Vec3d(vec[0], vec[1], vec[2]))
 
     @staticmethod
     def _set_local_transform_matrix(prim: Any, matrix: Any) -> None:
