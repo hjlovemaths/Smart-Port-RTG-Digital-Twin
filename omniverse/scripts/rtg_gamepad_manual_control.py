@@ -576,7 +576,9 @@ class RtgGamepadManualController:
             self._keyboard = None
         stage = self._current_stage()
         if stage is not None:
-            self._freeze_dynamic_bodies(stage)
+            freeze = getattr(self, "_freeze_dynamic_bodies", None)
+            if callable(freeze):
+                freeze(stage)
         self._restore_kit_gamepad_camera_control()
         self._previous_buttons = 0
         self._gamepad_was_connected = False
@@ -4283,7 +4285,12 @@ def stop_gamepad_manual_mode() -> None:
         builtins, REMOTE_MANUAL_CONTROLLER_KEY, None
     )
     if controller is not None:
-        controller.stop()
+        try:
+            controller.stop()
+        except Exception:
+            # Gracefully discard an old controller instance whose methods may
+            # have changed across script reloads in Kit's Script Editor.
+            pass
         _manual_controller = None
     builtins.__dict__[REMOTE_MANUAL_MODE_FLAG] = False
     builtins.__dict__.pop(REMOTE_MANUAL_CONTROLLER_KEY, None)
