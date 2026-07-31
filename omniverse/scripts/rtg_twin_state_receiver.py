@@ -810,6 +810,25 @@ class RtgTwinStatusOverlay:
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
 
+        # Kit's default UI font cannot render CJK characters; pick a system
+        # font that does.  The style dicts below propagate this through every
+        # label in the HUD so both task info and runinfo display correctly.
+        _cjk_font = ""
+        for _font in (
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/simsun.ttc",
+        ):
+            if Path(_font).is_file():
+                _cjk_font = _font
+                break
+
+        def _mk_cjk_style(base: Dict[str, Any]) -> Dict[str, Any]:
+            result = dict(base)
+            if _cjk_font:
+                result["font"] = _cjk_font
+            return result
+
         flags = 0
         for name in (
             "WINDOW_FLAGS_NO_TITLE_BAR",
@@ -838,10 +857,10 @@ class RtgTwinStatusOverlay:
             "border_width": 1,
             "border_radius": 4,
         }
-        title_style = {"color": 0xFFFFFFFF, "font_size": 14}
-        name_style = {"color": 0xFF9AAABA, "font_size": 12}
-        value_style = {"color": 0xFFFFFFFF, "font_size": 13}
-        accent_style = {"color": 0xFF22DFFF, "font_size": 18}
+        title_style = _mk_cjk_style({"color": 0xFFFFFFFF, "font_size": 14})
+        name_style = _mk_cjk_style({"color": 0xFF9AAABA, "font_size": 12})
+        value_style = _mk_cjk_style({"color": 0xFFFFFFFF, "font_size": 13})
+        accent_style = _mk_cjk_style({"color": 0xFF22DFFF, "font_size": 18})
 
         with self._window.frame:
             with ui.VStack(spacing=6, style={"background_color": 0xAA02111F}):
@@ -883,29 +902,11 @@ class RtgTwinStatusOverlay:
                             self._row(ui, label, key, name_style, value_style)
                         ui.Spacer(height=2)
 
-                # Pick a system font that supports Chinese characters when
-                # available; otherwise Kit's bundled UI font will render
-                # CJK text as empty rectangles.
-                _cjk_font = (
-                    "C:/Windows/Fonts/msyh.ttc"
-                )
-                if not Path(_cjk_font).is_file():
-                    _cjk_font = (
-                        "C:/Windows/Fonts/simhei.ttf"
-                    )
-                if not Path(_cjk_font).is_file():
-                    _cjk_font = ""
-
                 with ui.Frame(style=panel_style, height=65):
                     with ui.VStack(spacing=3):
                         ui.Spacer(height=4)
                         ui.Label("RUNINFO", style=title_style, height=18)
-                        info_style = {
-                            "color": 0xFFEEDDAA,
-                            "font_size": 11,
-                        }
-                        if _cjk_font:
-                            info_style["font"] = _cjk_font
+                        info_style = _mk_cjk_style({"color": 0xFFEEDDAA, "font_size": 11})
                         self._runinfo_label = ui.Label(
                             "--", width=248, height=36,
                             word_wrap=True, alignment=ui.Alignment.LEFT,
