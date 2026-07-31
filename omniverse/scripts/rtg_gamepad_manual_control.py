@@ -4007,12 +4007,21 @@ class RtgGamepadManualController:
             for animation in getattr(self, "_pending_release_animations", [])
             for component_state in animation.get("components", [])
         }
+        # Dynamic PhysX bodies own their world transform; the nudge delta must
+        # never fight against the physics engine by writing xformOp:translate
+        # on the same prim.
+        dynamic_paths: set[str] = set()
+        for release in getattr(self, "_dynamic_releases", []):
+            dynamic_paths.add(str(release.get("sourcePath", "")))
+            for path in release.get("followers", {}):
+                dynamic_paths.add(str(path))
         nudges: list[tuple[str, tuple[float, float]]] = []
         for root_path in self._container_contact_root_path_cache(stage):
             if (
                 root_path == carried_root
                 or root_path in carried_paths
                 or root_path in animating_paths
+                or root_path in dynamic_paths
             ):
                 continue
             root = stage.GetPrimAtPath(root_path)
