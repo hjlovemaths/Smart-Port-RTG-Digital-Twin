@@ -543,6 +543,30 @@ class RtgGamepadManualController:
             "Remote manual enabled. Hold RB or Space as the motion deadman switch."
         )
 
+    def _freeze_dynamic_bodies(self, stage: Any) -> None:
+        """Disable all active dynamic releases so they stop when manual mode exits."""
+
+        if not getattr(self, "_dynamic_releases", None):
+            return
+        try:
+            from pxr import Usd, UsdPhysics
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for release in list(self._dynamic_releases):
+                    source_path = str(release.get("sourcePath", ""))
+                    if not source_path:
+                        continue
+                    source = stage.GetPrimAtPath(source_path)
+                    if not source:
+                        continue
+                    body = UsdPhysics.RigidBodyAPI.Get(stage, source.GetPath())
+                    if body:
+                        body.CreateVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
+                        body.CreateRigidBodyEnabledAttr(False)
+        except Exception:
+            pass
+        self._dynamic_releases.clear()
+
     def stop(self) -> None:
         self._subscription = None
         if self._gamepad is not None:
