@@ -810,25 +810,32 @@ class RtgTwinStatusOverlay:
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
 
-        # Kit's default UI font lacks CJK glyphs.  omni.ui style dicts
-        # expect a *font family name*, not a file path.  These Windows
-        # system font families ship with Chinese-capable glyphs.
-        _cjk_font = ""
-        for _family in (
-            "Microsoft YaHei",
-            "SimHei",
-            "SimSun",
-            "NSimSun",
-            "FangSong",
-            "KaiTi",
-        ):
-            _cjk_font = _family
-            break  # use the first name — all have CJK coverage
+        # Kit's default UI font lacks CJK glyphs.  Register a system font
+        # via omni.ui's FontRegistry so every Label in this window renders
+        # Chinese text correctly.
+        _cjk_family = ""
+        _cjk_paths = (
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+        )
+        try:
+            _font_registry = getattr(ui, "FontRegistry", None)
+        except Exception:
+            _font_registry = None
+        if _font_registry is not None:
+            for _path in _cjk_paths:
+                try:
+                    _family = _font_registry.add_font(_path)
+                    if _family:
+                        _cjk_family = str(_family)
+                        break
+                except Exception:
+                    continue
 
         def _mk_cjk_style(base: Dict[str, Any]) -> Dict[str, Any]:
             result = dict(base)
-            if _cjk_font:
-                result["font"] = _cjk_font
+            if _cjk_family:
+                result["font"] = _cjk_family
             return result
 
         flags = 0
@@ -3802,6 +3809,13 @@ class OmniverseRtgTwinDriver:
                 "rtg:inventorySyncReason",
                 Sdf.ValueTypeNames.String,
                 task.get("inventorySyncReason"),
+            )
+            runinfo = state.get("runinfo") or {}
+            self._set_attr(
+                prim,
+                "rtg:runinfo",
+                Sdf.ValueTypeNames.String,
+                runinfo.get("message"),
             )
             self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
