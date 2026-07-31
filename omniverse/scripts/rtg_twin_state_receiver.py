@@ -447,6 +447,11 @@ def _task_is_complete(task: Dict[str, Any]) -> bool:
         return False
     if _simulated_visual_phase(task) == "COMPLETE":
         return True
+    # Service marks a task COMPLETED when the runinfo log contains the
+    # "本关任务完成" command matching the current active task ID.
+    twin_state = str(task.get("_twin_operation_state") or "").strip().upper()
+    if twin_state == "COMPLETED":
+        return True
     operation_state = str(task.get("operationState") or "").strip().upper()
     if operation_state in {"COMPLETE", "COMPLETED", "DONE", "FINISHED"}:
         return True
@@ -1234,6 +1239,22 @@ class OmniverseRtgTwinDriver:
                 self._sync_task_switch(stage, task, pose)
             else:
                 self._sync_task_vehicle(stage, task, pose)
+            # The PLC-driven state machine may reach COMPLETE from physical
+            # spreader / hoist signals without the task payload ever setting
+            # ``operationState`` to a terminal value.  When the machine
+            # declares the operation done, settle the durable inventory and
+            # discard the disposable task visuals exactly once.
+            if (
+                task
+                and self._operation_state_machine is not None
+                and self._operation_state_machine.state is OperationState.COMPLETE
+            ):
+                self._log(
+                    "state machine reached COMPLETE; settling inventory "
+                    f"task={task.get('taskId') or '--'}"
+                )
+                if self._settle_inventory_task(stage, task):
+                    self._clear_completed_task_visuals(stage, task)
         self._write_status(stage, state, applied)
         self._sync_status_overlay(state, applied)
 
@@ -1520,11 +1541,22 @@ class OmniverseRtgTwinDriver:
                 if sync_state == INVENTORY_SYNC_READY and changed:
                     if self._inventory_autosave:
                         self._inventory.save(self._inventory_path)
-                    # The task scene immediately hides its source/target bays and
-                    # renders the animated task stack.  Rebuilding those persistent
-                    # bays here only creates a frame hitch, then discards the result.
-                    # Keep the inventory model authoritative and update its visuals
-                    # once the task transaction has actually settled.
+                    # Reconcile may touch several bays (the task's own target,
+                    # removed footprint conflicts, SWITCH cross-bay targets).
+                    # Render every one except the active task bay — that bay is
+                    # about to be hidden by _hide_inventory_bay_for_task and
+                    # redrawn via LiveTaskStack anyway, so a persistent render
+                    # here would be discarded immediately.
+                    active_work = _task_work_type(task)
+                    active_pos = (
+                        task.get("startPos") or task.get("sourcePos")
+                        if active_work in (WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
+                        else task.get("endPos") or task.get("targetPos")
+                    )
+                    active_key = self._task_inventory_bay_key(task, active_pos)
+                    for stack_key in changed:
+                        if stack_key != active_key:
+                            self._render_inventory_bay(stage, stack_key)
                 elif sync_state != INVENTORY_SYNC_READY:
                     self._inventory = inventory_before
             except Exception as exc:  # noqa: BLE001 - stale data is recoverable
