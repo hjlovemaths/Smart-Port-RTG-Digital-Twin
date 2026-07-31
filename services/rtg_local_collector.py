@@ -244,6 +244,7 @@ class LocalCollector:
         elif stream == "task" and isinstance(parsed, dict):
             self.cache.update_task(parsed)
         elif stream == "runinfo" and isinstance(parsed, dict):
+            self.cache.update_runinfo(parsed)
             if is_task_complete_runinfo(str(record.get("cmdId") or ""), parsed):
                 self.cache.complete_task()
 

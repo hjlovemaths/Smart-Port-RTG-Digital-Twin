@@ -782,7 +782,17 @@ class RtgTwinStatusOverlay:
             runinfo_text = raw_text.strip() or "--"
             if self._last_values.get("runinfo") != runinfo_text:
                 self._last_values["runinfo"] = runinfo_text
+                print(f"[RTG Twin Receiver] runinfo HUD update: {runinfo_text}")
                 self._set_runinfo_text(runinfo_text)
+        else:
+            # Log once per connection whether the service sends runinfo.
+            if not getattr(self, "_runinfo_probe_logged", False):
+                setattr(self, "_runinfo_probe_logged", True)
+                print(
+                    "[RTG Twin Receiver] runinfo field is "
+                    f"{type(runinfo).__name__} — "
+                    "service may need a restart to include runinfo data"
+                )
                 # Log once so the operator can confirm runinfo is flowing.
                 if runinfo_text != "--":
                     print(f"[RTG Twin Receiver] runinfo received: {runinfo_text}")
