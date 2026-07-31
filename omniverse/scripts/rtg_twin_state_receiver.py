@@ -810,18 +810,20 @@ class RtgTwinStatusOverlay:
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
 
-        # Kit's default UI font cannot render CJK characters; pick a system
-        # font that does.  The style dicts below propagate this through every
-        # label in the HUD so both task info and runinfo display correctly.
+        # Kit's default UI font lacks CJK glyphs.  omni.ui style dicts
+        # expect a *font family name*, not a file path.  These Windows
+        # system font families ship with Chinese-capable glyphs.
         _cjk_font = ""
-        for _font in (
-            "C:/Windows/Fonts/msyh.ttc",
-            "C:/Windows/Fonts/simhei.ttf",
-            "C:/Windows/Fonts/simsun.ttc",
+        for _family in (
+            "Microsoft YaHei",
+            "SimHei",
+            "SimSun",
+            "NSimSun",
+            "FangSong",
+            "KaiTi",
         ):
-            if Path(_font).is_file():
-                _cjk_font = _font
-                break
+            _cjk_font = _family
+            break  # use the first name — all have CJK coverage
 
         def _mk_cjk_style(base: Dict[str, Any]) -> Dict[str, Any]:
             result = dict(base)
