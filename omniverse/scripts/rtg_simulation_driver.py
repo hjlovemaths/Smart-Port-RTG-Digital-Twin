@@ -423,6 +423,14 @@ class RtgSimulationDriver:
                 f"[RTG Simulation] {transition.previous.value} -> "
                 f"{transition.current.value}: {transition.reason}"
             )
+            # Re-sync the full sim inventory at the first frame of a new task.
+            # This is the safe moment: no LiveTaskStack, no animated prims.
+            # A concurrently running live receiver shares the same USD stage
+            # and may have replaced the sim bays with its own live bays.
+            if transition.current is OperationState.VALIDATE_TASK:
+                restore = getattr(self._driver, "restore_inventory_scene", None)
+                if callable(restore):
+                    restore(force=True)
         self._apply_render_state(pose)
         if self._next_task_is_ready():
             self._next_task_start_pending = True
@@ -469,15 +477,6 @@ class RtgSimulationDriver:
                 self._driver = receiver_module.OmniverseRtgTwinDriver(
                     inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
                 )
-            # Re-sync the full sim inventory periodically.  A concurrently
-            # running live-receiver instance shares the same USD stage and may
-            # have replaced the simulation's 62+ bays with its own 9 live bays.
-            restore = getattr(self._driver, "restore_inventory_scene", None)
-            if callable(restore):
-                now = time.monotonic()
-                if now - getattr(self, "_last_inventory_sync_at", 0.0) > 3.0:
-                    self._last_inventory_sync_at = now
-                    restore(force=True)
             applied = self._driver.apply_state(state)
             if applied is not None and self._last_state is None:
                 print(
