@@ -1098,6 +1098,17 @@ class RtgGamepadManualController:
                 focal_attr.Set(self._trolley_camera_focal_length_mm)
         except Exception:
             return
+        # Kit's viewport reads the camera properties once when camera_path is
+        # set; re-assign the same path to make it re-read the changed focal
+        # length from the USD attribute.
+        try:
+            from omni.kit.viewport.utility import get_active_viewport
+
+            viewport = get_active_viewport()
+            if viewport is not None:
+                viewport.camera_path = SPREADER_UNDERSIDE_CAMERA_PATH
+        except Exception:
+            pass
         self._log(
             "Trolley camera focal length: "
             f"{self._trolley_camera_focal_length_mm:.0f} mm"
