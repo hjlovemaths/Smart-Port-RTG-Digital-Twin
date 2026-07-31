@@ -776,11 +776,16 @@ class RtgTwinStatusOverlay:
             self._set_label_text(key, value)
 
         # Runinfo messages update independently — show the latest one.
-        runinfo = state.get("runinfo") or {}
-        runinfo_text = _fmt_text(runinfo.get("message"), "")
-        if runinfo_text and self._last_values.get("runinfo") != runinfo_text:
-            self._last_values["runinfo"] = runinfo_text
-            self._set_runinfo_text(runinfo_text)
+        runinfo = state.get("runinfo")
+        if isinstance(runinfo, dict):
+            raw_text = str(runinfo.get("message") or "")
+            runinfo_text = raw_text.strip() or "--"
+            if self._last_values.get("runinfo") != runinfo_text:
+                self._last_values["runinfo"] = runinfo_text
+                self._set_runinfo_text(runinfo_text)
+                # Log once so the operator can confirm runinfo is flowing.
+                if runinfo_text != "--":
+                    print(f"[RTG Twin Receiver] runinfo received: {runinfo_text}")
 
     def destroy(self) -> None:
         if self._window is not None:

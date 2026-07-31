@@ -254,8 +254,11 @@ class TwinStateCache:
         if not desc:
             return
         with self._lock:
+            is_new = self._last_runinfo != desc
             self._last_runinfo = desc
             self._last_runinfo_at = time.time()
+        if is_new:
+            logging.info("runinfo: %s", desc)
 
     def build_state(self) -> Dict[str, Any]:
         with self._lock:
