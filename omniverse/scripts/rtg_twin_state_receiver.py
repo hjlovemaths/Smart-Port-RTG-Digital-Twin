@@ -886,6 +886,10 @@ class RtgTwinStatusOverlay:
             label = ui.Label("--", alignment=ui.Alignment.RIGHT, style=value_style)
             self._labels[key] = label
 
+    def _has_runinfo_panel(self) -> bool:
+        """Return whether the overlay was built with the runinfo panel."""
+        return getattr(self, "_runinfo_label", None) is not None
+
     def _set_label_text(self, key: str, value: str) -> None:
         label = self._labels.get(key)
         if label is None:
@@ -1768,6 +1772,9 @@ class OmniverseRtgTwinDriver:
         self._last_status_overlay_at = now
         try:
             if self._status_overlay is None:
+                self._status_overlay = RtgTwinStatusOverlay()
+            elif not self._status_overlay._has_runinfo_panel():
+                self._status_overlay.destroy()
                 self._status_overlay = RtgTwinStatusOverlay()
             self._status_overlay.update(state, applied)
         except Exception as exc:  # noqa: BLE001 - UI should not stop RTG driving
