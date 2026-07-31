@@ -92,6 +92,8 @@ XINPUT_GAMEPAD_BACK = 0x0020
 XINPUT_GAMEPAD_START = 0x0010
 XINPUT_GAMEPAD_DPAD_UP = 0x0001
 XINPUT_GAMEPAD_DPAD_DOWN = 0x0002
+XINPUT_GAMEPAD_DPAD_LEFT = 0x0004
+XINPUT_GAMEPAD_DPAD_RIGHT = 0x0008
 XINPUT_GAMEPAD_RIGHT_SHOULDER = 0x0200
 
 GANTRY_SPEED_M_S = 1.50
@@ -379,7 +381,9 @@ class KitKeyboard:
 
     _INPUT_NAMES = {
         "W": ("W",), "S": ("S",), "A": ("A",), "D": ("D",),
-        "HOIST_UP": ("UP",), "HOIST_DOWN": ("DOWN",), "SPACE": ("SPACE",),
+        "HOIST_UP": ("UP",), "HOIST_DOWN": ("DOWN",),
+        "LEFT": ("LEFT", "KEY_LEFT"), "RIGHT": ("RIGHT", "KEY_RIGHT"),
+        "SPACE": ("SPACE",),
         "G": ("G",), "F": ("F",), "ONE": ("KEY_1", "NUM_1"), "TWO": ("KEY_2", "NUM_2"),
         "HOME": ("HOME",), "END": ("END",), "ESCAPE": ("ESCAPE",),
         "ENTER": ("ENTER",),
@@ -720,16 +724,18 @@ class RtgGamepadManualController:
             self._log("Emergency stop cleared. Hold RB before moving.")
         if just_pressed(XINPUT_GAMEPAD_DPAD_UP):
             command_triggered = True
-            if self._active_camera_mode == "SPREADER_UNDERSIDE":
-                self._adjust_trolley_camera_zoom(stage, +2.0)
-            else:
-                self._activate_camera(stage, "GLOBAL")
+            self._activate_camera(stage, "GLOBAL")
         if just_pressed(XINPUT_GAMEPAD_DPAD_DOWN):
+            command_triggered = True
+            self._activate_camera(stage, "SPREADER_UNDERSIDE")
+        if just_pressed(XINPUT_GAMEPAD_DPAD_LEFT):
             command_triggered = True
             if self._active_camera_mode == "SPREADER_UNDERSIDE":
                 self._adjust_trolley_camera_zoom(stage, -2.0)
-            else:
-                self._activate_camera(stage, "SPREADER_UNDERSIDE")
+        if just_pressed(XINPUT_GAMEPAD_DPAD_RIGHT):
+            command_triggered = True
+            if self._active_camera_mode == "SPREADER_UNDERSIDE":
+                self._adjust_trolley_camera_zoom(stage, +2.0)
         if self._emergency_stopped:
             return command_triggered
         # Gripping and spreader resizing also require the dead-man switch.
@@ -784,6 +790,13 @@ class RtgGamepadManualController:
             )
             self._activate_camera(stage, next_mode)
             command_triggered = True
+        if self._active_camera_mode == "SPREADER_UNDERSIDE":
+            if "LEFT" in actions:
+                self._adjust_trolley_camera_zoom(stage, -2.0)
+                command_triggered = True
+            if "RIGHT" in actions:
+                self._adjust_trolley_camera_zoom(stage, +2.0)
+                command_triggered = True
         if self._emergency_stopped:
             return command_triggered
         if "G" in actions:
