@@ -470,6 +470,7 @@ class RtgGamepadManualController:
         self._last_disconnect_notice_at = 0.0
         self._camera_control_previous: Any = None
         self._active_camera_mode = "GLOBAL"
+        self._trolley_camera_focal_length_mm = 14.0
         self._bay_target: Optional[tuple[str, int, int]] = None
         self._display_bay_target: Optional[tuple[str, int]] = None
         # Keep the business bay reported immediately before manual takeover as
@@ -693,10 +694,16 @@ class RtgGamepadManualController:
             self._log("Emergency stop cleared. Hold RB before moving.")
         if just_pressed(XINPUT_GAMEPAD_DPAD_UP):
             command_triggered = True
-            self._activate_camera(stage, "GLOBAL")
+            if self._active_camera_mode == "SPREADER_UNDERSIDE":
+                self._adjust_trolley_camera_zoom(stage, +2.0)
+            else:
+                self._activate_camera(stage, "GLOBAL")
         if just_pressed(XINPUT_GAMEPAD_DPAD_DOWN):
             command_triggered = True
-            self._activate_camera(stage, "SPREADER_UNDERSIDE")
+            if self._active_camera_mode == "SPREADER_UNDERSIDE":
+                self._adjust_trolley_camera_zoom(stage, -2.0)
+            else:
+                self._activate_camera(stage, "SPREADER_UNDERSIDE")
         if self._emergency_stopped:
             return command_triggered
         # Gripping and spreader resizing also require the dead-man switch.
@@ -1022,7 +1029,9 @@ class RtgGamepadManualController:
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, path)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(18.0 if mode == "GLOBAL" else 14.0)
+            camera.CreateFocalLengthAttr(
+                18.0 if mode == "GLOBAL" else self._trolley_camera_focal_length_mm
+            )
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
             prim = camera.GetPrim()
             xform = UsdGeom.Xformable(prim)
@@ -1032,6 +1041,27 @@ class RtgGamepadManualController:
             transform_attr.Set(self._camera_matrix(eye, target, up))
             UsdGeom.Imageable(prim).MakeInvisible()
         return path
+
+    def _adjust_trolley_camera_zoom(self, stage: Any, delta_mm: float) -> None:
+        """Step the trolley overhead camera focal length up or down."""
+
+        self._trolley_camera_focal_length_mm = max(
+            8.0,
+            min(40.0, self._trolley_camera_focal_length_mm + delta_mm),
+        )
+        try:
+            from pxr import UsdGeom
+
+            prim = stage.GetPrimAtPath(SPREADER_UNDERSIDE_CAMERA_PATH)
+            if prim:
+                focal_attr = UsdGeom.Camera(prim).CreateFocalLengthAttr()
+                focal_attr.Set(self._trolley_camera_focal_length_mm)
+        except Exception:
+            return
+        self._log(
+            "Trolley camera focal length: "
+            f"{self._trolley_camera_focal_length_mm:.0f} mm"
+        )
 
     def _pick_container(self, stage: Any) -> None:
         from pxr import Gf, Usd, UsdGeom
