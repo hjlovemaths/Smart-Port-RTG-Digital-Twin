@@ -199,6 +199,8 @@ class TwinStateCache:
         self._plc_at: Optional[float] = None
         self._task: Optional[Dict[str, Any]] = None
         self._task_at: Optional[float] = None
+        self._last_runinfo: Optional[str] = None
+        self._last_runinfo_at: Optional[float] = None
 
     def update_plc(self, plc_model: Dict[str, Any]) -> None:
         with self._lock:
@@ -244,6 +246,17 @@ class TwinStateCache:
             self._task_at = time.time()
             return True
 
+    def update_runinfo(self, content: Optional[Dict[str, Any]]) -> None:
+        """Store the latest runinfo description for the HUD overlay."""
+        if not content:
+            return
+        desc = text_value(content.get("msg_descption")) or text_value(content.get("msg_description")) or ""
+        if not desc:
+            return
+        with self._lock:
+            self._last_runinfo = desc
+            self._last_runinfo_at = time.time()
+
     def build_state(self) -> Dict[str, Any]:
         with self._lock:
             plc = dict(self._plc) if self._plc else None
@@ -271,6 +284,7 @@ class TwinStateCache:
             "rtgName": self.rtg_name,
             "pose": self._build_pose(plc, plc_age, plc_stale),
             "task": self._build_task(task, task_age),
+            "runinfo": self._build_runinfo(),
         }
 
     def _build_pose(
@@ -334,6 +348,23 @@ class TwinStateCache:
             "operationState": text_value(task.get("_twin_operation_state")),
             "completedAtUtc": text_value(task.get("_twin_completed_at")),
             "taskAgeSeconds": round(task_age, 3) if task_age is not None else None,
+        }
+
+    def _build_runinfo(self) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            message = self._last_runinfo
+            at_time = self._last_runinfo_at
+        if message is None:
+            return None
+        return {
+            "message": message,
+            "receivedAtUtc": (
+                datetime.fromtimestamp(at_time, tz=timezone.utc)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+                if at_time is not None
+                else None
+            ),
         }
 
 
@@ -515,8 +546,10 @@ class RtgTwinService:
         cmd_id, content = unwrap_core_message(raw)
         if cmd_id == "cmd_rcms_taskinfo":
             self.cache.update_task(content)
-        elif is_task_complete_runinfo(cmd_id, content):
-            self.cache.complete_task()
+        elif cmd_id == "cmd_rcms_runinfo":
+            self.cache.update_runinfo(content)
+            if is_task_complete_runinfo(cmd_id, content):
+                self.cache.complete_task()
 
     def _log_state_summary(self, state: Dict[str, Any]) -> None:
         now = time.time()

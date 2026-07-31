@@ -727,6 +727,7 @@ class RtgTwinStatusOverlay:
         self._window = None
         self._labels: Dict[str, Any] = {}
         self._last_values: Dict[str, str] = {}
+        self._runinfo_label: Any = None
         self._build()
 
     def update(self, state: Dict[str, Any], applied: Dict[str, Any]) -> None:
@@ -774,6 +775,13 @@ class RtgTwinStatusOverlay:
             self._last_values[key] = value
             self._set_label_text(key, value)
 
+        # Runinfo messages update independently — show the latest one.
+        runinfo = state.get("runinfo") or {}
+        runinfo_text = _fmt_text(runinfo.get("message"), "")
+        if runinfo_text and self._last_values.get("runinfo") != runinfo_text:
+            self._last_values["runinfo"] = runinfo_text
+            self._set_runinfo_text(runinfo_text)
+
     def destroy(self) -> None:
         if self._window is not None:
             try:
@@ -782,6 +790,7 @@ class RtgTwinStatusOverlay:
                 pass
             self._window = None
         self._labels.clear()
+        self._runinfo_label = None
 
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
@@ -798,7 +807,7 @@ class RtgTwinStatusOverlay:
         self._window = ui.Window(
             "RTG Twin HUD",
             width=270,
-            height=625,
+            height=710,
             visible=True,
             flags=flags,
         )
@@ -859,6 +868,18 @@ class RtgTwinStatusOverlay:
                             self._row(ui, label, key, name_style, value_style)
                         ui.Spacer(height=2)
 
+                with ui.Frame(style=panel_style, height=65):
+                    with ui.VStack(spacing=3):
+                        ui.Spacer(height=4)
+                        ui.Label("RUNINFO", style=title_style, height=18)
+                        info_style = {"color": 0xFFEEDDAA, "font_size": 11}
+                        self._runinfo_label = ui.Label(
+                            "--", width=248, height=36,
+                            word_wrap=True, alignment=ui.Alignment.LEFT,
+                            style=info_style,
+                        )
+                        ui.Spacer(height=2)
+
     def _row(self, ui: Any, name: str, key: str, name_style: Dict[str, Any], value_style: Dict[str, Any], height: int = 20) -> None:
         with ui.HStack(height=height):
             ui.Label(name, width=88, style=name_style)
@@ -874,6 +895,17 @@ class RtgTwinStatusOverlay:
         except Exception:
             try:
                 label.model.set_value(value)
+            except Exception:
+                pass
+
+    def _set_runinfo_text(self, text: str) -> None:
+        if self._runinfo_label is None:
+            return
+        try:
+            self._runinfo_label.text = text
+        except Exception:
+            try:
+                self._runinfo_label.model.set_value(text)
             except Exception:
                 pass
 
