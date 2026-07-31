@@ -22,6 +22,7 @@ Stop later with:
 
 from __future__ import annotations
 
+import builtins
 import copy
 import json
 import math
@@ -98,6 +99,15 @@ from yard_inventory import (  # noqa: E402
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
 STATUS_PRIM_PATH = "/World/LiveTwinState"
+DEMO_SEQUENCE_ARTIFACT_ROOTS = (
+    "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
+    "/World/LiveContainers/SequenceTruckLane",
+)
+DEMO_SEQUENCE_ARTIFACT_NAME_PREFIXES = (
+    "LIVE_internal_lane_truck",
+    "Task01_TruckLoadedBox",
+    "Task02_LoadedTruckBox",
+)
 LIVE_TASK_STACK_PATH = "/World/LiveContainers/LiveTaskStack"
 YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
 INVENTORY_MODE_LIVE = "live"
@@ -200,6 +210,104 @@ HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
 RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
+REMOTE_MANUAL_MODE_FLAG = "_SMART_PORT_RTG_REMOTE_MANUAL_ACTIVE"
+REMOTE_MANUAL_STATUS_KEY = "_SMART_PORT_RTG_REMOTE_MANUAL_STATUS"
+
+
+def remote_manual_mode_active() -> bool:
+    """Return whether the local gamepad is the selected pose authority.
+
+    The flag lives in ``builtins`` because Kit's Script Editor commonly runs
+    project scripts from generated modules.  A process-global flag therefore
+    works even when the receiver and the manual-control helper were executed
+    from separate editor tabs.
+    """
+
+    return bool(getattr(builtins, REMOTE_MANUAL_MODE_FLAG, False))
+
+
+def remote_manual_hud_snapshot() -> Optional[tuple[Dict[str, Any], Dict[str, Any]]]:
+    """Return the current locally-authoritative pose for the Twin HUD."""
+
+    snapshot = getattr(builtins, REMOTE_MANUAL_STATUS_KEY, None)
+    if not isinstance(snapshot, dict):
+        return None
+    state = snapshot.get("state")
+    applied = snapshot.get("applied")
+    if not isinstance(state, dict) or not isinstance(applied, dict):
+        return None
+    return state, applied
+
+
+def pause_timeline_for_live_control(log: Optional[Callable[[str], None]] = None) -> None:
+    """Stop authored demo animation while live/manual control owns the scene."""
+
+    try:
+        import omni.timeline  # type: ignore
+
+        timeline = omni.timeline.get_timeline_interface()
+        is_playing = getattr(timeline, "is_playing", None)
+        if callable(is_playing) and not is_playing():
+            return
+        pause = getattr(timeline, "pause", None)
+        if callable(pause):
+            pause()
+            if log is not None:
+                log("Paused Kit timeline playback for live RTG control")
+            return
+        stop = getattr(timeline, "stop", None)
+        if callable(stop):
+            stop()
+            if log is not None:
+                log("Stopped Kit timeline playback for live RTG control")
+    except Exception as exc:  # noqa: BLE001 - live updates should still apply
+        if log is not None:
+            log(f"unable to pause Kit timeline playback: {exc}")
+
+
+def disable_demo_sequence_artifacts(stage: Any) -> int:
+    """Deactivate authored sequence-demo truck artifacts for live/manual modes."""
+
+    from pxr import Usd, UsdGeom
+
+    paths: set[str] = set()
+    for path in DEMO_SEQUENCE_ARTIFACT_ROOTS:
+        prim = stage.GetPrimAtPath(path)
+        if prim:
+            paths.add(path)
+    for prim in stage.Traverse():
+        try:
+            name = str(prim.GetName())
+            path = str(prim.GetPath())
+        except RuntimeError:
+            continue
+        if any(
+            name.startswith(prefix)
+            for prefix in DEMO_SEQUENCE_ARTIFACT_NAME_PREFIXES
+        ):
+            paths.add(path)
+
+    disabled = 0
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for path in _top_level_paths(paths):
+            prim = stage.GetPrimAtPath(path)
+            if not prim:
+                continue
+            try:
+                prim.SetActive(False)
+            except Exception:
+                UsdGeom.Imageable(prim).MakeInvisible()
+            disabled += 1
+    return disabled
+
+
+def _top_level_paths(paths: set[str]) -> list[str]:
+    selected: list[str] = []
+    for path in sorted(paths, key=lambda item: (item.count("/"), item)):
+        if any(path.startswith(f"{parent}/") for parent in selected):
+            continue
+        selected.append(path)
+    return selected
 
 
 def _hoisted_container_local_center_z(container_height: float) -> float:
@@ -627,8 +735,15 @@ class RtgTwinStatusOverlay:
 
         values = {
             "device_id": _fmt_text(state.get("rtgName")),
+            "payload": _fmt_text(state.get("manualPayload")),
             "field": _fmt_text(pose.get("currentField")),
             "bay": _fmt_int(pose.get("currentBay")),
+            "bay_id": (
+                f"{_fmt_text(pose.get('currentField'))}/{_fmt_int(pose.get('currentBay')).zfill(3)}"
+                if pose.get("currentField") and _as_int(pose.get("currentBay"), 0) > 0
+                else "--"
+            ),
+            "control_mode": _fmt_text(applied.get("controlMode") or "LIVE"),
             "gantry": _fmt_number(gantry_m, 2, " m"),
             "trolley": _fmt_number(applied.get("trolleyMeter") or pose.get("trolleyMeter"), 2, " m"),
             "hoist": _fmt_number(applied.get("hoistMeter") or pose.get("hoistMeter"), 2, " m"),
@@ -678,7 +793,7 @@ class RtgTwinStatusOverlay:
         self._window = ui.Window(
             "RTG Twin HUD",
             width=270,
-            height=560,
+            height=625,
             visible=True,
             flags=flags,
         )
@@ -701,13 +816,16 @@ class RtgTwinStatusOverlay:
 
         with self._window.frame:
             with ui.VStack(spacing=6, style={"background_color": 0xAA02111F}):
-                with ui.Frame(style=panel_style, height=225):
+                with ui.Frame(style=panel_style, height=290):
                     with ui.VStack(spacing=5):
                         ui.Spacer(height=6)
                         ui.Label("DEVICE", style=title_style, height=20)
                         self._row(ui, "Device", "device_id", name_style, accent_style, height=28)
+                        self._row(ui, "Payload", "payload", name_style, value_style)
                         self._row(ui, "Field", "field", name_style, value_style)
                         self._row(ui, "Bay", "bay", name_style, value_style)
+                        self._row(ui, "Bay ID", "bay_id", name_style, accent_style)
+                        self._row(ui, "Mode", "control_mode", name_style, value_style)
                         self._row(ui, "Gantry", "gantry", name_style, value_style)
                         self._row(ui, "Trolley", "trolley", name_style, value_style)
                         self._row(ui, "Hoist", "hoist", name_style, value_style)
@@ -903,6 +1021,7 @@ class OmniverseRtgTwinDriver:
         self._subscription = None
         self._controller = None
         self._controller_stage_id: Optional[int] = None
+        self._demo_artifacts_stage_id: Optional[int] = None
         self._crossbeam_stage_id: Optional[int] = None
         self._lower_portal_crossbeam_path: Optional[str] = None
         self._lower_portal_crossbeam_checked: bool = False
@@ -934,6 +1053,10 @@ class OmniverseRtgTwinDriver:
         try:
             import omni.kit.app  # type: ignore
 
+            pause_timeline_for_live_control(self._log)
+            stage = self._current_stage()
+            if stage is not None:
+                self._disable_demo_artifacts_for_stage(stage)
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgTwinDriver"
@@ -946,6 +1069,7 @@ class OmniverseRtgTwinDriver:
         self._subscription = None
         self._controller = None
         self._controller_stage_id = None
+        self._demo_artifacts_stage_id = None
         self._crossbeam_stage_id = None
         self._lower_portal_crossbeam_path = None
         self._lower_portal_crossbeam_checked = False
@@ -968,6 +1092,15 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
+        if remote_manual_mode_active():
+            # Keep accepting TCP snapshots, but never let a delayed PLC frame
+            # overwrite an operator command while remote manual mode owns the
+            # three motion axes.  The HUD still receives the local engineering
+            # position and nearest bay calculated by the manual controller.
+            manual_snapshot = remote_manual_hud_snapshot()
+            if manual_snapshot is not None:
+                self._sync_status_overlay(*manual_snapshot)
+            return
         with self._latest_lock:
             state = self._latest_state
             self._latest_state = None
@@ -981,11 +1114,26 @@ class OmniverseRtgTwinDriver:
                 self._last_error_at = now
                 self._log(f"apply failed: {exc}")
 
+    def _disable_demo_artifacts_for_stage(self, stage: Any) -> None:
+        stage_id = id(stage)
+        if self._demo_artifacts_stage_id == stage_id:
+            return
+        try:
+            disabled = disable_demo_sequence_artifacts(stage)
+            if disabled:
+                self._log(
+                    f"Disabled {disabled} sequence-demo artifact(s) for live PLC mode"
+                )
+        except Exception as exc:  # noqa: BLE001 - live PLC updates should continue
+            self._log(f"unable to disable sequence-demo artifacts: {exc}")
+        self._demo_artifacts_stage_id = stage_id
+
     def apply_state(self, state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         stage = self._current_stage()
         if stage is None:
             return None
 
+        self._disable_demo_artifacts_for_stage(stage)
         self._sync_inventory_scene(stage)
         controller = self._controller_for_stage(stage)
         pose = dict(state.get("pose") or {})

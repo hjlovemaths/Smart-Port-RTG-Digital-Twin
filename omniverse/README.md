@@ -121,6 +121,74 @@ call, which is the entry point intended for the later ROS2/WPF data bridge.
 Use `set_positions()` when a command is allowed to reach the hard limits, and
 `set_positions_safe()` for normal operation inside the soft-limit envelope.
 
+### 手柄远程手动模式
+
+`scripts/rtg_gamepad_manual_control.py` 增加了本机优先的远程手动模式。它直接
+优先读取 Omniverse Kit 已识别的手柄（可覆盖 DirectInput 设备），并在 Kit 输入不可用
+时回退到 Windows XInput；不需要额外安装 Python 包。打开 `scenes/smart_port.usda`
+后，在 Kit Script Editor 运行：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_gamepad_manual_control.py", encoding="utf-8").read())
+start_gamepad_manual_mode()
+```
+
+如果接的是第二至第四个 XInput 手柄，调用 `start_gamepad_manual_mode(1)`、`(2)` 或
+`(3)`。模式启动会从当前 RTG 姿态接管，且实时 PLC/TwinState 仍会接收但不会覆盖本机
+手柄动作；执行 `stop_gamepad_manual_mode()` 后，控制权立即回到实时数据流。
+
+| 手柄输入 | 动作 |
+| --- | --- |
+| 按住右肩键（RB） | 死手开关；未按住时所有运动停止 |
+| 左摇杆上下 | 大车前后移动 |
+| 左摇杆左右 | 小车横移 |
+| 右摇杆上下 | 吊具升降（上推为起升） |
+| RB + A | 在吊具下方对位后锁箱 / 再按一次解锁放箱 |
+| RB + X / B | 切换 20 ft / 40 ft 吊具 |
+| 方向键上 | RTG 全局驾驶视角（跟随大车） |
+| 方向键下 | 吊具下方对位视角（跟随吊具，向下观察锁头） |
+| Back | 急停 |
+| Start | 解除急停；仍须按住 RB 才能运动 |
+
+键盘也可用于同一远程手动模式，便于不接手柄时先验证控制。移动时需一直按住
+`Space` 作为死手开关：
+
+| 键盘输入 | 动作 |
+| --- | --- |
+| `Space + W / S` | 大车前进 / 后退 |
+| `Space + D / A` | 小车右移 / 左移 |
+| `Space + ↑ / ↓` | 吊具起升 / 下降 |
+| `G` | 锁箱 / 解锁放箱 |
+| `1` / `2` | 切换 20 ft / 40 ft 吊具 |
+| `F` | 在 RTG 全局视角与吊具下方视角之间切换 |
+| `Home` / `End` | RTG 全局视角 / 吊具下方视角 |
+| `Esc` / `Enter` | 急停 / 解除急停 |
+
+抓箱不使用预设贝位、箱号或视口选中项。将吊具下降到目标箱上，按下锁箱后，脚本会根据
+主 RTG 四个红色锁脚当前落入哪个箱体顶面来判定目标（至少两个锁脚有效接触）；日志和
+`get_gamepad_manual_status()` 会显示实际锁住的 Prim 路径。锁住后，箱体会随大车、小车、
+吊具的后续运动一起移动；在新位置再次按 `G` 或 `RB + A` 解锁，即把这一个箱体放在当前位置。
+因此可自由驶往任意贝位、选择任意可接触箱体并搬运到另一贝位。
+手柄断开时，模式会保持接管但停止一切运动，避免 PLC 帧在断开瞬间驱动设备。通过
+`get_gamepad_manual_status()` 可以在 Script Editor 查询连接、急停和锁箱状态。
+启动时脚本还会暂时关闭 Kit 自带的 `Gamepad Camera Control`，使手柄只控制 RTG；退出
+手动模式时会恢复此前的相机导航设置。
+
+当 `rtg_twin_state_receiver.py` 的 `RTG Twin HUD` 已运行时，手动模式会实时更新 HUD
+中的 `Gantry`、`Trolley`、`Hoist`、`Field`、`Bay`、`Bay ID` 和 `Mode`。其中 `Bay ID`
+按当前大车工程米数映射为最近的堆场贝位，例如 `3C/063`；`Mode` 显示
+`REMOTE_MANUAL`，明确当前不是 PLC 驱动。
+
+仅在验证锁脚对位时，可使用下列测试辅助命令直接移动到当前仿真库存的一个示例位置；
+它不是正常远程操作的一部分，也不会给后续 `G` 锁箱写入固定目标：
+
+```python
+position_gamepad_manual_for_pick()
+```
+
+然后按住 RB 并短按 A 验证锁箱。正常使用时无需运行该辅助命令：直接将 RTG 驶到任意
+可触达箱体上方即可。
+
 ### PLC-free task simulation
 
 When no PLC publisher is available, use `scripts/rtg_simulation_driver.py` in

@@ -129,6 +129,74 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_demo_sequence_artifacts_are_disabled_without_touching_live_task_truck(self) -> None:
+        class Prim:
+            def __init__(self, path: str, parent: object = None) -> None:
+                self.path = path
+                self.parent = parent
+                self.children = []
+                self.active = True
+                self.expired = False
+                if parent is not None:
+                    parent.children.append(self)
+
+            def GetName(self) -> str:
+                if self.expired:
+                    raise RuntimeError("Accessed invalid expired prim")
+                return self.path.rsplit("/", 1)[-1]
+
+            def GetPath(self) -> str:
+                if self.expired:
+                    raise RuntimeError("Accessed invalid expired prim")
+                return self.path
+
+            def SetActive(self, value: bool) -> None:
+                self.active = value
+                if not value:
+                    for child in self.children:
+                        child.expired = True
+
+        class EditContext:
+            def __init__(self, *_args) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args) -> bool:
+                return False
+
+        demo_truck = Prim("/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft")
+        demo_truck_child = Prim(
+            "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft/LIVE_internal_lane_truck_headlight_left",
+            parent=demo_truck,
+        )
+        demo_box = Prim("/World/LiveContainers/Task01_TruckLoadedBox_To_R02_T03")
+        live_task_truck = Prim(f"{receiver.LIVE_TASK_TRUCK_PATH}/LoadedContainer")
+        prims = {
+            prim.path: prim
+            for prim in (demo_truck, demo_truck_child, demo_box, live_task_truck)
+        }
+        stage = types.SimpleNamespace(
+            GetSessionLayer=lambda: object(),
+            GetPrimAtPath=lambda path: prims.get(path),
+            Traverse=lambda: list(prims.values()),
+        )
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Usd = types.SimpleNamespace(EditContext=EditContext)
+        fake_pxr.UsdGeom = types.SimpleNamespace(
+            Imageable=lambda _prim: types.SimpleNamespace(MakeInvisible=lambda: None)
+        )
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            disabled = receiver.disable_demo_sequence_artifacts(stage)
+
+        self.assertEqual(disabled, 2)
+        self.assertFalse(demo_truck.active)
+        self.assertTrue(demo_truck_child.active)
+        self.assertFalse(demo_box.active)
+        self.assertTrue(live_task_truck.active)
+
     def test_inventory_can_restore_before_first_task_state(self) -> None:
         class RestoreDriver(receiver.OmniverseRtgTwinDriver):
             def __init__(self):

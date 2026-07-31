@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (62.884034255437435, 70.9448198145865, 60.25040471387416)
-                double3 target = (5.290434663940971, -7.335764568144114, 4.667680379952522)
+                double3 position = (9.063749040202238, -35.05384807188496, 13.136569738315039)
+                double3 target = (5.2904337277975815, -7.33576508009126, 4.667678640239712)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -18,7 +18,7 @@
                 double3 position = (0, 0, 500)
                 double radius = 73.860400390625
             }
-            string boundCamera = "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
+            string boundCamera = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/REMOTE_MANUAL_GLOBAL_CAMERA"
         }
         dictionary omni_layer = {
             string authoring_layer = "./smart_port.usda"
@@ -71,11 +71,11 @@ def Xform "World"
                 float exposure:responsivity = 1.1026709
                 float exposure:time = 0.02
                 bool omni:kit:cameraLock = 0
-                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -68.92462996110646)
+                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -53.691133987469655)
                 token visibility = "invisible"
-                float3 xformOp:rotateYXZ = (-1.7151954, 10.793875, 2.3924)
+                float3 xformOp:rotateYXZ = (0.7967801, -32.07531, -6.306942)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (137.13073331589175, 60.532791627613285, -284.8719069253503)
+                double3 xformOp:translate = (-19.1263159291517, 4.896108591772779, -13.204694681816516)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
             }
         }
@@ -1647,6 +1647,14 @@ def Xform "World"
                                 }
                             }
                         }
+
+                        over "REMOTE_MANUAL_SPREADER_UNDERSIDE_CAMERA"
+                        {
+                            float exposure:fStop = 5
+                            float exposure:responsivity = 1.1026709
+                            float exposure:time = 0.02
+                            custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -20.081656965630412)
+                        }
                     }
 
                     over "RTG_DYNAMIC_HOIST_ROPES"
@@ -1682,6 +1690,14 @@ def Xform "World"
                             925: [(1.062, -5.55, 8.81), (2.3456, -5.56, 8.110559), (1.098, -5.55, 8.81), (2.3456, -5.56, 8.110559), (1.062, -4.45, 8.81), (2.3456, -4.44, 8.110559), (1.098, -4.45, 8.81), (2.3456, -4.44, 8.110559), (1.912, -5.55, 8.81), (2.3456, -5.56, 8.110559), (1.948, -5.55, 8.81), (2.3456, -5.56, 8.110559), (1.912, -4.45, 8.81), (2.3456, -4.44, 8.110559), (1.948, -4.45, 8.81), (2.3456, -4.44, 8.110559), (3.012, -5.55, 8.81), (2.7524, -5.56, 8.110559), (3.048, -5.55, 8.81), (2.7524, -5.56, 8.110559), (3.012, -4.45, 8.81), (2.7524, -4.44, 8.110559), (3.048, -4.45, 8.81), (2.7524, -4.44, 8.110559), (3.862, -5.55, 8.81), (2.7524, -5.56, 8.110559), (3.898, -5.55, 8.81), (2.7524, -5.56, 8.110559), (3.862, -4.45, 8.81), (2.7524, -4.44, 8.110559), (3.898, -4.45, 8.81), (2.7524, -4.44, 8.110559)],
                         }
                     }
+                }
+
+                over "REMOTE_MANUAL_GLOBAL_CAMERA"
+                {
+                    float exposure:fStop = 5
+                    float exposure:responsivity = 1.1026709
+                    float exposure:time = 0.02
+                    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -20.13114288751537)
                 }
             }
         }
@@ -2617,6 +2633,456 @@ def Xform "World"
             custom float rtg:visualOneOverSixUpperLimit = 4.483059
         }
     }
+
+    over "LiveContainers"
+    {
+        over "YardInventory"
+        {
+            over "Bay_1C_019"
+            {
+                over "R05_T02_Container_WeatheredTop" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Front_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Front_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Back_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Front_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Back_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Front_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Back_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Back_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom string live:bayId = "1C/019"
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    custom int live:row = 3
+                    custom int live:tier = 1
+                    custom int live:tiers = 1
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Back_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R05_T02_Container_Front_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R04_T03_Container_WeatheredTop" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Back_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Front_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Front_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Back_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Front_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Front_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Back_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Back_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Front_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R04_T03_Container_Back_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T02_Container"
+                }
+
+                over "R03_T01_Container_Front_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Front_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Back_Rib_02" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom string live:bayId = "1C/019"
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    custom int live:row = 4
+                    custom int live:tier = 4
+                    custom int live:tiers = 4
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Front_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Back_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Back_Rib_04" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_WeatheredTop" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Front_Rib_03" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Back_BottomLine" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Front_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+
+                over "R03_T01_Container_Back_Rib_01" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsRigidBodyAPI"]
+                )
+                {
+                    custom token live:manualReleaseMode = "rigid_settled"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_019/R04_T03_Container"
+                    custom bool live:manualToppled = 0
+                    bool physics:rigidBodyEnabled = 0
+                }
+            }
+
+            over "Bay_1C_021"
+            {
+                over "R05_T03_Container_WeatheredTop"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Front_Rib_01"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Back_Rib_04"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Front_Rib_02"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container"
+                {
+                    custom string live:bayId = "1C/021"
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                    custom int live:row = 5
+                    custom int live:tier = 3
+                    custom int live:tiers = 3
+                    vector3f physics:angularVelocity = (8.792839, 106.39227, -6.7042775)
+                    vector3f physics:velocity = (-0.3749638, 0.09572213, -0.23538026)
+                    quatf xformOp:orient = (0.9998921, 0.00015154383, -0.014658615, 0.00092448073)
+                    float3 xformOp:scale = (1.306287, 2.475, 0.9012225)
+                    double3 xformOp:translate = (0.42281830310821533, 27.463680267333984, 2.5094804763793945)
+                    token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+
+                over "R05_T03_Container_Front_Rib_04"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Back_Rib_02"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Back_Rib_03"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Back_BottomLine"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Front_BottomLine"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Front_Rib_03"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+
+                over "R05_T03_Container_Back_Rib_01"
+                {
+                    custom token live:manualReleaseMode = "dynamic_rigid"
+                    custom string live:manualSupportPath = "/World/LiveContainers/YardInventory/Bay_1C_021/R05_T02_Container"
+                    custom bool live:manualToppled = 0
+                }
+            }
+        }
+    }
 }
 
 def "Render" (
@@ -2636,11 +3102,12 @@ def "Render" (
                 no_delete = true
             )
             {
-                rel camera = </World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data>
+                rel camera = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/REMOTE_MANUAL_GLOBAL_CAMERA>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
                 token omni:rtx:background:source:type = "domeLight"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                string omni:rtx:debug:view:target = ""
                 token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
                 bool omni:rtx:dlss:frameGeneration = 1
                 bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
@@ -2658,9 +3125,11 @@ def "Render" (
                 int omni:rtx:rt:sss:samples = 1
                 uint omni:rtx:rtpt:maxVolumeBounces = 15
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:wireframe:enabled = 1
+                token omni:rtx:wireframe:mode = "instance"
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
-                uniform int2 resolution = (1809, 663)
+                uniform int2 resolution = (1343, 585)
             }
         }
     }
@@ -2702,12 +3171,15 @@ over "OmniverseKit_Persp" (
 )
 {
     float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -111.95674097430731)
-    float3 xformOp:rotateXYZ = (60.23353, 2.842171e-14, 143.65686)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -29.227592265149898)
+    float3 xformOp:rotateXYZ = (73.15661, 2.842171e-14, 7.7521305)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (62.884034255437435, 70.9448198145865, 60.25040471387416)
+    double3 xformOp:translate = (9.063749040202238, -35.05384807188496, 13.136569738315039)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -2788,3 +3260,4 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
+

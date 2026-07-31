@@ -16,6 +16,7 @@ operation state machine are all used by the simulation.
 
 from __future__ import annotations
 
+import builtins
 import sys
 import time
 import types
@@ -231,6 +232,7 @@ class RtgSimulationDriver:
         self._pending_tasks: list[Dict[str, Any]] = []
         self._submission_sequence = 0
         self._next_task_start_pending = False
+        self._manual_pause_announced = False
 
     @property
     def state(self) -> Optional[str]:
@@ -381,6 +383,16 @@ class RtgSimulationDriver:
         }
 
     def _on_update(self, _event: Any) -> None:
+        # Remote manual mode owns all three RTG axes.  The simulation must not
+        # apply its next task pose behind the operator's back; doing so caused
+        # a correctly targeted manual move to drift away from its bay on the
+        # following frame.
+        if bool(getattr(builtins, "_SMART_PORT_RTG_REMOTE_MANUAL_ACTIVE", False)):
+            if not self._manual_pause_announced:
+                self._manual_pause_announced = True
+                print("[RTG Simulation] paused while remote manual mode is active")
+            return
+        self._manual_pause_announced = False
         if self._task is None or self._machine is None:
             return
 

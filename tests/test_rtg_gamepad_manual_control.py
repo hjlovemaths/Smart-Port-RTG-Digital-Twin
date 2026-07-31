@@ -245,6 +245,16 @@ class GamepadInputMappingTests(unittest.TestCase):
             (-1.0981016666666639 + 0.4081853333333361) * 0.5,
         )
 
+    def test_carried_box_x_inverse_round_trips_visible_position(self) -> None:
+        controller = self.manual.RtgGamepadManualController
+        world_x = controller._carried_box_world_x(6.66)
+
+        self.assertIsNotNone(world_x)
+        self.assertAlmostEqual(
+            controller._trolley_m_for_carried_box_world_x(world_x),
+            6.66,
+        )
+
     def test_release_support_defaults_to_ground(self) -> None:
         support_z, support_path = (
             self.manual.RtgGamepadManualController._release_support_from_bounds(
@@ -287,6 +297,115 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertAlmostEqual(support_z, self.manual.RELEASE_GROUND_SUPPORT_Z_M)
         self.assertEqual(support_path, "ground")
 
+    def test_vertical_contact_penetration_blocks_container_intersection(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._vertical_contact_penetration(
+                (-1.0, -1.0, 2.90),
+                (1.0, 1.0, 3.90),
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "/World/Support")
+        self.assertAlmostEqual(
+            penetration,
+            0.10 + self.manual.CARRIED_CONTAINER_CONTACT_CLEARANCE_M,
+        )
+
+    def test_vertical_contact_penetration_is_zero_when_above_support(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._vertical_contact_penetration(
+                (-1.0, -1.0, 3.02),
+                (1.0, 1.0, 4.02),
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "/World/Support")
+        self.assertEqual(penetration, 0.0)
+
+    def test_spreader_vertical_contact_penetration_blocks_lock_foot_embedding(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_vertical_contact_penetration(
+                [(0.0, 0.0, 2.94), (3.0, 0.0, 2.94)],
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "/World/Support")
+        self.assertAlmostEqual(
+            penetration,
+            0.06 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+        )
+
+    def test_spreader_vertical_contact_ignores_feet_outside_container_top(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_vertical_contact_penetration(
+                [(1.20, 0.0, 2.50)],
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "ground")
+        self.assertEqual(penetration, 0.0)
+
+    def test_spreader_tool_contact_blocks_body_embedding_between_lock_feet(self) -> None:
+        tool_minimum, tool_maximum = (
+            self.manual.RtgGamepadManualController._spreader_tool_vertical_contact_bounds(
+                [(-2.0, 0.0, 2.92), (2.0, 0.0, 2.92)]
+            )
+        )
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_tool_vertical_contact_penetration(
+                tool_minimum,
+                tool_maximum,
+                [("/World/Support", (-0.6, -0.6, 0.0), (0.6, 0.6, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "/World/Support")
+        self.assertAlmostEqual(
+            penetration,
+            0.08 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+        )
+
+    def test_spreader_tool_contact_ignores_non_overlapping_body(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_tool_vertical_contact_penetration(
+                (-3.0, -3.0, 2.50),
+                (-2.0, -2.0, 3.50),
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "ground")
+        self.assertEqual(penetration, 0.0)
+
+    def test_spreader_tool_contact_does_not_mix_separate_part_bounds(self) -> None:
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_tool_bounds_vertical_contact_penetration(
+                [
+                    ((-3.0, -3.0, 2.20), (-2.0, -2.0, 3.20)),
+                    ((-0.5, -0.5, 2.96), (0.5, 0.5, 3.30)),
+                ],
+                [("/World/Support", (-1.0, -1.0, 0.0), (1.0, 1.0, 3.0))],
+            )
+        )
+
+        self.assertEqual(support_path, "/World/Support")
+        self.assertAlmostEqual(
+            penetration,
+            0.04 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+        )
+
+    def test_container_contact_root_name_rejects_container_collection_parent(self) -> None:
+        helper = self.manual.RtgGamepadManualController._is_container_contact_root_name
+
+        self.assertFalse(helper("LiveContainers", has_live_bay=False))
+        self.assertFalse(helper("YardInventory", has_live_bay=False))
+        self.assertTrue(helper("R06_T02_Container", has_live_bay=False))
+        self.assertTrue(helper("AnyName", has_live_bay=True))
+
     def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
         plan = self.manual.RtgGamepadManualController._release_topple_plan(
             (-1.0, -1.0, 3.0),
@@ -310,6 +429,40 @@ class GamepadInputMappingTests(unittest.TestCase):
             self.manual.RtgGamepadManualController._topple_angle_degrees("Y", 1),
             90.0,
         )
+
+    def test_dynamic_release_uses_tip_velocity_instead_of_final_rotation(self) -> None:
+        velocity = (
+            self.manual.RtgGamepadManualController._release_angular_velocity_components(
+                ("Y", -1, 1.0)
+            )
+        )
+
+        self.assertEqual(
+            velocity,
+            (
+                self.manual.RELEASE_TOPPLE_PERTURBATION_DEG_S,
+                -self.manual.RELEASE_TOPPLE_ANGULAR_SPEED_DEG_S,
+                0.0,
+            ),
+        )
+
+    def test_stable_dynamic_release_has_no_synthetic_tip_velocity(self) -> None:
+        velocity = (
+            self.manual.RtgGamepadManualController._release_angular_velocity_components(
+                None
+            )
+        )
+
+        self.assertEqual(velocity, (0.0, 0.0, 0.0))
+
+    def test_physx_quaternion_components_use_xyzw_order(self) -> None:
+        quaternion = (
+            self.manual.RtgGamepadManualController._quaternion_xyzw(
+                [0.1, 0.2, 0.3, 0.9]
+            )
+        )
+
+        self.assertEqual(quaternion, (0.1, 0.2, 0.3, 0.9))
 
     def test_rotate_point_around_y_axis_can_topple_center_downward(self) -> None:
         rotated = self.manual.RtgGamepadManualController._rotate_point_around_axis(
@@ -356,6 +509,71 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertEqual(delta[1], 0.0)
         self.assertLessEqual(
             delta[0], self.manual.SPREADER_COLLISION_MAX_NUDGE_M
+        )
+
+    def test_carried_payload_collision_nudge_is_micro_limited(self) -> None:
+        delta = self.manual.RtgGamepadManualController._collision_nudge_delta(
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+            (0.2, -0.5, 0.0),
+            (2.0, 0.5, 1.0),
+            motion_xy=(0.2, 0.0),
+            min_nudge_m=self.manual.CARRIED_CONTAINER_COLLISION_NUDGE_MIN_M,
+            max_nudge_m=self.manual.CARRIED_CONTAINER_COLLISION_NUDGE_MAX_M,
+            response_ratio=self.manual.CARRIED_CONTAINER_COLLISION_NUDGE_RESPONSE_RATIO,
+        )
+
+        self.assertGreater(delta[0], 0.0)
+        self.assertLessEqual(
+            delta[0],
+            self.manual.CARRIED_CONTAINER_COLLISION_NUDGE_MAX_M,
+        )
+
+    def test_carried_collision_separation_blocks_motion_into_container(self) -> None:
+        delta = self.manual.RtgGamepadManualController._carried_collision_separation_delta(
+            (-1.0, -1.0, 1.0),
+            (1.0, 1.0, 3.0),
+            (0.8, -0.5, 0.0),
+            (2.0, 0.5, 2.5),
+            motion_xy=(0.2, 0.0),
+        )
+
+        self.assertLess(delta[0], 0.0)
+        self.assertEqual(delta[1], 0.0)
+        self.assertAlmostEqual(
+            abs(delta[0]),
+            0.2 + self.manual.CARRIED_CONTAINER_COLLISION_CLEARANCE_M,
+        )
+
+    def test_carried_collision_separation_uses_y_axis_for_y_motion(self) -> None:
+        delta = self.manual.RtgGamepadManualController._carried_collision_separation_delta(
+            (-1.0, -1.0, 1.0),
+            (1.0, 1.0, 3.0),
+            (-0.5, 0.8, 0.0),
+            (0.5, 2.0, 2.5),
+            motion_xy=(0.0, 0.2),
+        )
+
+        self.assertEqual(delta[0], 0.0)
+        self.assertLess(delta[1], 0.0)
+
+    def test_collision_candidate_filters_far_bays_and_rows(self) -> None:
+        helper = self.manual.RtgGamepadManualController._is_nearby_collision_candidate
+
+        self.assertTrue(
+            helper(("1C/019", 6, 2), current_bay_id="1C/019", current_row=6)
+        )
+        self.assertTrue(
+            helper(("1C/021", 5, 1), current_bay_id="1C/019", current_row=6)
+        )
+        self.assertFalse(
+            helper(("1C/031", 6, 1), current_bay_id="1C/019", current_row=6)
+        )
+        self.assertFalse(
+            helper(("1C/019", 2, 1), current_bay_id="1C/019", current_row=6)
+        )
+        self.assertFalse(
+            helper(("2C/019", 6, 1), current_bay_id="1C/019", current_row=6)
         )
 
     def test_released_location_stacks_on_support_container_metadata(self) -> None:
