@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+from typing import Any
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
@@ -66,7 +67,9 @@ CONTAINER_COLORS = (
     ("warm_gray", Gf.Vec3f(0.47, 0.50, 0.46)),
     ("faded_teal", Gf.Vec3f(0.07, 0.36, 0.34)),
     ("sand_yellow", Gf.Vec3f(0.66, 0.52, 0.20)),
-    ("dark_navy", Gf.Vec3f(0.03, 0.06, 0.14)),
+    # Keep the darkest test-box color readable under RTG shadows; the previous
+    # near-black navy made a complete side face look missing in Composer.
+    ("dark_navy", Gf.Vec3f(0.12, 0.24, 0.42)),
 )
 
 
@@ -143,8 +146,33 @@ def material(stage: Usd.Stage, name: str, color: Gf.Vec3f) -> UsdShade.Material:
 def set_cube_transform(cube: UsdGeom.Cube, center: Gf.Vec3d, scale: Gf.Vec3f) -> None:
     cube.CreateSizeAttr(1.0)
     xform = UsdGeom.Xformable(cube.GetPrim())
-    xform.AddTranslateOp().Set(center)
-    xform.AddScaleOp().Set(scale)
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:translate",
+        xform.AddTranslateOp,
+    ).Set(center)
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:scale",
+        xform.AddScaleOp,
+    ).Set(scale)
+
+
+def _get_or_add_xform_op(
+    xform: UsdGeom.Xformable,
+    op_name: str,
+    add_op: Any,
+) -> UsdGeom.XformOp:
+    ordered_ops = list(xform.GetOrderedXformOps())
+    for op in ordered_ops:
+        if op.GetOpName() == op_name:
+            return op
+    attr = xform.GetPrim().GetAttribute(op_name)
+    if attr:
+        op = UsdGeom.XformOp(attr)
+        xform.SetXformOpOrder(ordered_ops + [op])
+        return op
+    return add_op()
 
 
 def create_container_box(

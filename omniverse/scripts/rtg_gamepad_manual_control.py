@@ -72,6 +72,26 @@ DEMO_SEQUENCE_ARTIFACT_NAME_PREFIXES = (
 SPREADER_GEOMETRY_NAME_PREFIXES = (
     "RTG_SPREAD_REDRAW",
 )
+# Only solid spreader parts belong to the contact envelope.  Flexible hoses and
+# rope/sheave rigging share the same export prefix; one long hydraulic hose
+# extends several metres below the lock feet and previously stopped the hoist
+# about 1.85 m above a released box.
+SPREADER_COLLISION_GEOMETRY_NAME_TOKENS = (
+    "container_corner_socket_shadow",
+    "lower_shadow_under_main_beam",
+    "twistlock_pin",
+    "cross_tie",
+    "end_cross_beam",
+    "main_spreader_box_beam",
+    "outer_long_side_box",
+    "end_cross_beam_top_cap",
+    "outer_long_side_top_edge",
+    "top_plate_on_gray_main_beam",
+    "maintenance_cover",
+    "corner_guide_upright",
+    "corner_hook_lip",
+    "corner_lock_foot",
+)
 TROLLEY_PATH = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
     "ANIM_CTRL_RTG_TROLLEY_TRAVEL"
@@ -125,6 +145,7 @@ MANUAL_PHYSICS_TIMESTEP_SECONDS = 1.0 / 60.0
 MANUAL_PHYSICS_MAX_SUBSTEPS = 3
 MANUAL_PHYSICS_SETTLE_SECONDS = 0.90
 MANUAL_PHYSICS_SETTLE_TRANSLATION_M = 0.001
+MANUAL_PHYSICS_SETTLE_ROTATION_MATRIX_DELTA = 0.001
 MANUAL_PHYSICS_GROUND_THICKNESS_M = 0.20
 MANUAL_PHYSICS_GROUND_HALF_EXTENT_M = 2500.0
 MANUAL_PHYSICS_ROOT_PATH = "/World/ManualReleasePhysics"
@@ -146,7 +167,10 @@ CARRIED_CONTAINER_COLLISION_LOG_INTERVAL_SECONDS = 0.75
 CARRIED_CONTAINER_COLLISION_NUDGE_MIN_M = 0.002
 CARRIED_CONTAINER_COLLISION_NUDGE_MAX_M = 0.012
 CARRIED_CONTAINER_COLLISION_NUDGE_RESPONSE_RATIO = 0.06
-SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.005
+# The generated live-box weathered top sits about 0.021 m above its rigid cube.
+# Keep a small visual clearance above that decoration so the rendered spreader
+# cannot appear embedded even though the physical cube has already contacted.
+SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.030
 SPREADER_VERTICAL_CONTACT_EDGE_TOLERANCE_M = 0.08
 SPREADER_VERTICAL_CONTACT_LOG_INTERVAL_SECONDS = 0.75
 SPREADER_COLLISION_HORIZONTAL_MARGIN_M = 0.08
@@ -159,6 +183,8 @@ SPREADER_COLLISION_BAY_WINDOW = 2
 SPREADER_COLLISION_MIN_NUDGE_M = 0.015
 SPREADER_COLLISION_MAX_NUDGE_M = 0.08
 SPREADER_COLLISION_RESPONSE_RATIO = 0.35
+SPREADER_RELEASE_COLLISION_GRACE_SECONDS = 0.20
+SPREADER_RELEASE_COLLISION_CLEARANCE_M = 0.02
 TROLLEY_ROW_CENTERS_M = {
     1: 18.06,
     2: 15.19,
@@ -494,8 +520,10 @@ class RtgGamepadManualController:
         self._spreader_vertical_contact_active = False
         self._live_container_root_paths: Optional[tuple[str, ...]] = None
         self._container_contact_root_paths: Optional[tuple[str, ...]] = None
+        self._container_visual_contact_paths: Optional[tuple[str, ...]] = None
         self._pending_release_animations: list[dict[str, Any]] = []
         self._dynamic_releases: list[dict[str, Any]] = []
+        self._settled_dynamic_releases: dict[str, dict[str, Any]] = {}
         self._manual_physics_accumulator = 0.0
         self._manual_physics_time = 0.0
         self._manual_physics_started = False
@@ -584,6 +612,7 @@ class RtgGamepadManualController:
             freeze = getattr(self, "_freeze_dynamic_bodies", None)
             if callable(freeze):
                 freeze(stage)
+        self._set_spreader_camera_grid(False)
         self._restore_kit_gamepad_camera_control()
         self._previous_buttons = 0
         self._gamepad_was_connected = False
@@ -659,7 +688,12 @@ class RtgGamepadManualController:
         self._advance_pick_alignment(stage)
         self._limit_spreader_vertical_contact(
             stage,
-            lowering_requested=lowering_requested or aligning_pick,
+            # Horizontal travel can enter the side of a high stack while the
+            # spreader is already below its top plane.  Run the same complete
+            # tool-envelope check for that motion as for lowering.
+            lowering_requested=(
+                lowering_requested or horizontal_motion_requested or aligning_pick
+            ),
         )
         # Keep a locked box synchronized on every Kit frame.  This covers the
         # lock frame itself and any pose update that happens between gamepad
@@ -674,6 +708,7 @@ class RtgGamepadManualController:
             elapsed,
             horizontal_motion_requested=horizontal_motion_requested,
         )
+        self._refresh_spreader_model_camera_grid(stage)
         self._write_status(stage, connected=gamepad_connected)
 
     @staticmethod
@@ -829,12 +864,14 @@ class RtgGamepadManualController:
         self._spreader_geometry_paths = None
         self._live_container_root_paths = None
         self._container_contact_root_paths = None
+        self._container_visual_contact_paths = None
         self._last_collision_probe_center_world = None
         self._last_collision_scan_at = 0.0
         self._last_spreader_contact_notice_at = 0.0
         self._spreader_vertical_contact_active = False
         self._last_carried_collision_center_world = None
         self._dynamic_releases = []
+        self._settled_dynamic_releases = {}
         self._manual_physics_accumulator = 0.0
         self._manual_physics_time = 0.0
         self._manual_physics_started = False
@@ -1027,10 +1064,40 @@ class RtgGamepadManualController:
             viewport.camera_path = camera_path
         except Exception as exc:  # noqa: BLE001 - preserve manual motion if UI changes
             self._log(f"Could not switch to {mode} view: {exc}")
-            return
         self._active_camera_mode = mode
+        self._set_spreader_camera_grid(mode == "SPREADER_UNDERSIDE", stage=stage)
         label = "RTG default camera" if mode == "GLOBAL" else "trolley overhead"
         self._log(f"Switched to {label} view.")
+
+    def _set_spreader_camera_grid(self, enabled: bool, stage: Any = None) -> None:
+        """Keep the four-corner model-camera panel aligned with the operator view."""
+
+        try:
+            # Clean up the earlier RTSP panel if this script was reloaded after
+            # the previous implementation was used in the same Kit process.
+            import rtg_camera_popup  # type: ignore
+            rtg_camera_popup.stop_rtg_spreader_camera_grid()
+            import rtg_model_camera_grid  # type: ignore
+
+            if enabled:
+                if stage is None:
+                    stage = self._current_stage()
+                if stage is not None:
+                    rtg_model_camera_grid.start_rtg_model_camera_grid(stage)
+            else:
+                rtg_model_camera_grid.stop_rtg_model_camera_grid()
+        except Exception as exc:  # noqa: BLE001 - video must not block RTG control
+            self._log(f"Spreader camera grid unavailable: {exc}")
+
+    def _refresh_spreader_model_camera_grid(self, stage: Any) -> None:
+        if self._active_camera_mode != "SPREADER_UNDERSIDE":
+            return
+        try:
+            import rtg_model_camera_grid  # type: ignore
+
+            rtg_model_camera_grid.refresh_rtg_model_camera_grid(stage)
+        except Exception as exc:  # noqa: BLE001 - camera refresh must not block control
+            self._log(f"Spreader model camera refresh unavailable: {exc}")
 
     @staticmethod
     def _camera_matrix(eye: Any, target: Any, up: Any) -> Any:
@@ -1113,6 +1180,15 @@ class RtgGamepadManualController:
         if self._pending_pick_alignment is not None:
             self._log("Automatic lock-foot alignment is still running; wait for the aligned message.")
             return
+        # A lock command must never preserve an already-penetrating attachment
+        # pose.  Correct the complete spreader envelope first and wait one Kit
+        # frame before resolving the candidate against the new world bounds.
+        if self._limit_spreader_vertical_contact(stage, lowering_requested=True):
+            self._log(
+                "Spreader/container penetration was corrected before lock; "
+                "press lock again after the tool is seated."
+            )
+            return
         # Use the real red lock feet.  The hoist origin is offset from the
         # yellow spreader and can otherwise select a box behind the spreader.
         lock_foot_points = self._spreader_lock_foot_points(stage)
@@ -1128,13 +1204,11 @@ class RtgGamepadManualController:
         )
         current_row = self._nearest_row_for_trolley_m(self._trolley_m)
         current_row_id = f"R{current_row:02d}" if current_row is not None else "--"
-        if current_row is None:
-            self._log(
-                "No stack row is under the trolley centre; "
-                f"trolley={self._trolley_m:.2f} m."
-            )
-            return
-        trolley_delta = self._trolley_row_delta_m(current_row)
+        trolley_delta = (
+            self._trolley_row_delta_m(current_row)
+            if current_row is not None
+            else 0.0
+        )
         trolley_horizontal = abs(trolley_delta)
         # ``xformOp:scale`` is local to an inventory prim.  The live yard can
         # additionally be placed through parent/reference transforms, so it
@@ -1164,29 +1238,56 @@ class RtgGamepadManualController:
             bay_attr = prim.GetAttribute("live:bayId")
             if not bay_attr or "Container" not in prim.GetName():
                 continue
+            manually_released = self._is_manually_released_container(prim)
             # Longitudinal contact is represented by the current business bay.
             # This prevents ignoring Y from ever locking a geometrically
             # similar box in another bay, while avoiding false failures caused
-            # by the RTG's bay-stop visual centreline corrections.
-            if current_bay_id is not None and str(bay_attr.Get()) != current_bay_id:
-                continue
+            # by the RTG's bay-stop visual centreline corrections.  A manually
+            # released box can be placed anywhere, so its stale inventory
+            # address must not participate in re-pick filtering.
+            if not manually_released:
+                if current_row is None:
+                    continue
+                if current_bay_id is not None and str(bay_attr.Get()) != current_bay_id:
+                    continue
             row = self._live_container_row(prim)
-            if current_row is not None and row is not None and row != current_row:
+            if (
+                not manually_released
+                and current_row is not None
+                and row is not None
+                and row != current_row
+            ):
                 continue
-            bounds = self._world_container_bounds(bbox_cache, prim)
+            bounds = (
+                self._manual_release_bounds_for_pick(stage, bbox_cache, prim)
+                if manually_released
+                else self._world_container_bounds(bbox_cache, prim)
+            )
             if bounds is None:
                 continue
             minimum, maximum = bounds
             center = (minimum + maximum) * 0.5
-            dx = trolley_delta
+            dx = (
+                float(center[0] - lock_contact[0])
+                if manually_released
+                else trolley_delta
+            )
             dy = float(center[1] - lock_contact[1])
             dz = float(maximum[2] - lock_contact[2])
-            horizontal = trolley_horizontal
+            horizontal = (
+                math.hypot(dx, dy)
+                if manually_released
+                else trolley_horizontal
+            )
             vertical = abs(dz)
             foot_count, footprint_error, footprint_gap = self._container_lock_foot_contact(
-                lock_foot_points, minimum, maximum, ignore_x=True, ignore_y=True
+                lock_foot_points,
+                minimum,
+                maximum,
+                ignore_x=not manually_released,
+                ignore_y=not manually_released,
             )
-            if horizontal > PICK_HORIZONTAL_TOLERANCE_M:
+            if not manually_released and horizontal > PICK_HORIZONTAL_TOLERANCE_M:
                 foot_count = 0
                 footprint_error += horizontal
                 footprint_gap += horizontal
@@ -1754,10 +1855,25 @@ class RtgGamepadManualController:
 
         source_path = str(source.GetPath())
         self._deactivate_dynamic_release_for_pick(stage, source_path)
+        getattr(self, "_settled_dynamic_releases", {}).pop(source_path, None)
         cache = UsdGeom.XformCache()
         initial_source_world = Gf.Matrix4d(
             cache.GetLocalToWorldTransform(source)
         )
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        initial_source_bounds = self._world_container_bounds(bbox_cache, source)
+        source_half_extents = None
+        if initial_source_bounds is not None:
+            initial_minimum, initial_maximum = initial_source_bounds
+            source_half_extents = Gf.Vec3d(
+                abs(float(initial_maximum[0]) - float(initial_minimum[0])) * 0.5,
+                abs(float(initial_maximum[1]) - float(initial_minimum[1])) * 0.5,
+                abs(float(initial_maximum[2]) - float(initial_minimum[2])) * 0.5,
+            )
         followers: dict[str, Any] = {}
         for path in component_paths:
             if path == source_path:
@@ -1817,6 +1933,11 @@ class RtgGamepadManualController:
             except Exception:
                 pass
             self._bind_manual_physics_material(stage, source)
+            if initial_source_bounds is not None:
+                self._set_manual_release_recorded_bounds(
+                    source,
+                    initial_source_bounds,
+                )
 
             for path in followers:
                 component = stage.GetPrimAtPath(path)
@@ -1841,6 +1962,7 @@ class RtgGamepadManualController:
                     initial_source_world
                 ),
                 "followers": followers,
+                "sourceHalfExtents": source_half_extents,
                 "needsWake": True,
                 "releasedAt": time.monotonic(),
                 "expectedFreeDropM": float(expected_free_drop_m),
@@ -1849,6 +1971,7 @@ class RtgGamepadManualController:
                 ),
                 "motionReported": False,
                 "stuckReported": False,
+                "spreaderClearanceConfirmed": False,
             }
         )
         self._manual_physics_accumulator = 0.0
@@ -2173,6 +2296,7 @@ class RtgGamepadManualController:
         from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
         cache = UsdGeom.XformCache()
+        settled_releases: list[tuple[dict[str, Any], str]] = []
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             for release in list(self._dynamic_releases):
                 source = stage.GetPrimAtPath(release["sourcePath"])
@@ -2195,7 +2319,8 @@ class RtgGamepadManualController:
                 origin_delta_z = (
                     current_origin_z - float(release["initialOriginZ"])
                 )
-                release_age = time.monotonic() - float(release["releasedAt"])
+                now = time.monotonic()
+                release_age = now - float(release["releasedAt"])
                 if (
                     abs(origin_delta_z) >= 0.01
                     and not release.get("motionReported")
@@ -2252,6 +2377,13 @@ class RtgGamepadManualController:
                 target_source_world = self._apply_scale_to_matrix(
                     current_motion_pose, source_scale
                 )
+                recorded_bounds = self._release_bounds_from_state(release)
+                if recorded_bounds is not None:
+                    self._set_manual_release_recorded_bounds(
+                        source,
+                        recorded_bounds,
+                    )
+                target_source_local = None
                 source_parent = source.GetParent()
                 if source_parent:
                     source_parent_world = Gf.Matrix4d(
@@ -2266,6 +2398,7 @@ class RtgGamepadManualController:
                     )
                 # Decorative pieces remain rigidly attached to the source.
                 # Their own thin non-uniform scales are retained exactly.
+                target_follower_locals: dict[str, Any] = {}
                 for path, initial_world in release["followers"].items():
                     component = stage.GetPrimAtPath(path)
                     if not component or not component.GetParent():
@@ -2289,7 +2422,164 @@ class RtgGamepadManualController:
                     target_local = (
                         target_follower_world * parent_world.GetInverse()
                     )
+                    target_follower_locals[path] = target_local
                     self._set_local_transform_matrix(component, target_local)
+                if self._dynamic_release_is_settled(
+                    release,
+                    current_motion_pose,
+                    now=now,
+                ):
+                    body = UsdPhysics.RigidBodyAPI.Get(stage, source.GetPath())
+                    if body:
+                        body.CreateVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
+                        body.CreateAngularVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
+                        body.CreateRigidBodyEnabledAttr(False)
+                        body.CreateKinematicEnabledAttr(True)
+                    # Disabling a dynamic body can make PhysX restore the pose
+                    # it had when simulation began.  Author the final pose a
+                    # second time *after* disabling it so later BBox queries
+                    # and re-pick contact use the same location the operator
+                    # sees, instead of the box's old inventory transform.
+                    if target_source_local is not None:
+                        self._set_local_transform_matrix(
+                            source,
+                            target_source_local,
+                        )
+                    for path, target_local in target_follower_locals.items():
+                        component = stage.GetPrimAtPath(path)
+                        if component:
+                            self._set_local_transform_matrix(
+                                component,
+                                target_local,
+                            )
+                    settled_releases.append(
+                        (release, str(release["sourcePath"]))
+                    )
+        for release, source_path in settled_releases:
+            if release in self._dynamic_releases:
+                self._dynamic_releases.remove(release)
+                self._settled_dynamic_releases[source_path] = release
+                self._log(
+                    f"Released container settled as a static collider (path={source_path})."
+                )
+
+    @staticmethod
+    def _rigid_pose_signature(pose: Any) -> tuple[float, ...]:
+        """Return translation plus rotation-basis values for settle tracking."""
+
+        translation = pose.ExtractTranslation()
+        values = [float(translation[index]) for index in range(3)]
+        for row_index in range(3):
+            row = pose.GetRow3(row_index)
+            values.extend(float(row[column_index]) for column_index in range(3))
+        return tuple(values)
+
+    @staticmethod
+    def _pose_motion_is_below_settle_threshold(
+        previous: tuple[float, ...],
+        current: tuple[float, ...],
+    ) -> bool:
+        translation_delta = math.sqrt(
+            sum(
+                (float(current[index]) - float(previous[index])) ** 2
+                for index in range(3)
+            )
+        )
+        rotation_delta = max(
+            abs(float(current[index]) - float(previous[index]))
+            for index in range(3, 12)
+        )
+        return (
+            translation_delta <= MANUAL_PHYSICS_SETTLE_TRANSLATION_M
+            and rotation_delta <= MANUAL_PHYSICS_SETTLE_ROTATION_MATRIX_DELTA
+        )
+
+    def _dynamic_release_is_settled(
+        self,
+        release: dict[str, Any],
+        current_pose: Any,
+        *,
+        now: float,
+    ) -> bool:
+        """Detect a genuinely resting release without freezing a stuck airborne body."""
+
+        signature = self._rigid_pose_signature(current_pose)
+        previous = release.get("lastSettlePoseSignature")
+        release["lastSettlePoseSignature"] = signature
+        eligible = (
+            float(release.get("expectedFreeDropM", 0.0)) <= 0.05
+            or bool(release.get("motionReported"))
+        )
+        if previous is None or not eligible:
+            release.pop("settleSince", None)
+            return False
+        if not self._pose_motion_is_below_settle_threshold(previous, signature):
+            release.pop("settleSince", None)
+            return False
+        settle_since = release.setdefault("settleSince", float(now))
+        return float(now) - float(settle_since) >= MANUAL_PHYSICS_SETTLE_SECONDS
+
+    def _author_dynamic_release_pose_to_usd(
+        self,
+        stage: Any,
+        release: dict[str, Any],
+    ) -> bool:
+        """Write the recorded PhysX pose onto the source and visual followers."""
+
+        pose = release.get("physxPoseWorld")
+        if pose is None:
+            return False
+        try:
+            from pxr import Gf, UsdGeom
+
+            source = stage.GetPrimAtPath(str(release.get("sourcePath", "")))
+            if not source or not source.GetParent():
+                return False
+            cache = UsdGeom.XformCache()
+            initial_source_world = release.get("initialSourceWorld")
+            if initial_source_world is None:
+                initial_source_world = cache.GetLocalToWorldTransform(source)
+            source_scale = self._extract_world_scale(initial_source_world)
+            target_source_world = self._apply_scale_to_matrix(
+                Gf.Matrix4d(pose),
+                source_scale,
+            )
+            parent_world = Gf.Matrix4d(
+                cache.GetLocalToWorldTransform(source.GetParent())
+            )
+            self._set_local_transform_matrix(
+                source,
+                target_source_world * parent_world.GetInverse(),
+            )
+            recorded_bounds = self._release_bounds_from_state(release)
+            if recorded_bounds is not None:
+                self._set_manual_release_recorded_bounds(source, recorded_bounds)
+
+            for path, initial_world in release.get("followers", {}).items():
+                component = stage.GetPrimAtPath(path)
+                if not component or not component.GetParent():
+                    continue
+                follower_rigid_initial = self._rigid_pose_matrix(initial_world)
+                follower_rigid_relative = (
+                    follower_rigid_initial
+                    * release["initialPhysicsPose"].GetInverse()
+                )
+                follower_rigid_current = follower_rigid_relative * Gf.Matrix4d(pose)
+                follower_scale = self._extract_world_scale(initial_world)
+                target_follower_world = self._apply_scale_to_matrix(
+                    follower_rigid_current,
+                    follower_scale,
+                )
+                follower_parent_world = Gf.Matrix4d(
+                    cache.GetLocalToWorldTransform(component.GetParent())
+                )
+                self._set_local_transform_matrix(
+                    component,
+                    target_follower_world * follower_parent_world.GetInverse(),
+                )
+            return True
+        except Exception:
+            return False
 
     def _deactivate_dynamic_release_for_pick(
         self, stage: Any, source_path: str
@@ -2307,6 +2597,9 @@ class RtgGamepadManualController:
             for release in getattr(self, "_dynamic_releases", [])
             if release.get("sourcePath") == source_path
         ]
+        settled_release = getattr(self, "_settled_dynamic_releases", {}).get(source_path)
+        if settled_release is not None and settled_release not in matching:
+            matching.append(settled_release)
         if not matching:
             return
         try:
@@ -2315,14 +2608,19 @@ class RtgGamepadManualController:
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 source = stage.GetPrimAtPath(source_path)
                 if source:
-                    # Flush the PhysX-computed world position into USD
-                    # xformOp:translate.  _sync_dynamic_release_followers
-                    # may have changed the xform op order to a 4x4 matrix;
-                    # restore a plain 3-component translate so that
-                    # _move_carried_container can move the box again.
+                    authored_from_physics = False
+                    for release in matching:
+                        authored_from_physics = (
+                            self._author_dynamic_release_pose_to_usd(stage, release)
+                            or authored_from_physics
+                        )
+                    # If PhysX never published a pose, fall back to the current
+                    # authored transform.  When a pose is available it is the
+                    # authority; reading USD here can resurrect the old
+                    # inventory location and make the next lock miss by metres.
                     cache = UsdGeom.XformCache()
                     source_parent = source.GetParent()
-                    if source_parent:
+                    if not authored_from_physics and source_parent:
                         parent_world = Gf.Matrix4d(
                             cache.GetLocalToWorldTransform(source_parent)
                         )
@@ -2360,6 +2658,7 @@ class RtgGamepadManualController:
             for release in self._dynamic_releases
             if release.get("sourcePath") != source_path
         ]
+        getattr(self, "_settled_dynamic_releases", {}).pop(source_path, None)
 
     def _capture_carried_attachment(self, stage: Any) -> None:
         """Capture the payload and primary-hoist world origins at lock time."""
@@ -3229,15 +3528,15 @@ class RtgGamepadManualController:
         stage: Any,
         *,
         lowering_requested: bool,
-    ) -> None:
+    ) -> bool:
         """Keep visible lock feet from sinking below nearby live container tops."""
 
         if not lowering_requested and not self._spreader_vertical_contact_active:
-            return
+            return False
         lock_foot_points = self._spreader_lock_foot_points(stage)
         if not lock_foot_points:
             self._spreader_vertical_contact_active = False
-            return
+            return False
         from pxr import Usd, UsdGeom
 
         bbox_cache = UsdGeom.BBoxCache(
@@ -3271,7 +3570,7 @@ class RtgGamepadManualController:
             support_path = tool_support_path
         if penetration <= 0.0:
             self._spreader_vertical_contact_active = False
-            return
+            return False
         self._spreader_vertical_contact_active = True
         self._hoist_m += self._hoist_delta_for_world_z(penetration)
         self._apply_held_pose()
@@ -3287,6 +3586,7 @@ class RtgGamepadManualController:
                 "Spreader vertical contact limited hoist "
                 f"(lifted {penetration:.03f} m, support={support_path})."
             )
+        return True
 
     def _support_bounds_for_spreader_vertical_contact(
         self,
@@ -3299,7 +3599,7 @@ class RtgGamepadManualController:
         carried_root = self._carried_source_path or ""
         support_bounds = []
         tool_minimum, tool_maximum = tool_bounds
-        for root_path in self._container_contact_root_path_cache(stage):
+        for root_path in self._container_visual_contact_path_cache(stage):
             if root_path == carried_root or root_path in carried_paths:
                 continue
             root = stage.GetPrimAtPath(root_path)
@@ -3337,7 +3637,7 @@ class RtgGamepadManualController:
                     continue
                 if not path.startswith(f"{HOIST_PATH}/"):
                     continue
-                if not any(name.startswith(prefix) for prefix in SPREADER_GEOMETRY_NAME_PREFIXES):
+                if not self._is_spreader_collision_geometry_name(name):
                     continue
                 paths.append(path)
             self._spreader_geometry_paths = tuple(paths)
@@ -3354,6 +3654,19 @@ class RtgGamepadManualController:
         if bounds:
             return bounds
         return [self._spreader_tool_vertical_contact_bounds(lock_foot_points)]
+
+    @staticmethod
+    def _is_spreader_collision_geometry_name(name: str) -> bool:
+        """Return whether an exported prim is a solid part of the spreader."""
+
+        text = str(name)
+        return (
+            any(text.startswith(prefix) for prefix in SPREADER_GEOMETRY_NAME_PREFIXES)
+            and any(
+                token in text
+                for token in SPREADER_COLLISION_GEOMETRY_NAME_TOKENS
+            )
+        )
 
     @staticmethod
     def _spreader_tool_vertical_contact_bounds(
@@ -3622,6 +3935,20 @@ class RtgGamepadManualController:
         return row if row in TROLLEY_ROW_CENTERS_M else None
 
     @staticmethod
+    def _is_manually_released_container(prim: Any) -> bool:
+        """Return true when a box has left its inventory-authored position."""
+
+        if not prim:
+            return False
+        attr = prim.GetAttribute("live:manualReleaseMode")
+        if not attr:
+            return False
+        try:
+            return bool(str(attr.Get() or "").strip())
+        except RuntimeError:
+            return False
+
+    @staticmethod
     def _live_container_root(prim: Any) -> Any:
         """Return the main container prim for a detail prim when possible."""
 
@@ -3731,6 +4058,60 @@ class RtgGamepadManualController:
         return self._container_contact_root_paths
 
     @staticmethod
+    def _is_container_visual_contact_candidate(
+        name: str,
+        path: str,
+        *,
+        is_boundable: bool,
+    ) -> bool:
+        """Recognize legacy visible container meshes missed by live-root metadata."""
+
+        return (
+            bool(is_boundable)
+            and "container" in str(name).lower()
+            and not str(path).startswith(f"{HOIST_PATH}/")
+        )
+
+    def _container_visual_contact_path_cache(self, stage: Any) -> tuple[str, ...]:
+        """Return physical roots plus visible legacy container mesh parts.
+
+        Live yard boxes keep one collider on their main cube.  Older authored
+        scene boxes, however, are assembled from lower-case ``container`` mesh
+        names and have no ``live:bayId`` root.  Their render meshes still need
+        to stop the spreader, but they must not become separate rigid bodies.
+        """
+
+        cached = getattr(self, "_container_visual_contact_paths", None)
+        if cached is not None:
+            return cached
+        from pxr import UsdGeom
+
+        paths = list(self._container_contact_root_path_cache(stage))
+        seen = set(paths)
+        for prim in stage.Traverse():
+            try:
+                name = str(prim.GetName())
+                path = str(prim.GetPath())
+                is_boundable = bool(prim.IsA(UsdGeom.Boundable))
+            except RuntimeError:
+                continue
+            if path in seen or not self._is_container_visual_contact_candidate(
+                name,
+                path,
+                is_boundable=is_boundable,
+            ):
+                continue
+            try:
+                if UsdGeom.Imageable(prim).ComputeVisibility() == UsdGeom.Tokens.invisible:
+                    continue
+            except Exception:
+                pass
+            seen.add(path)
+            paths.append(path)
+        self._container_visual_contact_paths = tuple(paths)
+        return self._container_visual_contact_paths
+
+    @staticmethod
     def _parse_bay_id(value: Optional[str]) -> Optional[tuple[str, int]]:
         if not value:
             return None
@@ -3789,6 +4170,152 @@ class RtgGamepadManualController:
         if any(float(minimum[index]) > float(maximum[index]) for index in range(3)):
             return None
         return minimum, maximum
+
+    def _manual_release_bounds_for_pick(
+        self,
+        stage: Any,
+        bbox_cache: Any,
+        prim: Any,
+    ) -> Optional[tuple[Any, Any]]:
+        """Return the operator-visible bounds for a manually released box.
+
+        Kit/PhysX can leave the USD xform at the pre-release inventory pose
+        while Fabric displays the simulated pose.  Re-pick must use the final
+        physics pose recorded during release, otherwise a visually aligned box
+        can still report a false 10 m horizontal miss.
+        """
+
+        path = str(prim.GetPath())
+        release = self._release_state_for_path(path)
+        if release is not None:
+            bounds = self._release_bounds_from_state(release)
+            if bounds is not None:
+                self._set_manual_release_recorded_bounds(prim, bounds)
+                return bounds
+        bounds = self._manual_release_recorded_bounds(prim)
+        if bounds is not None:
+            return bounds
+        return self._world_container_bounds(bbox_cache, prim)
+
+    def _release_state_for_path(self, source_path: str) -> Optional[dict[str, Any]]:
+        for release in getattr(self, "_dynamic_releases", []):
+            if str(release.get("sourcePath", "")) == str(source_path):
+                return release
+        return getattr(self, "_settled_dynamic_releases", {}).get(str(source_path))
+
+    @staticmethod
+    def _release_bounds_from_state(release: dict[str, Any]) -> Optional[tuple[Any, Any]]:
+        pose = release.get("physxPoseWorld")
+        half_extents = release.get("sourceHalfExtents")
+        if pose is None or half_extents is None:
+            return None
+        return RtgGamepadManualController._bounds_from_pose_half_extents(
+            pose,
+            half_extents,
+        )
+
+    @staticmethod
+    def _bounds_from_pose_half_extents(
+        pose: Any,
+        half_extents: Any,
+    ) -> Optional[tuple[Any, Any]]:
+        from pxr import Gf
+
+        try:
+            half = (
+                abs(float(half_extents[0])),
+                abs(float(half_extents[1])),
+                abs(float(half_extents[2])),
+            )
+        except (TypeError, IndexError, ValueError):
+            return None
+        corners = []
+        matrix = Gf.Matrix4d(pose)
+        for sx in (-1.0, 1.0):
+            for sy in (-1.0, 1.0):
+                for sz in (-1.0, 1.0):
+                    corners.append(
+                        matrix.Transform(
+                            Gf.Vec3d(sx * half[0], sy * half[1], sz * half[2])
+                        )
+                    )
+        minimum = Gf.Vec3d(
+            min(float(point[0]) for point in corners),
+            min(float(point[1]) for point in corners),
+            min(float(point[2]) for point in corners),
+        )
+        maximum = Gf.Vec3d(
+            max(float(point[0]) for point in corners),
+            max(float(point[1]) for point in corners),
+            max(float(point[2]) for point in corners),
+        )
+        return minimum, maximum
+
+    @staticmethod
+    def _manual_release_recorded_bounds(prim: Any) -> Optional[tuple[Any, Any]]:
+        from pxr import Gf
+
+        min_attr = prim.GetAttribute("live:manualWorldBoundsMin")
+        max_attr = prim.GetAttribute("live:manualWorldBoundsMax")
+        if not min_attr or not max_attr:
+            return None
+        minimum = RtgGamepadManualController._parse_vec3_attr(min_attr)
+        maximum = RtgGamepadManualController._parse_vec3_attr(max_attr)
+        if minimum is None or maximum is None:
+            return None
+        if any(float(minimum[index]) > float(maximum[index]) for index in range(3)):
+            return None
+        return Gf.Vec3d(*minimum), Gf.Vec3d(*maximum)
+
+    @staticmethod
+    def _parse_vec3_attr(attr: Any) -> Optional[tuple[float, float, float]]:
+        try:
+            raw = attr.Get()
+        except RuntimeError:
+            return None
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            parts = [part.strip() for part in raw.split(",")]
+        else:
+            try:
+                return float(raw[0]), float(raw[1]), float(raw[2])
+            except (TypeError, IndexError, ValueError):
+                return None
+        if len(parts) != 3:
+            return None
+        try:
+            return float(parts[0]), float(parts[1]), float(parts[2])
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _set_manual_release_recorded_bounds(
+        prim: Any,
+        bounds: tuple[Any, Any],
+    ) -> None:
+        try:
+            from pxr import Sdf
+
+            minimum, maximum = bounds
+            min_value = ",".join(f"{float(minimum[index]):.9g}" for index in range(3))
+            max_value = ",".join(f"{float(maximum[index]):.9g}" for index in range(3))
+            min_attr = prim.GetAttribute(
+                "live:manualWorldBoundsMin"
+            ) or prim.CreateAttribute(
+                "live:manualWorldBoundsMin",
+                Sdf.ValueTypeNames.String,
+            )
+            max_attr = prim.GetAttribute(
+                "live:manualWorldBoundsMax"
+            ) or prim.CreateAttribute(
+                "live:manualWorldBoundsMax",
+                Sdf.ValueTypeNames.String,
+            )
+            min_attr.Set(min_value)
+            max_attr.Set(max_value)
+        except Exception:
+            return
 
     @staticmethod
     def _container_lock_foot_contact(
@@ -3913,26 +4440,107 @@ class RtgGamepadManualController:
         (kinematic) so that dynamic released containers can detect and respond
         to spreader contact during _advance_dynamic_releases.
 
-        The method is a no-op when no dynamic releases are active or when the
-        USD Physics schema is unavailable in the current Kit build.
+        A newly released box initially touches the lock feet.  Enabling the
+        proxy during that overlap lets PhysX depenetration launch the box in
+        either direction, including above the spreader.  Keep the proxy off
+        until every new release has visibly cleared the tool, and disable it
+        again after all releases have settled.
         """
 
-        if not self._dynamic_releases:
-            return
         try:
             from pxr import Usd, UsdPhysics
 
+            proxy_enabled = self._dynamic_releases_clear_of_spreader(stage)
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 for path in (self._lock_foot_paths or ()):
                     prim = stage.GetPrimAtPath(path)
                     if not prim:
                         continue
-                    UsdPhysics.CollisionAPI.Apply(prim)
+                    collision = UsdPhysics.CollisionAPI.Apply(prim)
+                    collision.CreateCollisionEnabledAttr(proxy_enabled)
                     rigid_api = UsdPhysics.RigidBodyAPI.Apply(prim)
-                    rigid_api.CreateRigidBodyEnabledAttr(True)
+                    rigid_api.CreateRigidBodyEnabledAttr(proxy_enabled)
                     rigid_api.CreateKinematicEnabledAttr(True)
         except Exception:
             return
+
+    def _dynamic_releases_clear_of_spreader(self, stage: Any) -> bool:
+        """Return true only after newly released boxes leave the lock-foot volume."""
+
+        if not self._dynamic_releases:
+            return False
+        from pxr import Usd, UsdGeom
+
+        if not self._lock_foot_paths:
+            self._spreader_lock_foot_points(stage)
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        lock_bounds = []
+        for path in self._lock_foot_paths or ():
+            prim = stage.GetPrimAtPath(path)
+            if not prim:
+                continue
+            bounds = bbox_cache.ComputeWorldBound(prim).ComputeAlignedBox()
+            minimum = bounds.GetMin()
+            maximum = bounds.GetMax()
+            if any(
+                float(minimum[index]) > float(maximum[index])
+                for index in range(3)
+            ):
+                continue
+            lock_bounds.append((minimum, maximum))
+        if not lock_bounds:
+            return False
+        lock_minimum, lock_maximum = self._union_bounds(lock_bounds)
+        lock_minimum = tuple(
+            float(lock_minimum[index]) - SPREADER_RELEASE_COLLISION_CLEARANCE_M
+            for index in range(3)
+        )
+        lock_maximum = tuple(
+            float(lock_maximum[index]) + SPREADER_RELEASE_COLLISION_CLEARANCE_M
+            for index in range(3)
+        )
+        now = time.monotonic()
+        for release in self._dynamic_releases:
+            if release.get("spreaderClearanceConfirmed"):
+                continue
+            release_age = now - float(release.get("releasedAt", now))
+            if release_age < SPREADER_RELEASE_COLLISION_GRACE_SECONDS:
+                return False
+            source = stage.GetPrimAtPath(str(release.get("sourcePath", "")))
+            if not source:
+                continue
+            source_bounds = self._world_container_bounds(bbox_cache, source)
+            if source_bounds is None:
+                return False
+            if self._bounds_overlap_3d(
+                source_bounds[0],
+                source_bounds[1],
+                lock_minimum,
+                lock_maximum,
+            ):
+                return False
+            release["spreaderClearanceConfirmed"] = True
+        return all(
+            bool(release.get("spreaderClearanceConfirmed"))
+            for release in self._dynamic_releases
+        )
+
+    @staticmethod
+    def _bounds_overlap_3d(
+        minimum_a: Any,
+        maximum_a: Any,
+        minimum_b: Any,
+        maximum_b: Any,
+    ) -> bool:
+        return all(
+            float(minimum_a[index]) <= float(maximum_b[index])
+            and float(maximum_a[index]) >= float(minimum_b[index])
+            for index in range(3)
+        )
 
     @staticmethod
     def _expanded_bounds(

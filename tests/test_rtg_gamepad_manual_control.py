@@ -398,6 +398,21 @@ class GamepadInputMappingTests(unittest.TestCase):
             0.04 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
         )
 
+    def test_spreader_collision_geometry_excludes_flexible_hydraulic_hose(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._is_spreader_collision_geometry_name
+        )
+
+        self.assertFalse(
+            helper("RTG_SPREAD_REDRAW_black_hydraulic_hose_long_+0.00")
+        )
+        self.assertTrue(
+            helper("RTG_SPREAD_REDRAW_gray_main_spreader_box_beam_long_y")
+        )
+        self.assertTrue(
+            helper("RTG_SPREAD_REDRAW_red_corner_lock_foot_front_left")
+        )
+
     def test_container_contact_root_name_rejects_container_collection_parent(self) -> None:
         helper = self.manual.RtgGamepadManualController._is_container_contact_root_name
 
@@ -405,6 +420,39 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertFalse(helper("YardInventory", has_live_bay=False))
         self.assertTrue(helper("R06_T02_Container", has_live_bay=False))
         self.assertTrue(helper("AnyName", has_live_bay=True))
+
+    def test_visual_contact_accepts_lowercase_legacy_container_mesh(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._is_container_visual_contact_candidate
+        )
+
+        self.assertTrue(
+            helper(
+                "YLOAD_container_side_panel",
+                "/World/PortAndRTG/Yard/YLOAD_container_side_panel",
+                is_boundable=True,
+            )
+        )
+
+    def test_visual_contact_rejects_hoisted_payload_and_non_geometry(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._is_container_visual_contact_candidate
+        )
+
+        self.assertFalse(
+            helper(
+                "YLOAD_container_side_panel",
+                f"{self.manual.HOIST_PATH}/YLOAD_container_side_panel",
+                is_boundable=True,
+            )
+        )
+        self.assertFalse(
+            helper(
+                "LiveContainers",
+                "/World/LiveContainers",
+                is_boundable=False,
+            )
+        )
 
     def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
         plan = self.manual.RtgGamepadManualController._release_topple_plan(
@@ -456,6 +504,30 @@ class GamepadInputMappingTests(unittest.TestCase):
         )
 
         self.assertAlmostEqual(hoist_delta, 1.0)
+
+    def test_spreader_release_overlap_requires_contact_on_all_three_axes(self) -> None:
+        helper = self.manual.RtgGamepadManualController._bounds_overlap_3d
+
+        self.assertTrue(helper((0, 0, 0), (1, 1, 1), (0.5, 0.5, 0.5), (2, 2, 2)))
+        self.assertFalse(helper((0, 0, 0), (1, 1, 1), (0.5, 0.5, 1.1), (2, 2, 2)))
+
+    def test_release_settle_detection_checks_translation_and_rotation(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._pose_motion_is_below_settle_threshold
+        )
+        identity = (
+            0.0, 0.0, 0.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0,
+        )
+        tiny_motion = list(identity)
+        tiny_motion[2] = self.manual.MANUAL_PHYSICS_SETTLE_TRANSLATION_M * 0.5
+        rotating = list(identity)
+        rotating[3] += self.manual.MANUAL_PHYSICS_SETTLE_ROTATION_MATRIX_DELTA * 2.0
+
+        self.assertTrue(helper(identity, tuple(tiny_motion)))
+        self.assertFalse(helper(identity, tuple(rotating)))
 
     def test_physx_quaternion_components_use_xyzw_order(self) -> None:
         quaternion = (

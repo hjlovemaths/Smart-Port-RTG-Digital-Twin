@@ -55,6 +55,12 @@ SELECTED_MARKER_RE = re.compile(
 )
 
 _service: Optional["RtgCameraPopupService"] = None
+_spreader_grid_service: Optional["RtgSpreaderCameraGridService"] = None
+
+# The physical corner cameras are mounted as C1/C2/C3/C4.  The operator view
+# follows the same orientation as the reference video: C1 and C2 on the top
+# row, then C4 and C3 on the bottom row.
+SPREADER_CAMERA_GRID_LAYOUT = ((1, 2), (4, 3))
 
 
 @dataclass(frozen=True)
@@ -473,6 +479,147 @@ class RtgCameraPopupService:
             print(f"[RTG Camera] marker overlay cleanup skipped: {exc}")
 
 
+class RtgSpreaderCameraGridService:
+    """Show the four spreader-corner RTSP feeds in a 2x2 operator panel."""
+
+    IMAGE_WIDTH = 640
+    IMAGE_HEIGHT = 360
+
+    def __init__(self, config_path: Optional[Path] = None) -> None:
+        self.config_path = Path(config_path or os.environ.get("RTG_CAMERA_CONFIG", DEFAULT_CONFIG_PATH))
+        self.cameras = _read_camera_config(self.config_path)
+        self._readers: Dict[int, RtgRtspReader] = {}
+        self._window = None
+        self._providers: Dict[int, Any] = {}
+        self._status_labels: Dict[int, Any] = {}
+        self._last_frames: Dict[int, bytes] = {}
+        self._frame_lock = threading.Lock()
+        self._frame_pending: set[int] = set()
+        self._build_window()
+
+    def start(self) -> None:
+        if self._window is not None:
+            self._window.visible = True
+        self.stop_readers()
+        for seq in self._ordered_sequences():
+            camera = self.cameras.get(seq)
+            if camera is None:
+                self._set_status(seq, f"C{seq}\n未配置摄像头")
+                continue
+            self._set_status(seq, f"C{seq}\n连接中…")
+            reader = RtgRtspReader(
+                camera,
+                lambda frame, camera_seq=seq: self._queue_frame(camera_seq, frame),
+                lambda status, camera_seq=seq: self._set_status(camera_seq, status),
+            )
+            self._readers[seq] = reader
+            reader.start()
+
+    def stop(self) -> None:
+        self.stop_readers()
+        if self._window is not None:
+            try:
+                self._window.visible = False
+            except Exception:
+                pass
+
+    def stop_readers(self) -> None:
+        for reader in list(self._readers.values()):
+            reader.stop()
+        self._readers.clear()
+
+    @staticmethod
+    def _ordered_sequences() -> tuple[int, ...]:
+        return tuple(seq for row in SPREADER_CAMERA_GRID_LAYOUT for seq in row)
+
+    def _build_window(self) -> None:
+        try:
+            import omni.ui as ui  # type: ignore
+        except Exception as exc:
+            print(f"[RTG Camera Grid] omni.ui unavailable: {exc}")
+            return
+        flags = 0
+        for name in ("WINDOW_FLAGS_NO_SCROLLBAR", "WINDOW_FLAGS_NO_COLLAPSE"):
+            flags |= getattr(ui, name, 0)
+        self._window = ui.Window(
+            "Spreader Camera · 4-Corner",
+            width=self.IMAGE_WIDTH * 2 + 12,
+            height=self.IMAGE_HEIGHT * 2 + 92,
+            visible=False,
+            flags=flags,
+        )
+        try:
+            self._window.position_x = 40
+            self._window.position_y = 80
+        except Exception:
+            pass
+        with self._window.frame:
+            with ui.VStack(spacing=4):
+                ui.Label(
+                    "吊具四角摄像头 · 远程手动模式",
+                    height=26,
+                    style={"font_size": 16},
+                )
+                for row in SPREADER_CAMERA_GRID_LAYOUT:
+                    with ui.HStack(spacing=4):
+                        for seq in row:
+                            with ui.VStack(spacing=2, width=self.IMAGE_WIDTH):
+                                ui.Label(f"C{seq}", height=20, style={"font_size": 14})
+                                provider = ui.ByteImageProvider()
+                                self._providers[seq] = provider
+                                try:
+                                    ui.ImageWithProvider(
+                                        provider,
+                                        width=self.IMAGE_WIDTH,
+                                        height=self.IMAGE_HEIGHT,
+                                    )
+                                except Exception:
+                                    ui.Label("RTSP 画面需要 ByteImageProvider", height=self.IMAGE_HEIGHT)
+                                self._status_labels[seq] = ui.Label(
+                                    "等待视频…",
+                                    word_wrap=True,
+                                    height=34,
+                                )
+
+    def _set_status(self, seq: int, status: str) -> None:
+        label = self._status_labels.get(seq)
+        if label is None:
+            return
+        try:
+            label.text = str(status)
+        except Exception:
+            pass
+
+    def _queue_frame(self, seq: int, frame: bytes) -> None:
+        with self._frame_lock:
+            self._last_frames[seq] = frame
+            if seq in self._frame_pending:
+                return
+            self._frame_pending.add(seq)
+        try:
+            import omni.kit.app  # type: ignore
+
+            omni.kit.app.get_app().next_update_async().add_done_callback(
+                lambda _future, camera_seq=seq: self._apply_frame(camera_seq)
+            )
+        except Exception:
+            self._apply_frame(seq)
+
+    def _apply_frame(self, seq: int) -> None:
+        with self._frame_lock:
+            frame = self._last_frames.get(seq)
+            self._frame_pending.discard(seq)
+        provider = self._providers.get(seq)
+        if not frame or provider is None:
+            return
+        try:
+            import omni.ui as ui  # type: ignore
+
+            provider.set_bytes(frame, format=ui.ByteImageProvider.Format.JPEG)
+        except Exception as exc:
+            self._set_status(seq, f"收到画面，但更新显示失败：{exc}")
+
+
 def start_rtg_camera_popup(config_path: Optional[str] = None) -> RtgCameraPopupService:
     global _service
     if _service is not None:
@@ -486,6 +633,28 @@ def stop_rtg_camera_popup() -> None:
     if _service is not None:
         _service.stop()
         _service = None
+
+
+def start_rtg_spreader_camera_grid(config_path: Optional[str] = None) -> RtgSpreaderCameraGridService:
+    """Start the automatic four-corner spreader camera panel."""
+
+    global _spreader_grid_service
+    if _spreader_grid_service is not None:
+        _spreader_grid_service.stop()
+    _spreader_grid_service = RtgSpreaderCameraGridService(
+        Path(config_path) if config_path else None
+    )
+    _spreader_grid_service.start()
+    return _spreader_grid_service
+
+
+def stop_rtg_spreader_camera_grid() -> None:
+    """Stop the automatic four-corner spreader camera panel."""
+
+    global _spreader_grid_service
+    if _spreader_grid_service is not None:
+        _spreader_grid_service.stop()
+        _spreader_grid_service = None
 
 
 if __name__ == "__main__":

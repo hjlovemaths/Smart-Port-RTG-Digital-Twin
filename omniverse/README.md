@@ -169,6 +169,12 @@ start_gamepad_manual_mode()
 `get_gamepad_manual_status()` 会显示实际锁住的 Prim 路径。锁住后，箱体会随大车、小车、
 吊具的后续运动一起移动；在新位置再次按 `G` 或 `RB + A` 解锁，即把这一个箱体放在当前位置。
 因此可自由驶往任意贝位、选择任意可接触箱体并搬运到另一贝位。
+
+进入吊具下方视角时，手动模式会自动打开“吊具四角模型相机”面板，按参考视频以 2×2
+四宫格显示四路 USD 模型相机画面：左上 C1、右上 C2、左下 C4、右下 C3。画面来自
+数字孪生模型，不读取 RTSP；四个相机挂在动态吊具下方，会随吊具升降、大小车移动和
+20/40 ft 伸缩同步更新。切回全局视角或退出手动模式时面板自动关闭。
+
 手柄断开时，模式会保持接管但停止一切运动，避免 PLC 帧在断开瞬间驱动设备。通过
 `get_gamepad_manual_status()` 可以在 Script Editor 查询连接、急停和锁箱状态。
 启动时脚本还会暂时关闭 Kit 自带的 `Gamepad Camera Control`，使手柄只控制 RTG；退出
@@ -411,6 +417,16 @@ the configuration (including the `AttachedLine` camera query). For HaiKang/Hikvi
 with FFMPEG/RTSP support; if it is unavailable the popup reports the missing
 decoder and still shows the resolved stream URL. Stop it with
 `stop_rtg_camera_popup()`.
+
+远程手动模式的吊具视角会自动打开四路模型相机面板。需要单独调试时，可在 Kit
+Script Editor 中运行：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_model_camera_grid.py", encoding="utf-8").read())
+import omni.usd
+start_rtg_model_camera_grid(omni.usd.get_context().get_stage())
+stop_rtg_model_camera_grid()
+```
 
 ## RTG virtual scene cameras
 

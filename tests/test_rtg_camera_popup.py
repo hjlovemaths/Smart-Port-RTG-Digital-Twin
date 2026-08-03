@@ -16,6 +16,9 @@ import rtg_camera_popup as popup  # noqa: E402
 
 
 class CameraPopupTests(unittest.TestCase):
+    def test_spreader_grid_matches_reference_video_orientation(self) -> None:
+        self.assertEqual(popup.SPREADER_CAMERA_GRID_LAYOUT, ((1, 2), (4, 3)))
+
     def test_marker_number_accepts_common_usd_names(self) -> None:
         self.assertEqual(popup._marker_number("/World/RTG/C1"), 1)
         self.assertEqual(popup._marker_number("/World/RTG/C1/geometry"), 1)

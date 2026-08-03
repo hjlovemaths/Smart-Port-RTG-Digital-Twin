@@ -774,7 +774,6 @@ class RtgTwinStatusOverlay:
                 continue
             self._last_values[key] = value
             self._set_label_text(key, value)
-
         # Runinfo messages update independently — show the latest one.
         runinfo = state.get("runinfo")
         if isinstance(runinfo, dict):
@@ -951,7 +950,6 @@ class RtgTwinStatusOverlay:
                 self._runinfo_label.model.set_value(text)
             except Exception:
                 pass
-
 
 class RtgTwinStateReceiver:
     """Background TCP client for newline-delimited JSON twin-state frames."""
@@ -3406,8 +3404,16 @@ class OmniverseRtgTwinDriver:
         cube = UsdGeom.Cube.Define(stage, path)
         cube.CreateSizeAttr(1.0)
         xform = UsdGeom.Xformable(cube.GetPrim())
-        xform.AddTranslateOp().Set(center)
-        xform.AddScaleOp().Set(scale)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(center)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:scale",
+            xform.AddScaleOp,
+        ).Set(scale)
         cube.CreateDisplayColorAttr([color])
 
     @staticmethod
@@ -3419,7 +3425,11 @@ class OmniverseRtgTwinDriver:
             if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
                 op.Set(value)
                 return
-        xform.AddTranslateOp().Set(value)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(value)
 
     @staticmethod
     def _get_xform_translate(prim: Any) -> Any:
@@ -3456,7 +3466,30 @@ class OmniverseRtgTwinDriver:
             if op.GetOpType() == UsdGeom.XformOp.TypeScale:
                 op.Set(value)
                 return
-        xform.AddScaleOp().Set(value)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:scale",
+            xform.AddScaleOp,
+        ).Set(value)
+
+    @staticmethod
+    def _get_or_add_xform_op(
+        xform: Any,
+        op_name: str,
+        add_op: Any,
+    ) -> Any:
+        from pxr import UsdGeom
+
+        ordered_ops = list(xform.GetOrderedXformOps())
+        for op in ordered_ops:
+            if op.GetOpName() == op_name:
+                return op
+        attr = xform.GetPrim().GetAttribute(op_name)
+        if attr:
+            op = UsdGeom.XformOp(attr)
+            xform.SetXformOpOrder(ordered_ops + [op])
+            return op
+        return add_op()
 
     @staticmethod
     def _set_visibility(prim: Any, visible: bool) -> None:

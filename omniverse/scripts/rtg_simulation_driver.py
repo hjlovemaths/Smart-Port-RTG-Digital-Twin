@@ -19,6 +19,7 @@ from __future__ import annotations
 import builtins
 import sys
 import time
+import traceback
 import types
 from dataclasses import dataclass
 from pathlib import Path
@@ -168,6 +169,25 @@ class SimulationTask:
 def _load_receiver_module_from_source() -> Any:
     """Load the project receiver source without Kit's stale module cache."""
 
+    # Inventory restoration imports these geometry helpers lazily.  Kit keeps
+    # normal imports alive across Script Editor executions, so reloading only
+    # the receiver would still call an older set_cube_transform implementation
+    # and try to add xformOp:translate a second time.
+    geometry_module_name = "build_live_containers"
+    geometry_module_path = SCRIPT_DIR / f"{geometry_module_name}.py"
+    geometry_module = types.ModuleType(geometry_module_name)
+    geometry_module.__file__ = str(geometry_module_path)
+    geometry_module.__package__ = ""
+    sys.modules[geometry_module_name] = geometry_module
+    exec(
+        compile(
+            geometry_module_path.read_text(encoding="utf-8"),
+            str(geometry_module_path),
+            "exec",
+        ),
+        geometry_module.__dict__,
+    )
+
     module_name = "rtg_twin_state_receiver"
     module_path = SCRIPT_DIR / f"{module_name}.py"
     previous = sys.modules.get(module_name)
@@ -234,6 +254,24 @@ class RtgSimulationDriver:
         self._next_task_start_pending = False
         self._manual_pause_announced = False
 
+    @staticmethod
+    def _lightweight_test_inventory(receiver_module: Any) -> Any:
+        """Create three adjacent six-box bays for PLC-free testing."""
+
+        inventory = receiver_module.YardInventory.empty()
+        for bay_number in (19, 21, 23):
+            inventory.reconcile_task_snapshot(
+                {
+                    "taskId": f"SIM-STARTUP-TEST-YARD-{bay_number:03d}",
+                    "workType": "UNLOAD",
+                    "startPos": f"1C{bay_number}51",
+                    "bayMap": "111111",
+                    "containerSize": 20,
+                    "containerHeight": 2.60,
+                }
+            )
+        return inventory
+
     @property
     def state(self) -> Optional[str]:
         return self._machine.state.value if self._machine else None
@@ -246,8 +284,16 @@ class RtgSimulationDriver:
 
             receiver_module = _load_receiver_module_from_source()
             self._driver = receiver_module.OmniverseRtgTwinDriver(
-                inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION
+                inventory_mode=receiver_module.INVENTORY_MODE_SIMULATION,
+                inventory_autosave=False,
             )
+            # PLC-free development starts with three compact adjacent test bays,
+            # not the complete persistent inventory with hundreds of boxes.
+            # Published tasks can still replace/add their addressed test bay.
+            self._driver._inventory = self._lightweight_test_inventory(
+                receiver_module
+            )
+            self._driver._inventory_load_error = None
             inventory_status = self._driver.restore_inventory_scene(force=True)
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
@@ -259,6 +305,7 @@ class RtgSimulationDriver:
             )
         except Exception as exc:
             print(f"[RTG Simulation] unable to start update loop: {exc}")
+            traceback.print_exc()
         return self
 
     def stop(self) -> None:
