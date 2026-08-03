@@ -430,21 +430,14 @@ class GamepadInputMappingTests(unittest.TestCase):
             90.0,
         )
 
-    def test_dynamic_release_uses_tip_velocity_instead_of_final_rotation(self) -> None:
+    def test_dynamic_release_starts_without_synthetic_tip_velocity(self) -> None:
         velocity = (
             self.manual.RtgGamepadManualController._release_angular_velocity_components(
                 ("Y", -1, 1.0)
             )
         )
 
-        self.assertEqual(
-            velocity,
-            (
-                self.manual.RELEASE_TOPPLE_PERTURBATION_DEG_S,
-                -self.manual.RELEASE_TOPPLE_ANGULAR_SPEED_DEG_S,
-                0.0,
-            ),
-        )
+        self.assertEqual(velocity, (0.0, 0.0, 0.0))
 
     def test_stable_dynamic_release_has_no_synthetic_tip_velocity(self) -> None:
         velocity = (
@@ -454,6 +447,15 @@ class GamepadInputMappingTests(unittest.TestCase):
         )
 
         self.assertEqual(velocity, (0.0, 0.0, 0.0))
+
+    def test_world_contact_correction_converts_to_hoist_engineering_metres(self) -> None:
+        world_correction = self.manual.HOIST_WORLD_Z_PER_ENGINEERING_M
+
+        hoist_delta = self.manual.RtgGamepadManualController._hoist_delta_for_world_z(
+            world_correction
+        )
+
+        self.assertAlmostEqual(hoist_delta, 1.0)
 
     def test_physx_quaternion_components_use_xyzw_order(self) -> None:
         quaternion = (

@@ -1255,6 +1255,7 @@ class RtgGamepadManualController:
         # spreader jump and makes an imperfect manual alignment visibly fail.
         self._carried_lock_offset_world = candidate_center - lock_center
         self._capture_carried_attachment(stage)
+        self._make_carried_container_kinematic(stage, candidate)
         self._last_collision_probe_center_world = None
         self._log(
             f"Container locked: {self._carried_source_path} "
@@ -1800,10 +1801,10 @@ class RtgGamepadManualController:
             rigid_body.CreateVelocityAttr(
                 Gf.Vec3f(0.0, 0.0, -RELEASE_INITIAL_DOWNWARD_SPEED_M_S)
             )
-            angular_velocity = Gf.Vec3f(
-                *self._release_angular_velocity_components(topple_plan)
-            )
-            rigid_body.CreateAngularVelocityAttr(angular_velocity)
+            # Release with no artificial horizontal or angular impulse.  An
+            # overhanging box may still tip after it contacts a support edge,
+            # but the free-flight phase begins as a genuinely vertical drop.
+            rigid_body.CreateAngularVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
             UsdPhysics.MassAPI.Apply(source).CreateMassAttr(
                 RELEASE_CONTAINER_MASS_KG
             )
@@ -2237,40 +2238,57 @@ class RtgGamepadManualController:
                         f"(path={release['sourcePath']}, "
                         f"expectedFreeDrop={release['expectedFreeDropM']:.02f} m)."
                     )
-                world_delta = (
-                    release["initialPhysicsPose"].GetInverse()
-                    * current_motion_pose
-                )
                 # PhysX may publish the dynamic pose only to Fabric/fast-cache
                 # in some Kit configurations.  The decorative siblings below
                 # already follow the queried PhysX pose, so also author that
                 # exact pose back onto the visible main cube.  Otherwise the
                 # ribs/top panel appear to fall while the container body stays
                 # frozen at its pre-release USD transform.
+                # Gf matrices use row vectors: scale lives in the basis rows
+                # and local-to-world composition is ``local * parent``.  Keep
+                # the source's original dimensions while replacing only its
+                # rigid pose with the pose reported by PhysX.
+                source_scale = self._extract_world_scale(initial_source_world)
+                target_source_world = self._apply_scale_to_matrix(
+                    current_motion_pose, source_scale
+                )
                 source_parent = source.GetParent()
                 if source_parent:
-                    target_source_world = (
-                        Gf.Matrix4d(initial_source_world) * world_delta
-                    )
                     source_parent_world = Gf.Matrix4d(
                         cache.GetLocalToWorldTransform(source_parent)
                     )
                     target_source_local = (
                         target_source_world * source_parent_world.GetInverse()
                     )
-                    self._set_translate_from_matrix(
+                    self._set_local_transform_matrix(
                         source,
                         target_source_local,
                     )
+                # Decorative pieces remain rigidly attached to the source.
+                # Their own thin non-uniform scales are retained exactly.
                 for path, initial_world in release["followers"].items():
                     component = stage.GetPrimAtPath(path)
                     if not component or not component.GetParent():
                         continue
-                    target_world = Gf.Matrix4d(initial_world) * world_delta
+                    follower_rigid_initial = self._rigid_pose_matrix(initial_world)
+                    # Row-vector convention: relative * source == follower.
+                    follower_rigid_relative = (
+                        follower_rigid_initial
+                        * release["initialPhysicsPose"].GetInverse()
+                    )
+                    follower_rigid_current = (
+                        follower_rigid_relative * current_motion_pose
+                    )
+                    follower_scale = self._extract_world_scale(initial_world)
+                    target_follower_world = self._apply_scale_to_matrix(
+                        follower_rigid_current, follower_scale
+                    )
                     parent_world = Gf.Matrix4d(
                         cache.GetLocalToWorldTransform(component.GetParent())
                     )
-                    target_local = target_world * parent_world.GetInverse()
+                    target_local = (
+                        target_follower_world * parent_world.GetInverse()
+                    )
                     self._set_local_transform_matrix(component, target_local)
 
     def _deactivate_dynamic_release_for_pick(
@@ -2312,7 +2330,7 @@ class RtgGamepadManualController:
                             cache.GetLocalToWorldTransform(source)
                             * parent_world.GetInverse()
                         )
-                        self._set_translate_from_matrix(source, source_local)
+                        self._set_local_transform_matrix(source, source_local)
                     for release in matching:
                         for path in release.get("followers", {}):
                             component = stage.GetPrimAtPath(path)
@@ -2327,7 +2345,7 @@ class RtgGamepadManualController:
                                 cache.GetLocalToWorldTransform(component)
                                 * parent_world.GetInverse()
                             )
-                            self._set_translate_from_matrix(component, local)
+                            self._set_local_transform_matrix(component, local)
 
                     body = UsdPhysics.RigidBodyAPI.Get(stage, source.GetPath())
                     if body:
@@ -2372,6 +2390,47 @@ class RtgGamepadManualController:
                     self._carried_component_offsets_x[path] = (
                         float(origin_world[0]) - calibrated_x
                     )
+
+    def _make_carried_container_kinematic(self, stage: Any, source: Any) -> None:
+        """Keep a locked container rigid while the spreader drives its pose."""
+
+        try:
+            from pxr import Gf, Usd, UsdPhysics
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                collision = UsdPhysics.CollisionAPI.Apply(source)
+                collision.CreateCollisionEnabledAttr(True)
+                body = UsdPhysics.RigidBodyAPI.Apply(source)
+                body.CreateRigidBodyEnabledAttr(True)
+                body.CreateKinematicEnabledAttr(True)
+                body.CreateStartsAsleepAttr(False)
+                body.CreateVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
+                body.CreateAngularVelocityAttr(Gf.Vec3f(0.0, 0.0, 0.0))
+                UsdPhysics.MassAPI.Apply(source).CreateMassAttr(
+                    RELEASE_CONTAINER_MASS_KG
+                )
+                self._bind_manual_physics_material(stage, source)
+                for path in self._carried_component_paths:
+                    if path == str(source.GetPath()):
+                        continue
+                    component = stage.GetPrimAtPath(path)
+                    if not component:
+                        continue
+                    component_collision = UsdPhysics.CollisionAPI.Get(
+                        stage, component.GetPath()
+                    )
+                    if component_collision:
+                        component_collision.CreateCollisionEnabledAttr(False)
+                    component_body = UsdPhysics.RigidBodyAPI.Get(
+                        stage, component.GetPath()
+                    )
+                    if component_body:
+                        component_body.CreateRigidBodyEnabledAttr(False)
+        except Exception as exc:
+            self._log(
+                "Container was locked visually, but its kinematic rigid-body "
+                f"properties could not be enabled: {exc}"
+            )
 
     def _move_carried_container(self, stage: Any) -> None:
         if not self._carried_source_path:
@@ -2444,7 +2503,7 @@ class RtgGamepadManualController:
         if contact is not None:
             penetration, support_path = contact
             if penetration > 0.0:
-                self._hoist_m += penetration
+                self._hoist_m += self._hoist_delta_for_world_z(penetration)
                 self._apply_held_pose()
                 cache = UsdGeom.XformCache()
                 hoist_world = cache.GetLocalToWorldTransform(hoist).Transform(Gf.Vec3d())
@@ -2672,48 +2731,55 @@ class RtgGamepadManualController:
 
     @staticmethod
     def _get_translate(prim: Any) -> Any:
-        attr = prim.GetAttribute("xformOp:translate") if prim else None
-        if attr:
-            return attr.Get()
-        matrix_attr = prim.GetAttribute("xformOp:transform") if prim else None
-        if matrix_attr and matrix_attr.Get() is not None:
+        if not prim:
+            return None
+        from pxr import UsdGeom
+
+        ordered_names = {
+            op.GetOpName() for op in UsdGeom.Xformable(prim).GetOrderedXformOps()
+        }
+        matrix_attr = prim.GetAttribute("xformOp:transform")
+        if (
+            matrix_attr
+            and "xformOp:transform" in ordered_names
+            and matrix_attr.Get() is not None
+        ):
             return matrix_attr.Get().ExtractTranslation()
+        attr = prim.GetAttribute("xformOp:translate")
+        if attr and "xformOp:translate" in ordered_names:
+            return attr.Get()
         return None
 
     @staticmethod
     def _set_translate(prim: Any, value: Any) -> None:
+        from pxr import UsdGeom
+
+        ordered_names = {
+            op.GetOpName() for op in UsdGeom.Xformable(prim).GetOrderedXformOps()
+        }
+        matrix_attr = prim.GetAttribute("xformOp:transform")
+        matrix = matrix_attr.Get() if matrix_attr else None
+        if (
+            matrix_attr
+            and "xformOp:transform" in ordered_names
+            and matrix is not None
+        ):
+            matrix.SetTranslateOnly(value)
+            matrix_attr.Set(matrix)
+            return
         attr = prim.GetAttribute("xformOp:translate")
         if attr:
             attr.Set(value)
             return
-        matrix_attr = prim.GetAttribute("xformOp:transform")
-        matrix = matrix_attr.Get() if matrix_attr else None
         if matrix_attr and matrix is not None:
             matrix.SetTranslateOnly(value)
             matrix_attr.Set(matrix)
 
     @staticmethod
     def _set_translate_from_matrix(prim: Any, matrix: Any) -> None:
-        """Extract the 3D translation from a 4x4 matrix and write it to
-        xformOp:translate on a prim whose order may have been changed by
-        _set_local_transform_matrix during dynamic release.
+        """Write a complete affine pose without discarding scale or rotation."""
 
-        The method restores a plain translate-only xform op order so that
-        _move_carried_container can subsequently write positions through
-        the same attribute.
-        """
-        from pxr import Gf, UsdGeom
-
-        local = Gf.Matrix4d(matrix)
-        vec = local.ExtractTranslation()
-        xform = UsdGeom.Xformable(prim)
-        translate_attr = prim.GetAttribute("xformOp:translate")
-        if not translate_attr:
-            translate_attr = xform.AddTranslateOp().GetAttr()
-        else:
-            op = UsdGeom.XformOp(translate_attr)
-            xform.SetXformOpOrder([op])
-        translate_attr.Set(Gf.Vec3d(vec[0], vec[1], vec[2]))
+        RtgGamepadManualController._set_local_transform_matrix(prim, matrix)
 
     @staticmethod
     def _set_local_transform_matrix(prim: Any, matrix: Any) -> None:
@@ -2742,6 +2808,47 @@ class RtgGamepadManualController:
         pose.SetRotate(transform.GetRotation().GetQuat())
         pose.SetTranslateOnly(transform.GetTranslation())
         return pose
+
+    @staticmethod
+    def _extract_world_scale(world_matrix: Any) -> Any:
+        """Return the per-axis scale encoded in a world-space matrix.
+
+        Gf uses row vectors, so an affine transform is composed as
+        ``S * R * T``.  Each of the first three rows is one rotated local
+        axis multiplied by that axis' scale.
+        """
+
+        from pxr import Gf
+
+        matrix = Gf.Matrix4d(world_matrix)
+        return Gf.Vec3d(
+            matrix.GetRow3(0).GetLength(),
+            matrix.GetRow3(1).GetLength(),
+            matrix.GetRow3(2).GetLength(),
+        )
+
+    @staticmethod
+    def _apply_scale_to_matrix(rigid_world: Any, scale: Any) -> Any:
+        """Restore per-axis ``scale`` onto a pure translation+rotation matrix.
+
+        Multiplies each basis row by the corresponding scale factor, producing
+        ``S * R * T`` in Gf's row-vector convention.
+        """
+
+        from pxr import Gf
+
+        matrix = Gf.Matrix4d(rigid_world)
+        s = Gf.Vec3d(scale[0], scale[1], scale[2])
+        for axis_index in range(3):
+            row = matrix.GetRow3(axis_index)
+            length = row.GetLength()
+            if length > 1e-9:
+                row = row * (float(s[axis_index]) / length)
+            else:
+                row = Gf.Vec3d(0, 0, 0)
+                row[axis_index] = float(s[axis_index])
+            matrix.SetRow3(axis_index, row)
+        return matrix
 
     @staticmethod
     def _vector_components(value: Any, count: int) -> tuple[float, ...]:
@@ -2820,6 +2927,12 @@ class RtgGamepadManualController:
     @staticmethod
     def _point_tuple(point: Any) -> tuple[float, float, float]:
         return (float(point[0]), float(point[1]), float(point[2]))
+
+    @staticmethod
+    def _hoist_delta_for_world_z(world_delta_z: float) -> float:
+        """Convert a rendered world-space Z correction to hoist metres."""
+
+        return float(world_delta_z) / HOIST_WORLD_Z_PER_ENGINEERING_M
 
     @staticmethod
     def _lerp_tuple(
@@ -2947,25 +3060,11 @@ class RtgGamepadManualController:
     def _release_angular_velocity_components(
         topple_plan: Optional[tuple[str, int, float]],
     ) -> tuple[float, float, float]:
-        """Return a small tip impulse; never author a final 90-degree pose."""
+        """Return no synthetic impulse so every release starts vertically."""
 
-        if topple_plan is None:
-            return 0.0, 0.0, 0.0
-        axis, fall_sign, _pivot_edge = topple_plan
-        signed_speed = float(fall_sign) * RELEASE_TOPPLE_ANGULAR_SPEED_DEG_S
-        if axis == "Y":
-            return (
-                RELEASE_TOPPLE_PERTURBATION_DEG_S,
-                signed_speed,
-                0.0,
-            )
-        if axis == "X":
-            return (
-                signed_speed,
-                RELEASE_TOPPLE_PERTURBATION_DEG_S,
-                0.0,
-            )
-        raise ValueError(f"Unsupported topple axis: {axis}")
+        # Keep the argument for compatibility with older callers.  Gravity
+        # and contact torque now decide whether an overhanging box topples.
+        return 0.0, 0.0, 0.0
 
     def _translate_components_by_world_delta(
         self,
@@ -3174,7 +3273,7 @@ class RtgGamepadManualController:
             self._spreader_vertical_contact_active = False
             return
         self._spreader_vertical_contact_active = True
-        self._hoist_m += penetration
+        self._hoist_m += self._hoist_delta_for_world_z(penetration)
         self._apply_held_pose()
         now = time.monotonic()
         if (
@@ -3774,23 +3873,33 @@ class RtgGamepadManualController:
                     UsdPhysics.CollisionAPI.Apply(prim)
                     already_collidable.add(str(prim.GetPath()))
 
-                # Walk every container prim in the yard and give it a static
-                # collision body.  Skipping prims that already carry the API
-                # (e.g. the currently released dynamic body) avoids a stale
-                # CollisionAPI that could interfere with the per-release
-                # CollisionEnabled setup in _activate_dynamic_release.
-                for prim in stage.Traverse():
-                    if "Container" not in prim.GetName():
+                # Each physical container is represented by its main cube.
+                # Decorative ribs/top/door lines are visual followers, never
+                # independent colliders or rigid bodies.
+                for root_path in self._container_contact_root_path_cache(stage):
+                    prim = stage.GetPrimAtPath(root_path)
+                    if not prim:
                         continue
                     path = str(prim.GetPath())
                     if path in already_collidable:
                         continue
-                    bay_attr = prim.GetAttribute("live:bayId")
-                    if not bay_attr and not path.startswith(
-                        YARD_INVENTORY_ROOT_PATH
-                    ):
-                        continue
-                    UsdPhysics.CollisionAPI.Apply(prim)
+                    collision = UsdPhysics.CollisionAPI.Apply(prim)
+                    collision.CreateCollisionEnabledAttr(True)
+                    already_collidable.add(path)
+                    for component in self._container_components(prim):
+                        component_path = str(component.GetPath())
+                        if component_path == path:
+                            continue
+                        component_collision = UsdPhysics.CollisionAPI.Get(
+                            stage, component.GetPath()
+                        )
+                        if component_collision:
+                            component_collision.CreateCollisionEnabledAttr(False)
+                        component_body = UsdPhysics.RigidBodyAPI.Get(
+                            stage, component.GetPath()
+                        )
+                        if component_body:
+                            component_body.CreateRigidBodyEnabledAttr(False)
         except Exception:
             # The deterministic contact response below still works when a Kit
             # build lacks authoring support for the physics schema.
