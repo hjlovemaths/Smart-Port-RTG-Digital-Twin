@@ -35,7 +35,7 @@ import threading
 import time
 import types
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -123,6 +123,7 @@ RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
 RUNINFO_FLOATING_TITLE_FONT_SIZE = 44
 RUNINFO_FLOATING_CLOCK_FONT_SIZE = 44
 RUNINFO_FLOATING_CLOCK_FORMAT = "%Y-%m-%d %H:%M:%S"
+RUNINFO_FLOATING_TIME_OFFSET_HOURS = 8
 RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT = "--"
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 USER_SIDE_VIEW_CAMERA_PATH = (
@@ -702,9 +703,11 @@ def _format_runinfo_time_text(value: Any) -> str:
             else numeric_value
         )
         try:
-            return time.strftime(
-                RUNINFO_FLOATING_CLOCK_FORMAT,
-                time.localtime(timestamp),
+            return (
+                datetime.fromtimestamp(timestamp)
+                + timedelta(hours=RUNINFO_FLOATING_TIME_OFFSET_HOURS)
+            ).strftime(
+                RUNINFO_FLOATING_CLOCK_FORMAT
             )
         except (OSError, OverflowError, ValueError):
             return text
@@ -714,7 +717,10 @@ def _format_runinfo_time_text(value: Any) -> str:
     if "." in normalized:
         normalized = normalized.split(".", 1)[0]
     try:
-        return datetime.fromisoformat(normalized).strftime(
+        return (
+            datetime.fromisoformat(normalized)
+            + timedelta(hours=RUNINFO_FLOATING_TIME_OFFSET_HOURS)
+        ).strftime(
             RUNINFO_FLOATING_CLOCK_FORMAT
         )
     except ValueError:
