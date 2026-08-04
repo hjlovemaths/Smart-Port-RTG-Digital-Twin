@@ -151,7 +151,9 @@ class RtgDeviceInfoPopupService:
         self._update_sub = None
         self._window = None
         self._title_label = None
-        self._value_labels: List[Any] = []
+        self._subtitle_label = None
+        self._status_label = None
+        self._labels: dict[str, Any] = {}
         self._last_selection_signature: tuple[str, ...] = ()
         self._build_window()
         self._subscribe_selection()
@@ -188,44 +190,166 @@ class RtgDeviceInfoPopupService:
             flags |= getattr(ui, name, 0)
 
         self._window = ui.Window(
-            "RTG Device Info",
-            width=380,
-            height=360,
+            "RTG Digital Twin",
+            width=560,
+            height=430,
             visible=False,
             flags=flags,
         )
         try:
-            self._window.position_x = 320
-            self._window.position_y = 120
+            self._window.position_x = 300
+            self._window.position_y = 110
         except Exception:
             pass
 
-        name_style = {"color": 0xFF93A4B4, "font_size": 13}
-        value_style = {"color": 0xFFFFFFFF, "font_size": 13}
-        title_style = {"color": 0xFFFFFFFF, "font_size": 17}
+        cjk_font = self._resolve_cjk_font(ui)
+
+        def cjk_style(base: dict[str, Any]) -> dict[str, Any]:
+            style = dict(base)
+            if cjk_font:
+                style["font"] = cjk_font
+            return style
+
+        shell_style = {
+            "background_color": 0xEE071524,
+            "border_color": 0xFF22DFFF,
+            "border_width": 1,
+            "border_radius": 4,
+        }
+        header_style = {
+            "background_color": 0xF00B2135,
+            "border_color": 0x8032E6FF,
+            "border_width": 1,
+            "border_radius": 3,
+        }
+        section_style = {
+            "background_color": 0xC20E1C2A,
+            "border_color": 0x4022DFFF,
+            "border_width": 1,
+            "border_radius": 3,
+        }
+        title_style = cjk_style({"color": 0xFFFFFFFF, "font_size": 22})
+        subtitle_style = cjk_style({"color": 0xFF8FA8BC, "font_size": 13})
+        badge_style = cjk_style({"color": 0xFF071524, "font_size": 13})
+        section_title_style = cjk_style({"color": 0xFF22DFFF, "font_size": 13})
+        metric_name_style = cjk_style({"color": 0xFF91A8B8, "font_size": 12})
+        metric_value_style = cjk_style({"color": 0xFFFFFFFF, "font_size": 19})
+        label_style = cjk_style({"color": 0xFF8094A8, "font_size": 12})
+        value_style = cjk_style({"color": 0xFFEAF6FF, "font_size": 13})
+        muted_style = cjk_style({"color": 0xFF70889A, "font_size": 11})
+        alignment = getattr(ui, "Alignment", None)
+        center_alignment = getattr(alignment, "CENTER", None) if alignment else None
 
         with self._window.frame:
-            with ui.VStack(spacing=6):
-                self._title_label = ui.Label("RTG Device", height=28, style=title_style)
-                self._value_labels.clear()
-                for label in (
-                    "Device",
-                    "Payload",
-                    "Field",
-                    "Bay",
-                    "Bay ID",
-                    "Mode",
-                    "Gantry",
-                    "Trolley",
-                    "Hoist",
-                    "Tool Size",
-                    "Locked",
-                    "Selected",
-                ):
-                    with ui.HStack(spacing=8, height=24):
-                        ui.Label(label, width=92, style=name_style)
-                        value = ui.Label("--", word_wrap=True, style=value_style)
-                        self._value_labels.append(value)
+            with ui.Frame(style=shell_style):
+                with ui.VStack(spacing=8):
+                    with ui.Frame(style=header_style, height=86):
+                        with ui.HStack(spacing=10):
+                            with ui.VStack(spacing=4):
+                                self._title_label = ui.Label(
+                                    "RTG",
+                                    height=34,
+                                    style=title_style,
+                                )
+                                self._subtitle_label = ui.Label(
+                                    "数字孪生设备状态",
+                                    height=22,
+                                    style=subtitle_style,
+                                )
+                            with ui.VStack(width=128, spacing=3):
+                                ui.Spacer(height=12)
+                                with ui.Frame(
+                                    style={
+                                        "background_color": 0xFF22DFFF,
+                                        "border_radius": 3,
+                                    },
+                                    height=28,
+                                ):
+                                    label_kwargs = {"style": badge_style}
+                                    if center_alignment is not None:
+                                        label_kwargs["alignment"] = center_alignment
+                                    self._status_label = ui.Label("LIVE", **label_kwargs)
+                                self._labels["Locked"] = ui.Label(
+                                    "--",
+                                    height=18,
+                                    style=subtitle_style,
+                                )
+
+                    with ui.HStack(spacing=8, height=88):
+                        self._metric_card(ui, "大车", "Gantry", metric_name_style, metric_value_style, section_style)
+                        self._metric_card(ui, "小车", "Trolley", metric_name_style, metric_value_style, section_style)
+                        self._metric_card(ui, "起升", "Hoist", metric_name_style, metric_value_style, section_style)
+
+                    with ui.Frame(style=section_style, height=108):
+                        with ui.VStack(spacing=5):
+                            ui.Label("作业位置", height=20, style=section_title_style)
+                            with ui.HStack(spacing=10):
+                                self._field(ui, "堆场", "Field", label_style, value_style)
+                                self._field(ui, "贝位", "Bay", label_style, value_style)
+                                self._field(ui, "贝位号", "Bay ID", label_style, value_style)
+                            with ui.HStack(spacing=10):
+                                self._field(ui, "吊具尺寸", "Tool Size", label_style, value_style)
+                                self._field(ui, "控制模式", "Mode", label_style, value_style)
+
+                    with ui.Frame(style=section_style, height=112):
+                        with ui.VStack(spacing=5):
+                            ui.Label("载荷与选中部件", height=20, style=section_title_style)
+                            self._row(ui, "载荷", "Payload", label_style, value_style)
+                            self._row(ui, "选中", "Selected", label_style, muted_style)
+
+    @staticmethod
+    def _resolve_cjk_font(ui: Any) -> str:
+        try:
+            registry = getattr(ui, "FontRegistry", None)
+        except Exception:
+            registry = None
+        if registry is not None:
+            for path in ("C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simhei.ttf"):
+                try:
+                    family = registry.add_font(path)
+                    if family:
+                        return str(family)
+                except Exception:
+                    continue
+        return ""
+
+    def _metric_card(
+        self,
+        ui: Any,
+        title: str,
+        key: str,
+        title_style: dict[str, Any],
+        value_style: dict[str, Any],
+        frame_style: dict[str, Any],
+    ) -> None:
+        with ui.Frame(style=frame_style):
+            with ui.VStack(spacing=5):
+                ui.Label(title, height=20, style=title_style)
+                self._labels[key] = ui.Label("--", height=34, style=value_style)
+
+    def _field(
+        self,
+        ui: Any,
+        label: str,
+        key: str,
+        label_style: dict[str, Any],
+        value_style: dict[str, Any],
+    ) -> None:
+        with ui.VStack(spacing=2):
+            ui.Label(label, height=18, style=label_style)
+            self._labels[key] = ui.Label("--", height=24, style=value_style)
+
+    def _row(
+        self,
+        ui: Any,
+        label: str,
+        key: str,
+        label_style: dict[str, Any],
+        value_style: dict[str, Any],
+    ) -> None:
+        with ui.HStack(spacing=8, height=28):
+            ui.Label(label, width=58, style=label_style)
+            self._labels[key] = ui.Label("--", word_wrap=True, style=value_style)
 
     def _subscribe_selection(self) -> None:
         try:
@@ -283,10 +407,22 @@ class RtgDeviceInfoPopupService:
         values = {row.label: row.value for row in rows}
         if self._title_label is not None:
             device = values.get("Device") or "RTG"
-            self._title_label.text = f"RTG Device · {device if device != '--' else 'Selected'}"
-        for label, row in zip(self._value_labels, rows):
+            self._title_label.text = device if device != "--" else "RTG"
+        if self._subtitle_label is not None:
+            bay_id = values.get("Bay ID") or "--"
+            self._subtitle_label.text = f"数字孪生设备状态 · {bay_id}"
+        if self._status_label is not None:
             try:
-                label.text = row.value
+                self._status_label.text = values.get("Mode") or "LIVE"
+            except Exception:
+                pass
+        for key, label in self._labels.items():
+            if key == "Locked":
+                text = f"锁具：{values.get(key, '--')}"
+            else:
+                text = values.get(key, "--")
+            try:
+                label.text = text
             except Exception:
                 pass
         if self._window is not None:
