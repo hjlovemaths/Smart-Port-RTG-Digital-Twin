@@ -263,88 +263,6 @@ def add_platform_railing(
         )
 
 
-def add_stair_run(
-    collection: bpy.types.Collection,
-    name: str,
-    *,
-    x_center: float,
-    y_start: float,
-    z_start: float,
-    y_end: float,
-    z_end: float,
-    width_x: float,
-    mat_deck,
-    mat_stair,
-    mat_yellow,
-    mat_dark,
-    parent,
-) -> None:
-    steps = 11
-    for i in range(steps):
-        t = (i + 0.5) / steps
-        y = y_start + (y_end - y_start) * t
-        z = z_start + (z_end - z_start) * t
-        cube(
-            collection,
-            f"{name}_tread_{i:02d}",
-            (x_center, y, z),
-            (width_x, 0.22, 0.045),
-            mat_stair,
-            parent=parent,
-        )
-        cube(
-            collection,
-            f"{name}_riser_shadow_{i:02d}",
-            (x_center, y - 0.08, z - 0.05),
-            (width_x * 0.92, 0.026, 0.08),
-            mat_dark,
-            parent=parent,
-        )
-
-    for side, x in (("outer", x_center + width_x * 0.5), ("inner", x_center - width_x * 0.5)):
-        beam_between(
-            collection,
-            f"{name}_{side}_stringer",
-            (x, y_start, z_start - 0.03),
-            (x, y_end, z_end - 0.03),
-            (0.045, 0.055),
-            mat_stair,
-            parent=parent,
-        )
-        beam_between(
-            collection,
-            f"{name}_{side}_handrail",
-            (x, y_start, z_start + 0.48),
-            (x, y_end, z_end + 0.48),
-            (0.032, 0.032),
-            mat_yellow,
-            parent=parent,
-        )
-        beam_between(
-            collection,
-            f"{name}_{side}_midrail",
-            (x, y_start, z_start + 0.28),
-            (x, y_end, z_end + 0.28),
-            (0.024, 0.024),
-            mat_yellow,
-            parent=parent,
-        )
-
-    for i in range(5):
-        t = i / 4
-        y = y_start + (y_end - y_start) * t
-        z = z_start + (z_end - z_start) * t + 0.24
-        for x in (x_center - width_x * 0.5, x_center + width_x * 0.5):
-            cube(
-                collection,
-                f"{name}_rail_post_{i}_{x:.2f}",
-                (x, y, z),
-                (0.03, 0.03, 0.48),
-                mat_yellow,
-                parent=parent,
-            )
-
-
 def build() -> dict[str, object]:
     cleanup()
     restore_electrical_room_details()
@@ -361,7 +279,6 @@ def build() -> dict[str, object]:
     mat_blue = material("RTG_POWERHOUSE_rtg_blue_support", (0.0, 0.30, 0.72, 1.0))
     mat_yellow = material("RTG_POWERHOUSE_safety_yellow", (1.0, 0.74, 0.02, 1.0), roughness=0.5)
     mat_deck = material("RTG_POWERHOUSE_galvanized_deck", (0.62, 0.63, 0.58, 1.0))
-    mat_stair = material("RTG_POWERHOUSE_white_stair_paint", (0.88, 0.88, 0.84, 1.0))
 
     # Main side power/electrical room, scaled to be clearly visible from the
     # RTG side view while still fitting between the lower beam and the leg.
@@ -405,65 +322,7 @@ def build() -> dict[str, object]:
         parent=parent,
     )
 
-    # Three side access landings with two diagonal stair flights above the room.
-    platforms = (
-        ("lower_landing", 6.92, -4.55, 2.42, 0.92, 0.86),
-        ("mid_landing", 6.92, -3.24, 3.56, 0.92, 0.82),
-        ("upper_landing", 6.92, -2.10, 4.70, 0.92, 0.82),
-    )
-    for name, x, y, z, sx, sy in platforms:
-        cube(collection, f"{name}_deck", (x, y, z), (sx, sy, 0.08), mat_deck, parent=parent)
-        cube(collection, f"{name}_blue_wall_bracket", (6.50, y, z - 0.12), (0.10, sy * 0.96, 0.28), mat_blue, parent=parent)
-        add_platform_railing(
-            collection,
-            f"{name}_railing",
-            x_outer=x,
-            y_min=y - sy * 0.48,
-            y_max=y + sy * 0.48,
-            z_deck=z + 0.04,
-            length_x=sx * 0.86,
-            mat_yellow=mat_yellow,
-            parent=parent,
-        )
-
-    add_stair_run(
-        collection,
-        "stair_lower_to_mid",
-        x_center=6.98,
-        y_start=-4.42,
-        z_start=2.48,
-        y_end=-3.34,
-        z_end=3.56,
-        width_x=0.56,
-        mat_deck=mat_deck,
-        mat_stair=mat_stair,
-        mat_yellow=mat_yellow,
-        mat_dark=mat_shadow,
-        parent=parent,
-    )
-    add_stair_run(
-        collection,
-        "stair_mid_to_upper",
-        x_center=6.98,
-        y_start=-3.04,
-        z_start=3.62,
-        y_end=-2.03,
-        z_end=4.70,
-        width_x=0.56,
-        mat_deck=mat_deck,
-        mat_stair=mat_stair,
-        mat_yellow=mat_yellow,
-        mat_dark=mat_shadow,
-        parent=parent,
-    )
-
-    # Short vertical ladder connecting roof deck to first side landing.
-    for y in (-4.66, -4.46):
-        cube(collection, f"roof_ladder_side_rail_y{y:.2f}", (6.92, y, 2.73), (0.035, 0.035, 0.66), mat_yellow, parent=parent)
-    for i in range(5):
-        cube(collection, f"roof_ladder_rung_{i:02d}", (6.92, -4.56, 2.46 + i * 0.13), (0.040, 0.24, 0.025), mat_yellow, parent=parent)
-
-    bpy.context.scene["rtg_powerhouse_enhanced"] = "side powerhouse, roof platform, two stair flights, railings, louvers"
+    bpy.context.scene["rtg_powerhouse_enhanced"] = "side powerhouse body, roof platform, railings, louvers"
     bpy.context.view_layer.update()
     if bpy.data.filepath:
         bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
