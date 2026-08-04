@@ -152,6 +152,17 @@ class TaskPositionTests(unittest.TestCase):
             alpha = image.getchannel("A")
             self.assertIsNotNone(alpha.getbbox())
 
+    def test_floating_runinfo_bitmap_renderer_draws_default_text(self) -> None:
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_runinfo_float_default.png"
+
+        rendered = receiver._render_floating_runinfo_bitmap(
+            receiver.RUNINFO_FLOATING_DEFAULT_TEXT,
+            path,
+        )
+
+        self.assertTrue(rendered)
+        self.assertTrue(path.is_file())
+
 
 class GantryCrossbeamAlignmentTests(unittest.TestCase):
     def test_alignment_delta_moves_crossbeam_to_rendered_box_center(self) -> None:

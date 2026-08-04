@@ -112,6 +112,7 @@ RUNINFO_FLOATING_PANEL_WIDTH_M = 4.8
 RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.2
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 8.75)
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 34
+RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 DEMO_SEQUENCE_ARTIFACT_ROOTS = (
     "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
     "/World/LiveContainers/SequenceTruckLane",
@@ -1420,6 +1421,7 @@ class OmniverseRtgTwinDriver:
             stage = self._current_stage()
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
+                self._sync_floating_runinfo_billboard(stage, {})
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgTwinDriver"
@@ -4036,15 +4038,8 @@ class OmniverseRtgTwinDriver:
     def _sync_floating_runinfo_billboard(self, stage: Any, runinfo: Dict[str, Any]) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
-        text = str(runinfo.get("message") or "").strip()
+        text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            if not text:
-                prim = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
-                if prim:
-                    UsdGeom.Imageable(prim).MakeInvisible()
-                self._floating_runinfo_text = None
-                return
-
             if self._floating_runinfo_text == text and stage.GetPrimAtPath(
                 RUNINFO_FLOATING_PANEL_PATH
             ):
