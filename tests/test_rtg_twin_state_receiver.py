@@ -119,6 +119,39 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(machine.task.bay_heights, (2, 3, 3, 4, 0, 0))
         self.assertEqual(machine.transfer_hoist_m, 11.4)
 
+    def test_runinfo_bitmap_renderer_draws_chinese_text(self) -> None:
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_runinfo_test.png"
+
+        rendered = receiver._render_runinfo_bitmap("作业完成ED6632", 220, 32, path)
+
+        self.assertTrue(rendered)
+        self.assertTrue(path.is_file())
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            alpha = image.getchannel("A")
+            self.assertGreater(alpha.getbbox()[2], 0)
+
+    def test_floating_runinfo_bitmap_renderer_draws_panel(self) -> None:
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_runinfo_float_test.png"
+
+        rendered = receiver._render_floating_runinfo_bitmap("作业完成ED6632", path)
+
+        self.assertTrue(rendered)
+        self.assertTrue(path.is_file())
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertEqual(
+                image.size,
+                (
+                    receiver.RUNINFO_FLOATING_IMAGE_WIDTH,
+                    receiver.RUNINFO_FLOATING_IMAGE_HEIGHT,
+                ),
+            )
+            alpha = image.getchannel("A")
+            self.assertIsNotNone(alpha.getbbox())
+
 
 class GantryCrossbeamAlignmentTests(unittest.TestCase):
     def test_alignment_delta_moves_crossbeam_to_rendered_box_center(self) -> None:

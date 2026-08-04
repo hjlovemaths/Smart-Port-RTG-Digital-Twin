@@ -100,6 +100,18 @@ from yard_inventory import (  # noqa: E402
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
 STATUS_PRIM_PATH = "/World/LiveTwinState"
+RUNINFO_FLOATING_ROOT_PATH = (
+    "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
+    "RTG_RUNINFO_FLOATING_BILLBOARD"
+)
+RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
+RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
+RUNINFO_FLOATING_IMAGE_WIDTH = 768
+RUNINFO_FLOATING_IMAGE_HEIGHT = 192
+RUNINFO_FLOATING_PANEL_WIDTH_M = 4.8
+RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.2
+RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 8.75)
+RUNINFO_FLOATING_TEXT_FONT_SIZE = 34
 DEMO_SEQUENCE_ARTIFACT_ROOTS = (
     "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
     "/World/LiveContainers/SequenceTruckLane",
@@ -648,6 +660,68 @@ def _render_runinfo_bitmap(text: str, width: int, height: int, output_path: Path
         for line in lines:
             draw.text((2, y), line, fill=(238, 221, 170, 255), font=font)
             y += line_height
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
+def _render_floating_runinfo_bitmap(text: str, output_path: Path) -> bool:
+    """Render the 3D floating RUNINFO billboard texture."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        width = RUNINFO_FLOATING_IMAGE_WIDTH
+        height = RUNINFO_FLOATING_IMAGE_HEIGHT
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        panel_box = (22, 22, width - 22, height - 22)
+        glow_draw.rounded_rectangle(
+            panel_box,
+            radius=30,
+            fill=(0, 172, 255, 80),
+            outline=(255, 213, 78, 170),
+            width=5,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(8)))
+
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            panel_box,
+            radius=30,
+            fill=(7, 18, 33, 218),
+            outline=(255, 205, 74, 238),
+            width=3,
+        )
+        draw.rounded_rectangle(
+            (34, 34, width - 34, height - 34),
+            radius=24,
+            outline=(68, 201, 255, 120),
+            width=2,
+        )
+        title_font = ImageFont.truetype(str(font_path), 22)
+        body_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_TEXT_FONT_SIZE)
+        draw.text((54, 42), "RUNINFO", fill=(122, 222, 255, 235), font=title_font)
+        draw.ellipse((170, 50, 186, 66), fill=(37, 255, 135, 235))
+
+        lines = _wrap_bitmap_text(
+            draw,
+            text.strip() or "--",
+            body_font,
+            width - 108,
+            2,
+        )
+        y = 78 if len(lines) == 2 else 91
+        for line in lines:
+            draw.text((54, y), line, fill=(255, 238, 184, 255), font=body_font)
+            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + 8
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
         return True
@@ -1332,6 +1406,8 @@ class OmniverseRtgTwinDriver:
         self._operation_task_key: Optional[tuple[Any, ...]] = None
         self._status_overlay: Optional[RtgTwinStatusOverlay] = None
         self._last_status_overlay_at: float = 0.0
+        self._floating_runinfo_text: Optional[str] = None
+        self._floating_runinfo_bitmap_seq = 0
         self._last_error_at = 0.0
 
     def start(self) -> None:
@@ -1370,6 +1446,8 @@ class OmniverseRtgTwinDriver:
         self._active_inventory_task_key = None
         self._spreader_task_key = None
         self._spreader_task_target_size_ft = None
+        self._floating_runinfo_text = None
+        self._floating_runinfo_bitmap_seq = 0
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -3955,6 +4033,118 @@ class OmniverseRtgTwinDriver:
         self._log("RTGController reloaded and bound to current stage")
         return self._controller
 
+    def _sync_floating_runinfo_billboard(self, stage: Any, runinfo: Dict[str, Any]) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        text = str(runinfo.get("message") or "").strip()
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            if not text:
+                prim = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
+                if prim:
+                    UsdGeom.Imageable(prim).MakeInvisible()
+                self._floating_runinfo_text = None
+                return
+
+            if self._floating_runinfo_text == text and stage.GetPrimAtPath(
+                RUNINFO_FLOATING_PANEL_PATH
+            ):
+                root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeVisible()
+                return
+
+            self._floating_runinfo_text = text
+            self._floating_runinfo_bitmap_seq += 1
+            texture_path = (
+                Path(tempfile.gettempdir())
+                / f"smart_port_rtg_runinfo_float_{os.getpid()}_{self._floating_runinfo_bitmap_seq}.png"
+            )
+            if not _render_floating_runinfo_bitmap(text, texture_path):
+                self._log("floating runinfo bitmap render failed")
+                return
+
+            root = UsdGeom.Xform.Define(stage, RUNINFO_FLOATING_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._set_xform_translate(
+                root_prim, Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
+            )
+
+            panel = UsdGeom.Mesh.Define(stage, RUNINFO_FLOATING_PANEL_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = RUNINFO_FLOATING_PANEL_WIDTH_M * 0.5
+            half_h = RUNINFO_FLOATING_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set(
+                [
+                    Gf.Vec2f(0.0, 0.0),
+                    Gf.Vec2f(1.0, 0.0),
+                    Gf.Vec2f(1.0, 1.0),
+                    Gf.Vec2f(0.0, 1.0),
+                ]
+            )
+            panel_prim.CreateAttribute("rtg:runinfoText", Sdf.ValueTypeNames.String).Set(
+                text
+            )
+            panel_prim.CreateAttribute(
+                "rtg:runinfoTexture", Sdf.ValueTypeNames.Asset
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(stage, RUNINFO_FLOATING_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage, f"{RUNINFO_FLOATING_MATERIAL_PATH}/PreviewSurface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+            texture = UsdShade.Shader.Define(
+                stage, f"{RUNINFO_FLOATING_MATERIAL_PATH}/Texture"
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage, f"{RUNINFO_FLOATING_MATERIAL_PATH}/Primvar_st"
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(), "result"
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(), "a"
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
     def _write_status(
         self, stage: Any, state: Dict[str, Any], applied: Dict[str, Any]
     ) -> None:
@@ -4167,6 +4357,7 @@ class OmniverseRtgTwinDriver:
                 Sdf.ValueTypeNames.String,
                 runinfo.get("message"),
             )
+            self._sync_floating_runinfo_billboard(stage, runinfo)
             self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
             )
