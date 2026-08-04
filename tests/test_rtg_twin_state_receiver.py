@@ -163,6 +163,18 @@ class TaskPositionTests(unittest.TestCase):
         self.assertTrue(rendered)
         self.assertTrue(path.is_file())
 
+    def test_floating_runinfo_prefers_3d_sign_without_2d_hud(self) -> None:
+        self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
+        self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 8.5)
+
+    def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
+        self.assertEqual(
+            receiver.USER_SIDE_VIEW_CAMERA_PATH,
+            "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
+        )
+        self.assertLess(receiver.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 0.0)
+        self.assertLess(receiver.USER_SIDE_VIEW_CAMERA_TRANSLATE[2], 0.0)
+
 
 class GantryCrossbeamAlignmentTests(unittest.TestCase):
     def test_alignment_delta_moves_crossbeam_to_rendered_box_center(self) -> None:

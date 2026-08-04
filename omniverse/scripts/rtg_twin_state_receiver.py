@@ -110,9 +110,19 @@ RUNINFO_FLOATING_IMAGE_WIDTH = 768
 RUNINFO_FLOATING_IMAGE_HEIGHT = 192
 RUNINFO_FLOATING_PANEL_WIDTH_M = 4.2
 RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.05
-RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 7.25)
+RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 8.9)
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 30
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
+USER_SIDE_VIEW_CAMERA_PATH = (
+    "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
+)
+USER_SIDE_VIEW_CAMERA_TRANSLATE = (
+    -19.1263159291517,
+    4.896108591772779,
+    -13.204694681816516,
+)
+USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (0.7967801, -32.07531, -6.306942)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -53.691133987469655)
 DEMO_SEQUENCE_ARTIFACT_ROOTS = (
     "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
     "/World/LiveContainers/SequenceTruckLane",
@@ -223,7 +233,7 @@ HOISTED_LOAD_LOCAL_CENTER_X = 2.55
 HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
-RUNINFO_OVERLAY_ENABLED = True
+RUNINFO_OVERLAY_ENABLED = False
 RUNINFO_OVERLAY_WIDTH = 320
 RUNINFO_OVERLAY_HEIGHT = 58
 RUNINFO_OVERLAY_MARGIN_RIGHT = 12
@@ -1422,6 +1432,7 @@ class OmniverseRtgTwinDriver:
             stage = self._current_stage()
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
+                self._sync_user_side_view_camera(stage)
                 self._sync_floating_runinfo_billboard(stage, {})
             if self._status_overlay is None:
                 self._status_overlay = RtgTwinStatusOverlay()
@@ -4081,7 +4092,7 @@ class OmniverseRtgTwinDriver:
                 ]
             )
             panel.CreateFaceVertexCountsAttr([4])
-            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateFaceVertexIndicesAttr([0, 3, 2, 1])
             panel.CreateDoubleSidedAttr(True)
             panel.CreateExtentAttr(
                 [
@@ -4097,9 +4108,9 @@ class OmniverseRtgTwinDriver:
             st.Set(
                 [
                     Gf.Vec2f(0.0, 0.0),
-                    Gf.Vec2f(1.0, 0.0),
-                    Gf.Vec2f(1.0, 1.0),
                     Gf.Vec2f(0.0, 1.0),
+                    Gf.Vec2f(1.0, 1.0),
+                    Gf.Vec2f(1.0, 0.0),
                 ]
             )
             panel_prim.CreateAttribute("rtg:runinfoText", Sdf.ValueTypeNames.String).Set(
@@ -4142,6 +4153,41 @@ class OmniverseRtgTwinDriver:
                 shader.ConnectableAPI(), "surface"
             )
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _sync_user_side_view_camera(self, stage: Any) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
+            camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
+            camera.CreateFocalLengthAttr(14.0)
+            camera.CreateHorizontalApertureAttr(36.0)
+            camera.CreateVerticalApertureAttr(20.25)
+            camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
+            prim = camera.GetPrim()
+            UsdGeom.Imageable(prim).MakeInvisible()
+            prim.CreateAttribute("omni:kit:cameraLock", Sdf.ValueTypeNames.Bool).Set(
+                False
+            )
+            prim.CreateAttribute(
+                "omni:kit:centerOfInterest",
+                Sdf.ValueTypeNames.Vector3d,
+                custom=True,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST))
+            prim.CreateAttribute(
+                "xformOp:translate",
+                Sdf.ValueTypeNames.Double3,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
+            prim.CreateAttribute(
+                "xformOp:rotateYXZ",
+                Sdf.ValueTypeNames.Float3,
+            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
+            prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
+                Gf.Vec3f(1.0, 1.0, 1.0)
+            )
+            prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
+                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+            )
 
     def _write_status(
         self, stage: Any, state: Dict[str, Any], applied: Dict[str, Any]
