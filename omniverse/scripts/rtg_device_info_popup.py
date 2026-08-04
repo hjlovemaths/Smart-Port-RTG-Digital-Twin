@@ -17,12 +17,20 @@ or clearing selection hides it.
 from __future__ import annotations
 
 import builtins
+import os
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+CJK_FONT_PATHS = (
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simhei.ttf",
+    "C:/Windows/Fonts/simsun.ttc",
+)
 
 _service: Optional["RtgDeviceInfoPopupService"] = None
 
@@ -99,6 +107,48 @@ def _fmt_bool(value: Any) -> str:
     return "YES" if bool(value) else "NO"
 
 
+def _find_cjk_font_path() -> Optional[Path]:
+    for path in CJK_FONT_PATHS:
+        candidate = Path(path)
+        try:
+            if candidate.is_file():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+def _render_text_bitmap(
+    text: str,
+    width: int,
+    height: int,
+    output_path: Path,
+    *,
+    font_size: int,
+    color: tuple[int, int, int, int],
+) -> bool:
+    """Render CJK text to PNG so Kit's default label font is not involved."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore
+
+        image = Image.new("RGBA", (int(width), int(height)), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.truetype(str(font_path), int(font_size))
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_height = bbox[3] - bbox[1]
+        y = max(0, (height - text_height) // 2 - bbox[1])
+        draw.text((0, y), text, fill=color, font=font)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
 def _status_prim(stage: Any) -> Any:
     try:
         return stage.GetPrimAtPath(STATUS_PRIM_PATH)
@@ -154,6 +204,7 @@ class RtgDeviceInfoPopupService:
         self._subtitle_label = None
         self._status_label = None
         self._labels: dict[str, Any] = {}
+        self._bitmap_seq = 0
         self._last_selection_signature: tuple[str, ...] = ()
         self._build_window()
         self._subscribe_selection()
@@ -251,11 +302,22 @@ class RtgDeviceInfoPopupService:
                                     height=34,
                                     style=title_style,
                                 )
-                                self._subtitle_label = ui.Label(
-                                    "数字孪生设备状态",
-                                    height=22,
-                                    style=subtitle_style,
-                                )
+                                with ui.HStack(spacing=5, height=22):
+                                    self._image_text(
+                                        ui,
+                                        "数字孪生设备状态",
+                                        width=116,
+                                        height=20,
+                                        font_size=13,
+                                        color=(143, 168, 188, 255),
+                                        fallback_style=subtitle_style,
+                                    )
+                                    ui.Label("·", width=8, style=subtitle_style)
+                                    self._subtitle_label = ui.Label(
+                                        "--",
+                                        height=22,
+                                        style=subtitle_style,
+                                    )
                             with ui.VStack(width=128, spacing=3):
                                 ui.Spacer(height=12)
                                 with ui.Frame(
@@ -282,7 +344,15 @@ class RtgDeviceInfoPopupService:
 
                     with ui.Frame(style=section_style, height=108):
                         with ui.VStack(spacing=5):
-                            ui.Label("作业位置", height=20, style=section_title_style)
+                            self._image_text(
+                                ui,
+                                "作业位置",
+                                width=68,
+                                height=20,
+                                font_size=13,
+                                color=(34, 223, 255, 255),
+                                fallback_style=section_title_style,
+                            )
                             with ui.HStack(spacing=10):
                                 self._field(ui, "堆场", "Field", label_style, value_style)
                                 self._field(ui, "贝位", "Bay", label_style, value_style)
@@ -293,7 +363,15 @@ class RtgDeviceInfoPopupService:
 
                     with ui.Frame(style=section_style, height=112):
                         with ui.VStack(spacing=5):
-                            ui.Label("载荷与选中部件", height=20, style=section_title_style)
+                            self._image_text(
+                                ui,
+                                "载荷与选中部件",
+                                width=112,
+                                height=20,
+                                font_size=13,
+                                color=(34, 223, 255, 255),
+                                fallback_style=section_title_style,
+                            )
                             self._row(ui, "载荷", "Payload", label_style, value_style)
                             self._row(ui, "选中", "Selected", label_style, muted_style)
 
@@ -313,6 +391,41 @@ class RtgDeviceInfoPopupService:
                     continue
         return ""
 
+    def _image_text(
+        self,
+        ui: Any,
+        text: str,
+        *,
+        width: int,
+        height: int,
+        font_size: int,
+        color: tuple[int, int, int, int],
+        fallback_style: dict[str, Any],
+    ) -> Any:
+        self._bitmap_seq += 1
+        path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_device_popup_{os.getpid()}_{self._bitmap_seq}.png"
+        )
+        if _render_text_bitmap(
+            text,
+            width,
+            height,
+            path,
+            font_size=font_size,
+            color=color,
+        ):
+            try:
+                return ui.Image(
+                    str(path),
+                    width=width,
+                    height=height,
+                    fill_policy=ui.FillPolicy.STRETCH,
+                )
+            except Exception:
+                pass
+        return ui.Label(text, width=width, height=height, style=fallback_style)
+
     def _metric_card(
         self,
         ui: Any,
@@ -324,7 +437,15 @@ class RtgDeviceInfoPopupService:
     ) -> None:
         with ui.Frame(style=frame_style):
             with ui.VStack(spacing=5):
-                ui.Label(title, height=20, style=title_style)
+                self._image_text(
+                    ui,
+                    title,
+                    width=42,
+                    height=20,
+                    font_size=12,
+                    color=(145, 168, 184, 255),
+                    fallback_style=title_style,
+                )
                 self._labels[key] = ui.Label("--", height=34, style=value_style)
 
     def _field(
@@ -336,7 +457,15 @@ class RtgDeviceInfoPopupService:
         value_style: dict[str, Any],
     ) -> None:
         with ui.VStack(spacing=2):
-            ui.Label(label, height=18, style=label_style)
+            self._image_text(
+                ui,
+                label,
+                width=60,
+                height=18,
+                font_size=12,
+                color=(128, 148, 168, 255),
+                fallback_style=label_style,
+            )
             self._labels[key] = ui.Label("--", height=24, style=value_style)
 
     def _row(
@@ -348,7 +477,15 @@ class RtgDeviceInfoPopupService:
         value_style: dict[str, Any],
     ) -> None:
         with ui.HStack(spacing=8, height=28):
-            ui.Label(label, width=58, style=label_style)
+            self._image_text(
+                ui,
+                label,
+                width=58,
+                height=22,
+                font_size=12,
+                color=(128, 148, 168, 255),
+                fallback_style=label_style,
+            )
             self._labels[key] = ui.Label("--", word_wrap=True, style=value_style)
 
     def _subscribe_selection(self) -> None:
@@ -410,7 +547,7 @@ class RtgDeviceInfoPopupService:
             self._title_label.text = device if device != "--" else "RTG"
         if self._subtitle_label is not None:
             bay_id = values.get("Bay ID") or "--"
-            self._subtitle_label.text = f"数字孪生设备状态 · {bay_id}"
+            self._subtitle_label.text = bay_id
         if self._status_label is not None:
             try:
                 self._status_label.text = values.get("Mode") or "LIVE"
@@ -418,7 +555,7 @@ class RtgDeviceInfoPopupService:
                 pass
         for key, label in self._labels.items():
             if key == "Locked":
-                text = f"锁具：{values.get(key, '--')}"
+                text = f"LOCK {values.get(key, '--')}"
             else:
                 text = values.get(key, "--")
             try:
