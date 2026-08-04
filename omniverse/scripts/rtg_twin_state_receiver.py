@@ -112,11 +112,6 @@ RUNINFO_FLOATING_IMAGE_HEIGHT = 384
 RUNINFO_FLOATING_PANEL_WIDTH_M = 8.4
 RUNINFO_FLOATING_PANEL_HEIGHT_M = 2.1
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
-RUNINFO_FLOATING_POP_START_Z_OFFSET_M = -1.25
-RUNINFO_FLOATING_POP_SECONDS = 0.75
-RUNINFO_FLOATING_VISIBLE_SECONDS = 8.0
-RUNINFO_FLOATING_START_SCALE = 0.18
-RUNINFO_FLOATING_OVERSHOOT_SCALE = 1.08
 RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
 RUNINFO_FLOATING_UV_COORDS = (
     (1.0, 0.0),
@@ -1516,10 +1511,6 @@ class OmniverseRtgTwinDriver:
         self._last_status_overlay_at: float = 0.0
         self._floating_runinfo_text: Optional[str] = None
         self._floating_runinfo_clock_text: Optional[str] = None
-        self._floating_runinfo_event_key: Optional[tuple[str, str]] = None
-        self._floating_runinfo_started_at: float = 0.0
-        self._floating_runinfo_visible_until: float = 0.0
-        self._floating_runinfo_visible: bool = False
         self._floating_runinfo_bitmap_seq = 0
         self._last_error_at = 0.0
 
@@ -1534,7 +1525,7 @@ class OmniverseRtgTwinDriver:
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
                 self._sync_user_side_view_camera(stage)
-                self._hide_floating_runinfo_billboard(stage)
+                self._sync_floating_runinfo_billboard(stage, {})
             if self._status_overlay is None:
                 self._status_overlay = RtgTwinStatusOverlay()
             stream = omni.kit.app.get_app().get_update_event_stream()
@@ -1565,10 +1556,6 @@ class OmniverseRtgTwinDriver:
         self._spreader_task_target_size_ft = None
         self._floating_runinfo_text = None
         self._floating_runinfo_clock_text = None
-        self._floating_runinfo_event_key = None
-        self._floating_runinfo_started_at = 0.0
-        self._floating_runinfo_visible_until = 0.0
-        self._floating_runinfo_visible = False
         self._floating_runinfo_bitmap_seq = 0
         if self._status_overlay is not None:
             self._status_overlay.destroy()
@@ -1579,7 +1566,6 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
-        self._animate_floating_runinfo_billboard()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -4161,16 +4147,11 @@ class OmniverseRtgTwinDriver:
         stage: Any,
         runinfo: Dict[str, Any],
         clock_text: Optional[str] = None,
-        event_key: Optional[tuple[str, str]] = None,
     ) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
-        text = str(runinfo.get("message") or "").strip()
-        if not text:
-            self._hide_floating_runinfo_billboard(stage)
-            return
+        text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
         clock_text = clock_text or _runinfo_time_text(runinfo)
-        event_key = event_key or (text, clock_text)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             if (
                 self._floating_runinfo_text == text
@@ -4180,7 +4161,6 @@ class OmniverseRtgTwinDriver:
                 root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
                 if root:
                     UsdGeom.Imageable(root).MakeVisible()
-                self._start_floating_runinfo_pop(event_key)
                 return
 
             self._floating_runinfo_text = text
@@ -4197,7 +4177,9 @@ class OmniverseRtgTwinDriver:
             root = UsdGeom.Xform.Define(stage, RUNINFO_FLOATING_ROOT_PATH)
             root_prim = root.GetPrim()
             UsdGeom.Imageable(root_prim).MakeVisible()
-            self._set_floating_runinfo_transform(root_prim, 0.0)
+            self._set_xform_translate(
+                root_prim, Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
+            )
 
             panel = UsdGeom.Mesh.Define(stage, RUNINFO_FLOATING_PANEL_PATH)
             panel_prim = panel.GetPrim()
@@ -4268,99 +4250,6 @@ class OmniverseRtgTwinDriver:
                 shader.ConnectableAPI(), "surface"
             )
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
-            self._start_floating_runinfo_pop(event_key)
-
-    @staticmethod
-    def _floating_runinfo_event_key_for(
-        runinfo: Dict[str, Any],
-    ) -> Optional[tuple[str, str]]:
-        text = str(runinfo.get("message") or "").strip()
-        if not text:
-            return None
-        return text, _runinfo_time_text(runinfo)
-
-    def _start_floating_runinfo_pop(self, event_key: tuple[str, str]) -> None:
-        now = time.time()
-        self._floating_runinfo_event_key = event_key
-        self._floating_runinfo_started_at = now
-        self._floating_runinfo_visible_until = now + RUNINFO_FLOATING_VISIBLE_SECONDS
-        self._floating_runinfo_visible = True
-
-    def _hide_floating_runinfo_billboard(
-        self,
-        stage: Any,
-        *,
-        clear_event_key: bool = True,
-    ) -> None:
-        root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
-        if root:
-            self._set_visibility(root, False)
-        if clear_event_key:
-            self._floating_runinfo_event_key = None
-        self._floating_runinfo_visible_until = 0.0
-        self._floating_runinfo_visible = False
-
-    def _animate_floating_runinfo_billboard(self) -> None:
-        if not self._floating_runinfo_visible:
-            return
-        stage = self._current_stage()
-        if stage is None:
-            return
-        root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
-        if not root:
-            self._floating_runinfo_visible = False
-            return
-        now = time.time()
-        if now >= self._floating_runinfo_visible_until:
-            self._hide_floating_runinfo_billboard(stage, clear_event_key=False)
-            return
-        elapsed = max(0.0, now - self._floating_runinfo_started_at)
-        progress = min(1.0, elapsed / RUNINFO_FLOATING_POP_SECONDS)
-        self._set_visibility(root, True)
-        self._set_floating_runinfo_transform(root, progress)
-
-    def _set_floating_runinfo_transform(self, root_prim: Any, progress: float) -> None:
-        from pxr import Gf
-
-        eased = self._ease_out_back(progress)
-        start_z = (
-            RUNINFO_FLOATING_LOCAL_TRANSLATE[2]
-            + RUNINFO_FLOATING_POP_START_Z_OFFSET_M
-        )
-        z = start_z + (
-            RUNINFO_FLOATING_LOCAL_TRANSLATE[2] - start_z
-        ) * min(1.0, eased)
-        scale = self._bubble_scale(progress)
-        self._set_xform_translate(
-            root_prim,
-            Gf.Vec3d(
-                RUNINFO_FLOATING_LOCAL_TRANSLATE[0],
-                RUNINFO_FLOATING_LOCAL_TRANSLATE[1],
-                z,
-            ),
-        )
-        self._set_xform_scale(root_prim, Gf.Vec3f(scale, scale, scale))
-
-    @staticmethod
-    def _ease_out_back(progress: float) -> float:
-        t = max(0.0, min(1.0, progress)) - 1.0
-        c1 = 1.70158
-        c3 = c1 + 1.0
-        return 1.0 + c3 * t * t * t + c1 * t * t
-
-    @staticmethod
-    def _bubble_scale(progress: float) -> float:
-        progress = max(0.0, min(1.0, progress))
-        if progress >= 1.0:
-            return 1.0
-        eased = OmniverseRtgTwinDriver._ease_out_back(progress)
-        scale = RUNINFO_FLOATING_START_SCALE + (
-            RUNINFO_FLOATING_OVERSHOOT_SCALE - RUNINFO_FLOATING_START_SCALE
-        ) * eased
-        return max(
-            RUNINFO_FLOATING_START_SCALE,
-            min(RUNINFO_FLOATING_OVERSHOOT_SCALE, scale),
-        )
 
     def _sync_user_side_view_camera(self, stage: Any) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom
@@ -4603,21 +4492,13 @@ class OmniverseRtgTwinDriver:
                 task.get("inventorySyncReason"),
             )
             runinfo = state.get("runinfo") or {}
-            runinfo_key = self._floating_runinfo_event_key_for(runinfo)
             self._set_attr(
                 prim,
                 "rtg:runinfo",
                 Sdf.ValueTypeNames.String,
                 runinfo.get("message"),
             )
-            if runinfo_key is None:
-                self._hide_floating_runinfo_billboard(stage)
-            elif runinfo_key != self._floating_runinfo_event_key:
-                self._sync_floating_runinfo_billboard(
-                    stage,
-                    runinfo,
-                    event_key=runinfo_key,
-                )
+            self._sync_floating_runinfo_billboard(stage, runinfo)
             self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
             )
