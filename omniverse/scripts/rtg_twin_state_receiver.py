@@ -4014,6 +4014,29 @@ class OmniverseRtgTwinDriver:
             self._set_attr(
                 prim, "rtg:lockState", Sdf.ValueTypeNames.Int, _as_int(pose.get("lockState"), 0)
             )
+            alarm_status = _as_int(pose.get("alarmStatus"), 0)
+            alarm_message = (
+                pose.get("alarmMessage")
+                or pose.get("alarmText")
+                or state.get("alarmMessage")
+                or state.get("alarmText")
+                or ("设备报警触发！" if alarm_status else "")
+            )
+            self._set_attr(
+                prim, "rtg:alarmStatus", Sdf.ValueTypeNames.Int, alarm_status
+            )
+            self._set_attr(
+                prim, "rtg:alarmActive", Sdf.ValueTypeNames.Bool, alarm_status != 0
+            )
+            self._set_attr(
+                prim, "rtg:alarmMessage", Sdf.ValueTypeNames.String, alarm_message
+            )
+            self._set_attr(
+                prim,
+                "rtg:alarmSeverity",
+                Sdf.ValueTypeNames.String,
+                pose.get("alarmSeverity") or state.get("alarmSeverity") or "ALARM",
+            )
             self._set_attr(
                 prim,
                 "rtg:unlockState",
