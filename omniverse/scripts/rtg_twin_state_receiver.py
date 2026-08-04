@@ -108,10 +108,10 @@ RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
 RUNINFO_FLOATING_IMAGE_WIDTH = 768
 RUNINFO_FLOATING_IMAGE_HEIGHT = 192
-RUNINFO_FLOATING_PANEL_WIDTH_M = 4.8
-RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.2
-RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 8.75)
-RUNINFO_FLOATING_TEXT_FONT_SIZE = 34
+RUNINFO_FLOATING_PANEL_WIDTH_M = 4.2
+RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.05
+RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 7.25)
+RUNINFO_FLOATING_TEXT_FONT_SIZE = 30
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 DEMO_SEQUENCE_ARTIFACT_ROOTS = (
     "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
@@ -223,7 +223,7 @@ HOISTED_LOAD_LOCAL_CENTER_X = 2.55
 HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
-RUNINFO_OVERLAY_ENABLED = False
+RUNINFO_OVERLAY_ENABLED = True
 RUNINFO_OVERLAY_WIDTH = 320
 RUNINFO_OVERLAY_HEIGHT = 58
 RUNINFO_OVERLAY_MARGIN_RIGHT = 12
@@ -951,11 +951,11 @@ class RtgTwinStatusOverlay:
             self._set_label_text(key, value)
         # Runinfo messages update independently so completion/operation logs
         # remain visible even when the task payload is unchanged.
-        runinfo_text = "--"
+        runinfo_text = RUNINFO_FLOATING_DEFAULT_TEXT
         runinfo = state.get("runinfo")
         if isinstance(runinfo, dict):
             raw_text = str(runinfo.get("message") or "")
-            runinfo_text = raw_text.strip() or "--"
+            runinfo_text = raw_text.strip() or RUNINFO_FLOATING_DEFAULT_TEXT
             if self._last_values.get("runinfo") != runinfo_text:
                 self._last_values["runinfo"] = runinfo_text
                 if RUNINFO_OVERLAY_ENABLED:
@@ -971,7 +971,7 @@ class RtgTwinStatusOverlay:
                     "service may need a restart to include runinfo data"
                 )
                 # Log once so the operator can confirm runinfo is flowing.
-                if runinfo_text != "--":
+                if runinfo_text != RUNINFO_FLOATING_DEFAULT_TEXT:
                     print(f"[RTG Twin Receiver] runinfo received: {runinfo_text}")
         if RUNINFO_OVERLAY_ENABLED:
             self._position_runinfo_window()
@@ -1132,7 +1132,7 @@ class RtgTwinStatusOverlay:
                             fill_policy=ui.FillPolicy.STRETCH,
                         )
                         self._runinfo_label = ui.Label(
-                            "--",
+                            RUNINFO_FLOATING_DEFAULT_TEXT,
                             width=1,
                             height=1,
                             word_wrap=True,
@@ -1140,6 +1140,7 @@ class RtgTwinStatusOverlay:
                             style=info_style,
                         )
                         ui.Spacer(height=2)
+            self._set_runinfo_text(RUNINFO_FLOATING_DEFAULT_TEXT)
 
     def _row(self, ui: Any, name: str, key: str, name_style: Dict[str, Any], value_style: Dict[str, Any], height: int = 20) -> None:
         with ui.HStack(height=height):
@@ -1422,6 +1423,8 @@ class OmniverseRtgTwinDriver:
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
                 self._sync_floating_runinfo_billboard(stage, {})
+            if self._status_overlay is None:
+                self._status_overlay = RtgTwinStatusOverlay()
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgTwinDriver"
