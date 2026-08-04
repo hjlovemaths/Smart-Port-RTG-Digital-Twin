@@ -570,6 +570,64 @@ class GamepadInputMappingTests(unittest.TestCase):
             ("visible-min", "visible-max"),
         )
 
+    def test_manual_tool_collision_bounds_uses_spreader_body_geometry(self) -> None:
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_source_path = None
+        controller._spreader_lock_foot_points = lambda stage: [(0.0, 0.0, 0.0)]
+        controller._spreader_actual_vertical_contact_bound_list = (
+            lambda stage, cache, feet: [((-2.0, -1.0, 0.5), (2.0, 1.0, 1.5))]
+        )
+
+        bounds = controller._manual_tool_collision_bounds(None, None)
+
+        self.assertEqual(
+            bounds,
+            (
+                (
+                    -2.0 - self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    -1.0 - self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    0.5 - self.manual.SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                ),
+                (
+                    2.0 + self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    1.0 + self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    1.5 + self.manual.SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                ),
+            ),
+        )
+
+    def test_spreader_horizontal_overlap_detects_container_side_contact(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_023/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._trolley_m = 6.66
+        controller._nearest_bay = lambda stage: ("1C", 23)
+        controller._nearest_row_for_trolley_m = lambda trolley_m: 5
+        controller._container_contact_root_path_cache = lambda stage: (path,)
+        controller._container_collision_filter_location = (
+            lambda prim: ("1C/023", 5, 1)
+        )
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+        )
+
+        overlap = controller._first_spreader_horizontal_overlap(
+            Stage(),
+            object(),
+            ((0.5, -0.5, 0.2), (2.0, 0.5, 0.8)),
+        )
+
+        self.assertEqual(overlap, path)
+
     def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
         plan = self.manual.RtgGamepadManualController._release_topple_plan(
             (-1.0, -1.0, 3.0),

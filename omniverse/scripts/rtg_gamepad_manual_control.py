@@ -665,6 +665,8 @@ class RtgGamepadManualController:
         # sample and making the spreader appear to jump sideways.
         horizontal_motion_requested = False
         lowering_requested = False
+        gantry_delta_m = 0.0
+        trolley_delta_m = 0.0
         if deadman and not self._emergency_stopped and not discrete_command:
             horizontal_motion_requested = (
                 abs(gantry_input) > 0.001 or abs(trolley_input) > 0.001
@@ -674,8 +676,10 @@ class RtgGamepadManualController:
                 self._release_bay_target_for_continuous_travel()
             if abs(gantry_input) > 0.001 or abs(trolley_input) > 0.001 or abs(hoist_input) > 0.001:
                 self._pending_pick_alignment = None
-            self._gantry_m += gantry_input * GANTRY_SPEED_M_S * elapsed
-            self._trolley_m += trolley_input * TROLLEY_SPEED_M_S * elapsed
+            gantry_delta_m = gantry_input * GANTRY_SPEED_M_S * elapsed
+            trolley_delta_m = trolley_input * TROLLEY_SPEED_M_S * elapsed
+            self._gantry_m += gantry_delta_m
+            self._trolley_m += trolley_delta_m
             # Pushing the right stick up raises the spreader (larger engineering
             # hoist value), matching the panel's usual operator convention.
             self._hoist_m += hoist_input * HOIST_SPEED_M_S * elapsed
@@ -686,6 +690,12 @@ class RtgGamepadManualController:
         self._apply_held_pose()
         aligning_pick = self._pending_pick_alignment is not None
         self._advance_pick_alignment(stage)
+        self._limit_spreader_horizontal_contact(
+            stage,
+            gantry_delta_m=gantry_delta_m,
+            trolley_delta_m=trolley_delta_m,
+            horizontal_motion_requested=horizontal_motion_requested,
+        )
         self._limit_spreader_vertical_contact(
             stage,
             # Horizontal travel can enter the side of a high stack while the
@@ -4834,29 +4844,113 @@ class RtgGamepadManualController:
                     )
         lock_foot_points = self._spreader_lock_foot_points(stage)
         if lock_foot_points:
-            minimum = (
-                min(float(point[0]) for point in lock_foot_points),
-                min(float(point[1]) for point in lock_foot_points),
-                min(float(point[2]) for point in lock_foot_points)
-                - SPREADER_COLLISION_VERTICAL_MARGIN_M,
-            )
-            maximum = (
-                max(float(point[0]) for point in lock_foot_points),
-                max(float(point[1]) for point in lock_foot_points),
-                min(float(point[2]) for point in lock_foot_points)
-                + SPREADER_COLLISION_TOOL_HEIGHT_M,
-            )
-            bounds.append(
-                self._expanded_bounds(
-                    minimum,
-                    maximum,
-                    margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
-                    margin_z=0.0,
+            for tool_minimum, tool_maximum in self._spreader_actual_vertical_contact_bound_list(
+                stage,
+                bbox_cache,
+                lock_foot_points,
+            ):
+                bounds.append(
+                    self._expanded_bounds(
+                        tool_minimum,
+                        tool_maximum,
+                        margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                        margin_z=SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                    )
                 )
-            )
         if not bounds:
             return None
         return self._union_bounds(bounds)
+
+    def _limit_spreader_horizontal_contact(
+        self,
+        stage: Any,
+        *,
+        gantry_delta_m: float,
+        trolley_delta_m: float,
+        horizontal_motion_requested: bool,
+    ) -> bool:
+        """Undo a horizontal frame when the spreader body enters a container."""
+
+        if (
+            not horizontal_motion_requested
+            or (
+                abs(float(gantry_delta_m)) < 1.0e-6
+                and abs(float(trolley_delta_m)) < 1.0e-6
+            )
+        ):
+            return False
+        from pxr import Usd, UsdGeom
+
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        tool_bounds = self._manual_tool_collision_bounds(stage, bbox_cache)
+        if tool_bounds is None:
+            return False
+        root_path = self._first_spreader_horizontal_overlap(
+            stage,
+            bbox_cache,
+            tool_bounds,
+        )
+        if root_path is None:
+            return False
+
+        self._gantry_m -= float(gantry_delta_m)
+        self._trolley_m -= float(trolley_delta_m)
+        self._apply_held_pose()
+        self._last_collision_probe_center_world = None
+        now = time.monotonic()
+        if (
+            now - self._last_spreader_contact_notice_at
+            > SPREADER_VERTICAL_CONTACT_LOG_INTERVAL_SECONDS
+        ):
+            self._last_spreader_contact_notice_at = now
+            self._log(
+                "Spreader horizontal contact blocked travel "
+                f"(support={root_path})."
+            )
+        return True
+
+    def _first_spreader_horizontal_overlap(
+        self,
+        stage: Any,
+        bbox_cache: Any,
+        tool_bounds: tuple[Any, Any],
+    ) -> Optional[str]:
+        carried_paths = set(self._carried_component_paths or [])
+        carried_root = self._carried_source_path or ""
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
+        for root_path in self._container_contact_root_path_cache(stage):
+            if root_path == carried_root or root_path in carried_paths:
+                continue
+            root = stage.GetPrimAtPath(root_path)
+            if not root:
+                continue
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
+            if bounds is None:
+                continue
+            if self._bounds_overlap_3d(
+                tool_bounds[0],
+                tool_bounds[1],
+                bounds[0],
+                bounds[1],
+            ):
+                return root_path
+        return None
 
     def _nudge_containers_touched_by_spreader(
         self,
