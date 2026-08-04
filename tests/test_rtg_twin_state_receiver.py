@@ -166,15 +166,22 @@ class TaskPositionTests(unittest.TestCase):
     def test_floating_runinfo_prefers_3d_sign_without_2d_hud(self) -> None:
         self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
         self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 13.0)
+        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 8.4)
+        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 2.1)
+        self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
 
-    def test_floating_runinfo_panel_faces_seaside_vessel(self) -> None:
+    def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
         self.assertEqual(
             receiver.RUNINFO_FLOATING_FACE_VERTEX_INDICES,
             (0, 1, 2, 3),
         )
         self.assertEqual(
-            receiver.RUNINFO_FLOATING_UV_COORDS[1],
+            receiver.RUNINFO_FLOATING_UV_COORDS[0],
             (1.0, 0.0),
+        )
+        self.assertEqual(
+            receiver.RUNINFO_FLOATING_UV_COORDS[1],
+            (0.0, 0.0),
         )
 
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
@@ -182,8 +189,12 @@ class TaskPositionTests(unittest.TestCase):
             receiver.USER_SIDE_VIEW_CAMERA_PATH,
             "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
         )
-        self.assertLess(receiver.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 0.0)
+        self.assertGreater(receiver.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 80.0)
         self.assertLess(receiver.USER_SIDE_VIEW_CAMERA_TRANSLATE[2], 0.0)
+        self.assertEqual(
+            receiver.USER_SIDE_VIEW_CAMERA_ROTATE_YXZ,
+            (-181.93245, 520.10876, -543.2226),
+        )
 
 
 class GantryCrossbeamAlignmentTests(unittest.TestCase):

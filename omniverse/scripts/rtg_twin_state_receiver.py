@@ -106,30 +106,30 @@ RUNINFO_FLOATING_ROOT_PATH = (
 )
 RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
-RUNINFO_FLOATING_IMAGE_WIDTH = 768
-RUNINFO_FLOATING_IMAGE_HEIGHT = 192
-RUNINFO_FLOATING_PANEL_WIDTH_M = 4.2
-RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.05
+RUNINFO_FLOATING_IMAGE_WIDTH = 1536
+RUNINFO_FLOATING_IMAGE_HEIGHT = 384
+RUNINFO_FLOATING_PANEL_WIDTH_M = 8.4
+RUNINFO_FLOATING_PANEL_HEIGHT_M = 2.1
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
 RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
 RUNINFO_FLOATING_UV_COORDS = (
-    (0.0, 0.0),
     (1.0, 0.0),
-    (1.0, 1.0),
+    (0.0, 0.0),
     (0.0, 1.0),
+    (1.0, 1.0),
 )
-RUNINFO_FLOATING_TEXT_FONT_SIZE = 30
+RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
 )
 USER_SIDE_VIEW_CAMERA_TRANSLATE = (
-    -19.1263159291517,
-    4.896108591772779,
-    -13.204694681816516,
+    89.73994204564764,
+    58.58709433744814,
+    -257.5675701451497,
 )
-USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (0.7967801, -32.07531, -6.306942)
-USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -53.691133987469655)
+USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
 DEMO_SEQUENCE_ARTIFACT_ROOTS = (
     "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
     "/World/LiveContainers/SequenceTruckLane",
@@ -4092,10 +4092,10 @@ class OmniverseRtgTwinDriver:
             half_h = RUNINFO_FLOATING_PANEL_HEIGHT_M * 0.5
             panel.CreatePointsAttr(
                 [
-                    Gf.Vec3f(-half_w, 0.0, -half_h),
                     Gf.Vec3f(half_w, 0.0, -half_h),
-                    Gf.Vec3f(half_w, 0.0, half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
                     Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
                 ]
             )
             panel.CreateFaceVertexCountsAttr([4])
