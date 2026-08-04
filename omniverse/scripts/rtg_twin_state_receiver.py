@@ -35,6 +35,7 @@ import threading
 import time
 import types
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -122,6 +123,7 @@ RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
 RUNINFO_FLOATING_TITLE_FONT_SIZE = 44
 RUNINFO_FLOATING_CLOCK_FONT_SIZE = 44
 RUNINFO_FLOATING_CLOCK_FORMAT = "%Y-%m-%d %H:%M:%S"
+RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT = "--"
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
@@ -688,10 +690,43 @@ def _render_runinfo_bitmap(text: str, width: int, height: int, output_path: Path
         return False
 
 
-def _runinfo_clock_text(epoch_seconds: Optional[float] = None) -> str:
-    if epoch_seconds is None:
-        epoch_seconds = time.time()
-    return time.strftime(RUNINFO_FLOATING_CLOCK_FORMAT, time.localtime(epoch_seconds))
+def _format_runinfo_time_text(value: Any) -> str:
+    text = _fmt_text(value, "").strip()
+    if not text:
+        return RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT
+    numeric_value = _as_float(text, None)
+    if numeric_value is not None:
+        timestamp = (
+            numeric_value / 1000.0
+            if numeric_value > 10_000_000_000
+            else numeric_value
+        )
+        try:
+            return time.strftime(
+                RUNINFO_FLOATING_CLOCK_FORMAT,
+                time.localtime(timestamp),
+            )
+        except (OSError, OverflowError, ValueError):
+            return text
+    normalized = text.replace("T", " ").replace("/", "-")
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1]
+    if "." in normalized:
+        normalized = normalized.split(".", 1)[0]
+    try:
+        return datetime.fromisoformat(normalized).strftime(
+            RUNINFO_FLOATING_CLOCK_FORMAT
+        )
+    except ValueError:
+        return text
+
+
+def _runinfo_time_text(runinfo: Dict[str, Any]) -> str:
+    for key in ("timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
+        value = runinfo.get(key)
+        if value is not None:
+            return _format_runinfo_time_text(value)
+    return _format_runinfo_time_text(runinfo.get("receivedAtUtc"))
 
 
 def _render_floating_runinfo_bitmap(
@@ -761,7 +796,7 @@ def _render_floating_runinfo_bitmap(
         )
         draw.text(
             (int(210 * scale), int(39 * scale)),
-            clock_text or _runinfo_clock_text(),
+            clock_text or RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT,
             fill=(245, 252, 255, 245),
             font=clock_font,
         )
@@ -1525,7 +1560,6 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
-        self._sync_floating_runinfo_clock()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -1547,26 +1581,6 @@ class OmniverseRtgTwinDriver:
             if now - self._last_error_at > 1.0:
                 self._last_error_at = now
                 self._log(f"apply failed: {exc}")
-
-    def _sync_floating_runinfo_clock(self) -> None:
-        clock_text = _runinfo_clock_text()
-        if self._floating_runinfo_clock_text == clock_text:
-            return
-        stage = self._current_stage()
-        if stage is None:
-            return
-        text = self._floating_runinfo_text or RUNINFO_FLOATING_DEFAULT_TEXT
-        try:
-            self._sync_floating_runinfo_billboard(
-                stage,
-                {"message": text},
-                clock_text=clock_text,
-            )
-        except Exception as exc:  # noqa: BLE001 - clock must not stop live motion
-            now = time.time()
-            if now - self._last_error_at > 1.0:
-                self._last_error_at = now
-                self._log(f"runinfo clock update failed: {exc}")
 
     def _disable_demo_artifacts_for_stage(self, stage: Any) -> None:
         stage_id = id(stage)
@@ -4131,7 +4145,7 @@ class OmniverseRtgTwinDriver:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
         text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
-        clock_text = clock_text or _runinfo_clock_text()
+        clock_text = clock_text or _runinfo_time_text(runinfo)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             if (
                 self._floating_runinfo_text == text

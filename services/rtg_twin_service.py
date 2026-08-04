@@ -151,6 +151,14 @@ def is_task_complete_runinfo(cmd_id: str, content: Optional[Dict[str, Any]]) -> 
     return "本关任务完成" in desc or "任务完成" in desc
 
 
+def _runinfo_timespan_value(content: Dict[str, Any]) -> Optional[str]:
+    for key in ("timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
+        value = text_value(content.get(key))
+        if value:
+            return value
+    return None
+
+
 @dataclass
 class ServiceConfig:
     rtg_name: str
@@ -201,6 +209,7 @@ class TwinStateCache:
         self._task_at: Optional[float] = None
         self._last_runinfo: Optional[str] = None
         self._last_runinfo_at: Optional[float] = None
+        self._last_runinfo_timespan: Optional[str] = None
 
     def update_plc(self, plc_model: Dict[str, Any]) -> None:
         with self._lock:
@@ -253,9 +262,11 @@ class TwinStateCache:
         desc = text_value(content.get("msg_descption")) or text_value(content.get("msg_description")) or ""
         if not desc:
             return
+        timespan = _runinfo_timespan_value(content)
         with self._lock:
-            is_new = self._last_runinfo != desc
+            is_new = self._last_runinfo != desc or self._last_runinfo_timespan != timespan
             self._last_runinfo = desc
+            self._last_runinfo_timespan = timespan
             self._last_runinfo_at = time.time()
         if is_new:
             logging.info("runinfo: %s", desc)
@@ -357,10 +368,12 @@ class TwinStateCache:
         with self._lock:
             message = self._last_runinfo
             at_time = self._last_runinfo_at
+            timespan = self._last_runinfo_timespan
         if message is None:
             return None
         return {
             "message": message,
+            "timespan": timespan,
             "receivedAtUtc": (
                 datetime.fromtimestamp(at_time, tz=timezone.utc)
                 .isoformat(timespec="seconds")

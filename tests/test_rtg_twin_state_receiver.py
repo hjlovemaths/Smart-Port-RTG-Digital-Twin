@@ -175,9 +175,15 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
 
-    def test_runinfo_clock_text_uses_full_date_time(self) -> None:
+    def test_runinfo_time_text_uses_runinfo_timespan(self) -> None:
+        self.assertEqual(
+            receiver._runinfo_time_text({"timespan": "2026-08-04T15:30:45Z"}),
+            "2026-08-04 15:30:45",
+        )
+
+    def test_runinfo_time_text_formats_unix_milliseconds(self) -> None:
         self.assertRegex(
-            receiver._runinfo_clock_text(0.0),
+            receiver._runinfo_time_text({"timespan": 1785857445000}),
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
         )
 
