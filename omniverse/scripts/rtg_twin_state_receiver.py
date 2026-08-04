@@ -119,6 +119,9 @@ RUNINFO_FLOATING_UV_COORDS = (
     (1.0, 1.0),
 )
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
+RUNINFO_FLOATING_TITLE_FONT_SIZE = 44
+RUNINFO_FLOATING_CLOCK_FONT_SIZE = 44
+RUNINFO_FLOATING_CLOCK_FORMAT = "%Y-%m-%d %H:%M:%S"
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
@@ -685,7 +688,17 @@ def _render_runinfo_bitmap(text: str, width: int, height: int, output_path: Path
         return False
 
 
-def _render_floating_runinfo_bitmap(text: str, output_path: Path) -> bool:
+def _runinfo_clock_text(epoch_seconds: Optional[float] = None) -> str:
+    if epoch_seconds is None:
+        epoch_seconds = time.time()
+    return time.strftime(RUNINFO_FLOATING_CLOCK_FORMAT, time.localtime(epoch_seconds))
+
+
+def _render_floating_runinfo_bitmap(
+    text: str,
+    output_path: Path,
+    clock_text: Optional[str] = None,
+) -> bool:
     """Render the 3D floating RUNINFO billboard texture."""
 
     font_path = _find_cjk_font_path()
@@ -696,49 +709,79 @@ def _render_floating_runinfo_bitmap(text: str, output_path: Path) -> bool:
 
         width = RUNINFO_FLOATING_IMAGE_WIDTH
         height = RUNINFO_FLOATING_IMAGE_HEIGHT
+        scale = max(1.0, width / 768.0)
+        margin = int(22 * scale)
+        inner_margin = int(34 * scale)
+        corner_radius = int(30 * scale)
+        inner_radius = int(24 * scale)
         image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         glow_draw = ImageDraw.Draw(glow)
-        panel_box = (22, 22, width - 22, height - 22)
+        panel_box = (margin, margin, width - margin, height - margin)
         glow_draw.rounded_rectangle(
             panel_box,
-            radius=30,
+            radius=corner_radius,
             fill=(0, 172, 255, 80),
             outline=(255, 213, 78, 170),
-            width=5,
+            width=int(5 * scale),
         )
-        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(8)))
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(int(8 * scale))))
 
         draw = ImageDraw.Draw(image)
         draw.rounded_rectangle(
             panel_box,
-            radius=30,
+            radius=corner_radius,
             fill=(7, 18, 33, 218),
             outline=(255, 205, 74, 238),
-            width=3,
+            width=int(3 * scale),
         )
         draw.rounded_rectangle(
-            (34, 34, width - 34, height - 34),
-            radius=24,
+            (inner_margin, inner_margin, width - inner_margin, height - inner_margin),
+            radius=inner_radius,
             outline=(68, 201, 255, 120),
-            width=2,
+            width=int(2 * scale),
         )
-        title_font = ImageFont.truetype(str(font_path), 22)
+        title_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_TITLE_FONT_SIZE)
+        clock_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_CLOCK_FONT_SIZE)
         body_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_TEXT_FONT_SIZE)
-        draw.text((54, 42), "RUNINFO", fill=(122, 222, 255, 235), font=title_font)
-        draw.ellipse((170, 50, 186, 66), fill=(37, 255, 135, 235))
+        draw.text(
+            (int(54 * scale), int(42 * scale)),
+            "RUNINFO",
+            fill=(122, 222, 255, 235),
+            font=title_font,
+        )
+        draw.ellipse(
+            (
+                int(170 * scale),
+                int(50 * scale),
+                int(186 * scale),
+                int(66 * scale),
+            ),
+            fill=(37, 255, 135, 235),
+        )
+        draw.text(
+            (int(210 * scale), int(39 * scale)),
+            clock_text or _runinfo_clock_text(),
+            fill=(245, 252, 255, 245),
+            font=clock_font,
+        )
 
         lines = _wrap_bitmap_text(
             draw,
             text.strip() or "--",
             body_font,
-            width - 108,
+            width - int(108 * scale),
             2,
         )
-        y = 78 if len(lines) == 2 else 91
+        y = int((78 if len(lines) == 2 else 91) * scale)
         for line in lines:
-            draw.text((54, y), line, fill=(255, 238, 184, 255), font=body_font)
-            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + 8
+            draw.text(
+                (int(54 * scale), y),
+                line,
+                fill=(255, 238, 184, 255),
+                font=body_font,
+            )
+            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + int(8 * scale)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -1426,6 +1469,7 @@ class OmniverseRtgTwinDriver:
         self._status_overlay: Optional[RtgTwinStatusOverlay] = None
         self._last_status_overlay_at: float = 0.0
         self._floating_runinfo_text: Optional[str] = None
+        self._floating_runinfo_clock_text: Optional[str] = None
         self._floating_runinfo_bitmap_seq = 0
         self._last_error_at = 0.0
 
@@ -1470,6 +1514,7 @@ class OmniverseRtgTwinDriver:
         self._spreader_task_key = None
         self._spreader_task_target_size_ft = None
         self._floating_runinfo_text = None
+        self._floating_runinfo_clock_text = None
         self._floating_runinfo_bitmap_seq = 0
         if self._status_overlay is not None:
             self._status_overlay.destroy()
@@ -1480,6 +1525,7 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
+        self._sync_floating_runinfo_clock()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -1501,6 +1547,26 @@ class OmniverseRtgTwinDriver:
             if now - self._last_error_at > 1.0:
                 self._last_error_at = now
                 self._log(f"apply failed: {exc}")
+
+    def _sync_floating_runinfo_clock(self) -> None:
+        clock_text = _runinfo_clock_text()
+        if self._floating_runinfo_clock_text == clock_text:
+            return
+        stage = self._current_stage()
+        if stage is None:
+            return
+        text = self._floating_runinfo_text or RUNINFO_FLOATING_DEFAULT_TEXT
+        try:
+            self._sync_floating_runinfo_billboard(
+                stage,
+                {"message": text},
+                clock_text=clock_text,
+            )
+        except Exception as exc:  # noqa: BLE001 - clock must not stop live motion
+            now = time.time()
+            if now - self._last_error_at > 1.0:
+                self._last_error_at = now
+                self._log(f"runinfo clock update failed: {exc}")
 
     def _disable_demo_artifacts_for_stage(self, stage: Any) -> None:
         stage_id = id(stage)
@@ -4056,13 +4122,21 @@ class OmniverseRtgTwinDriver:
         self._log("RTGController reloaded and bound to current stage")
         return self._controller
 
-    def _sync_floating_runinfo_billboard(self, stage: Any, runinfo: Dict[str, Any]) -> None:
+    def _sync_floating_runinfo_billboard(
+        self,
+        stage: Any,
+        runinfo: Dict[str, Any],
+        clock_text: Optional[str] = None,
+    ) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
         text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
+        clock_text = clock_text or _runinfo_clock_text()
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            if self._floating_runinfo_text == text and stage.GetPrimAtPath(
-                RUNINFO_FLOATING_PANEL_PATH
+            if (
+                self._floating_runinfo_text == text
+                and self._floating_runinfo_clock_text == clock_text
+                and stage.GetPrimAtPath(RUNINFO_FLOATING_PANEL_PATH)
             ):
                 root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
                 if root:
@@ -4070,12 +4144,13 @@ class OmniverseRtgTwinDriver:
                 return
 
             self._floating_runinfo_text = text
+            self._floating_runinfo_clock_text = clock_text
             self._floating_runinfo_bitmap_seq += 1
             texture_path = (
                 Path(tempfile.gettempdir())
                 / f"smart_port_rtg_runinfo_float_{os.getpid()}_{self._floating_runinfo_bitmap_seq}.png"
             )
-            if not _render_floating_runinfo_bitmap(text, texture_path):
+            if not _render_floating_runinfo_bitmap(text, texture_path, clock_text):
                 self._log("floating runinfo bitmap render failed")
                 return
 

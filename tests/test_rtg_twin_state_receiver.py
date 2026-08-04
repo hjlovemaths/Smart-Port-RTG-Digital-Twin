@@ -135,7 +135,11 @@ class TaskPositionTests(unittest.TestCase):
     def test_floating_runinfo_bitmap_renderer_draws_panel(self) -> None:
         path = Path(tempfile.gettempdir()) / "smart_port_rtg_runinfo_float_test.png"
 
-        rendered = receiver._render_floating_runinfo_bitmap("作业完成ED6632", path)
+        rendered = receiver._render_floating_runinfo_bitmap(
+            "作业完成ED6632",
+            path,
+            "2026-08-04 15:30:45",
+        )
 
         self.assertTrue(rendered)
         self.assertTrue(path.is_file())
@@ -169,6 +173,13 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 8.4)
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 2.1)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
+        self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
+
+    def test_runinfo_clock_text_uses_full_date_time(self) -> None:
+        self.assertRegex(
+            receiver._runinfo_clock_text(0.0),
+            r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
+        )
 
     def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
         self.assertEqual(
