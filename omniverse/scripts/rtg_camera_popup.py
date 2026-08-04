@@ -24,8 +24,8 @@ driver.
 from __future__ import annotations
 
 import base64
+import builtins
 import json
-import os
 import re
 import tempfile
 import threading
@@ -34,12 +34,33 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+FramePayload = Tuple[Any, int, int]
 
-OMNIVERSE_ROOT = Path(__file__).resolve().parents[1]
+
+def _resolve_omniverse_root() -> Path:
+    """Resolve the project omniverse folder even when run via Script Editor exec."""
+
+    candidates: List[Path] = []
+    file_name = globals().get("__file__")
+    if file_name:
+        try:
+            candidates.append(Path(file_name).resolve().parents[1])
+        except Exception:
+            pass
+    try:
+        candidates.append(Path.cwd() / "omniverse")
+    except Exception:
+        pass
+    candidates.append(Path(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse"))
+
+    for candidate in candidates:
+        if (candidate / "scripts" / "rtg_camera_popup.py").exists():
+            return candidate
+    return candidates[-1]
+
+
+OMNIVERSE_ROOT = _resolve_omniverse_root()
 DEFAULT_CONFIG_PATH = OMNIVERSE_ROOT / "config" / "cameras" / "Cam_RTG_220.json"
-LEGACY_CONFIG_PATH = Path(
-    r"D:/dnt/project/RCMS/RCMS_RTG/RCMS_RTG/bin/Config/Cameras/Cam_RTG_220.json"
-)
 DEFAULT_RTSP_TEMPLATE = "rtsp://{user}:{password}@{ip}:{port}/axis-media/media.amp?camera={line}"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 MARKER_ROOT = PRIMARY_RTG_PATH + "/RTG_CAMERA_MARKERS"
@@ -113,14 +134,10 @@ class CameraDefinition:
 
 
 def _read_camera_config(path: Path) -> Dict[int, CameraDefinition]:
+    print(f"[RTG Camera] using camera config: {path}")
     if not path.exists():
-        # Keep existing installations working while the project-local file is
-        # being provisioned. The project path remains the normal/default path.
-        if path == DEFAULT_CONFIG_PATH and LEGACY_CONFIG_PATH.exists():
-            path = LEGACY_CONFIG_PATH
-        else:
-            print(f"[RTG Camera] config not found: {path}")
-            return {}
+        print(f"[RTG Camera] config not found: {path}")
+        return {}
     try:
         with path.open("r", encoding="utf-8-sig") as stream:
             payload = json.load(stream)
@@ -213,8 +230,34 @@ def _selected_paths() -> List[str]:
         return []
 
 
+def _set_byte_image_provider_frame(provider: Any, frame: FramePayload) -> None:
+    """Upload one RGBA frame to omni.ui.ByteImageProvider across Kit versions."""
+
+    data, width, height = frame
+    size = [int(width), int(height)]
+    if hasattr(provider, "set_data_array"):
+        provider.set_data_array(data, size)
+        return
+    if hasattr(provider, "set_bytes_data"):
+        provider.set_bytes_data(_flat_byte_sequence(data), size)
+        return
+    if hasattr(provider, "set_data"):
+        provider.set_data(_flat_byte_sequence(data), size)
+        return
+    methods = ", ".join(name for name in dir(provider) if name.startswith("set"))
+    raise RuntimeError(f"unsupported ByteImageProvider API; available setters: {methods}")
+
+
+def _flat_byte_sequence(data: Any) -> List[int]:
+    if hasattr(data, "ravel"):
+        return data.ravel().tolist()
+    if isinstance(data, (bytes, bytearray)):
+        return list(data)
+    return list(data)
+
+
 class RtgRtspReader:
-    """Decode one RTSP stream on a worker thread and expose JPEG frames."""
+    """Decode one RTSP stream on a worker thread and expose RGBA frames."""
 
     def __init__(self, camera: CameraDefinition, on_frame: Any, on_status: Any) -> None:
         self.camera = camera
@@ -268,11 +311,11 @@ class RtgRtspReader:
                     self.on_status("RTSP frame read failed; reconnecting…")
                     time.sleep(0.5)
                     continue
-                # Keep the popup lightweight: JPEG encode happens off the Kit
-                # thread and only bytes cross into the UI update callback.
-                ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                if ok:
-                    self.on_frame(bytes(encoded))
+                rgba = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+                rgba = cv2.resize(rgba, (640, 360))
+                rgba = rgba.copy()
+                height, width = rgba.shape[:2]
+                self.on_frame((rgba, int(width), int(height)))
         except Exception as exc:
             self.on_status(f"RTSP error: {exc}")
         finally:
@@ -285,21 +328,25 @@ class RtgRtspReader:
 
 class RtgCameraPopupService:
     def __init__(self, config_path: Optional[Path] = None) -> None:
-        self.config_path = Path(config_path or os.environ.get("RTG_CAMERA_CONFIG", DEFAULT_CONFIG_PATH))
+        self.config_path = Path(config_path or DEFAULT_CONFIG_PATH)
         self.cameras = _read_camera_config(self.config_path)
         self._reader: Optional[RtgRtspReader] = None
         self._selected_seq: Optional[int] = None
         self._selection_sub = None
+        self._update_sub = None
         self._window = None
+        self._fullscreen_window = None
         self._image_provider = None
         self._status_label = None
         self._title_label = None
-        self._last_frame: Optional[bytes] = None
+        self._last_frame: Optional[FramePayload] = None
         self._frame_lock = threading.Lock()
         self._frame_pending = False
         self._clearing_selection = False
+        self._last_selection_signature: tuple[str, ...] = ()
         self._build_window()
         self._subscribe_selection()
+        self._subscribe_update_poll()
         self._color_camera_markers()
 
     def stop(self) -> None:
@@ -312,12 +359,24 @@ class RtgCameraPopupService:
             except Exception:
                 pass
             self._selection_sub = None
+        if self._update_sub is not None:
+            try:
+                self._update_sub.unsubscribe()
+            except Exception:
+                pass
+            self._update_sub = None
         if self._window is not None:
             try:
                 self._window.visible = False
             except Exception:
                 pass
             self._window = None
+        if self._fullscreen_window is not None:
+            try:
+                self._fullscreen_window.visible = False
+            except Exception:
+                pass
+            self._fullscreen_window = None
 
     def _build_window(self) -> None:
         try:
@@ -342,10 +401,58 @@ class RtgCameraPopupService:
                 self._title_label = ui.Label("RTG Camera", height=24, style={"font_size": 16})
                 self._image_provider = ui.ByteImageProvider()
                 try:
-                    ui.ImageWithProvider(self._image_provider, width=640, height=360)
+                    ui.ImageWithProvider(
+                        self._image_provider,
+                        width=640,
+                        height=360,
+                        mouse_double_clicked_fn=self._on_preview_double_clicked,
+                    )
                 except Exception:
                     ui.Label("RTSP frame preview requires omni.ui.ByteImageProvider")
                 self._status_label = ui.Label("Select a green camera marker", word_wrap=True, height=42)
+
+    def _on_preview_double_clicked(self, *_args: Any) -> None:
+        self._toggle_fullscreen_preview()
+
+    def _toggle_fullscreen_preview(self) -> None:
+        if self._image_provider is None:
+            return
+        if self._fullscreen_window is not None:
+            try:
+                self._fullscreen_window.visible = not bool(self._fullscreen_window.visible)
+            except Exception:
+                pass
+            return
+        try:
+            import omni.ui as ui  # type: ignore
+        except Exception as exc:
+            self._set_status(f"Fullscreen preview unavailable: {exc}")
+            return
+        flags = 0
+        for name in (
+            "WINDOW_FLAGS_NO_SCROLLBAR",
+            "WINDOW_FLAGS_NO_COLLAPSE",
+        ):
+            flags |= getattr(ui, name, 0)
+        self._fullscreen_window = ui.Window(
+            "RTG Camera · Fullscreen",
+            width=1280,
+            height=760,
+            visible=True,
+            flags=flags,
+        )
+        try:
+            self._fullscreen_window.position_x = 20
+            self._fullscreen_window.position_y = 20
+        except Exception:
+            pass
+        with self._fullscreen_window.frame:
+            ui.ImageWithProvider(
+                self._image_provider,
+                width=1280,
+                height=720,
+                mouse_double_clicked_fn=self._on_preview_double_clicked,
+            )
 
     def _subscribe_selection(self) -> None:
         try:
@@ -357,11 +464,31 @@ class RtgCameraPopupService:
             print(f"[RTG Camera] selection subscription unavailable: {exc}")
 
     def _on_selection_changed(self, *_args: Any) -> None:
+        self._handle_selected_paths(_selected_paths(), source="event")
+
+    def _subscribe_update_poll(self) -> None:
+        """Poll selection as a fallback for Kit builds that miss selection events."""
+
+        try:
+            import omni.kit.app  # type: ignore
+
+            stream = omni.kit.app.get_app().get_update_event_stream()
+            self._update_sub = stream.create_subscription_to_pop(self._on_update)
+        except Exception as exc:
+            print(f"[RTG Camera] selection polling unavailable: {exc}")
+
+    def _on_update(self, *_args: Any) -> None:
+        self._handle_selected_paths(_selected_paths(), source="poll")
+
+    def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection:
             return
-        paths = _selected_paths()
+        signature = tuple(paths)
+        if signature == self._last_selection_signature:
+            return
+        self._last_selection_signature = signature
         if paths:
-            print(f"[RTG Camera] selected prim: {paths[0]}")
+            print(f"[RTG Camera] selected prim ({source}): {paths[0]}")
         for path in paths:
             seq = _selected_marker_number(path)
             if seq is None:
@@ -372,6 +499,11 @@ class RtgCameraPopupService:
                 self._show_unconfigured(seq, path)
             self._clear_selection_gizmo()
             return
+        if paths:
+            print(
+                "[RTG Camera] selected prim not recognized as camera marker: "
+                + "; ".join(paths[:3])
+            )
 
     def _clear_selection_gizmo(self) -> None:
         """Clear the viewport selection after opening the camera popup."""
@@ -428,7 +560,7 @@ class RtgCameraPopupService:
         except Exception:
             pass
 
-    def _queue_frame(self, frame: bytes) -> None:
+    def _queue_frame(self, frame: FramePayload) -> None:
         with self._frame_lock:
             self._last_frame = frame
             if self._frame_pending:
@@ -448,10 +580,7 @@ class RtgCameraPopupService:
         if not frame or self._image_provider is None:
             return
         try:
-            import omni.ui as ui  # type: ignore
-
-            # JPEG bytes are accepted by ByteImageProvider in current Kit builds.
-            self._image_provider.set_bytes(frame, format=ui.ByteImageProvider.Format.JPEG)
+            _set_byte_image_provider_frame(self._image_provider, frame)
         except Exception as exc:
             self._set_status(f"Frame received, preview update failed: {exc}")
 
@@ -486,13 +615,14 @@ class RtgSpreaderCameraGridService:
     IMAGE_HEIGHT = 360
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
-        self.config_path = Path(config_path or os.environ.get("RTG_CAMERA_CONFIG", DEFAULT_CONFIG_PATH))
+        self.config_path = Path(config_path or DEFAULT_CONFIG_PATH)
         self.cameras = _read_camera_config(self.config_path)
         self._readers: Dict[int, RtgRtspReader] = {}
         self._window = None
+        self._fullscreen_windows: Dict[int, Any] = {}
         self._providers: Dict[int, Any] = {}
         self._status_labels: Dict[int, Any] = {}
-        self._last_frames: Dict[int, bytes] = {}
+        self._last_frames: Dict[int, FramePayload] = {}
         self._frame_lock = threading.Lock()
         self._frame_pending: set[int] = set()
         self._build_window()
@@ -522,6 +652,12 @@ class RtgSpreaderCameraGridService:
                 self._window.visible = False
             except Exception:
                 pass
+        for window in list(self._fullscreen_windows.values()):
+            try:
+                window.visible = False
+            except Exception:
+                pass
+        self._fullscreen_windows.clear()
 
     def stop_readers(self) -> None:
         for reader in list(self._readers.values()):
@@ -572,6 +708,9 @@ class RtgSpreaderCameraGridService:
                                         provider,
                                         width=self.IMAGE_WIDTH,
                                         height=self.IMAGE_HEIGHT,
+                                        mouse_double_clicked_fn=(
+                                            lambda *args, camera_seq=seq: self._toggle_fullscreen_preview(camera_seq)
+                                        ),
                                     )
                                 except Exception:
                                     ui.Label("RTSP 画面需要 ByteImageProvider", height=self.IMAGE_HEIGHT)
@@ -590,7 +729,49 @@ class RtgSpreaderCameraGridService:
         except Exception:
             pass
 
-    def _queue_frame(self, seq: int, frame: bytes) -> None:
+    def _toggle_fullscreen_preview(self, seq: int) -> None:
+        provider = self._providers.get(seq)
+        if provider is None:
+            return
+        window = self._fullscreen_windows.get(seq)
+        if window is not None:
+            try:
+                window.visible = not bool(window.visible)
+            except Exception:
+                pass
+            return
+        try:
+            import omni.ui as ui  # type: ignore
+        except Exception as exc:
+            self._set_status(seq, f"大屏预览不可用：{exc}")
+            return
+        flags = 0
+        for name in ("WINDOW_FLAGS_NO_SCROLLBAR", "WINDOW_FLAGS_NO_COLLAPSE"):
+            flags |= getattr(ui, name, 0)
+        window = ui.Window(
+            f"Spreader Camera C{seq} · Fullscreen",
+            width=1280,
+            height=760,
+            visible=True,
+            flags=flags,
+        )
+        try:
+            window.position_x = 20
+            window.position_y = 20
+        except Exception:
+            pass
+        self._fullscreen_windows[seq] = window
+        with window.frame:
+            ui.ImageWithProvider(
+                provider,
+                width=1280,
+                height=720,
+                mouse_double_clicked_fn=(
+                    lambda *args, camera_seq=seq: self._toggle_fullscreen_preview(camera_seq)
+                ),
+            )
+
+    def _queue_frame(self, seq: int, frame: FramePayload) -> None:
         with self._frame_lock:
             self._last_frames[seq] = frame
             if seq in self._frame_pending:
@@ -613,9 +794,7 @@ class RtgSpreaderCameraGridService:
         if not frame or provider is None:
             return
         try:
-            import omni.ui as ui  # type: ignore
-
-            provider.set_bytes(frame, format=ui.ByteImageProvider.Format.JPEG)
+            _set_byte_image_provider_frame(provider, frame)
         except Exception as exc:
             self._set_status(seq, f"收到画面，但更新显示失败：{exc}")
 
@@ -624,7 +803,14 @@ def start_rtg_camera_popup(config_path: Optional[str] = None) -> RtgCameraPopupS
     global _service
     if _service is not None:
         _service.stop()
+    previous = getattr(builtins, "_rtg_camera_popup_service", None)
+    if previous is not None and previous is not _service:
+        try:
+            previous.stop()
+        except Exception:
+            pass
     _service = RtgCameraPopupService(Path(config_path) if config_path else None)
+    builtins._rtg_camera_popup_service = _service
     return _service
 
 
@@ -633,6 +819,13 @@ def stop_rtg_camera_popup() -> None:
     if _service is not None:
         _service.stop()
         _service = None
+    previous = getattr(builtins, "_rtg_camera_popup_service", None)
+    if previous is not None:
+        try:
+            previous.stop()
+        except Exception:
+            pass
+        builtins._rtg_camera_popup_service = None
 
 
 def start_rtg_spreader_camera_grid(config_path: Optional[str] = None) -> RtgSpreaderCameraGridService:

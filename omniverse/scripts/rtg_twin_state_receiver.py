@@ -30,6 +30,7 @@ import os
 import re
 import socket
 import sys
+import tempfile
 import threading
 import time
 import types
@@ -209,6 +210,20 @@ HOISTED_LOAD_LOCAL_CENTER_X = 2.55
 HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
+RUNINFO_OVERLAY_ENABLED = False
+RUNINFO_OVERLAY_WIDTH = 320
+RUNINFO_OVERLAY_HEIGHT = 58
+RUNINFO_OVERLAY_MARGIN_RIGHT = 12
+RUNINFO_OVERLAY_MARGIN_BOTTOM = 10
+RUNINFO_FALLBACK_VIEWPORT_SIZE = (1809, 753)
+RUNINFO_TEXT_IMAGE_WIDTH = RUNINFO_OVERLAY_WIDTH - 18
+RUNINFO_TEXT_IMAGE_HEIGHT = 31
+RUNINFO_TEXT_FONT_SIZE = 13
+CJK_FONT_PATHS = (
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simhei.ttf",
+    "C:/Windows/Fonts/simsun.ttc",
+)
 RESOLVED_LOCKED_KEY = "_resolvedSpreaderLocked"
 REMOTE_MANUAL_MODE_FLAG = "_SMART_PORT_RTG_REMOTE_MANUAL_ACTIVE"
 REMOTE_MANUAL_STATUS_KEY = "_SMART_PORT_RTG_REMOTE_MANUAL_STATUS"
@@ -558,6 +573,88 @@ def _fmt_int(value: Any, default: str = "--") -> str:
         return default
 
 
+def _find_cjk_font_path() -> Optional[Path]:
+    for path in CJK_FONT_PATHS:
+        candidate = Path(path)
+        try:
+            if candidate.is_file():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+def _wrap_bitmap_text(draw: Any, text: str, font: Any, max_width: int, max_lines: int) -> list[str]:
+    lines: list[str] = []
+    for paragraph in str(text or "--").splitlines() or ["--"]:
+        current = ""
+        for char in paragraph:
+            candidate = current + char
+            try:
+                width = draw.textbbox((0, 0), candidate, font=font)[2]
+            except Exception:
+                width = len(candidate) * RUNINFO_TEXT_FONT_SIZE
+            if current and width > max_width:
+                lines.append(current)
+                current = char
+                if len(lines) >= max_lines:
+                    break
+            else:
+                current = candidate
+        if len(lines) >= max_lines:
+            break
+        if current:
+            lines.append(current)
+        if len(lines) >= max_lines:
+            break
+    if not lines:
+        lines = ["--"]
+    if len(lines) == max_lines:
+        last = lines[-1]
+        while last:
+            candidate = last + "..."
+            try:
+                width = draw.textbbox((0, 0), candidate, font=font)[2]
+            except Exception:
+                width = len(candidate) * RUNINFO_TEXT_FONT_SIZE
+            if width <= max_width:
+                lines[-1] = candidate
+                break
+            last = last[:-1]
+    return lines[:max_lines]
+
+
+def _render_runinfo_bitmap(text: str, width: int, height: int, output_path: Path) -> bool:
+    """Render RUNINFO text to PNG so CJK does not depend on omni.ui fonts."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore
+
+        image = Image.new("RGBA", (int(width), int(height)), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.truetype(str(font_path), RUNINFO_TEXT_FONT_SIZE)
+        line_height = RUNINFO_TEXT_FONT_SIZE + 2
+        lines = _wrap_bitmap_text(
+            draw,
+            text,
+            font,
+            max(1, int(width) - 4),
+            max(1, int(height) // line_height),
+        )
+        y = 0
+        for line in lines:
+            draw.text((2, y), line, fill=(238, 221, 170, 255), font=font)
+            y += line_height
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
 def _work_type_text(value: Any) -> str:
     text = _fmt_text(value, "").upper()
     if text == WORK_TYPE_LOAD:
@@ -725,9 +822,12 @@ class RtgTwinStatusOverlay:
 
     def __init__(self) -> None:
         self._window = None
+        self._runinfo_window = None
         self._labels: Dict[str, Any] = {}
         self._last_values: Dict[str, str] = {}
         self._runinfo_label: Any = None
+        self._runinfo_image: Any = None
+        self._runinfo_bitmap_seq = 0
         self._build()
 
     def update(self, state: Dict[str, Any], applied: Dict[str, Any]) -> None:
@@ -774,15 +874,18 @@ class RtgTwinStatusOverlay:
                 continue
             self._last_values[key] = value
             self._set_label_text(key, value)
-        # Runinfo messages update independently — show the latest one.
+        # Runinfo messages update independently so completion/operation logs
+        # remain visible even when the task payload is unchanged.
+        runinfo_text = "--"
         runinfo = state.get("runinfo")
         if isinstance(runinfo, dict):
             raw_text = str(runinfo.get("message") or "")
             runinfo_text = raw_text.strip() or "--"
             if self._last_values.get("runinfo") != runinfo_text:
                 self._last_values["runinfo"] = runinfo_text
-                print(f"[RTG Twin Receiver] runinfo HUD update: {runinfo_text}")
-                self._set_runinfo_text(runinfo_text)
+                if RUNINFO_OVERLAY_ENABLED:
+                    print(f"[RTG Twin Receiver] runinfo HUD update: {runinfo_text}")
+                    self._set_runinfo_text(runinfo_text)
         else:
             # Log once per connection whether the service sends runinfo.
             if not getattr(self, "_runinfo_probe_logged", False):
@@ -795,6 +898,8 @@ class RtgTwinStatusOverlay:
                 # Log once so the operator can confirm runinfo is flowing.
                 if runinfo_text != "--":
                     print(f"[RTG Twin Receiver] runinfo received: {runinfo_text}")
+        if RUNINFO_OVERLAY_ENABLED:
+            self._position_runinfo_window()
 
     def destroy(self) -> None:
         if self._window is not None:
@@ -803,16 +908,22 @@ class RtgTwinStatusOverlay:
             except Exception:
                 pass
             self._window = None
+        if self._runinfo_window is not None:
+            try:
+                self._runinfo_window.visible = False
+            except Exception:
+                pass
+            self._runinfo_window = None
         self._labels.clear()
         self._runinfo_label = None
+        self._runinfo_image = None
 
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
 
-        # Kit's default UI font lacks CJK glyphs.  Register a system font
-        # via omni.ui's FontRegistry so every Label in this window renders
-        # Chinese text correctly.
-        _cjk_family = ""
+        # Kit's default UI font lacks CJK glyphs in some app builds.  Prefer
+        # FontRegistry and fall back to a direct Windows font file path.
+        _cjk_font = ""
         _cjk_paths = (
             "C:/Windows/Fonts/msyh.ttc",
             "C:/Windows/Fonts/simhei.ttf",
@@ -826,15 +937,23 @@ class RtgTwinStatusOverlay:
                 try:
                     _family = _font_registry.add_font(_path)
                     if _family:
-                        _cjk_family = str(_family)
+                        _cjk_font = str(_family)
+                        break
+                except Exception:
+                    continue
+        if not _cjk_font:
+            for _path in _cjk_paths:
+                try:
+                    if Path(_path).is_file():
+                        _cjk_font = _path
                         break
                 except Exception:
                     continue
 
         def _mk_cjk_style(base: Dict[str, Any]) -> Dict[str, Any]:
             result = dict(base)
-            if _cjk_family:
-                result["font"] = _cjk_family
+            if _cjk_font:
+                result["font"] = _cjk_font
             return result
 
         flags = 0
@@ -849,7 +968,7 @@ class RtgTwinStatusOverlay:
         self._window = ui.Window(
             "RTG Twin HUD",
             width=270,
-            height=710,
+            height=630,
             visible=True,
             flags=flags,
         )
@@ -910,14 +1029,39 @@ class RtgTwinStatusOverlay:
                             self._row(ui, label, key, name_style, value_style)
                         ui.Spacer(height=2)
 
-                with ui.Frame(style=panel_style, height=65):
-                    with ui.VStack(spacing=3):
-                        ui.Spacer(height=4)
-                        ui.Label("RUNINFO", style=title_style, height=18)
-                        info_style = _mk_cjk_style({"color": 0xFFEEDDAA, "font_size": 11})
+        if RUNINFO_OVERLAY_ENABLED:
+            self._runinfo_window = ui.Window(
+                "RTG RunInfo HUD",
+                width=RUNINFO_OVERLAY_WIDTH,
+                height=RUNINFO_OVERLAY_HEIGHT,
+                visible=True,
+                flags=flags,
+            )
+            self._position_runinfo_window()
+            runinfo_panel_style = {
+                "background_color": 0xD6061827,
+                "border_color": 0xFFFF4545,
+                "border_width": 1,
+                "border_radius": 3,
+            }
+            info_style = _mk_cjk_style({"color": 0xFFEEDDAA, "font_size": 12})
+            with self._runinfo_window.frame:
+                with ui.Frame(style=runinfo_panel_style):
+                    with ui.VStack(spacing=2):
+                        ui.Spacer(height=3)
+                        ui.Label("RUNINFO", style=title_style, height=16)
+                        self._runinfo_image = ui.Image(
+                            "",
+                            width=RUNINFO_TEXT_IMAGE_WIDTH,
+                            height=RUNINFO_TEXT_IMAGE_HEIGHT,
+                            fill_policy=ui.FillPolicy.STRETCH,
+                        )
                         self._runinfo_label = ui.Label(
-                            "--", width=248, height=36,
-                            word_wrap=True, alignment=ui.Alignment.LEFT,
+                            "--",
+                            width=1,
+                            height=1,
+                            word_wrap=True,
+                            alignment=ui.Alignment.LEFT,
                             style=info_style,
                         )
                         ui.Spacer(height=2)
@@ -941,6 +1085,25 @@ class RtgTwinStatusOverlay:
                 pass
 
     def _set_runinfo_text(self, text: str) -> None:
+        if not RUNINFO_OVERLAY_ENABLED:
+            return
+        if self._runinfo_image is not None:
+            self._runinfo_bitmap_seq += 1
+            path = (
+                Path(tempfile.gettempdir())
+                / f"smart_port_rtg_runinfo_{os.getpid()}_{self._runinfo_bitmap_seq}.png"
+            )
+            if _render_runinfo_bitmap(
+                text,
+                RUNINFO_TEXT_IMAGE_WIDTH,
+                RUNINFO_TEXT_IMAGE_HEIGHT,
+                path,
+            ):
+                try:
+                    self._runinfo_image.source_url = str(path)
+                    return
+                except Exception:
+                    pass
         if self._runinfo_label is None:
             return
         try:
@@ -950,6 +1113,52 @@ class RtgTwinStatusOverlay:
                 self._runinfo_label.model.set_value(text)
             except Exception:
                 pass
+
+    def _position_runinfo_window(self) -> None:
+        if not RUNINFO_OVERLAY_ENABLED:
+            return
+        if self._runinfo_window is None:
+            return
+        width, height = self._active_viewport_size()
+        position_x = max(0, width - RUNINFO_OVERLAY_WIDTH - RUNINFO_OVERLAY_MARGIN_RIGHT)
+        position_y = max(0, height - RUNINFO_OVERLAY_HEIGHT - RUNINFO_OVERLAY_MARGIN_BOTTOM)
+        for attr, value in (("position_x", position_x), ("position_y", position_y)):
+            try:
+                setattr(self._runinfo_window, attr, value)
+            except Exception:
+                pass
+
+    def _active_viewport_size(self) -> tuple[int, int]:
+        try:
+            from omni.kit.viewport.utility import get_active_viewport  # type: ignore
+
+            viewport = get_active_viewport()
+            resolution = getattr(viewport, "resolution", None)
+            parsed = self._parse_size(resolution)
+            if parsed is not None:
+                return parsed
+        except Exception:
+            pass
+        return RUNINFO_FALLBACK_VIEWPORT_SIZE
+
+    @staticmethod
+    def _parse_size(value: Any) -> Optional[tuple[int, int]]:
+        if value is None:
+            return None
+        try:
+            if isinstance(value, (tuple, list)) and len(value) >= 2:
+                width, height = int(value[0]), int(value[1])
+            elif hasattr(value, "x") and hasattr(value, "y"):
+                width, height = int(value.x), int(value.y)
+            elif hasattr(value, "width") and hasattr(value, "height"):
+                width, height = int(value.width), int(value.height)
+            else:
+                return None
+        except Exception:
+            return None
+        if width <= 0 or height <= 0:
+            return None
+        return width, height
 
 class RtgTwinStateReceiver:
     """Background TCP client for newline-delimited JSON twin-state frames."""
@@ -1810,9 +2019,12 @@ class OmniverseRtgTwinDriver:
         try:
             if self._status_overlay is None:
                 self._status_overlay = RtgTwinStatusOverlay()
-            elif not getattr(self._status_overlay, "_runinfo_label", None):
+            elif (
+                not RUNINFO_OVERLAY_ENABLED
+                and getattr(self._status_overlay, "_runinfo_window", None) is not None
+            ):
                 # The cached overlay was built by an older script execution
-                # that did not include the runinfo panel.  Replace it.
+                # that still included the runinfo panel. Replace it.
                 try:
                     self._status_overlay.destroy()
                 except Exception:
