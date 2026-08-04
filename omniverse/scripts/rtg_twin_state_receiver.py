@@ -3977,6 +3977,28 @@ class OmniverseRtgTwinDriver:
             self._set_attr(
                 prim, "rtg:currentBay", Sdf.ValueTypeNames.Int, _as_int(pose.get("currentBay"), 0)
             )
+            current_field = str(pose.get("currentField") or "").strip()
+            current_bay = _as_int(pose.get("currentBay"), 0)
+            self._set_attr(
+                prim,
+                "rtg:currentBayId",
+                Sdf.ValueTypeNames.String,
+                f"{current_field}/{current_bay:03d}"
+                if current_field and current_bay > 0
+                else "",
+            )
+            self._set_attr(
+                prim,
+                "rtg:controlMode",
+                Sdf.ValueTypeNames.String,
+                applied.get("controlMode") or "LIVE",
+            )
+            self._set_attr(
+                prim,
+                "rtg:manualPayload",
+                Sdf.ValueTypeNames.String,
+                state.get("manualPayload"),
+            )
             self._set_attr(
                 prim, "rtg:trolleyMeter", Sdf.ValueTypeNames.Double, applied.get("trolleyMeter")
             )
@@ -4036,6 +4058,66 @@ class OmniverseRtgTwinDriver:
             )
             self._set_attr(
                 prim, "rtg:bayMap", Sdf.ValueTypeNames.String, task.get("bayMap")
+            )
+            self._set_attr(
+                prim,
+                "rtg:operationState",
+                Sdf.ValueTypeNames.String,
+                task.get("operationState"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:visualPhase",
+                Sdf.ValueTypeNames.String,
+                task.get("visualPhase"),
+            )
+            self._set_attr(
+                prim, "rtg:startPos", Sdf.ValueTypeNames.String, task.get("startPos")
+            )
+            self._set_attr(
+                prim, "rtg:endPos", Sdf.ValueTypeNames.String, task.get("endPos")
+            )
+            self._set_attr(
+                prim, "rtg:sourcePos", Sdf.ValueTypeNames.String, task.get("sourcePos")
+            )
+            self._set_attr(
+                prim, "rtg:targetPos", Sdf.ValueTypeNames.String, task.get("targetPos")
+            )
+            self._set_attr(
+                prim,
+                "rtg:containerNo",
+                Sdf.ValueTypeNames.String,
+                task.get("containerNo"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:containerType",
+                Sdf.ValueTypeNames.String,
+                task.get("containerType"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:containerHeight",
+                Sdf.ValueTypeNames.String,
+                task.get("containerHeight"),
+            )
+            self._set_attr(
+                prim,
+                "rtg:containerSize",
+                Sdf.ValueTypeNames.Int,
+                _as_int(task.get("containerSize"), 0),
+            )
+            self._set_attr(
+                prim,
+                "rtg:spreaderPos",
+                Sdf.ValueTypeNames.String,
+                task.get("spreaderPos"),
+            )
+            self._set_attr(
+                prim, "rtg:carType", Sdf.ValueTypeNames.String, task.get("carType")
+            )
+            self._set_attr(
+                prim, "rtg:carNo", Sdf.ValueTypeNames.String, task.get("carNo")
             )
             self._set_attr(
                 prim,
