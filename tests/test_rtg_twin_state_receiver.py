@@ -188,6 +188,45 @@ class TaskPositionTests(unittest.TestCase):
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
         )
 
+    def test_floating_runinfo_event_key_requires_message(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+
+        self.assertIsNone(driver._floating_runinfo_event_key_for({}))
+
+        self.assertEqual(
+            driver._floating_runinfo_event_key_for(
+                {
+                    "message": "任务完成",
+                    "timespan": "2026-08-04T15:30:45Z",
+                }
+            ),
+            ("任务完成", "2026-08-04 23:30:45"),
+        )
+
+    def test_floating_runinfo_bubble_scale_pops_from_small_to_full_size(self) -> None:
+        self.assertAlmostEqual(
+            receiver.OmniverseRtgTwinDriver._bubble_scale(0.0),
+            receiver.RUNINFO_FLOATING_START_SCALE,
+        )
+        self.assertEqual(receiver.OmniverseRtgTwinDriver._bubble_scale(1.0), 1.0)
+
+    def test_floating_runinfo_timeout_hide_keeps_event_key(self) -> None:
+        class Stage:
+            def GetPrimAtPath(self, _path):
+                return None
+
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._floating_runinfo_event_key = ("任务完成", "2026-08-04 23:30:45")
+        driver._floating_runinfo_visible = True
+
+        driver._hide_floating_runinfo_billboard(Stage(), clear_event_key=False)
+
+        self.assertEqual(
+            driver._floating_runinfo_event_key,
+            ("任务完成", "2026-08-04 23:30:45"),
+        )
+        self.assertFalse(driver._floating_runinfo_visible)
+
     def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
         self.assertEqual(
             receiver.RUNINFO_FLOATING_FACE_VERTEX_INDICES,
