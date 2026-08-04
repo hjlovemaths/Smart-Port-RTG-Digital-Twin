@@ -110,7 +110,14 @@ RUNINFO_FLOATING_IMAGE_WIDTH = 768
 RUNINFO_FLOATING_IMAGE_HEIGHT = 192
 RUNINFO_FLOATING_PANEL_WIDTH_M = 4.2
 RUNINFO_FLOATING_PANEL_HEIGHT_M = 1.05
-RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 8.9)
+RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
+RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
+RUNINFO_FLOATING_UV_COORDS = (
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+)
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 30
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 USER_SIDE_VIEW_CAMERA_PATH = (
@@ -4092,7 +4099,7 @@ class OmniverseRtgTwinDriver:
                 ]
             )
             panel.CreateFaceVertexCountsAttr([4])
-            panel.CreateFaceVertexIndicesAttr([0, 3, 2, 1])
+            panel.CreateFaceVertexIndicesAttr(list(RUNINFO_FLOATING_FACE_VERTEX_INDICES))
             panel.CreateDoubleSidedAttr(True)
             panel.CreateExtentAttr(
                 [
@@ -4106,12 +4113,7 @@ class OmniverseRtgTwinDriver:
                 UsdGeom.Tokens.faceVarying,
             )
             st.Set(
-                [
-                    Gf.Vec2f(0.0, 0.0),
-                    Gf.Vec2f(0.0, 1.0),
-                    Gf.Vec2f(1.0, 1.0),
-                    Gf.Vec2f(1.0, 0.0),
-                ]
+                [Gf.Vec2f(u, v) for u, v in RUNINFO_FLOATING_UV_COORDS]
             )
             panel_prim.CreateAttribute("rtg:runinfoText", Sdf.ValueTypeNames.String).Set(
                 text

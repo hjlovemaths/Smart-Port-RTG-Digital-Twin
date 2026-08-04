@@ -165,7 +165,17 @@ class TaskPositionTests(unittest.TestCase):
 
     def test_floating_runinfo_prefers_3d_sign_without_2d_hud(self) -> None:
         self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
-        self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 8.5)
+        self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 13.0)
+
+    def test_floating_runinfo_panel_faces_seaside_vessel(self) -> None:
+        self.assertEqual(
+            receiver.RUNINFO_FLOATING_FACE_VERTEX_INDICES,
+            (0, 1, 2, 3),
+        )
+        self.assertEqual(
+            receiver.RUNINFO_FLOATING_UV_COORDS[1],
+            (1.0, 0.0),
+        )
 
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
         self.assertEqual(
