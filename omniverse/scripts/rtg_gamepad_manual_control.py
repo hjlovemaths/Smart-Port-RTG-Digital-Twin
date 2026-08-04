@@ -1728,7 +1728,7 @@ class RtgGamepadManualController:
             if path in component_paths or path in support_roots_seen:
                 continue
             support_roots_seen.add(path)
-            bounds = self._world_container_bounds(bbox_cache, root)
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             supports.append((path, bounds[0], bounds[1]))
@@ -2926,13 +2926,26 @@ class RtgGamepadManualController:
         carried_root = self._carried_source_path or ""
         best: Optional[tuple[float, float, str]] = None
         best_distance = 0.0
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
         for root_path in self._container_contact_root_path_cache(stage):
             if root_path == carried_root or root_path in carried_paths:
                 continue
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             correction_x, correction_y = self._carried_collision_separation_delta(
@@ -3012,7 +3025,13 @@ class RtgGamepadManualController:
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             support_bounds.append((root_path, bounds[0], bounds[1]))
@@ -3598,14 +3617,24 @@ class RtgGamepadManualController:
         carried_paths = set(self._carried_component_paths or [])
         carried_root = self._carried_source_path or ""
         support_bounds = []
+        fallback_bounds = []
         tool_minimum, tool_maximum = tool_bounds
+        current_bay_id = None
+        current_row = None
         for root_path in self._container_visual_contact_path_cache(stage):
             if root_path == carried_root or root_path in carried_paths:
                 continue
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            # Vertical safety must follow the rendered world geometry.  The
+            # engineering bay/row estimate can differ from a live container's
+            # authored metadata after scene calibration or manual movement;
+            # using it as an exclusion filter allowed the spreader to pass
+            # through an AABB that was visibly underneath it.  The cached list
+            # already contains only one physical root per live box, so an XY
+            # bounds check is both authoritative and reasonably small.
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             if not self._bounds_overlap_xy(
@@ -3614,9 +3643,62 @@ class RtgGamepadManualController:
                 bounds[0],
                 bounds[1],
             ):
+                location = self._live_container_location(root)
+                if (
+                    location is not None
+                    and current_bay_id is None
+                    and current_row is None
+                ):
+                    current_field, current_bay = self._nearest_bay(stage)
+                    current_bay_id = (
+                        f"{current_field}/{current_bay:03d}"
+                        if current_field is not None and current_bay is not None
+                        else None
+                    )
+                    current_row = self._nearest_row_for_trolley_m(self._trolley_m)
+                if (
+                    location is not None
+                    and current_bay_id is not None
+                    and current_row is not None
+                    and location[0] == current_bay_id
+                    and int(location[1]) == int(current_row)
+                ):
+                    projected_minimum, projected_maximum = (
+                        self._support_bounds_projected_to_tool_xy(
+                            tool_minimum,
+                            tool_maximum,
+                            bounds[0],
+                            bounds[1],
+                        )
+                    )
+                    fallback_bounds.append(
+                        (root_path, projected_minimum, projected_maximum)
+                    )
                 continue
             support_bounds.append((root_path, bounds[0], bounds[1]))
-        return support_bounds
+        return support_bounds or fallback_bounds
+
+    @staticmethod
+    def _support_bounds_projected_to_tool_xy(
+        tool_minimum: Any,
+        tool_maximum: Any,
+        support_minimum: Any,
+        support_maximum: Any,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        """Keep a bay/row fallback support usable by later XY-gated checks."""
+
+        return (
+            (
+                float(tool_minimum[0]),
+                float(tool_minimum[1]),
+                float(support_minimum[2]),
+            ),
+            (
+                float(tool_maximum[0]),
+                float(tool_maximum[1]),
+                float(support_maximum[2]),
+            ),
+        )
 
     def _spreader_actual_vertical_contact_bound_list(
         self,
@@ -4002,6 +4084,23 @@ class RtgGamepadManualController:
             return None
         return bay_id, row, tier
 
+    def _container_collision_filter_location(
+        self,
+        prim: Any,
+    ) -> Optional[tuple[str, int, int]]:
+        """Return metadata only when it still constrains the visible pose.
+
+        A manually released box can move away from its authored bay/row.  Its
+        recorded world bounds remain authoritative, so stale inventory
+        metadata must not let the nearby-candidate optimization skip it.
+        Returning ``None`` intentionally keeps such boxes in the scan.
+        """
+
+        root = self._live_container_root(prim)
+        if root and self._is_manually_released_container(root):
+            return None
+        return self._live_container_location(root)
+
     def _live_container_root_path_cache(self, stage: Any) -> tuple[str, ...]:
         cached = getattr(self, "_live_container_root_paths", None)
         if cached is not None:
@@ -4063,11 +4162,13 @@ class RtgGamepadManualController:
         path: str,
         *,
         is_boundable: bool,
+        has_live_root: bool = False,
     ) -> bool:
         """Recognize legacy visible container meshes missed by live-root metadata."""
 
         return (
             bool(is_boundable)
+            and not bool(has_live_root)
             and "container" in str(name).lower()
             and not str(path).startswith(f"{HOIST_PATH}/")
         )
@@ -4093,12 +4194,22 @@ class RtgGamepadManualController:
                 name = str(prim.GetName())
                 path = str(prim.GetPath())
                 is_boundable = bool(prim.IsA(UsdGeom.Boundable))
+                live_root = self._live_container_root(prim)
+                has_live_root = bool(
+                    live_root and live_root.GetAttribute("live:bayId")
+                )
             except RuntimeError:
                 continue
             if path in seen or not self._is_container_visual_contact_candidate(
                 name,
                 path,
                 is_boundable=is_boundable,
+                # Generated live boxes already contribute their main cube via
+                # ``_container_contact_root_path_cache``.  Querying every rib,
+                # line and top-detail sibling made each lowering frame compute
+                # hundreds of redundant bounds.  Keep per-mesh candidates
+                # only for legacy boxes that have no live container root.
+                has_live_root=has_live_root,
             ):
                 continue
             try:
@@ -4170,6 +4281,30 @@ class RtgGamepadManualController:
         if any(float(minimum[index]) > float(maximum[index]) for index in range(3)):
             return None
         return minimum, maximum
+
+    def _container_contact_bounds(
+        self,
+        stage: Any,
+        bbox_cache: Any,
+        prim: Any,
+    ) -> Optional[tuple[Any, Any]]:
+        """Return the bounds at the position currently visible to the operator.
+
+        PhysX can publish a released rigid body's pose through Fabric while
+        its USD xform still describes the old inventory slot.  Contact checks
+        must use the recorded PhysX bounds for that box, just as re-pick does,
+        or the spreader is stopped over the old slot and can pass through the
+        visibly released box.
+        """
+
+        root = self._live_container_root(prim)
+        if root and self._is_manually_released_container(root):
+            return self._manual_release_bounds_for_pick(
+                stage,
+                bbox_cache,
+                root,
+            )
+        return self._world_container_bounds(bbox_cache, prim)
 
     def _manual_release_bounds_for_pick(
         self,
@@ -4513,7 +4648,11 @@ class RtgGamepadManualController:
             source = stage.GetPrimAtPath(str(release.get("sourcePath", "")))
             if not source:
                 continue
-            source_bounds = self._world_container_bounds(bbox_cache, source)
+            source_bounds = self._container_contact_bounds(
+                stage,
+                bbox_cache,
+                source,
+            )
             if source_bounds is None:
                 return False
             if self._bounds_overlap_3d(
@@ -4790,6 +4929,13 @@ class RtgGamepadManualController:
             dynamic_paths.add(str(release.get("sourcePath", "")))
             for path in release.get("followers", {}):
                 dynamic_paths.add(str(path))
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
         nudges: list[tuple[str, tuple[float, float]]] = []
         for root_path in self._container_contact_root_path_cache(stage):
             if (
@@ -4802,7 +4948,13 @@ class RtgGamepadManualController:
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             delta_xy = self._collision_nudge_delta(

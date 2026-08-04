@@ -454,6 +454,122 @@ class GamepadInputMappingTests(unittest.TestCase):
             )
         )
 
+    def test_visual_contact_uses_one_root_bound_per_live_container(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._is_container_visual_contact_candidate
+        )
+
+        self.assertFalse(
+            helper(
+                "R05_T03_Container_WeatheredTop",
+                "/World/LiveContainers/YardInventory/Bay_1C_021/"
+                "R05_T03_Container_WeatheredTop",
+                is_boundable=True,
+                has_live_root=True,
+            )
+        )
+
+    def test_spreader_support_uses_world_overlap_despite_stale_bay_metadata(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_019/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._container_visual_contact_path_cache = lambda stage: (path,)
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+        )
+        controller._is_nearby_collision_candidate = lambda *args, **kwargs: (
+            self.fail("world-overlapping vertical support must not be metadata-filtered")
+        )
+
+        supports = controller._support_bounds_for_spreader_vertical_contact(
+            Stage(),
+            object(),
+            tool_bounds=((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5)),
+        )
+
+        self.assertEqual(
+            supports,
+            [(path, (-1.0, -1.0, 0.0), (1.0, 1.0, 1.0))],
+        )
+
+    def test_spreader_support_falls_back_to_current_bay_row(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_019/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._trolley_m = 6.66
+        controller._nearest_bay = lambda stage: ("1C", 19)
+        controller._nearest_row_for_trolley_m = lambda trolley_m: 5
+        controller._live_container_location = lambda prim: ("1C/019", 5, 1)
+        controller._container_visual_contact_path_cache = lambda stage: (path,)
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, 10.0, 0.0),
+            (1.0, 12.0, 1.0),
+        )
+
+        supports = controller._support_bounds_for_spreader_vertical_contact(
+            Stage(),
+            object(),
+            tool_bounds=((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5)),
+        )
+
+        self.assertEqual(
+            supports,
+            [(path, (-0.5, -0.5, 0.0), (0.5, 0.5, 1.0))],
+        )
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_tool_bounds_vertical_contact_penetration(
+                [((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5))],
+                supports,
+            )
+        )
+        self.assertEqual(support_path, path)
+        self.assertAlmostEqual(
+            penetration,
+            0.5 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+        )
+
+    def test_contact_bounds_follow_released_box_visible_pose(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return "dynamic_rigid"
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._live_container_root = lambda prim: prim
+        controller._manual_release_bounds_for_pick = (
+            lambda stage, bbox_cache, prim: ("visible-min", "visible-max")
+        )
+        controller._world_container_bounds = (
+            lambda bbox_cache, prim: ("stale-usd-min", "stale-usd-max")
+        )
+
+        self.assertEqual(
+            controller._container_contact_bounds(None, None, Prim()),
+            ("visible-min", "visible-max"),
+        )
+
     def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
         plan = self.manual.RtgGamepadManualController._release_topple_plan(
             (-1.0, -1.0, 3.0),
@@ -648,6 +764,40 @@ class GamepadInputMappingTests(unittest.TestCase):
         )
         self.assertFalse(
             helper(("2C/019", 6, 1), current_bay_id="1C/019", current_row=6)
+        )
+
+    def test_released_box_visible_pose_bypasses_stale_location_filter(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return "dynamic_rigid"
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._live_container_root = lambda prim: prim
+        controller._live_container_location = lambda prim: ("1C/001", 1, 1)
+
+        self.assertIsNone(controller._container_collision_filter_location(Prim()))
+
+    def test_empty_manual_release_mode_is_not_released(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return ""
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        self.assertFalse(
+            self.manual.RtgGamepadManualController._is_manually_released_container(
+                Prim()
+            )
         )
 
     def test_released_location_stacks_on_support_container_metadata(self) -> None:

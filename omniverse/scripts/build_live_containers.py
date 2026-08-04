@@ -146,6 +146,9 @@ def material(stage: Usd.Stage, name: str, color: Gf.Vec3f) -> UsdShade.Material:
 def set_cube_transform(cube: UsdGeom.Cube, center: Gf.Vec3d, scale: Gf.Vec3f) -> None:
     cube.CreateSizeAttr(1.0)
     xform = UsdGeom.Xformable(cube.GetPrim())
+    # Inventory bays are rebuilt on stable prim paths.  Clear any old release
+    # rotation from weaker layers before authoring the fresh stack transform.
+    xform.ClearXformOpOrder()
     _get_or_add_xform_op(
         xform,
         "xformOp:translate",
@@ -196,6 +199,15 @@ def create_container_box(
     prim.CreateAttribute("live:tier", Sdf.ValueTypeNames.Int).Set(tier)
     prim.CreateAttribute("live:tiers", Sdf.ValueTypeNames.Int).Set(tiers)
     prim.CreateAttribute("live:source", Sdf.ValueTypeNames.Token).Set("bay_map")
+    _clear_manual_release_state(prim)
+
+
+def _clear_manual_release_state(prim: Usd.Prim) -> None:
+    prim.CreateAttribute("live:manualReleaseMode", Sdf.ValueTypeNames.Token).Set("")
+    prim.CreateAttribute("live:manualSupportPath", Sdf.ValueTypeNames.String).Set("")
+    prim.CreateAttribute("live:manualToppled", Sdf.ValueTypeNames.Bool).Set(False)
+    prim.CreateAttribute("live:manualWorldBoundsMin", Sdf.ValueTypeNames.String).Set("")
+    prim.CreateAttribute("live:manualWorldBoundsMax", Sdf.ValueTypeNames.String).Set("")
 
 
 def create_colored_cube(
