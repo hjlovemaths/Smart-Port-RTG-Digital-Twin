@@ -27,7 +27,8 @@ if str(SCRIPT_DIR) not in sys.path:
 PREFIX = "RTG_POWERHOUSE_ENHANCED_"
 COLLECTION_NAME = "RTG_POWERHOUSE_ENHANCED_side_powerhouse_and_stairs"
 GANTRY_PARENT_NAME = "ANIM_CTRL_RTG_GANTRY_TRAVEL"
-LEGACY_POWERHOUSE_PREFIX = "RTG_SIDE_REDRAW_opposite_yz_electrical_room"
+ELECTRICAL_ROOM_PREFIX = "RTG_SIDE_REDRAW_opposite_yz_electrical_room"
+POWERHOUSE_Y_OFFSET = -1.66
 
 
 def material(name: str, color: tuple[float, float, float, float], roughness: float = 0.65):
@@ -46,11 +47,16 @@ def cleanup() -> None:
         bpy.data.collections.remove(collection)
 
 
-def hide_legacy_powerhouse_details() -> None:
+def restore_electrical_room_details() -> None:
     for obj in bpy.data.objects:
-        if obj.name.startswith(LEGACY_POWERHOUSE_PREFIX):
-            obj.hide_viewport = True
-            obj.hide_render = True
+        if obj.name.startswith(ELECTRICAL_ROOM_PREFIX):
+            obj.hide_viewport = False
+            obj.hide_render = False
+
+
+def powerhouse_loc(loc: tuple[float, float, float]) -> tuple[float, float, float]:
+    x, y, z = loc
+    return (-x, y + POWERHOUSE_Y_OFFSET, z)
 
 
 def ensure_collection() -> bpy.types.Collection:
@@ -92,7 +98,7 @@ def cube(
     mesh.from_pydata(verts, [], faces)
     mesh.update()
     obj = bpy.data.objects.new(full_name, mesh)
-    obj.location = loc
+    obj.location = powerhouse_loc(loc)
     obj.rotation_euler[2] = rot_z
     obj.scale = scale
     obj.data.materials.append(mat)
@@ -139,7 +145,7 @@ def cylinder(
     mesh.from_pydata(verts, [], faces)
     mesh.update()
     obj = bpy.data.objects.new(full_name, mesh)
-    obj.location = loc
+    obj.location = powerhouse_loc(loc)
     obj.rotation_euler = rotation
     obj.data.materials.append(mat)
     collection.objects.link(obj)
@@ -341,7 +347,7 @@ def add_stair_run(
 
 def build() -> dict[str, object]:
     cleanup()
-    hide_legacy_powerhouse_details()
+    restore_electrical_room_details()
     collection = ensure_collection()
 
     parent = bpy.data.objects.get(GANTRY_PARENT_NAME)
