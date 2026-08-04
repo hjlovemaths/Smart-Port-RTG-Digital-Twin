@@ -27,6 +27,7 @@ if str(SCRIPT_DIR) not in sys.path:
 PREFIX = "RTG_POWERHOUSE_ENHANCED_"
 COLLECTION_NAME = "RTG_POWERHOUSE_ENHANCED_side_powerhouse_and_stairs"
 GANTRY_PARENT_NAME = "ANIM_CTRL_RTG_GANTRY_TRAVEL"
+LEGACY_POWERHOUSE_PREFIX = "RTG_SIDE_REDRAW_opposite_yz_electrical_room"
 
 
 def material(name: str, color: tuple[float, float, float, float], roughness: float = 0.65):
@@ -43,6 +44,13 @@ def cleanup() -> None:
     collection = bpy.data.collections.get(COLLECTION_NAME)
     if collection is not None:
         bpy.data.collections.remove(collection)
+
+
+def hide_legacy_powerhouse_details() -> None:
+    for obj in bpy.data.objects:
+        if obj.name.startswith(LEGACY_POWERHOUSE_PREFIX):
+            obj.hide_viewport = True
+            obj.hide_render = True
 
 
 def ensure_collection() -> bpy.types.Collection:
@@ -91,7 +99,7 @@ def cube(
     collection.objects.link(obj)
     if parent is not None:
         obj.parent = parent
-        obj.matrix_parent_inverse = parent.matrix_world.inverted()
+        obj.matrix_parent_inverse.identity()
     obj["rtg_detail_role"] = "enhanced_side_powerhouse_stairs"
     return obj
 
@@ -137,7 +145,7 @@ def cylinder(
     collection.objects.link(obj)
     if parent is not None:
         obj.parent = parent
-        obj.matrix_parent_inverse = parent.matrix_world.inverted()
+        obj.matrix_parent_inverse.identity()
     obj["rtg_detail_role"] = "enhanced_side_powerhouse_stairs"
     return obj
 
@@ -260,6 +268,7 @@ def add_stair_run(
     z_end: float,
     width_x: float,
     mat_deck,
+    mat_stair,
     mat_yellow,
     mat_dark,
     parent,
@@ -274,7 +283,7 @@ def add_stair_run(
             f"{name}_tread_{i:02d}",
             (x_center, y, z),
             (width_x, 0.22, 0.045),
-            mat_deck,
+            mat_stair,
             parent=parent,
         )
         cube(
@@ -293,7 +302,7 @@ def add_stair_run(
             (x, y_start, z_start - 0.03),
             (x, y_end, z_end - 0.03),
             (0.045, 0.055),
-            mat_deck,
+            mat_stair,
             parent=parent,
         )
         beam_between(
@@ -332,6 +341,7 @@ def add_stair_run(
 
 def build() -> dict[str, object]:
     cleanup()
+    hide_legacy_powerhouse_details()
     collection = ensure_collection()
 
     parent = bpy.data.objects.get(GANTRY_PARENT_NAME)
@@ -345,6 +355,7 @@ def build() -> dict[str, object]:
     mat_blue = material("RTG_POWERHOUSE_rtg_blue_support", (0.0, 0.30, 0.72, 1.0))
     mat_yellow = material("RTG_POWERHOUSE_safety_yellow", (1.0, 0.74, 0.02, 1.0), roughness=0.5)
     mat_deck = material("RTG_POWERHOUSE_galvanized_deck", (0.62, 0.63, 0.58, 1.0))
+    mat_stair = material("RTG_POWERHOUSE_white_stair_paint", (0.88, 0.88, 0.84, 1.0))
 
     # Main side power/electrical room, scaled to be clearly visible from the
     # RTG side view while still fitting between the lower beam and the leg.
@@ -419,6 +430,7 @@ def build() -> dict[str, object]:
         z_end=3.56,
         width_x=0.56,
         mat_deck=mat_deck,
+        mat_stair=mat_stair,
         mat_yellow=mat_yellow,
         mat_dark=mat_shadow,
         parent=parent,
@@ -433,6 +445,7 @@ def build() -> dict[str, object]:
         z_end=4.70,
         width_x=0.56,
         mat_deck=mat_deck,
+        mat_stair=mat_stair,
         mat_yellow=mat_yellow,
         mat_dark=mat_shadow,
         parent=parent,
