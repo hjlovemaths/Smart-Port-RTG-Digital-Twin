@@ -6,7 +6,9 @@ Run in Blender:
 
 The script is idempotent. It removes the authored left/right STS crane visual
 objects and rebuilds them from the center STS crane, keeping the original
-left/right crane positions and labels.
+left/right lateral positions and labels. The seaside/landside placement stays
+identical to the center crane so beams, trolley, spreader, and top equipment
+line up across all three cranes.
 """
 
 from __future__ import annotations
@@ -92,21 +94,9 @@ def clone_source_to_target(
     target_bounds: tuple[float, float, float, float, float, float],
     target_label: str,
 ) -> int:
-    source_center = Vector(
-        (
-            (source_bounds[0] + source_bounds[1]) * 0.5,
-            (source_bounds[2] + source_bounds[3]) * 0.5,
-            source_bounds[4],
-        )
-    )
-    target_center = Vector(
-        (
-            (target_bounds[0] + target_bounds[1]) * 0.5,
-            (target_bounds[2] + target_bounds[3]) * 0.5,
-            target_bounds[4],
-        )
-    )
-    delta = Matrix.Translation(target_center - source_center)
+    source_center_x = (source_bounds[0] + source_bounds[1]) * 0.5
+    target_center_x = (target_bounds[0] + target_bounds[1]) * 0.5
+    delta = Matrix.Translation(Vector((target_center_x - source_center_x, 0.0, 0.0)))
 
     created = 0
     for source in source_objects:
