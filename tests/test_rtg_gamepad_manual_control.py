@@ -61,6 +61,47 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertTrue(state.pressed(self.manual.XINPUT_GAMEPAD_A))
         self.assertFalse(state.pressed(self.manual.XINPUT_GAMEPAD_B))
 
+    def test_remote_manual_global_camera_uses_user_side_view(self) -> None:
+        self.assertEqual(
+            self.manual.USER_SIDE_VIEW_CAMERA_PATH,
+            "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
+        )
+        self.assertGreater(self.manual.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 80.0)
+
+    def test_spreader_resize_is_not_blocked_by_deadman(self) -> None:
+        self.assertFalse(self.manual.SPREADER_RESIZE_REQUIRES_DEADMAN)
+
+    def test_gamepad_x_resizes_spreader_without_deadman(self) -> None:
+        class Controller:
+            def __init__(self) -> None:
+                self.commands = []
+
+            def set_spreader_size(self, size_ft, *, smooth):
+                self.commands.append((size_ft, smooth))
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._previous_buttons = 0
+        controller._emergency_stopped = False
+        controller._bay_target = "3C/063"
+        controller._display_bay_target = "3C/063"
+        controller._rtg_controller = Controller()
+
+        state = self.manual.GamepadState(
+            buttons=self.manual.XINPUT_GAMEPAD_X,
+            left_x=0.0,
+            left_y=0.0,
+            right_y=0.0,
+        )
+
+        self.assertTrue(controller._handle_buttons(object(), state))
+        self.assertEqual(controller._rtg_controller.commands, [(20, False)])
+
+    def test_vertical_contact_keeps_visible_clearance_above_box_top(self) -> None:
+        self.assertGreaterEqual(
+            self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+            0.18,
+        )
+
     def test_nearest_bay_uses_current_gantry_engineering_position(self) -> None:
         from yard_coordinate_mapping import bay_center_m
 

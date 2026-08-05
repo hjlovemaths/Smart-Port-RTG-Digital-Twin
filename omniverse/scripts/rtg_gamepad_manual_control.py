@@ -103,6 +103,17 @@ GANTRY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL
 YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
 TROLLEY_CAMERA_PATH = f"{TROLLEY_PATH}/REMOTE_MANUAL_TROLLEY_CAMERA"
 KIT_DEFAULT_CAMERA_PATH = "/OmniverseKit_Persp"
+USER_SIDE_VIEW_CAMERA_PATH = (
+    "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
+)
+USER_SIDE_VIEW_CAMERA_TRANSLATE = (
+    89.73994204564764,
+    58.58709433744814,
+    -257.5675701451497,
+)
+USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
+SPREADER_RESIZE_REQUIRES_DEADMAN = False
 
 # XInput button masks.  XInput is available on supported Windows gamepads
 # without installing pygame or opening a second application window.
@@ -168,9 +179,9 @@ CARRIED_CONTAINER_COLLISION_NUDGE_MIN_M = 0.002
 CARRIED_CONTAINER_COLLISION_NUDGE_MAX_M = 0.012
 CARRIED_CONTAINER_COLLISION_NUDGE_RESPONSE_RATIO = 0.06
 # The generated live-box weathered top sits about 0.021 m above its rigid cube.
-# Keep a small visual clearance above that decoration so the rendered spreader
-# cannot appear embedded even though the physical cube has already contacted.
-SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.030
+# Keep a visible clearance above that decoration so the rendered spreader never
+# appears embedded even though the physical cube has already contacted.
+SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.180
 SPREADER_VERTICAL_CONTACT_EDGE_TOLERANCE_M = 0.08
 SPREADER_VERTICAL_CONTACT_LOG_INTERVAL_SECONDS = 0.75
 SPREADER_COLLISION_HORIZONTAL_MARGIN_M = 0.08
@@ -784,7 +795,21 @@ class RtgGamepadManualController:
                 self._adjust_trolley_camera_zoom(stage, +2.0)
         if self._emergency_stopped:
             return command_triggered
-        # Gripping and spreader resizing also require the dead-man switch.
+        resize_allowed = (
+            not SPREADER_RESIZE_REQUIRES_DEADMAN
+            or state.pressed(XINPUT_GAMEPAD_RIGHT_SHOULDER)
+        )
+        if resize_allowed and just_pressed(XINPUT_GAMEPAD_X):
+            command_triggered = True
+            self._bay_target = None
+            self._display_bay_target = None
+            self._rtg_controller.set_spreader_size(20, smooth=False)
+        if resize_allowed and just_pressed(XINPUT_GAMEPAD_B):
+            command_triggered = True
+            self._bay_target = None
+            self._display_bay_target = None
+            self._rtg_controller.set_spreader_size(40, smooth=False)
+        # Gripping still requires the dead-man switch.
         if not state.pressed(XINPUT_GAMEPAD_RIGHT_SHOULDER):
             return command_triggered
         if just_pressed(XINPUT_GAMEPAD_A):
@@ -793,16 +818,6 @@ class RtgGamepadManualController:
                 self._release_container(stage)
             else:
                 self._pick_container(stage)
-        if just_pressed(XINPUT_GAMEPAD_X):
-            command_triggered = True
-            self._bay_target = None
-            self._display_bay_target = None
-            self._rtg_controller.set_spreader_size(20, smooth=False)
-        if just_pressed(XINPUT_GAMEPAD_B):
-            command_triggered = True
-            self._bay_target = None
-            self._display_bay_target = None
-            self._rtg_controller.set_spreader_size(40, smooth=False)
         return command_triggered
 
     def _handle_keyboard_buttons(self, stage: Any, state: KeyboardState) -> bool:
@@ -1060,7 +1075,7 @@ class RtgGamepadManualController:
         """Select an RTG-attached operational view in the active viewport."""
 
         if mode == "GLOBAL":
-            camera_path = KIT_DEFAULT_CAMERA_PATH
+            camera_path = self._ensure_user_side_view_camera(stage)
         elif mode == "SPREADER_UNDERSIDE":
             camera_path = self._ensure_trolley_camera(stage)
         else:
@@ -1076,7 +1091,7 @@ class RtgGamepadManualController:
             self._log(f"Could not switch to {mode} view: {exc}")
         self._active_camera_mode = mode
         self._set_spreader_camera_grid(mode == "SPREADER_UNDERSIDE", stage=stage)
-        label = "RTG default camera" if mode == "GLOBAL" else "trolley overhead"
+        label = "RTG side camera" if mode == "GLOBAL" else "trolley overhead"
         self._log(f"Switched to {label} view.")
 
     def _set_spreader_camera_grid(self, enabled: bool, stage: Any = None) -> None:
@@ -1108,6 +1123,44 @@ class RtgGamepadManualController:
             rtg_model_camera_grid.refresh_rtg_model_camera_grid(stage)
         except Exception as exc:  # noqa: BLE001 - camera refresh must not block control
             self._log(f"Spreader model camera refresh unavailable: {exc}")
+
+    def _ensure_user_side_view_camera(self, stage: Any) -> str:
+        """Author the menu's user camera as the RTG side view for manual mode."""
+
+        from pxr import Gf, Sdf, Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
+            camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
+            camera.CreateFocalLengthAttr(14.0)
+            camera.CreateHorizontalApertureAttr(36.0)
+            camera.CreateVerticalApertureAttr(20.25)
+            camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
+            prim = camera.GetPrim()
+            UsdGeom.Imageable(prim).MakeInvisible()
+            prim.CreateAttribute("omni:kit:cameraLock", Sdf.ValueTypeNames.Bool).Set(
+                False
+            )
+            prim.CreateAttribute(
+                "omni:kit:centerOfInterest",
+                Sdf.ValueTypeNames.Vector3d,
+                custom=True,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST))
+            prim.CreateAttribute(
+                "xformOp:translate",
+                Sdf.ValueTypeNames.Double3,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
+            prim.CreateAttribute(
+                "xformOp:rotateYXZ",
+                Sdf.ValueTypeNames.Float3,
+            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
+            prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
+                Gf.Vec3f(1.0, 1.0, 1.0)
+            )
+            prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
+                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+            )
+        return USER_SIDE_VIEW_CAMERA_PATH
 
     @staticmethod
     def _camera_matrix(eye: Any, target: Any, up: Any) -> Any:
