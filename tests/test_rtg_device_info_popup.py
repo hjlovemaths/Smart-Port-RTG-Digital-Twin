@@ -178,10 +178,15 @@ class DeviceInfoPopupTests(unittest.TestCase):
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
 
-    def test_select_rtg_root_keeps_full_machine_for_viewport_frame(self) -> None:
-        selected_paths = []
+    def test_clear_selection_gizmo_removes_default_selection_outline(self) -> None:
+        selected_paths = [popup.PRIMARY_RTG_PATH]
+        cleared = []
 
         class Selection:
+            def clear_selected_prim_paths(self):
+                selected_paths.clear()
+                cleared.append(True)
+
             def set_selected_prim_paths(self, paths, _expand):
                 selected_paths[:] = list(paths)
 
@@ -202,13 +207,11 @@ class DeviceInfoPopupTests(unittest.TestCase):
             service._clearing_selection = False
             service._last_selection_signature = ()
 
-            service._select_rtg_root_for_viewport_frame(popup.PRIMARY_RTG_PATH)
+            service._clear_selection_gizmo()
 
-            self.assertEqual(selected_paths, [popup.PRIMARY_RTG_PATH])
-            self.assertEqual(
-                service._last_selection_signature,
-                (popup.PRIMARY_RTG_PATH,),
-            )
+            self.assertEqual(selected_paths, [])
+            self.assertEqual(cleared, [True])
+            self.assertEqual(service._last_selection_signature, ())
             self.assertFalse(service._clearing_selection)
         finally:
             if previous_omni is None:

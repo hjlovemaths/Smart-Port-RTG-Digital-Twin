@@ -707,7 +707,7 @@ class RtgDeviceInfoPopupService:
                 continue
             self._log(f"selected RTG prim ({source}): {path}")
             self.open_device(path, rtg_root)
-            self._select_rtg_root_for_viewport_frame(rtg_root)
+            self._clear_selection_gizmo()
             return
         if paths:
             self._log("selection ignored: no RTG_PRIMARY_DYNAMIC path found")
