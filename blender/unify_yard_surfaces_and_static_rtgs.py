@@ -25,10 +25,12 @@ UNIFIED_YARD_PREFIX = "SMART_PORT_UNIFIED_SIDEYARD_"
 UNIFIED_COLLECTION_NAME = "SMART_PORT_UNIFIED_SIDEYARD_SURFACES"
 
 PAD_TOP_Z_M = 0.10
+CONTINUOUS_BASE_TOP_Z_M = 0.075
 MARKING_TOP_Z_M = 0.135
 GROUND_SLOT_LENGTH_M = 2.475
 BAY_GAP_M = 0.20
 GROUND_SLOT_PITCH_M = GROUND_SLOT_LENGTH_M + BAY_GAP_M
+CONTINUOUS_BASE_MARGIN_M = 0.75
 SIDE_YARD_REGIONS = (
     ("left_outer", -101.0, -59.0, -0.50, 441.50),
     ("left_extra_long", -57.5, -37.5, -0.50, 441.50),
@@ -238,10 +240,22 @@ def rebuild_unified_side_yards() -> dict[str, int]:
     white_mat = white_marking_material()
     yellow_mat = yellow_marking_material()
     cyan_mat = cyan_marking_material()
+    base_boxes = []
     pad_boxes = []
     separator_boxes = []
     boundary_boxes = []
     cyan_boxes = []
+
+    min_x = min(region[1] for region in SIDE_YARD_REGIONS) - CONTINUOUS_BASE_MARGIN_M
+    max_x = max(region[2] for region in SIDE_YARD_REGIONS) + CONTINUOUS_BASE_MARGIN_M
+    min_y = min(region[3] for region in SIDE_YARD_REGIONS) - CONTINUOUS_BASE_MARGIN_M
+    max_y = max(region[4] for region in SIDE_YARD_REGIONS) + CONTINUOUS_BASE_MARGIN_M
+    base_boxes.append(
+        (
+            ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, CONTINUOUS_BASE_TOP_Z_M * 0.5),
+            (max_x - min_x, max_y - min_y, CONTINUOUS_BASE_TOP_Z_M),
+        )
+    )
 
     for region, min_x, max_x, start_y, end_y in SIDE_YARD_REGIONS:
         width = max_x - min_x
@@ -280,12 +294,14 @@ def rebuild_unified_side_yards() -> dict[str, int]:
                 )
             )
 
+    create_boxes_object(f"{UNIFIED_YARD_PREFIX}continuous_light_grey_base", base_boxes, pad_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}light_grey_40ft_slots", pad_boxes, pad_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}white_slot_separators", separator_boxes, white_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}yellow_boundaries", boundary_boxes, yellow_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}cyan_lane_lines", cyan_boxes, cyan_mat, collection)
     return {
         "regions": len(SIDE_YARD_REGIONS),
+        "continuous_base": len(base_boxes),
         "pad_slots": len(pad_boxes),
         "separators": len(separator_boxes),
         "boundaries": len(boundary_boxes),
