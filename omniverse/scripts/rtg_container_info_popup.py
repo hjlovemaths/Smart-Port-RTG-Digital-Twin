@@ -90,6 +90,7 @@ CONTAINER_SCENE_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Container_Info_Panel"
 CONTAINER_SCENE_PANEL_WIDTH_M = 4.4
 CONTAINER_SCENE_PANEL_HEIGHT_M = 5.2
 CONTAINER_SCENE_PANEL_Z_OFFSET_M = 3.0
+CONTAINER_SCENE_PANEL_MAX_WORLD_Z = 15.9
 CONTAINER_SCENE_PANEL_Y_OFFSET_M = -1.8
 CONTAINER_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 CONTAINER_SCENE_PANEL_UV_COORDS = (
@@ -207,6 +208,14 @@ def _find_cjk_font_path() -> Optional[Path]:
         except Exception:
             continue
     return None
+
+
+def _container_panel_world_z(origin_z: Any) -> float:
+    try:
+        z = float(origin_z) + CONTAINER_SCENE_PANEL_Z_OFFSET_M
+    except Exception:
+        z = 4.0
+    return min(z, CONTAINER_SCENE_PANEL_MAX_WORLD_Z)
 
 
 def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -> bool:
@@ -684,7 +693,7 @@ class RtgContainerInfoPopupService:
                 translate = Gf.Vec3d(
                     float(origin[0]) + 1.2,
                     float(origin[1]) + CONTAINER_SCENE_PANEL_Y_OFFSET_M,
-                    float(origin[2]) + CONTAINER_SCENE_PANEL_Z_OFFSET_M,
+                    _container_panel_world_z(origin[2]),
                 )
             except Exception:
                 pass

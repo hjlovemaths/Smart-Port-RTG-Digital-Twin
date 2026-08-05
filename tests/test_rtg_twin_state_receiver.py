@@ -144,6 +144,55 @@ class TaskPositionTests(unittest.TestCase):
             (6, 5, 4, 3, 2, 1),
         )
 
+    def test_task_panel_route_animation_frame_advances(self) -> None:
+        self.assertEqual(receiver._task_panel_route_animation_frame(0.0), 0)
+        self.assertEqual(receiver._task_panel_route_animation_frame(1.0 / 6.0), 1)
+
+    def test_task_panel_route_points_put_truck_left_of_r6(self) -> None:
+        points = receiver._task_panel_bay_map_route_points(
+            {
+                "workType": "LOAD",
+                "endPos": "4C3052",
+                "bayMap": "144332",
+            },
+            pattern="144332",
+            lane_left=574,
+            lane_w=42,
+            left=632,
+            bottom=692,
+            cell_w=54,
+            cell_h=24,
+            gap=16,
+        )
+
+        self.assertIsNotNone(points)
+        source, target = points
+        self.assertLess(source[0], target[0])
+        self.assertAlmostEqual(source[0], 595.0)
+
+    def test_task_panel_route_points_switch_between_rows(self) -> None:
+        points = receiver._task_panel_bay_map_route_points(
+            {
+                "workType": "SWITCH",
+                "startPos": "4C3053",
+                "endPos": "4C3012",
+                "bayMap": "144332",
+            },
+            pattern="144332",
+            lane_left=574,
+            lane_w=42,
+            left=632,
+            bottom=692,
+            cell_w=54,
+            cell_h=24,
+            gap=16,
+        )
+
+        self.assertIsNotNone(points)
+        source, target = points
+        self.assertLess(source[0], target[0])
+        self.assertLess(source[1], target[1])
+
     def test_operation_state_machine_receives_current_bay_heights(self) -> None:
         machine = self.driver._build_operation_state_machine(
             {
@@ -341,10 +390,7 @@ class TaskPositionTests(unittest.TestCase):
             receiver.TASK_PANEL_UV_COORDS,
             receiver.RUNINFO_FLOATING_UV_COORDS,
         )
-        self.assertLessEqual(
-            receiver.TASK_PANEL_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
-            0.2,
-        )
+        self.assertEqual(receiver.TASK_PANEL_WORLD_Z, 12.0)
         self.assertEqual(
             receiver.TASK_PANEL_WORLD_X,
             12.0 + receiver.TASK_PANEL_WIDTH_M * 0.25,

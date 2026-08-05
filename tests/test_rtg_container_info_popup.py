@@ -73,6 +73,16 @@ class ContainerInfoPopupTests(unittest.TestCase):
             (0.0, 0.0, 180.0),
         )
 
+    def test_container_panel_world_z_caps_at_six_tier_stack_height(self) -> None:
+        self.assertEqual(
+            popup._container_panel_world_z(2.0),
+            2.0 + popup.CONTAINER_SCENE_PANEL_Z_OFFSET_M,
+        )
+        self.assertEqual(
+            popup._container_panel_world_z(30.0),
+            popup.CONTAINER_SCENE_PANEL_MAX_WORLD_Z,
+        )
+
     def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:
         class Previous:
             def __init__(self):

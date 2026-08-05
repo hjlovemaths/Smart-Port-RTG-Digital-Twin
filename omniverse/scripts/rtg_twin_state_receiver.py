@@ -146,7 +146,7 @@ TASK_PANEL_IMAGE_HEIGHT = 768
 TASK_PANEL_WIDTH_M = 7.6
 TASK_PANEL_HEIGHT_M = 5.7
 TASK_PANEL_WORLD_X = 13.9
-TASK_PANEL_WORLD_Z = 3.0
+TASK_PANEL_WORLD_Z = 12.0
 TASK_PANEL_Y_OFFSET_M = -2.2
 TASK_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 TASK_PANEL_UV_COORDS = (
@@ -156,6 +156,8 @@ TASK_PANEL_UV_COORDS = (
     (0.0, 1.0),
 )
 TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
+TASK_PANEL_ROUTE_ANIMATION_FPS = 6.0
+TASK_PANEL_ROUTE_ANIMATION_FRAMES = 24
 TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
 TASK_ROUTE_INDICATOR_LINE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Line"
 TASK_ROUTE_INDICATOR_HEAD_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Head"
@@ -964,6 +966,101 @@ def _task_route_endpoints(
     return source_slot, target_slot
 
 
+def _task_panel_route_animation_frame(now: Optional[float] = None) -> int:
+    timestamp = time.time() if now is None else float(now)
+    return int(timestamp * TASK_PANEL_ROUTE_ANIMATION_FPS) % TASK_PANEL_ROUTE_ANIMATION_FRAMES
+
+
+def _task_panel_bay_map_route_points(
+    task: Dict[str, Any],
+    *,
+    pattern: str,
+    lane_left: int,
+    lane_w: int,
+    left: int,
+    bottom: int,
+    cell_w: int,
+    cell_h: int,
+    gap: int,
+) -> Optional[tuple[tuple[float, float], tuple[float, float]]]:
+    endpoints = _task_route_endpoints(task)
+    if endpoints is None or not re.fullmatch(r"\d{6}", pattern):
+        return None
+
+    def point_for(endpoint: tuple[str, int, int]) -> Optional[tuple[float, float]]:
+        kind, row, tier = endpoint
+        if kind == "truck":
+            return (float(lane_left + lane_w * 0.5), float(bottom - 39))
+        if kind != "slot" or row not in TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT:
+            return None
+        column_index = TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT.index(row)
+        x = left + column_index * (cell_w + gap) + cell_w * 0.5
+        visual_tier = max(1, int(tier))
+        max_tier = max(1, int(pattern[row - 1]))
+        visual_tier = min(visual_tier, max_tier + 1)
+        y = bottom - (visual_tier - 0.5) * (cell_h + 9)
+        return (float(x), float(y))
+
+    source = point_for(endpoints[0])
+    target = point_for(endpoints[1])
+    if source is None or target is None:
+        return None
+    return source, target
+
+
+def _draw_dashed_arrow(
+    draw: Any,
+    source: tuple[float, float],
+    target: tuple[float, float],
+    *,
+    phase_px: float = 0.0,
+) -> None:
+    sx, sy = source
+    tx, ty = target
+    dx = tx - sx
+    dy = ty - sy
+    length = math.hypot(dx, dy)
+    if length < 1.0:
+        return
+    ux = dx / length
+    uy = dy / length
+    dash = 18.0
+    gap = 12.0
+    period = dash + gap
+    offset = float(phase_px) % period
+    cursor = -offset
+    while cursor < length:
+        start = max(0.0, cursor)
+        end = min(length, cursor + dash)
+        if end > start:
+            p0 = (sx + ux * start, sy + uy * start)
+            p1 = (sx + ux * end, sy + uy * end)
+            draw.line(p0 + p1, fill=(118, 240, 255, 92), width=13)
+            draw.line(p0 + p1, fill=(208, 252, 255, 232), width=7)
+        cursor += period
+
+    head_len = 22.0
+    head_w = 17.0
+    base_x = tx - ux * head_len
+    base_y = ty - uy * head_len
+    nx = -uy
+    ny = ux
+    draw.polygon(
+        [
+            (tx, ty),
+            (base_x + nx * head_w, base_y + ny * head_w),
+            (base_x - nx * head_w, base_y - ny * head_w),
+        ],
+        fill=(255, 190, 78, 238),
+    )
+    for point, radius, fill in (
+        (source, 13, (91, 238, 178, 235)),
+        (target, 15, (255, 190, 78, 238)),
+    ):
+        px, py = point
+        draw.ellipse((px - radius, py - radius, px + radius, py + radius), fill=fill)
+
+
 def _draw_fitted_text(
     draw: Any,
     xy: tuple[int, int],
@@ -983,7 +1080,12 @@ def _draw_fitted_text(
         draw.text(xy, value, fill=fill, font=font)
 
 
-def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> bool:
+def _render_task_info_panel_bitmap(
+    task: Dict[str, Any],
+    output_path: Path,
+    *,
+    route_phase: int = 0,
+) -> bool:
     font_path = _find_cjk_font_path()
     if font_path is None:
         return False
@@ -1133,6 +1235,17 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
             )
             if parsed is not None:
                 target_row = parsed[2]
+            route_points = _task_panel_bay_map_route_points(
+                task,
+                pattern=pattern,
+                lane_left=lane_left,
+                lane_w=lane_w,
+                left=left,
+                bottom=bottom,
+                cell_w=cell_w,
+                cell_h=cell_h,
+                gap=gap,
+            )
             for column_index, row_index in enumerate(TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT):
                 height_text = pattern[row_index - 1]
                 x = left + column_index * (cell_w + gap)
@@ -1144,6 +1257,13 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
                     fill = (255, 190, 78, 180) if is_target else (122, 206, 228, 58)
                     outline = (255, 190, 78, 232) if is_target else (150, 224, 240, 118)
                     draw.rectangle((x, y0, x + cell_w, y0 + cell_h), fill=fill, outline=outline)
+            if route_points is not None:
+                _draw_dashed_arrow(
+                    draw,
+                    route_points[0],
+                    route_points[1],
+                    phase_px=int(route_phase) * 5,
+                )
         else:
             draw.text((map_left + 6, map_top + 54), "--", fill=(246, 252, 255, 255), font=value_font)
 
@@ -1838,6 +1958,9 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_clock_text: Optional[str] = None
         self._floating_runinfo_bitmap_seq = 0
         self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
+        self._floating_task_panel_task: Optional[Dict[str, Any]] = None
+        self._floating_task_panel_stack_key: Optional[tuple[str, int, str, int]] = None
+        self._floating_task_panel_animation_frame: Optional[int] = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
         self._last_error_at = 0.0
@@ -1887,6 +2010,9 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_clock_text = None
         self._floating_runinfo_bitmap_seq = 0
         self._floating_task_panel_key = None
+        self._floating_task_panel_task = None
+        self._floating_task_panel_stack_key = None
+        self._floating_task_panel_animation_frame = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key = None
         if self._status_overlay is not None:
@@ -1899,6 +2025,7 @@ class OmniverseRtgTwinDriver:
 
     def _on_update(self, _event: Any) -> None:
         self._sync_visible_task_panel_facing_camera()
+        self._sync_visible_task_panel_route_animation()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -4864,6 +4991,9 @@ class OmniverseRtgTwinDriver:
                 if root:
                     UsdGeom.Imageable(root).MakeInvisible()
             self._floating_task_panel_key = None
+            self._floating_task_panel_task = None
+            self._floating_task_panel_stack_key = None
+            self._floating_task_panel_animation_frame = None
             return
 
         stack_key = self._task_stack_key(task)
@@ -4882,6 +5012,9 @@ class OmniverseRtgTwinDriver:
                 if root:
                     UsdGeom.Imageable(root).MakeInvisible()
             self._floating_task_panel_key = None
+            self._floating_task_panel_task = None
+            self._floating_task_panel_stack_key = None
+            self._floating_task_panel_animation_frame = None
             return
 
         panel_key = (
@@ -4899,6 +5032,9 @@ class OmniverseRtgTwinDriver:
             str(task.get("bayMap") or ""),
             str(task.get("operationState") or task.get("visualPhase") or ""),
         )
+        animation_frame = _task_panel_route_animation_frame()
+        self._floating_task_panel_task = dict(task)
+        self._floating_task_panel_stack_key = stack_key
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             if (
                 panel_key == self._floating_task_panel_key
@@ -4908,15 +5044,13 @@ class OmniverseRtgTwinDriver:
                 if root:
                     UsdGeom.Imageable(root).MakeVisible()
                     self._sync_floating_task_panel_pose(root, stack_key)
+                    if animation_frame != self._floating_task_panel_animation_frame:
+                        self._update_task_panel_texture(stage, task, animation_frame)
                 return
 
             self._floating_task_panel_key = panel_key
-            self._floating_task_panel_bitmap_seq += 1
-            texture_path = (
-                Path(tempfile.gettempdir())
-                / f"smart_port_rtg_task_panel_{os.getpid()}_{self._floating_task_panel_bitmap_seq}.png"
-            )
-            if not _render_task_info_panel_bitmap(task, texture_path):
+            texture_path = self._render_task_panel_texture(task, animation_frame)
+            if texture_path is None:
                 self._log("task info panel bitmap render failed")
                 return
 
@@ -5002,6 +5136,73 @@ class OmniverseRtgTwinDriver:
                 shader.ConnectableAPI(), "surface"
             )
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _render_task_panel_texture(
+        self,
+        task: Dict[str, Any],
+        animation_frame: int,
+    ) -> Optional[Path]:
+        self._floating_task_panel_bitmap_seq += 1
+        texture_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_task_panel_{os.getpid()}_{self._floating_task_panel_bitmap_seq}.png"
+        )
+        if not _render_task_info_panel_bitmap(
+            task,
+            texture_path,
+            route_phase=animation_frame,
+        ):
+            return None
+        self._floating_task_panel_animation_frame = animation_frame
+        return texture_path
+
+    def _update_task_panel_texture(
+        self,
+        stage: Any,
+        task: Dict[str, Any],
+        animation_frame: int,
+    ) -> bool:
+        from pxr import Sdf, UsdShade
+
+        texture_path = self._render_task_panel_texture(task, animation_frame)
+        if texture_path is None:
+            return False
+        panel = stage.GetPrimAtPath(TASK_PANEL_MESH_PATH)
+        if panel:
+            attr = panel.GetAttribute("rtg:taskPanelTexture")
+            if not attr:
+                attr = panel.CreateAttribute(
+                    "rtg:taskPanelTexture",
+                    Sdf.ValueTypeNames.Asset,
+                )
+            attr.Set(Sdf.AssetPath(str(texture_path)))
+        texture = UsdShade.Shader.Define(stage, f"{TASK_PANEL_MATERIAL_PATH}/Texture")
+        texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(str(texture_path))
+        )
+        return True
+
+    def _sync_visible_task_panel_route_animation(self) -> None:
+        stage = self._current_stage()
+        if stage is None or self._floating_task_panel_task is None:
+            return
+        root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+        if not root or not stage.GetPrimAtPath(TASK_PANEL_MESH_PATH):
+            return
+        frame = _task_panel_route_animation_frame()
+        if frame == self._floating_task_panel_animation_frame:
+            return
+        try:
+            from pxr import Usd
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                self._update_task_panel_texture(
+                    stage,
+                    self._floating_task_panel_task,
+                    frame,
+                )
+        except Exception:
+            return
 
     def _log_task_panel_status(self, status: str, message: str) -> None:
         if not TASK_PANEL_DIAGNOSTIC_LOG_ENABLED:
