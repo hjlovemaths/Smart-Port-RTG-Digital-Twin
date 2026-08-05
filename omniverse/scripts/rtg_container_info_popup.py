@@ -18,8 +18,31 @@ window with task and container metadata from the selected prim plus
 from __future__ import annotations
 
 import builtins
+import importlib.util
+import os
+import sys
+import tempfile
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence, Tuple
+
+try:
+    from rtg_selection_highlight import hide_selection_highlight, show_selection_highlight
+except ModuleNotFoundError:
+    helper_path = Path(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_selection_highlight.py")
+    if not helper_path.is_file():
+        helper_path = Path(__file__).resolve().parent / "rtg_selection_highlight.py"
+    spec = importlib.util.spec_from_file_location("rtg_selection_highlight", helper_path)
+    if spec is None or spec.loader is None:
+        raise
+    helper_module = importlib.util.module_from_spec(spec)
+    sys.modules["rtg_selection_highlight"] = helper_module
+    spec.loader.exec_module(helper_module)
+    hide_selection_highlight = helper_module.hide_selection_highlight
+    show_selection_highlight = helper_module.show_selection_highlight
+
+from rtg_billboard_utils import camera_facing_rotate_xyz
 
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
@@ -28,6 +51,53 @@ LEGACY_HOISTED_LOAD_SUFFIX = "/LIVE_TwinHoistedContainer"
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
 LIVE_TASK_STACK_PATH = "/World/LiveContainers/LiveTaskStack"
 YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
+HIGHLIGHT_OWNER = "container"
+WINDOW_TITLE = "RTG Container Info"
+LEGACY_WINDOW_TITLES = ("RTG Container Info",)
+DIAGNOSTIC_LOG_ENABLED = False
+DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS = 3.0
+DIAGNOSTIC_IDLE_POLL_LIMIT = 3
+CJK_FONT_PATHS = (
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simhei.ttf",
+    "C:/Windows/Fonts/simsun.ttc",
+)
+CONTAINER_PANEL_WIDTH = 320
+CONTAINER_PANEL_HEIGHT = 380
+CONTAINER_PANEL_ROW_Y = {
+    "Container": 124,
+    "Size": 158,
+    "Type": 192,
+    "Height": 226,
+    "Bay": 260,
+    "Source": 294,
+    "Task ID": 328,
+    "Locked": 362,
+}
+CONTAINER_PANEL_LABELS = {
+    "Container": "箱号",
+    "Size": "箱尺寸",
+    "Type": "箱型",
+    "Height": "箱高",
+    "Bay": "当前位置",
+    "Source": "来源",
+    "Task ID": "关联任务",
+    "Locked": "锁闭",
+}
+CONTAINER_SCENE_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
+CONTAINER_SCENE_PANEL_MESH_PATH = f"{CONTAINER_SCENE_PANEL_ROOT_PATH}/Panel"
+CONTAINER_SCENE_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Container_Info_Panel"
+CONTAINER_SCENE_PANEL_WIDTH_M = 4.4
+CONTAINER_SCENE_PANEL_HEIGHT_M = 5.2
+CONTAINER_SCENE_PANEL_Z_OFFSET_M = 3.0
+CONTAINER_SCENE_PANEL_Y_OFFSET_M = -1.8
+CONTAINER_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+CONTAINER_SCENE_PANEL_UV_COORDS = (
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+)
 
 _service: Optional["RtgContainerInfoPopupService"] = None
 
@@ -128,11 +198,158 @@ def _fmt_bool(value: Any) -> str:
     return "YES" if bool(value) else "NO"
 
 
+def _find_cjk_font_path() -> Optional[Path]:
+    for path in CJK_FONT_PATHS:
+        candidate = Path(path)
+        try:
+            if candidate.is_file():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -> bool:
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        values = {row.label: row.value for row in rows}
+        width = CONTAINER_PANEL_WIDTH
+        height = CONTAINER_PANEL_HEIGHT
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        panel_box = (1, 1, width - 2, height - 2)
+        glow_draw.rounded_rectangle(
+            panel_box,
+            radius=5,
+            fill=(82, 175, 216, 36),
+            outline=(128, 210, 236, 154),
+            width=2,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(5)))
+
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            panel_box,
+            radius=4,
+            fill=(38, 92, 121, 132),
+            outline=(130, 207, 232, 176),
+            width=1,
+        )
+        draw.line((8, 8, width - 9, 8), fill=(255, 156, 22, 232), width=3)
+        draw.rectangle((4, 4, width - 5, height - 5), outline=(142, 219, 238, 48))
+        draw.polygon(
+            [(width - 26, height - 1), (width - 1, height - 26), (width - 1, height - 1)],
+            fill=(153, 206, 218, 56),
+        )
+        draw.rectangle((0, 0, width, 58), fill=(49, 105, 134, 90))
+
+        title_font = ImageFont.truetype(str(font_path), 16)
+        label_font = ImageFont.truetype(str(font_path), 13)
+        value_font = ImageFont.truetype(str(font_path), 15)
+        value_font_big = ImageFont.truetype(str(font_path), 20)
+        badge_font = ImageFont.truetype(str(font_path), 12)
+
+        draw.text((12, 15), "箱信息", fill=(248, 252, 255, 255), font=title_font)
+        badge = "选中箱"
+        badge_bbox = draw.textbbox((0, 0), badge, font=badge_font)
+        badge_w = badge_bbox[2] - badge_bbox[0] + 18
+        draw.rounded_rectangle(
+            (width - badge_w - 12, 15, width - 12, 38),
+            radius=11,
+            fill=(86, 110, 83, 96),
+            outline=(255, 190, 78, 140),
+        )
+        draw.text(
+            (width - badge_w - 3, 18),
+            badge,
+            fill=(255, 190, 78, 255),
+            font=badge_font,
+        )
+
+        visual = (12, 66, width - 12, 106)
+        draw.rectangle(visual, fill=(84, 150, 171, 72), outline=(132, 214, 236, 104))
+        for x in range(visual[0] + 20, visual[2], 24):
+            draw.line((x, visual[1], x, visual[3]), fill=(184, 236, 246, 44), width=1)
+        draw.line((visual[0], visual[1] + 9, visual[2], visual[1] + 9), fill=(255, 255, 255, 34))
+
+        values["Bay"] = " / ".join(
+            part for part in (values.get("Bay", "--"), values.get("Row / Tier", "--")) if part and part != "--"
+        ) or "--"
+        for key, y in CONTAINER_PANEL_ROW_Y.items():
+            label = CONTAINER_PANEL_LABELS[key]
+            value = str(values.get(key) or "--")
+            if key == "Locked":
+                value = {"YES": "已锁闭", "NO": "未锁闭"}.get(value, value)
+            font = value_font_big if key == "Container" else value_font
+            max_value_width = 184
+            while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > max_value_width:
+                value = value[:-2] + "..."
+            draw.text((12, y - 11), label, fill=(198, 221, 232, 255), font=label_font)
+            bbox = draw.textbbox((0, 0), value, font=font)
+            color = (88, 222, 248, 255) if key == "Container" else (246, 252, 255, 255)
+            if key == "Locked" and value == "未锁闭":
+                color = (255, 116, 109, 255)
+            draw.text((width - 14 - (bbox[2] - bbox[0]), y - 14), value, fill=color, font=font)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
 def _status_prim(stage: Any) -> Any:
     try:
         return stage.GetPrimAtPath(STATUS_PRIM_PATH)
     except Exception:
         return None
+
+
+def _current_stage() -> Any:
+    try:
+        import omni.usd  # type: ignore
+
+        return omni.usd.get_context().get_stage()
+    except Exception:
+        return None
+
+
+def _hide_known_windows() -> None:
+    try:
+        import omni.ui as ui  # type: ignore
+
+        workspace = getattr(ui, "Workspace", None)
+        show_window = getattr(workspace, "show_window", None) if workspace else None
+        if callable(show_window):
+            for title in LEGACY_WINDOW_TITLES:
+                try:
+                    show_window(title, False)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def _stop_previous_builtin_service() -> None:
+    previous = getattr(builtins, "_rtg_container_info_popup_service", None)
+    if previous is not None:
+        try:
+            previous.stop()
+        except Exception:
+            pass
+        try:
+            builtins._rtg_container_info_popup_service = None
+        except Exception:
+            pass
+    _hide_known_windows()
+
+
+_stop_previous_builtin_service()
 
 
 def _prim_at(stage: Any, path: str) -> Any:
@@ -142,13 +359,34 @@ def _prim_at(stage: Any, path: str) -> Any:
         return None
 
 
+def _container_context_prims(stage: Any, root_path: str) -> List[Any]:
+    """Return selected container prims plus task/inventory context roots."""
+
+    paths = [
+        root_path,
+        f"{root_path}/Body",
+    ]
+    if root_path.startswith(f"{LIVE_TASK_TRUCK_PATH}/"):
+        paths.append(LIVE_TASK_TRUCK_PATH)
+    if root_path.startswith(f"{LIVE_TASK_STACK_PATH}/"):
+        paths.append(LIVE_TASK_STACK_PATH)
+    if root_path.startswith(f"{YARD_INVENTORY_ROOT_PATH}/"):
+        parts = _path_parts(root_path)
+        if len(parts) >= 4:
+            paths.append("/" + "/".join(parts[:4]))
+    prims = []
+    for path in paths:
+        prim = _prim_at(stage, path)
+        if prim:
+            prims.append(prim)
+    return prims
+
+
 def _collect_info_rows(stage: Any, root_path: str) -> Tuple[InfoRow, ...]:
     """Collect display rows for a selected RTG container."""
 
-    root = _prim_at(stage, root_path)
-    body = _prim_at(stage, f"{root_path}/Body")
     status = _status_prim(stage)
-    prims = [root, body]
+    prims = _container_context_prims(stage, root_path)
 
     bay_id = _first_attr(prims, ("live:bayId", "inventory:bayId"))
     row = _first_attr(prims, ("live:row",))
@@ -167,10 +405,20 @@ def _collect_info_rows(stage: Any, root_path: str) -> Tuple[InfoRow, ...]:
     source = _first_attr(prims, ("live:source",))
     task_id = _first_attr(prims, ("live:taskId",), _read_attr(status, "rtg:taskId"))
     work_type = _first_attr(prims, ("live:workType",), _read_attr(status, "rtg:workType"))
+    container_no = _first_attr(
+        prims,
+        ("live:containerNo", "inventory:containerNo", "containerNo"),
+        _read_attr(status, "rtg:containerNo"),
+    )
+    container_type = _first_attr(
+        prims,
+        ("live:containerType", "inventory:containerType", "containerType"),
+        _read_attr(status, "rtg:containerType"),
+    )
 
     rows = [
-        InfoRow("Container", _fmt(_read_attr(status, "rtg:containerNo"))),
-        InfoRow("Type", _fmt(_read_attr(status, "rtg:containerType"))),
+        InfoRow("Container", _fmt(container_no)),
+        InfoRow("Type", _fmt(container_type)),
         InfoRow(
             "Size",
             _fmt(container_size, " ft")
@@ -210,13 +458,17 @@ class RtgContainerInfoPopupService:
         self._selection_sub = None
         self._update_sub = None
         self._window = None
-        self._title_label = None
-        self._value_labels: List[Any] = []
+        self._panel_image = None
+        self._bitmap_seq = 0
         self._clearing_selection = False
         self._last_selection_signature: tuple[str, ...] = ()
+        self._last_idle_diagnostic_at = 0.0
+        self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
+        self._log("starting container popup service")
         self._build_window()
         self._subscribe_selection()
         self._subscribe_update_poll()
+        self._log(f"service ready window={self._window is not None}")
 
     def stop(self) -> None:
         if self._selection_sub is not None:
@@ -231,6 +483,10 @@ class RtgContainerInfoPopupService:
             except Exception:
                 pass
             self._update_sub = None
+        stage = _current_stage()
+        if stage is not None:
+            hide_selection_highlight(stage, owner=HIGHLIGHT_OWNER)
+            self._hide_scene_panel(stage)
         if self._window is not None:
             try:
                 self._window.visible = False
@@ -239,61 +495,9 @@ class RtgContainerInfoPopupService:
             self._window = None
 
     def _build_window(self) -> None:
-        try:
-            import omni.ui as ui  # type: ignore
-        except Exception as exc:
-            print(f"[RTG Container Info] omni.ui unavailable: {exc}")
-            return
-
-        flags = 0
-        for name in (
-            "WINDOW_FLAGS_NO_SCROLLBAR",
-            "WINDOW_FLAGS_NO_COLLAPSE",
-        ):
-            flags |= getattr(ui, name, 0)
-
-        self._window = ui.Window(
-            "RTG Container Info",
-            width=420,
-            height=520,
-            visible=False,
-            flags=flags,
-        )
-        try:
-            self._window.position_x = 360
-            self._window.position_y = 120
-        except Exception:
-            pass
-
-        name_style = {"color": 0xFF93A4B4, "font_size": 13}
-        value_style = {"color": 0xFFFFFFFF, "font_size": 13}
-        title_style = {"color": 0xFFFFFFFF, "font_size": 17}
-
-        with self._window.frame:
-            with ui.VStack(spacing=6):
-                self._title_label = ui.Label("Container", height=28, style=title_style)
-                self._value_labels.clear()
-                for label in (
-                    "Container",
-                    "Type",
-                    "Size",
-                    "Height",
-                    "Task ID",
-                    "Work Type",
-                    "State",
-                    "Source Pos",
-                    "Target Pos",
-                    "Bay",
-                    "Row / Tier",
-                    "Bay Map",
-                    "Locked",
-                    "Path",
-                    "Source",
-                ):
-                    with ui.HStack(spacing=8, height=24):
-                        ui.Label(label, width=104, style=name_style)
-                        value = ui.Label("--", word_wrap=True, style=value_style)
-                        self._value_labels.append(value)
+        _hide_known_windows()
+        self._window = None
+        self._panel_image = None
 
     def _subscribe_selection(self) -> None:
         try:
@@ -301,8 +505,9 @@ class RtgContainerInfoPopupService:
 
             stream = omni.usd.get_context().get_selection().get_changed_event_stream()
             self._selection_sub = stream.create_subscription_to_pop(self._on_selection_changed)
+            self._log("selection event subscription active")
         except Exception as exc:
-            print(f"[RTG Container Info] selection subscription unavailable: {exc}")
+            self._log(f"selection subscription unavailable: {exc}")
 
     def _subscribe_update_poll(self) -> None:
         try:
@@ -310,6 +515,7 @@ class RtgContainerInfoPopupService:
 
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._update_sub = stream.create_subscription_to_pop(self._on_update)
+            self._log("selection polling active")
         except Exception as exc:
             print(f"[RTG Container Info] selection polling unavailable: {exc}")
 
@@ -317,54 +523,222 @@ class RtgContainerInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
+        self._sync_visible_scene_panel_facing_camera()
         self._handle_selected_paths(_selected_paths(), source="poll")
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection:
             return
+        self._diagnose_idle_poll(paths, source)
         signature = tuple(paths)
         if signature == self._last_selection_signature:
             return
         self._last_selection_signature = signature
+        self._log(f"selection changed source={source} paths={list(paths)}")
 
         for path in paths:
             root_path = _container_root_path_from_selection(path)
             if root_path is None:
                 continue
-            print(f"[RTG Container Info] selected container ({source}): {root_path}")
+            self._log(f"selected container ({source}): {root_path}")
             self.open_container(root_path)
             self._clear_selection_gizmo()
             return
+        if paths:
+            self._log("selection ignored: no live container root found")
+        stage = _current_stage()
+        if stage is not None:
+            hide_selection_highlight(stage, owner=HIGHLIGHT_OWNER)
+            self._hide_scene_panel(stage)
 
     def open_container(self, root_path: str) -> None:
-        try:
-            import omni.usd  # type: ignore
-
-            stage = omni.usd.get_context().get_stage()
-        except Exception as exc:
-            self._show_message(f"Stage unavailable: {exc}")
-            return
+        stage = _current_stage()
         if stage is None:
             self._show_message("Stage unavailable")
             return
+        hide_selection_highlight(stage)
+        self._log(
+            "opening container popup "
+            f"root={root_path} window={self._window is not None}"
+        )
         rows = _collect_info_rows(stage, root_path)
-        self._show_rows(rows)
+        self._show_rows(rows, root_path=root_path)
 
-    def _show_rows(self, rows: Sequence[InfoRow]) -> None:
-        if self._title_label is not None and rows:
-            first = rows[0].value
-            self._title_label.text = f"Container · {first if first != '--' else 'Selected'}"
-        for label, row in zip(self._value_labels, rows):
-            try:
-                label.text = row.value
-            except Exception:
-                pass
-        if self._window is not None:
-            self._window.visible = True
+    def _show_rows(self, rows: Sequence[InfoRow], root_path: str = "") -> None:
+        self._bitmap_seq += 1
+        panel_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_container_panel_{os.getpid()}_{self._bitmap_seq}.png"
+        )
+        stage = _current_stage()
+        if stage is None:
+            return
+        if _render_container_panel_bitmap(rows, panel_path):
+            self._show_scene_panel(stage, root_path, panel_path)
 
     def _show_message(self, message: str) -> None:
         rows = [InfoRow("Container", message)] + [InfoRow("", "--") for _ in range(14)]
         self._show_rows(rows)
+
+    def _show_scene_panel(self, stage: Any, root_path: str, texture_path: Path) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        _hide_known_windows()
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = UsdGeom.Xform.Define(stage, CONTAINER_SCENE_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._sync_scene_panel_pose(stage, root_prim, root_path)
+
+            panel = UsdGeom.Mesh.Define(stage, CONTAINER_SCENE_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = CONTAINER_SCENE_PANEL_WIDTH_M * 0.5
+            half_h = CONTAINER_SCENE_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in CONTAINER_SCENE_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute(
+                "rtg:containerPanelTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(stage, CONTAINER_SCENE_PANEL_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage, f"{CONTAINER_SCENE_PANEL_MATERIAL_PATH}/PreviewSurface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+            texture = UsdShade.Shader.Define(
+                stage, f"{CONTAINER_SCENE_PANEL_MATERIAL_PATH}/Texture"
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage, f"{CONTAINER_SCENE_PANEL_MATERIAL_PATH}/Primvar_st"
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(),
+                "result",
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(),
+                "rgb",
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(),
+                "a",
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(),
+                "surface",
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _hide_scene_panel(self, stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(CONTAINER_SCENE_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+        except Exception:
+            pass
+
+    def _sync_scene_panel_pose(self, stage: Any, root_prim: Any, root_path: str) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        translate = Gf.Vec3d(8.0, 0.0, 4.0)
+        selected = stage.GetPrimAtPath(root_path) if root_path else None
+        if selected:
+            try:
+                cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+                matrix = cache.GetLocalToWorldTransform(selected)
+                origin = matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+                translate = Gf.Vec3d(
+                    float(origin[0]) + 1.2,
+                    float(origin[1]) + CONTAINER_SCENE_PANEL_Y_OFFSET_M,
+                    float(origin[2]) + CONTAINER_SCENE_PANEL_Z_OFFSET_M,
+                )
+            except Exception:
+                pass
+
+        xform = UsdGeom.Xformable(root_prim)
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                op.Set(translate)
+                break
+        else:
+            xform.AddTranslateOp().Set(translate)
+
+        rotate = Gf.Vec3f(
+            *camera_facing_rotate_xyz(stage, translate, CONTAINER_SCENE_PANEL_ROTATE_XYZ)
+        )
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpName() == "xformOp:rotateXYZ":
+                op.Set(rotate)
+                break
+        else:
+            xform.AddRotateXYZOp().Set(rotate)
+
+    def _sync_visible_scene_panel_facing_camera(self) -> None:
+        stage = _current_stage()
+        if stage is None:
+            return
+        root = stage.GetPrimAtPath(CONTAINER_SCENE_PANEL_ROOT_PATH)
+        if not root:
+            return
+        try:
+            from pxr import Gf, UsdGeom
+
+            xform = UsdGeom.Xformable(root)
+            translate = None
+            for op in xform.GetOrderedXformOps():
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                    translate = op.Get()
+                    break
+            if translate is None:
+                return
+            rotate = Gf.Vec3f(
+                *camera_facing_rotate_xyz(
+                    stage,
+                    translate,
+                    CONTAINER_SCENE_PANEL_ROTATE_XYZ,
+                )
+            )
+            for op in xform.GetOrderedXformOps():
+                if op.GetOpName() == "xformOp:rotateXYZ":
+                    op.Set(rotate)
+                    return
+            xform.AddRotateXYZOp().Set(rotate)
+        except Exception:
+            return
 
     def _clear_selection_gizmo(self) -> None:
         try:
@@ -380,10 +754,27 @@ class RtgContainerInfoPopupService:
             pass
         finally:
             self._clearing_selection = False
+            self._last_selection_signature = ()
+
+    def _diagnose_idle_poll(self, paths: List[str], source: str) -> None:
+        if paths or source != "poll" or self._idle_diagnostics_remaining <= 0:
+            return
+        now = time.time()
+        if now - self._last_idle_diagnostic_at < DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS:
+            return
+        self._last_idle_diagnostic_at = now
+        self._idle_diagnostics_remaining -= 1
+        self._log("poll alive; selected=[]")
+
+    @staticmethod
+    def _log(message: str) -> None:
+        if DIAGNOSTIC_LOG_ENABLED:
+            print(f"[RTG Container Info] {message}")
 
 
 def start_rtg_container_info_popup() -> RtgContainerInfoPopupService:
     global _service
+    _hide_known_windows()
     if _service is not None:
         _service.stop()
     previous = getattr(builtins, "_rtg_container_info_popup_service", None)
@@ -399,6 +790,7 @@ def start_rtg_container_info_popup() -> RtgContainerInfoPopupService:
 
 def stop_rtg_container_info_popup() -> None:
     global _service
+    _hide_known_windows()
     if _service is not None:
         _service.stop()
         _service = None

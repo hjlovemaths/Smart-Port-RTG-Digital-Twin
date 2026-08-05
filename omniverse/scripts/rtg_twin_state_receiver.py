@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import builtins
 import copy
+import importlib
 import json
 import math
 import os
@@ -41,11 +42,6 @@ from typing import Any, Callable, Dict, Optional
 
 
 _previous_stop_live_driver = globals().get("stop_live_driver")
-if callable(_previous_stop_live_driver):
-    try:
-        _previous_stop_live_driver()
-    except Exception as exc:
-        print(f"[RTG Twin Driver] previous driver stop failed: {exc}")
 
 
 def _resolve_script_dir() -> Path:
@@ -66,6 +62,12 @@ SCRIPT_DIR = _resolve_script_dir()
 if str(SCRIPT_DIR) in sys.path:
     sys.path.remove(str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPT_DIR))
+
+if callable(_previous_stop_live_driver):
+    try:
+        _previous_stop_live_driver()
+    except Exception as exc:
+        print(f"[RTG Twin Driver] previous driver stop failed: {exc}")
 
 # Kit's Script Editor executes this receiver from a generated temp file.  Load
 # the sibling state-machine source explicitly instead of relying on its module
@@ -97,20 +99,27 @@ from yard_inventory import (  # noqa: E402
     normalize_bay_number as normalize_inventory_bay_number,
     parse_task_position as parse_inventory_task_position,
 )
+from rtg_billboard_utils import camera_facing_rotate_xyz  # noqa: E402
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
+RECEIVER_STATE_LOG_ENABLED = False
 STATUS_PRIM_PATH = "/World/LiveTwinState"
-RUNINFO_FLOATING_ROOT_PATH = (
+RUNINFO_FLOATING_ATTACH_PATH = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
+)
+LEGACY_RUNINFO_FLOATING_ROOT_PATH = (
+    f"{RUNINFO_FLOATING_ATTACH_PATH}"
     "RTG_RUNINFO_FLOATING_BILLBOARD"
 )
+RUNINFO_FLOATING_ROOT_PATH = "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD"
 RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
+RUNINFO_FLOATING_ENABLED = False
 RUNINFO_FLOATING_IMAGE_WIDTH = 1536
 RUNINFO_FLOATING_IMAGE_HEIGHT = 384
-RUNINFO_FLOATING_PANEL_WIDTH_M = 8.4
-RUNINFO_FLOATING_PANEL_HEIGHT_M = 2.1
+RUNINFO_FLOATING_PANEL_WIDTH_M = 12.0
+RUNINFO_FLOATING_PANEL_HEIGHT_M = 3.0
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
 RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
 RUNINFO_FLOATING_UV_COORDS = (
@@ -122,10 +131,45 @@ RUNINFO_FLOATING_UV_COORDS = (
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
 RUNINFO_FLOATING_TITLE_FONT_SIZE = 44
 RUNINFO_FLOATING_CLOCK_FONT_SIZE = 44
+RUNINFO_FLOATING_TEXT_MAX_LINES = 3
+RUNINFO_FLOATING_TEXT_LINE_GAP = 8
 RUNINFO_FLOATING_CLOCK_FORMAT = "%Y-%m-%d %H:%M:%S"
 RUNINFO_FLOATING_TIME_OFFSET_HOURS = 8
 RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT = "--"
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
+RUNINFO_FLOATING_ROTATE_XYZ = (0.0, 0.0, 180.0)
+TASK_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_TASK_INFO_PANEL"
+TASK_PANEL_MESH_PATH = f"{TASK_PANEL_ROOT_PATH}/Panel"
+TASK_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Task_Info_Panel"
+TASK_PANEL_IMAGE_WIDTH = 1024
+TASK_PANEL_IMAGE_HEIGHT = 768
+TASK_PANEL_WIDTH_M = 7.6
+TASK_PANEL_HEIGHT_M = 5.7
+TASK_PANEL_WORLD_X = 13.9
+TASK_PANEL_WORLD_Z = 3.0
+TASK_PANEL_Y_OFFSET_M = -2.2
+TASK_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+TASK_PANEL_UV_COORDS = (
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+)
+TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
+TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
+TASK_ROUTE_INDICATOR_LINE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Line"
+TASK_ROUTE_INDICATOR_HEAD_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Head"
+TASK_ROUTE_INDICATOR_PULSE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Pulse"
+TASK_ROUTE_INDICATOR_START_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Start"
+TASK_ROUTE_INDICATOR_END_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/End"
+TASK_ROUTE_INDICATOR_TRUCK_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Truck"
+TASK_ROUTE_INDICATOR_THICKNESS_M = 0.08
+TASK_ROUTE_INDICATOR_HEAD_LENGTH_M = 0.52
+TASK_ROUTE_INDICATOR_HEAD_WIDTH_M = 0.34
+TASK_ROUTE_INDICATOR_Z_LIFT_M = 0.45
+TASK_ROUTE_INDICATOR_PULSE_SECONDS = 1.3
+TASK_ROUTE_TRUCK_MARKER_Z_M = 1.0
+TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT = (6, 5, 4, 3, 2, 1)
 USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
 )
@@ -812,9 +856,19 @@ def _render_floating_runinfo_bitmap(
             text.strip() or "--",
             body_font,
             width - int(108 * scale),
-            2,
+            RUNINFO_FLOATING_TEXT_MAX_LINES,
         )
-        y = int((78 if len(lines) == 2 else 91) * scale)
+        line_gap = int(RUNINFO_FLOATING_TEXT_LINE_GAP * scale)
+        text_area_top = int(64 * scale)
+        text_area_bottom = height - int(20 * scale)
+        total_text_height = (
+            len(lines) * RUNINFO_FLOATING_TEXT_FONT_SIZE
+            + max(0, len(lines) - 1) * line_gap
+        )
+        y = max(
+            text_area_top,
+            int((text_area_top + text_area_bottom - total_text_height) * 0.5),
+        )
         for line in lines:
             draw.text(
                 (int(54 * scale), y),
@@ -822,7 +876,276 @@ def _render_floating_runinfo_bitmap(
                 fill=(255, 238, 184, 255),
                 font=body_font,
             )
-            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + int(8 * scale)
+            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + line_gap
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
+def _task_panel_work_type_text(value: Any) -> str:
+    text = _fmt_text(value, "").upper()
+    return {
+        WORK_TYPE_LOAD: "装箱",
+        WORK_TYPE_UNLOAD: "卸箱",
+        WORK_TYPE_SWITCH: "翻箱",
+        "REHANDLE": "翻箱",
+    }.get(text, text or "--")
+
+
+def _task_panel_state_text(task: Dict[str, Any]) -> str:
+    if not task:
+        return "--"
+    state = _task_state_text(task, True).upper()
+    if state in {"IDLE", "--"}:
+        return "--"
+    if state in {"DONE", "COMPLETE", "COMPLETED", "FINISHED"}:
+        return "已完成"
+    if state in {"FAULT", "ERROR", "ALARM"}:
+        return "异常"
+    return "任务中"
+
+
+def _task_panel_value_rows(task: Dict[str, Any]) -> list[tuple[str, str]]:
+    container_type = _fmt_text(task.get("containerType"))
+    container_height = _fmt_text(task.get("containerHeight"))
+    type_height = " / ".join(
+        part for part in (container_type, container_height) if part and part != "--"
+    ) or "--"
+    return [
+        ("任务ID", _fmt_text(task.get("taskId"))),
+        ("任务类型", _task_panel_work_type_text(task.get("workType") or task.get("taskType"))),
+        ("箱号", _fmt_text(task.get("containerNo"))),
+        ("箱型 / 箱高", type_height),
+        ("吊具位置", _fmt_text(task.get("spreaderPos"))),
+        ("车辆类型", _fmt_text(task.get("carType"))),
+        ("车号", _fmt_text(task.get("carNo"))),
+    ]
+
+
+def _task_route_endpoints(
+    task: Dict[str, Any],
+) -> Optional[tuple[tuple[str, int, int], tuple[str, int, int]]]:
+    work_type = _task_work_type(task)
+    source = OmniverseRtgTwinDriver._parse_task_position_details(
+        task.get("startPos") or task.get("sourcePos")
+    )
+    target = OmniverseRtgTwinDriver._parse_task_position_details(
+        task.get("endPos") or task.get("targetPos")
+    )
+    source_slot = None
+    target_slot = None
+    if source is not None:
+        _source_field, _source_bay, source_row, source_tier = source
+        if source_row is not None and source_tier is not None and source_row > 0 and source_tier > 0:
+            source_slot = ("slot", source_row, source_tier)
+    if target is not None:
+        _target_field, _target_bay, target_row, target_tier = target
+        if target_row is not None and target_tier is not None and target_row > 0 and target_tier > 0:
+            target_slot = ("slot", target_row, target_tier)
+
+    if work_type == WORK_TYPE_LOAD:
+        if target_slot is None:
+            return None
+        return ("truck", 0, 0), target_slot
+    if work_type == WORK_TYPE_UNLOAD:
+        if source_slot is None:
+            return None
+        return source_slot, ("truck", 0, 0)
+    if work_type == WORK_TYPE_SWITCH:
+        if source_slot is None or target_slot is None:
+            return None
+        return source_slot, target_slot
+
+    if source_slot is None or target_slot is None:
+        return None
+    return source_slot, target_slot
+
+
+def _draw_fitted_text(
+    draw: Any,
+    xy: tuple[int, int],
+    text: str,
+    font: Any,
+    fill: tuple[int, int, int, int],
+    *,
+    max_width: int,
+    anchor: Optional[str] = None,
+) -> None:
+    value = str(text or "--")
+    while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > max_width:
+        value = value[:-2] + "..."
+    if anchor:
+        draw.text(xy, value, fill=fill, font=font, anchor=anchor)
+    else:
+        draw.text(xy, value, fill=fill, font=font)
+
+
+def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> bool:
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        width = TASK_PANEL_IMAGE_WIDTH
+        height = TASK_PANEL_IMAGE_HEIGHT
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        panel_box = (4, 4, width - 5, height - 5)
+        glow_draw.rounded_rectangle(
+            panel_box,
+            radius=16,
+            fill=(82, 175, 216, 34),
+            outline=(128, 210, 236, 154),
+            width=4,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(10)))
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            panel_box,
+            radius=12,
+            fill=(38, 92, 121, 132),
+            outline=(130, 207, 232, 176),
+            width=2,
+        )
+        draw.line((18, 18, width - 19, 18), fill=(255, 156, 22, 234), width=5)
+        draw.rectangle(
+            (14, 14, width - 15, height - 15),
+            outline=(142, 219, 238, 48),
+        )
+        draw.polygon(
+            [
+                (width - 90, height - 4),
+                (width - 4, height - 90),
+                (width - 4, height - 4),
+            ],
+            fill=(153, 206, 218, 56),
+        )
+
+        title_font = ImageFont.truetype(str(font_path), 42)
+        badge_font = ImageFont.truetype(str(font_path), 26)
+        label_font = ImageFont.truetype(str(font_path), 28)
+        value_font = ImageFont.truetype(str(font_path), 31)
+        route_label_font = ImageFont.truetype(str(font_path), 24)
+        route_value_font = ImageFont.truetype(str(font_path), 36)
+        map_label_font = ImageFont.truetype(str(font_path), 24)
+
+        draw.rectangle((0, 0, width, 104), fill=(49, 105, 134, 90))
+        draw.text((40, 31), "作业信息", fill=(248, 252, 255, 255), font=title_font)
+        status = _task_panel_state_text(task)
+        status_bbox = draw.textbbox((0, 0), status, font=badge_font)
+        badge_w = status_bbox[2] - status_bbox[0] + 44
+        badge_box = (
+            width - badge_w - 40,
+            36,
+            width - 40,
+            76,
+        )
+        draw.rounded_rectangle(
+            badge_box,
+            radius=20,
+            fill=(42, 118, 102, 112),
+            outline=(91, 238, 178, 138),
+        )
+        draw.text((badge_box[0] + 22, 41), status, fill=(91, 238, 178, 255), font=badge_font)
+
+        start_pos = _fmt_text(task.get("startPos") or task.get("sourcePos"))
+        end_pos = _fmt_text(task.get("endPos") or task.get("targetPos"))
+        route_y = 132
+        box_w = 360
+        box_h = 104
+        route_left = 40
+        route_gap = 54
+        for x, label, value in (
+            (route_left, "起始位置", start_pos),
+            (route_left + box_w + route_gap + 54, "目标位置", end_pos),
+        ):
+            draw.rectangle(
+                (x, route_y, x + box_w, route_y + box_h),
+                fill=(66, 132, 158, 82),
+                outline=(132, 214, 236, 120),
+            )
+            draw.text((x + 24, route_y + 16), label, fill=(198, 221, 232, 255), font=route_label_font)
+            _draw_fitted_text(
+                draw,
+                (x + 24, route_y + 54),
+                value,
+                route_value_font,
+                (196, 244, 255, 255),
+                max_width=box_w - 48,
+            )
+        draw.text(
+            (route_left + box_w + 24, route_y + 33),
+            "→",
+            fill=(255, 190, 78, 255),
+            font=title_font,
+        )
+
+        y = 276
+        for label, value in _task_panel_value_rows(task):
+            draw.text((44, y), label, fill=(198, 221, 232, 255), font=label_font)
+            color = (88, 222, 248, 255) if label == "箱号" else (246, 252, 255, 255)
+            _draw_fitted_text(
+                draw,
+                (492, y - 2),
+                value,
+                value_font,
+                color,
+                max_width=300,
+                anchor="ra",
+            )
+            y += 55
+
+        pattern = str(task.get("bayMap") or "").strip()
+        map_left = 568
+        map_top = 276
+        draw.text((map_left, map_top), "贝位图", fill=(198, 221, 232, 255), font=label_font)
+        _draw_fitted_text(
+            draw,
+            (width - 44, map_top - 2),
+            pattern or "--",
+            value_font,
+            (246, 252, 255, 255),
+            max_width=220,
+            anchor="ra",
+        )
+        if re.fullmatch(r"\d{6}", pattern):
+            cell_w = 54
+            cell_h = 24
+            gap = 16
+            lane_left = map_left + 6
+            lane_w = 42
+            left = lane_left + lane_w + gap
+            bottom = height - 76
+            draw.rectangle(
+                (lane_left, bottom - 78, lane_left + lane_w, bottom),
+                fill=(255, 190, 78, 56),
+                outline=(255, 190, 78, 132),
+            )
+            draw.text((lane_left - 4, bottom + 12), "车道", fill=(255, 190, 78, 232), font=map_label_font)
+            target_row = None
+            parsed = OmniverseRtgTwinDriver._parse_task_position_details(
+                task.get("endPos") or task.get("targetPos") or task.get("startPos") or task.get("sourcePos")
+            )
+            if parsed is not None:
+                target_row = parsed[2]
+            for column_index, row_index in enumerate(TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT):
+                height_text = pattern[row_index - 1]
+                x = left + column_index * (cell_w + gap)
+                stack_height = max(0, int(height_text))
+                draw.text((x + 16, bottom + 12), f"R{row_index}", fill=(198, 221, 232, 230), font=map_label_font)
+                for tier in range(1, stack_height + 1):
+                    y0 = bottom - tier * (cell_h + 9)
+                    is_target = target_row == row_index and tier == stack_height
+                    fill = (255, 190, 78, 180) if is_target else (122, 206, 228, 58)
+                    outline = (255, 190, 78, 232) if is_target else (150, 224, 240, 118)
+                    draw.rectangle((x, y0, x + cell_w, y0 + cell_h), fill=fill, outline=outline)
+        else:
+            draw.text((map_left + 6, map_top + 54), "--", fill=(246, 252, 255, 255), font=value_font)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -1405,6 +1728,8 @@ class RtgTwinStateReceiver:
         self._log_state_summary(state)
 
     def _log_state_summary(self, state: Dict[str, Any]) -> None:
+        if not RECEIVER_STATE_LOG_ENABLED:
+            return
         now = time.time()
         if now - self._last_log_at < self.config.log_every_seconds:
             return
@@ -1512,6 +1837,9 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_text: Optional[str] = None
         self._floating_runinfo_clock_text: Optional[str] = None
         self._floating_runinfo_bitmap_seq = 0
+        self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
+        self._floating_task_panel_bitmap_seq = 0
+        self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
         self._last_error_at = 0.0
 
     def start(self) -> None:
@@ -1526,6 +1854,7 @@ class OmniverseRtgTwinDriver:
                 self._disable_demo_artifacts_for_stage(stage)
                 self._sync_user_side_view_camera(stage)
                 self._sync_floating_runinfo_billboard(stage, {})
+                self._sync_floating_task_panel(stage, {})
             if self._status_overlay is None:
                 self._status_overlay = RtgTwinStatusOverlay()
             stream = omni.kit.app.get_app().get_update_event_stream()
@@ -1557,6 +1886,9 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_text = None
         self._floating_runinfo_clock_text = None
         self._floating_runinfo_bitmap_seq = 0
+        self._floating_task_panel_key = None
+        self._floating_task_panel_bitmap_seq = 0
+        self._floating_task_panel_diag_key = None
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -1566,6 +1898,7 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
+        self._sync_visible_task_panel_facing_camera()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -1650,6 +1983,7 @@ class OmniverseRtgTwinDriver:
             # rendered container centre is available as the final reference.
             if self._sync_task_stack(stage, task):
                 self._hide_inventory_bay_for_task(stage, task)
+            self._sync_task_route_indicator(stage, task)
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
@@ -1727,28 +2061,6 @@ class OmniverseRtgTwinDriver:
         self._write_status(stage, state, applied)
         self._sync_status_overlay(state, applied)
 
-        key = (
-            field,
-            bay,
-            round(applied_gantry_m, 3) if applied_gantry_m is not None else None,
-            round(applied_trolley_m, 3) if applied_trolley_m is not None else None,
-            round(applied_hoist_m, 3) if applied_hoist_m is not None else None,
-            _as_int(pose.get("lockState"), 0),
-            _as_int(pose.get("unlockState"), 0),
-            _pose_spreader_locked(pose),
-            requested_spreader_size_ft,
-            task.get("taskId"),
-        )
-        if key != self._last_applied_key:
-            self._last_applied_key = key
-            self._log(
-                "applied "
-                f"gantry={applied_gantry_m}({gantry_source}) "
-                f"trolley={applied_trolley_m} hoist={applied_hoist_m} "
-                f"spreader={applied_spreader_size_ft}->{requested_spreader_size_ft}ft "
-                f"lock={pose.get('lockState')} unlock={pose.get('unlockState')} "
-                f"resolvedLocked={_pose_spreader_locked(pose)}"
-            )
         return applied
 
     def report_crossbeam_alignment(self) -> Optional[Dict[str, Any]]:
@@ -2331,6 +2643,7 @@ class OmniverseRtgTwinDriver:
 
         self._restore_hidden_inventory(stage)
         paths = [
+            TASK_ROUTE_INDICATOR_ROOT_PATH,
             LIVE_TASK_TRUCK_PATH,
             LIVE_HOISTED_LOAD_PATH,
             LEGACY_LIVE_HOISTED_LOAD_PATH,
@@ -2366,6 +2679,248 @@ class OmniverseRtgTwinDriver:
             lane = stage.GetPrimAtPath(lane_path)
             if lane:
                 stage.RemovePrim(lane.GetPath())
+
+    def _sync_task_route_indicator(self, stage: Any, task: Dict[str, Any]) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        stack_key = self._task_stack_key(task)
+        endpoints = _task_route_endpoints(task)
+        if stack_key is None or endpoints is None:
+            self._remove_task_route_indicator(stage)
+            return
+
+        source_endpoint, target_endpoint = endpoints
+        source = self._task_route_endpoint_world_point(task, stack_key, source_endpoint)
+        target = self._task_route_endpoint_world_point(task, stack_key, target_endpoint)
+        if source is None or target is None:
+            self._remove_task_route_indicator(stage)
+            return
+        has_truck_endpoint = (
+            source_endpoint[0] == "truck" or target_endpoint[0] == "truck"
+        )
+
+        direction = Gf.Vec3d(
+            float(target[0]) - float(source[0]),
+            0.0,
+            float(target[2]) - float(source[2]),
+        )
+        length = math.sqrt(float(direction[0]) ** 2 + float(direction[2]) ** 2)
+        if length < 0.05:
+            direction = Gf.Vec3d(0.0, 0.0, 1.0)
+            length = 1.0
+        unit = Gf.Vec3d(float(direction[0]) / length, 0.0, float(direction[2]) / length)
+        perp = Gf.Vec3d(
+            -float(unit[2]) * TASK_ROUTE_INDICATOR_THICKNESS_M,
+            0.0,
+            float(unit[0]) * TASK_ROUTE_INDICATOR_THICKNESS_M,
+        )
+        head_back = Gf.Vec3d(
+            float(target[0]) - float(unit[0]) * TASK_ROUTE_INDICATOR_HEAD_LENGTH_M,
+            float(target[1]),
+            float(target[2]) - float(unit[2]) * TASK_ROUTE_INDICATOR_HEAD_LENGTH_M,
+        )
+        head_perp = Gf.Vec3d(
+            -float(unit[2]) * TASK_ROUTE_INDICATOR_HEAD_WIDTH_M,
+            0.0,
+            float(unit[0]) * TASK_ROUTE_INDICATOR_HEAD_WIDTH_M,
+        )
+        phase = (
+            time.time() % TASK_ROUTE_INDICATOR_PULSE_SECONDS
+        ) / TASK_ROUTE_INDICATOR_PULSE_SECONDS
+        pulse = Gf.Vec3d(
+            float(source[0]) + (float(target[0]) - float(source[0])) * phase,
+            float(source[1]),
+            float(source[2]) + (float(target[2]) - float(source[2])) * phase,
+        )
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            old = stage.GetPrimAtPath(TASK_ROUTE_INDICATOR_ROOT_PATH)
+            if old:
+                stage.RemovePrim(old.GetPath())
+            root = UsdGeom.Xform.Define(stage, TASK_ROUTE_INDICATOR_ROOT_PATH).GetPrim()
+            UsdGeom.Imageable(root).MakeVisible()
+
+            line = UsdGeom.Mesh.Define(stage, TASK_ROUTE_INDICATOR_LINE_PATH)
+            line.CreatePointsAttr(
+                [
+                    Gf.Vec3f(source + perp),
+                    Gf.Vec3f(source - perp),
+                    Gf.Vec3f(target - perp),
+                    Gf.Vec3f(target + perp),
+                ]
+            )
+            line.CreateFaceVertexCountsAttr([4])
+            line.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            line.CreateDoubleSidedAttr(True)
+            line.CreateDisplayColorAttr([Gf.Vec3f(0.12, 0.86, 1.0)])
+
+            head = UsdGeom.Mesh.Define(stage, TASK_ROUTE_INDICATOR_HEAD_PATH)
+            head.CreatePointsAttr(
+                [
+                    Gf.Vec3f(target),
+                    Gf.Vec3f(head_back + head_perp),
+                    Gf.Vec3f(head_back - head_perp),
+                ]
+            )
+            head.CreateFaceVertexCountsAttr([3])
+            head.CreateFaceVertexIndicesAttr([0, 1, 2])
+            head.CreateDoubleSidedAttr(True)
+            head.CreateDisplayColorAttr([Gf.Vec3f(1.0, 0.84, 0.18)])
+
+            self._create_indicator_sphere(
+                stage,
+                TASK_ROUTE_INDICATOR_START_PATH,
+                source,
+                0.16,
+                Gf.Vec3f(0.12, 0.86, 1.0),
+            )
+            self._create_indicator_sphere(
+                stage,
+                TASK_ROUTE_INDICATOR_END_PATH,
+                target,
+                0.18,
+                Gf.Vec3f(1.0, 0.84, 0.18),
+            )
+            self._create_indicator_sphere(
+                stage,
+                TASK_ROUTE_INDICATOR_PULSE_PATH,
+                pulse,
+                0.22,
+                Gf.Vec3f(1.0, 0.95, 0.34),
+            )
+            if has_truck_endpoint:
+                truck_center = (
+                    source if source_endpoint[0] == "truck" else target
+                )
+                self._create_route_truck_marker(stage, truck_center)
+
+    def _remove_task_route_indicator(self, stage: Any) -> None:
+        from pxr import Usd
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = stage.GetPrimAtPath(TASK_ROUTE_INDICATOR_ROOT_PATH)
+            if root:
+                stage.RemovePrim(root.GetPath())
+
+    def _task_route_endpoint_world_point(
+        self,
+        task: Dict[str, Any],
+        stack_key: tuple[str, int, str, int],
+        endpoint: tuple[str, int, int],
+    ) -> Any:
+        if endpoint[0] == "truck":
+            return self._task_route_truck_world_point(stack_key)
+        if endpoint[0] != "slot":
+            return None
+        return self._task_route_slot_world_point(task, stack_key, (endpoint[1], endpoint[2]))
+
+    def _task_route_slot_world_point(
+        self,
+        task: Dict[str, Any],
+        stack_key: tuple[str, int, str, int],
+        slot: tuple[int, int],
+    ) -> Any:
+        from pxr import Gf
+        from build_live_containers import (
+            CONTAINER_WIDTH_X_M,
+            PAD_TOP_Z_M,
+            ROW_GAP_X_M,
+            STACK_FLOOR_CLEARANCE_M,
+            TIER_GAP_Z_M,
+            container_center_y_for_bay,
+            reference_first_row_center_x_m,
+        )
+
+        block, bay_number, pattern, container_size_ft = stack_key
+        row, tier = slot
+        if row < 1 or row > 6 or tier < 1:
+            return None
+
+        row_pitch = CONTAINER_WIDTH_X_M + ROW_GAP_X_M
+        first_row_center_x = reference_first_row_center_x_m(len(pattern))
+        leftmost_stack_x = first_row_center_x - (len(pattern) - 1) * row_pitch
+        x = leftmost_stack_x + (len(pattern) - row) * row_pitch
+        y = container_center_y_for_bay(block, bay_number, container_size_ft)
+
+        slot_heights_m = _task_bay_slot_heights_m(task, pattern)
+        bottom_z = PAD_TOP_Z_M + STACK_FLOOR_CLEARANCE_M
+        for current_tier in range(1, tier + 1):
+            actual_height_m = (
+                slot_heights_m[row - 1][current_tier - 1]
+                if len(slot_heights_m) >= row
+                and len(slot_heights_m[row - 1]) >= current_tier
+                else PLC_CONTAINER_TIER_HEIGHT_M
+            )
+            visual_height_z = _container_visual_height_z(actual_height_m)
+            center_z = bottom_z + visual_height_z * 0.5
+            if current_tier == tier:
+                return Gf.Vec3d(x, y, center_z + visual_height_z * 0.5 + TASK_ROUTE_INDICATOR_Z_LIFT_M)
+            bottom_z += visual_height_z + TIER_GAP_Z_M
+        return None
+
+    def _task_route_truck_world_point(
+        self,
+        stack_key: tuple[str, int, str, int],
+    ) -> Any:
+        from pxr import Gf
+        from build_live_containers import container_center_y_for_bay
+
+        block, bay_number, _pattern, container_size_ft = stack_key
+        return Gf.Vec3d(
+            self._task_truck_lane_center_x(),
+            container_center_y_for_bay(block, bay_number, container_size_ft),
+            TASK_ROUTE_TRUCK_MARKER_Z_M + TASK_ROUTE_INDICATOR_Z_LIFT_M,
+        )
+
+    @staticmethod
+    def _create_indicator_sphere(
+        stage: Any,
+        path: str,
+        center: Any,
+        radius: float,
+        color: Any,
+    ) -> None:
+        from pxr import UsdGeom
+
+        sphere = UsdGeom.Sphere.Define(stage, path)
+        sphere.CreateRadiusAttr(float(radius))
+        sphere.CreateDisplayColorAttr([color])
+        xform = UsdGeom.Xformable(sphere.GetPrim())
+        xform.AddTranslateOp().Set(center)
+
+    def _create_route_truck_marker(self, stage: Any, center: Any) -> None:
+        from pxr import Gf
+
+        base = TASK_ROUTE_INDICATOR_TRUCK_PATH
+        self._create_task_cube(
+            stage,
+            f"{base}/Chassis",
+            Gf.Vec3d(float(center[0]), float(center[1]), TASK_ROUTE_TRUCK_MARKER_Z_M),
+            Gf.Vec3f(0.72, 1.35, 0.18),
+            Gf.Vec3f(0.08, 0.78, 1.0),
+        )
+        self._create_task_cube(
+            stage,
+            f"{base}/Cab",
+            Gf.Vec3d(float(center[0]), float(center[1]) - 0.86, TASK_ROUTE_TRUCK_MARKER_Z_M + 0.2),
+            Gf.Vec3f(0.62, 0.42, 0.36),
+            Gf.Vec3f(1.0, 0.84, 0.18),
+        )
+        for index, (x_offset, y_offset) in enumerate(
+            ((-0.42, -0.46), (0.42, -0.46), (-0.42, 0.46), (0.42, 0.46)),
+            start=1,
+        ):
+            self._create_task_cube(
+                stage,
+                f"{base}/Wheel_{index:02d}",
+                Gf.Vec3d(
+                    float(center[0]) + x_offset,
+                    float(center[1]) + y_offset,
+                    TASK_ROUTE_TRUCK_MARKER_Z_M - 0.12,
+                ),
+                Gf.Vec3f(0.16, 0.22, 0.16),
+                Gf.Vec3f(0.02, 0.03, 0.04),
+            )
 
     def _clear_completed_task_visuals(self, stage: Any, task: Dict[str, Any]) -> None:
         """Remove all visuals owned by one successfully completed task."""
@@ -3831,6 +4386,21 @@ class OmniverseRtgTwinDriver:
         ).Set(value)
 
     @staticmethod
+    def _set_xform_rotate_xyz(prim: Any, value: Any) -> None:
+        from pxr import UsdGeom
+
+        xform = UsdGeom.Xformable(prim)
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpName() == "xformOp:rotateXYZ":
+                op.Set(value)
+                return
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:rotateXYZ",
+            xform.AddRotateXYZOp,
+        ).Set(value)
+
+    @staticmethod
     def _get_xform_translate(prim: Any) -> Any:
         """Return the authored translate value without creating a new xform op."""
 
@@ -4150,9 +4720,25 @@ class OmniverseRtgTwinDriver:
     ) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
+        if not RUNINFO_FLOATING_ENABLED:
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for path in (
+                    LEGACY_RUNINFO_FLOATING_ROOT_PATH,
+                    RUNINFO_FLOATING_ROOT_PATH,
+                ):
+                    prim = stage.GetPrimAtPath(path)
+                    if prim:
+                        stage.RemovePrim(prim.GetPath())
+            self._floating_runinfo_text = None
+            self._floating_runinfo_clock_text = None
+            return
+
         text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
         clock_text = clock_text or _runinfo_time_text(runinfo)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
+            legacy = stage.GetPrimAtPath(LEGACY_RUNINFO_FLOATING_ROOT_PATH)
+            if legacy:
+                stage.RemovePrim(legacy.GetPath())
             if (
                 self._floating_runinfo_text == text
                 and self._floating_runinfo_clock_text == clock_text
@@ -4161,6 +4747,7 @@ class OmniverseRtgTwinDriver:
                 root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
                 if root:
                     UsdGeom.Imageable(root).MakeVisible()
+                    self._sync_floating_runinfo_pose(stage, root)
                 return
 
             self._floating_runinfo_text = text
@@ -4177,9 +4764,7 @@ class OmniverseRtgTwinDriver:
             root = UsdGeom.Xform.Define(stage, RUNINFO_FLOATING_ROOT_PATH)
             root_prim = root.GetPrim()
             UsdGeom.Imageable(root_prim).MakeVisible()
-            self._set_xform_translate(
-                root_prim, Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
-            )
+            self._sync_floating_runinfo_pose(stage, root_prim)
 
             panel = UsdGeom.Mesh.Define(stage, RUNINFO_FLOATING_PANEL_PATH)
             panel_prim = panel.GetPrim()
@@ -4250,6 +4835,229 @@ class OmniverseRtgTwinDriver:
                 shader.ConnectableAPI(), "surface"
             )
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _sync_floating_runinfo_pose(self, stage: Any, root_prim: Any) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        attach = stage.GetPrimAtPath(RUNINFO_FLOATING_ATTACH_PATH.rstrip("/"))
+        translate = Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
+        if attach:
+            try:
+                cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+                matrix = cache.GetLocalToWorldTransform(attach)
+                translate = matrix.Transform(Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE))
+            except Exception:
+                pass
+        self._set_xform_translate(root_prim, translate)
+        self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*RUNINFO_FLOATING_ROTATE_XYZ))
+
+    def _sync_floating_task_panel(self, stage: Any, task: Dict[str, Any]) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        if not task or not task.get("taskId"):
+            self._log_task_panel_status(
+                "hidden_no_task",
+                "task panel hidden: TwinState has no active task",
+            )
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+            self._floating_task_panel_key = None
+            return
+
+        stack_key = self._task_stack_key(task)
+        if stack_key is None:
+            self._log_task_panel_status(
+                "hidden_invalid_task",
+                "task panel hidden: task has no valid bayMap/position "
+                f"task={task.get('taskId') or '--'} "
+                f"work={task.get('workType') or task.get('taskType') or '--'} "
+                f"start={task.get('startPos') or task.get('sourcePos') or '--'} "
+                f"end={task.get('endPos') or task.get('targetPos') or '--'} "
+                f"bayMap={task.get('bayMap') or '--'}",
+            )
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+            self._floating_task_panel_key = None
+            return
+
+        panel_key = (
+            str(task.get("taskId") or ""),
+            str(task.get("taskState") or task.get("state") or ""),
+            str(task.get("workType") or task.get("taskType") or ""),
+            str(task.get("startPos") or task.get("sourcePos") or ""),
+            str(task.get("endPos") or task.get("targetPos") or ""),
+            str(task.get("containerNo") or ""),
+            str(task.get("containerType") or ""),
+            str(task.get("containerHeight") or ""),
+            str(task.get("spreaderPos") or ""),
+            str(task.get("carType") or ""),
+            str(task.get("carNo") or ""),
+            str(task.get("bayMap") or ""),
+            str(task.get("operationState") or task.get("visualPhase") or ""),
+        )
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            if (
+                panel_key == self._floating_task_panel_key
+                and stage.GetPrimAtPath(TASK_PANEL_MESH_PATH)
+            ):
+                root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeVisible()
+                    self._sync_floating_task_panel_pose(root, stack_key)
+                return
+
+            self._floating_task_panel_key = panel_key
+            self._floating_task_panel_bitmap_seq += 1
+            texture_path = (
+                Path(tempfile.gettempdir())
+                / f"smart_port_rtg_task_panel_{os.getpid()}_{self._floating_task_panel_bitmap_seq}.png"
+            )
+            if not _render_task_info_panel_bitmap(task, texture_path):
+                self._log("task info panel bitmap render failed")
+                return
+
+            root = UsdGeom.Xform.Define(stage, TASK_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._sync_floating_task_panel_pose(root_prim, stack_key)
+
+            panel = UsdGeom.Mesh.Define(stage, TASK_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = TASK_PANEL_WIDTH_M * 0.5
+            half_h = TASK_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr(list(RUNINFO_FLOATING_FACE_VERTEX_INDICES))
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in TASK_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute("rtg:taskPanelTexture", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            panel_prim.CreateAttribute("rtg:taskId", Sdf.ValueTypeNames.String).Set(
+                str(task.get("taskId") or "")
+            )
+            self._log_task_panel_status(
+                "shown",
+                "task panel shown "
+                f"task={task.get('taskId') or '--'} "
+                f"work={task.get('workType') or task.get('taskType') or '--'} "
+                f"start={task.get('startPos') or task.get('sourcePos') or '--'} "
+                f"end={task.get('endPos') or task.get('targetPos') or '--'} "
+                f"bayMap={task.get('bayMap') or '--'} "
+                f"path={TASK_PANEL_ROOT_PATH}",
+            )
+
+            material = UsdShade.Material.Define(stage, TASK_PANEL_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage, f"{TASK_PANEL_MATERIAL_PATH}/PreviewSurface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+            texture = UsdShade.Shader.Define(
+                stage, f"{TASK_PANEL_MATERIAL_PATH}/Texture"
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage, f"{TASK_PANEL_MATERIAL_PATH}/Primvar_st"
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(), "result"
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(), "a"
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _log_task_panel_status(self, status: str, message: str) -> None:
+        if not TASK_PANEL_DIAGNOSTIC_LOG_ENABLED:
+            return
+        key = (status, message)
+        if key == self._floating_task_panel_diag_key:
+            return
+        self._floating_task_panel_diag_key = key
+        self._log(message)
+
+    def _sync_floating_task_panel_pose(
+        self,
+        root_prim: Any,
+        stack_key: tuple[str, int, str, int],
+    ) -> None:
+        from pxr import Gf
+        from build_live_containers import container_center_y_for_bay
+
+        block, bay_number, _pattern, container_size_ft = stack_key
+        bay_center_y = container_center_y_for_bay(block, bay_number, container_size_ft)
+        self._set_xform_translate(
+            root_prim,
+            Gf.Vec3d(
+                TASK_PANEL_WORLD_X,
+                bay_center_y + TASK_PANEL_Y_OFFSET_M,
+                TASK_PANEL_WORLD_Z,
+            ),
+        )
+        rotate = camera_facing_rotate_xyz(
+            self._current_stage(),
+            (
+                TASK_PANEL_WORLD_X,
+                bay_center_y + TASK_PANEL_Y_OFFSET_M,
+                TASK_PANEL_WORLD_Z,
+            ),
+            TASK_PANEL_ROTATE_XYZ,
+        )
+        self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+
+    def _sync_visible_task_panel_facing_camera(self) -> None:
+        stage = self._current_stage()
+        if stage is None:
+            return
+        root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+        if not root:
+            return
+        translate = self._get_xform_translate(root)
+        if translate is None:
+            return
+        try:
+            from pxr import Gf
+
+            rotate = camera_facing_rotate_xyz(stage, translate, TASK_PANEL_ROTATE_XYZ)
+            self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+        except Exception:
+            return
 
     def _sync_user_side_view_camera(self, stage: Any) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom
@@ -4408,6 +5216,18 @@ class OmniverseRtgTwinDriver:
                 prim, "rtg:taskId", Sdf.ValueTypeNames.String, task.get("taskId")
             )
             self._set_attr(
+                prim,
+                "rtg:taskState",
+                Sdf.ValueTypeNames.Int,
+                _as_int(task.get("taskState"), 0),
+            )
+            self._set_attr(
+                prim,
+                "rtg:taskType",
+                Sdf.ValueTypeNames.Int,
+                _as_int(task.get("taskType"), 0),
+            )
+            self._set_attr(
                 prim, "rtg:workType", Sdf.ValueTypeNames.String, task.get("workType")
             )
             self._set_attr(
@@ -4499,6 +5319,7 @@ class OmniverseRtgTwinDriver:
                 runinfo.get("message"),
             )
             self._sync_floating_runinfo_billboard(stage, runinfo)
+            self._sync_floating_task_panel(stage, task)
             self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
             )
@@ -4518,6 +5339,112 @@ class OmniverseRtgTwinDriver:
 
 _receiver: Optional[RtgTwinStateReceiver] = None
 _driver: Optional[OmniverseRtgTwinDriver] = None
+
+
+def _start_live_info_popups() -> None:
+    """Enable click-to-inspect live RTG and container HUD popups."""
+
+    for module_name, starter_name in (
+        ("rtg_device_info_popup", "start_rtg_device_info_popup"),
+        ("rtg_container_info_popup", "start_rtg_container_info_popup"),
+    ):
+        try:
+            module = importlib.import_module(module_name)
+            module = importlib.reload(module)
+            starter = getattr(module, starter_name)
+            starter()
+            print(f"[RTG Twin Driver] enabled {module_name}")
+        except Exception as exc:  # noqa: BLE001 - live driver can run without UI
+            print(f"[RTG Twin Driver] unable to enable {module_name}: {exc}")
+
+
+def _stop_live_info_popups() -> None:
+    """Stop click-to-inspect live UI services when live mode is stopped."""
+
+    for module_name, stopper_name in (
+        ("rtg_container_info_popup", "stop_rtg_container_info_popup"),
+        ("rtg_device_info_popup", "stop_rtg_device_info_popup"),
+    ):
+        try:
+            module = importlib.import_module(module_name)
+            stopper = getattr(module, stopper_name)
+            stopper()
+        except Exception as exc:  # noqa: BLE001 - shutdown should be best-effort
+            print(f"[RTG Twin Driver] unable to stop {module_name}: {exc}")
+
+
+def _enable_live_viewport_selection() -> None:
+    """Best-effort restore of viewport picking for click-to-inspect live UI."""
+
+    try:
+        import carb.settings  # type: ignore
+
+        settings = carb.settings.get_settings()
+        for path, value in (
+            ("/app/window/drawMouse", True),
+            ("/persistent/app/viewport/coiDoubleClick", True),
+            ("/persistent/app/viewport/coiDoubleClickObjectOnly", True),
+            ("/persistent/app/viewport/pickingMode", "type:ALL"),
+            ("/persistent/app/viewport/pickingModeNoKinds", True),
+            ("/persistent/app/viewport/pickingModeIncludeRef", True),
+            ("/exts/omni.kit.viewport.window/startup/cameraManipulator/enabled", True),
+            ("/exts/omni.kit.viewport.window/startup/selectionManipulator/enabled", True),
+        ):
+            settings.set(path, value)
+    except Exception as exc:  # noqa: BLE001 - selection may still work
+        print(f"[RTG Twin Driver] viewport selection settings unavailable: {exc}")
+
+    previous = getattr(builtins, "_rtg_viewport_read_only_sub", None)
+    if previous is not None:
+        try:
+            previous.unsubscribe()
+        except Exception:
+            pass
+        builtins._rtg_viewport_read_only_sub = None
+
+    try:
+        from omni.kit.viewport.utility import get_active_viewport_window  # type: ignore
+
+        window = get_active_viewport_window()
+        if window is not None:
+            for attr, value in (
+                ("enabled", True),
+                ("visible", True),
+                ("mouse_enabled", True),
+                ("keyboard_enabled", True),
+            ):
+                try:
+                    setattr(window, attr, value)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        import omni.kit.viewport_legacy as vp  # type: ignore
+
+        interface = vp.acquire_viewport_interface()
+        for instance in interface.get_instance_list():
+            window = interface.get_viewport_window(instance)
+            if not window:
+                continue
+            for method_name, value in (
+                ("disable_selection_rect", False),
+                ("set_selection_enabled", True),
+                ("set_picking_enabled", True),
+                ("set_mouse_enabled", True),
+                ("set_keyboard_enabled", True),
+            ):
+                method = getattr(window, method_name, None)
+                if callable(method):
+                    try:
+                        method(value)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    print("[RTG Twin Driver] viewport picking enabled for live info popups")
 
 
 def start_receiver(
@@ -4543,6 +5470,8 @@ def start_live_driver(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> Rtg
         _driver.stop()
     _driver = OmniverseRtgTwinDriver(inventory_mode=INVENTORY_MODE_LIVE)
     _driver.start()
+    _enable_live_viewport_selection()
+    _start_live_info_popups()
     return start_receiver(host, port, on_state=_driver.enqueue)
 
 
@@ -4556,6 +5485,7 @@ def stop_receiver() -> None:
 def stop_live_driver() -> None:
     global _driver
     stop_receiver()
+    _stop_live_info_popups()
     if _driver is not None:
         _driver.stop()
         _driver = None

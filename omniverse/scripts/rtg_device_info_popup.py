@@ -17,19 +17,85 @@ or clearing selection hides it.
 from __future__ import annotations
 
 import builtins
+import importlib.util
 import os
+import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 
+try:
+    from rtg_selection_highlight import hide_selection_highlight, show_selection_highlight
+except ModuleNotFoundError:
+    helper_path = Path(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_selection_highlight.py")
+    if not helper_path.is_file():
+        helper_path = Path(__file__).resolve().parent / "rtg_selection_highlight.py"
+    spec = importlib.util.spec_from_file_location("rtg_selection_highlight", helper_path)
+    if spec is None or spec.loader is None:
+        raise
+    helper_module = importlib.util.module_from_spec(spec)
+    sys.modules["rtg_selection_highlight"] = helper_module
+    spec.loader.exec_module(helper_module)
+    hide_selection_highlight = helper_module.hide_selection_highlight
+    show_selection_highlight = helper_module.show_selection_highlight
+
+from rtg_billboard_utils import camera_facing_rotate_xyz
+
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+UI_ASSET_DIR = Path(
+    r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/assets/ui/rtg_device_panel"
+)
+if not UI_ASSET_DIR.is_dir():
+    UI_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "ui" / "rtg_device_panel"
+DEVICE_PANEL_TEMPLATE_PATH = UI_ASSET_DIR / "device_location_panel_bg.png"
+HIGHLIGHT_OWNER = "device"
+WINDOW_TITLE = "RTG Device Location"
+LEGACY_WINDOW_TITLES = ("RTG Digital Twin", "RTG Device Location")
+DIAGNOSTIC_LOG_ENABLED = False
+DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS = 3.0
+DIAGNOSTIC_IDLE_POLL_LIMIT = 3
 CJK_FONT_PATHS = (
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
     "C:/Windows/Fonts/simsun.ttc",
+)
+LABEL_IMAGE_NAMES = {
+    "设备编号": "label_device_no.png",
+    "当前堆场": "label_field.png",
+    "当前贝位": "label_bay.png",
+    "大车位置": "label_gantry.png",
+    "小车位置": "label_trolley.png",
+    "吊具高度": "label_hoist.png",
+}
+DEVICE_PANEL_WIDTH = 768
+DEVICE_PANEL_HEIGHT = 512
+DEVICE_PANEL_VALUE_X = 724
+DEVICE_PANEL_VALUE_Y = {
+    "Device": 132,
+    "Field": 196,
+    "Bay": 260,
+    "Gantry": 324,
+    "Trolley": 388,
+    "Hoist": 452,
+}
+DEVICE_SCENE_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
+DEVICE_SCENE_PANEL_MESH_PATH = f"{DEVICE_SCENE_PANEL_ROOT_PATH}/Panel"
+DEVICE_SCENE_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Device_Location_Panel"
+DEVICE_SCENE_PANEL_WIDTH_M = 6.24
+DEVICE_SCENE_PANEL_HEIGHT_M = 4.16
+DEVICE_SCENE_PANEL_WORLD_X = -9.0
+DEVICE_SCENE_PANEL_WORLD_Z = 12.0
+DEVICE_SCENE_PANEL_Y_OFFSET_M = -2.2
+DEVICE_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+DEVICE_SCENE_PANEL_UV_COORDS = (
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
 )
 
 _service: Optional["RtgDeviceInfoPopupService"] = None
@@ -56,6 +122,10 @@ def _rtg_root_path_from_selection(path: str) -> Optional[str]:
     text = str(path or "").strip()
     if text == PRIMARY_RTG_PATH or text.startswith(f"{PRIMARY_RTG_PATH}/"):
         return PRIMARY_RTG_PATH
+    parts = [part for part in text.split("/") if part]
+    if "RTG_PRIMARY_DYNAMIC" in parts:
+        index = parts.index("RTG_PRIMARY_DYNAMIC")
+        return "/" + "/".join(parts[: index + 1])
     return None
 
 
@@ -107,6 +177,57 @@ def _fmt_bool(value: Any) -> str:
     return "YES" if bool(value) else "NO"
 
 
+def _fmt_task_status(status: Any) -> str:
+    task_id = _read_attr(status, "rtg:taskId")
+    state = str(
+        _read_attr(status, "rtg:operationState")
+        or _read_attr(status, "rtg:visualPhase")
+        or ""
+    ).strip().upper()
+    if state in {"COMPLETE", "COMPLETED", "DONE", "FINISHED"}:
+        return "已完成"
+    if state in {"FAULT", "ERROR", "ALARM"}:
+        return "异常"
+    if task_id not in (None, "", "--"):
+        return "任务中"
+    return "--"
+
+
+def _fmt_work_type(value: Any) -> str:
+    text = str(value or "").strip()
+    upper = text.upper()
+    return {
+        "LOAD": "装箱",
+        "UNLOAD": "卸箱",
+        "SWITCH": "翻箱",
+    }.get(upper, text or "--")
+
+
+def _fmt_container_type(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "--"
+    upper = text.upper()
+    for prefix in ("20", "40", "45"):
+        if upper.startswith(prefix) and len(upper) > len(prefix):
+            return upper[len(prefix):]
+    return text
+
+
+def _fmt_height(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "--"
+    try:
+        normalized = text.lower().replace("mm", "").replace("m", "").strip()
+        number = float(normalized)
+        if "mm" in text.lower() or number > 20:
+            number /= 1000.0
+        return f"{number:.1f}"
+    except (TypeError, ValueError):
+        return text
+
+
 def _find_cjk_font_path() -> Optional[Path]:
     for path in CJK_FONT_PATHS:
         candidate = Path(path)
@@ -149,11 +270,128 @@ def _render_text_bitmap(
         return False
 
 
+def _render_device_panel_bitmap(values: dict[str, str], output_path: Path) -> bool:
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        image = Image.new("RGBA", (DEVICE_PANEL_WIDTH, DEVICE_PANEL_HEIGHT), (0, 0, 0, 0))
+        glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        panel_box = (1, 1, DEVICE_PANEL_WIDTH - 2, DEVICE_PANEL_HEIGHT - 2)
+        glow_draw.rounded_rectangle(
+            panel_box,
+            radius=12,
+            fill=(82, 175, 216, 34),
+            outline=(128, 210, 236, 148),
+            width=4,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(10)))
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            panel_box,
+            radius=10,
+            fill=(38, 92, 121, 128),
+            outline=(130, 207, 232, 176),
+            width=2,
+        )
+        draw.line((14, 14, DEVICE_PANEL_WIDTH - 15, 14), fill=(255, 156, 22, 232), width=4)
+        draw.rectangle(
+            (12, 12, DEVICE_PANEL_WIDTH - 13, DEVICE_PANEL_HEIGHT - 13),
+            outline=(142, 219, 238, 50),
+        )
+        draw.polygon(
+            [
+                (DEVICE_PANEL_WIDTH - 68, DEVICE_PANEL_HEIGHT - 1),
+                (DEVICE_PANEL_WIDTH - 1, DEVICE_PANEL_HEIGHT - 68),
+                (DEVICE_PANEL_WIDTH - 1, DEVICE_PANEL_HEIGHT - 1),
+            ],
+            fill=(153, 206, 218, 54),
+        )
+        draw.rectangle((0, 0, DEVICE_PANEL_WIDTH, 86), fill=(49, 105, 134, 90))
+
+        title_font = ImageFont.truetype(str(font_path), 38)
+        label_font = ImageFont.truetype(str(font_path), 28)
+        value_font = ImageFont.truetype(str(font_path), 31)
+        device_font = ImageFont.truetype(str(font_path), 42)
+        draw.text((36, 25), "设备定位", fill=(248, 252, 255, 255), font=title_font)
+
+        label_by_key = {
+            "Device": "设备编号",
+            "Field": "当前堆场",
+            "Bay": "当前贝位",
+            "Gantry": "大车位置",
+            "Trolley": "小车位置",
+            "Hoist": "吊具高度",
+        }
+        for key, y in DEVICE_PANEL_VALUE_Y.items():
+            text = values.get(key, "--")
+            font = device_font if key == "Device" else value_font
+            color = (88, 222, 248, 255) if key == "Device" else (246, 252, 255, 255)
+            label = label_by_key.get(key, key)
+            draw.text((40, y - 18), label, font=label_font, fill=(198, 221, 232, 255))
+            max_width = 260 if key == "Device" else 220
+            while len(text) > 2 and draw.textbbox((0, 0), text, font=font)[2] > max_width:
+                text = text[:-2] + "..."
+            bbox = draw.textbbox((0, 0), text, font=font)
+            x = DEVICE_PANEL_VALUE_X - (bbox[2] - bbox[0])
+            draw.text((x, y - (bbox[3] - bbox[1]) // 2), text, font=font, fill=color)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
+
+
 def _status_prim(stage: Any) -> Any:
     try:
         return stage.GetPrimAtPath(STATUS_PRIM_PATH)
     except Exception:
         return None
+
+
+def _current_stage() -> Any:
+    try:
+        import omni.usd  # type: ignore
+
+        return omni.usd.get_context().get_stage()
+    except Exception:
+        return None
+
+
+def _hide_known_windows() -> None:
+    try:
+        import omni.ui as ui  # type: ignore
+
+        workspace = getattr(ui, "Workspace", None)
+        show_window = getattr(workspace, "show_window", None) if workspace else None
+        if callable(show_window):
+            for title in LEGACY_WINDOW_TITLES:
+                try:
+                    show_window(title, False)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def _stop_previous_builtin_service() -> None:
+    previous = getattr(builtins, "_rtg_device_info_popup_service", None)
+    if previous is not None:
+        try:
+            previous.stop()
+        except Exception:
+            pass
+        try:
+            builtins._rtg_device_info_popup_service = None
+        except Exception:
+            pass
+    _hide_known_windows()
+
+
+_stop_previous_builtin_service()
 
 
 def _device_bay_id(status: Any) -> str:
@@ -178,6 +416,8 @@ def _collect_device_info_rows(stage: Any, selected_path: str) -> Tuple[InfoRow, 
         or _read_attr(status, "rtg:carriedContainer")
         or ""
     )
+    start_pos = _read_attr(status, "rtg:startPos") or _read_attr(status, "rtg:sourcePos")
+    target_pos = _read_attr(status, "rtg:endPos") or _read_attr(status, "rtg:targetPos")
     rows = [
         InfoRow("Device", _fmt(_read_attr(status, "rtg:rtgName"))),
         InfoRow("Payload", _fmt(payload)),
@@ -190,6 +430,20 @@ def _collect_device_info_rows(stage: Any, selected_path: str) -> Tuple[InfoRow, 
         InfoRow("Hoist", _fmt_number(_read_attr(status, "rtg:hoistMeter"), 2, " m")),
         InfoRow("Tool Size", _fmt_number(_read_attr(status, "rtg:spreaderSizeFt"), 0, " ft")),
         InfoRow("Locked", _fmt_bool(_read_attr(status, "rtg:spreaderLocked"))),
+        InfoRow("Task Status", _fmt_task_status(status)),
+        InfoRow("Task Type", _fmt(_read_attr(status, "rtg:taskType"))),
+        InfoRow("Task ID", _fmt(_read_attr(status, "rtg:taskId"))),
+        InfoRow("Start Pos", _fmt(start_pos)),
+        InfoRow("Target Pos", _fmt(target_pos)),
+        InfoRow("Work Type", _fmt_work_type(_read_attr(status, "rtg:workType"))),
+        InfoRow("Container No", _fmt(_read_attr(status, "rtg:containerNo"))),
+        InfoRow("Container Type", _fmt_container_type(_read_attr(status, "rtg:containerType"))),
+        InfoRow("Container Height", _fmt_height(_read_attr(status, "rtg:containerHeight"))),
+        InfoRow("Spreader Pos", _fmt(_read_attr(status, "rtg:spreaderPos"))),
+        InfoRow("Car Type", _fmt(_read_attr(status, "rtg:carType"))),
+        InfoRow("Car No", _fmt(_read_attr(status, "rtg:carNo"))),
+        InfoRow("Container Size", _fmt(_read_attr(status, "rtg:containerSize"))),
+        InfoRow("Bay Map", _fmt(_read_attr(status, "rtg:bayMap"))),
         InfoRow("Selected", selected_path),
     ]
     return tuple(rows)
@@ -200,15 +454,17 @@ class RtgDeviceInfoPopupService:
         self._selection_sub = None
         self._update_sub = None
         self._window = None
-        self._title_label = None
-        self._subtitle_label = None
-        self._status_label = None
-        self._labels: dict[str, Any] = {}
+        self._panel_image = None
         self._bitmap_seq = 0
+        self._clearing_selection = False
         self._last_selection_signature: tuple[str, ...] = ()
+        self._last_idle_diagnostic_at = 0.0
+        self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
+        self._log("starting device popup service")
         self._build_window()
         self._subscribe_selection()
         self._subscribe_update_poll()
+        self._log(f"service ready window={self._window is not None}")
 
     def stop(self) -> None:
         if self._selection_sub is not None:
@@ -225,155 +481,16 @@ class RtgDeviceInfoPopupService:
             self._update_sub = None
         self._hide()
         self._window = None
+        _hide_known_windows()
+        stage = _current_stage()
+        if stage is not None:
+            hide_selection_highlight(stage, owner=HIGHLIGHT_OWNER)
+            self._hide_scene_panel(stage)
 
     def _build_window(self) -> None:
-        try:
-            import omni.ui as ui  # type: ignore
-        except Exception as exc:
-            print(f"[RTG Device Info] omni.ui unavailable: {exc}")
-            return
-
-        flags = 0
-        for name in (
-            "WINDOW_FLAGS_NO_SCROLLBAR",
-            "WINDOW_FLAGS_NO_COLLAPSE",
-        ):
-            flags |= getattr(ui, name, 0)
-
-        self._window = ui.Window(
-            "RTG Digital Twin",
-            width=560,
-            height=430,
-            visible=False,
-            flags=flags,
-        )
-        try:
-            self._window.position_x = 300
-            self._window.position_y = 110
-        except Exception:
-            pass
-
-        cjk_font = self._resolve_cjk_font(ui)
-
-        def cjk_style(base: dict[str, Any]) -> dict[str, Any]:
-            style = dict(base)
-            if cjk_font:
-                style["font"] = cjk_font
-            return style
-
-        shell_style = {
-            "background_color": 0xEE071524,
-            "border_color": 0xFF22DFFF,
-            "border_width": 1,
-            "border_radius": 4,
-        }
-        header_style = {
-            "background_color": 0xF00B2135,
-            "border_color": 0x8032E6FF,
-            "border_width": 1,
-            "border_radius": 3,
-        }
-        section_style = {
-            "background_color": 0xC20E1C2A,
-            "border_color": 0x4022DFFF,
-            "border_width": 1,
-            "border_radius": 3,
-        }
-        title_style = cjk_style({"color": 0xFFFFFFFF, "font_size": 22})
-        subtitle_style = cjk_style({"color": 0xFF8FA8BC, "font_size": 13})
-        badge_style = cjk_style({"color": 0xFF071524, "font_size": 13})
-        section_title_style = cjk_style({"color": 0xFF22DFFF, "font_size": 13})
-        metric_name_style = cjk_style({"color": 0xFF91A8B8, "font_size": 12})
-        metric_value_style = cjk_style({"color": 0xFFFFFFFF, "font_size": 19})
-        label_style = cjk_style({"color": 0xFF8094A8, "font_size": 12})
-        value_style = cjk_style({"color": 0xFFEAF6FF, "font_size": 13})
-        muted_style = cjk_style({"color": 0xFF70889A, "font_size": 11})
-        alignment = getattr(ui, "Alignment", None)
-        center_alignment = getattr(alignment, "CENTER", None) if alignment else None
-
-        with self._window.frame:
-            with ui.Frame(style=shell_style):
-                with ui.VStack(spacing=8):
-                    with ui.Frame(style=header_style, height=86):
-                        with ui.HStack(spacing=10):
-                            with ui.VStack(spacing=4):
-                                self._title_label = ui.Label(
-                                    "RTG",
-                                    height=34,
-                                    style=title_style,
-                                )
-                                with ui.HStack(spacing=5, height=22):
-                                    self._image_text(
-                                        ui,
-                                        "数字孪生设备状态",
-                                        width=116,
-                                        height=20,
-                                        font_size=13,
-                                        color=(143, 168, 188, 255),
-                                        fallback_style=subtitle_style,
-                                    )
-                                    ui.Label("·", width=8, style=subtitle_style)
-                                    self._subtitle_label = ui.Label(
-                                        "--",
-                                        height=22,
-                                        style=subtitle_style,
-                                    )
-                            with ui.VStack(width=128, spacing=3):
-                                ui.Spacer(height=12)
-                                with ui.Frame(
-                                    style={
-                                        "background_color": 0xFF22DFFF,
-                                        "border_radius": 3,
-                                    },
-                                    height=28,
-                                ):
-                                    label_kwargs = {"style": badge_style}
-                                    if center_alignment is not None:
-                                        label_kwargs["alignment"] = center_alignment
-                                    self._status_label = ui.Label("LIVE", **label_kwargs)
-                                self._labels["Locked"] = ui.Label(
-                                    "--",
-                                    height=18,
-                                    style=subtitle_style,
-                                )
-
-                    with ui.HStack(spacing=8, height=88):
-                        self._metric_card(ui, "大车", "Gantry", metric_name_style, metric_value_style, section_style)
-                        self._metric_card(ui, "小车", "Trolley", metric_name_style, metric_value_style, section_style)
-                        self._metric_card(ui, "起升", "Hoist", metric_name_style, metric_value_style, section_style)
-
-                    with ui.Frame(style=section_style, height=108):
-                        with ui.VStack(spacing=5):
-                            self._image_text(
-                                ui,
-                                "作业位置",
-                                width=68,
-                                height=20,
-                                font_size=13,
-                                color=(34, 223, 255, 255),
-                                fallback_style=section_title_style,
-                            )
-                            with ui.HStack(spacing=10):
-                                self._field(ui, "堆场", "Field", label_style, value_style)
-                                self._field(ui, "贝位", "Bay", label_style, value_style)
-                                self._field(ui, "贝位号", "Bay ID", label_style, value_style)
-                            with ui.HStack(spacing=10):
-                                self._field(ui, "吊具尺寸", "Tool Size", label_style, value_style)
-                                self._field(ui, "控制模式", "Mode", label_style, value_style)
-
-                    with ui.Frame(style=section_style, height=112):
-                        with ui.VStack(spacing=5):
-                            self._image_text(
-                                ui,
-                                "载荷与选中部件",
-                                width=112,
-                                height=20,
-                                font_size=13,
-                                color=(34, 223, 255, 255),
-                                fallback_style=section_title_style,
-                            )
-                            self._row(ui, "载荷", "Payload", label_style, value_style)
-                            self._row(ui, "选中", "Selected", label_style, muted_style)
+        _hide_known_windows()
+        self._window = None
+        self._panel_image = None
 
     @staticmethod
     def _resolve_cjk_font(ui: Any) -> str:
@@ -425,6 +542,29 @@ class RtgDeviceInfoPopupService:
             except Exception:
                 pass
         return ui.Label(text, width=width, height=height, style=fallback_style)
+
+    def _asset_image(
+        self,
+        ui: Any,
+        filename: str,
+        *,
+        width: int,
+        height: int,
+        fallback_text: str,
+        fallback_style: dict[str, Any],
+    ) -> Any:
+        path = UI_ASSET_DIR / filename
+        try:
+            if path.is_file():
+                return ui.Image(
+                    str(path),
+                    width=width,
+                    height=height,
+                    fill_policy=ui.FillPolicy.STRETCH,
+                )
+        except Exception:
+            pass
+        return ui.Label(fallback_text, width=width, height=height, style=fallback_style)
 
     def _metric_card(
         self,
@@ -488,14 +628,51 @@ class RtgDeviceInfoPopupService:
             )
             self._labels[key] = ui.Label("--", word_wrap=True, style=value_style)
 
+    def _transparent_row(
+        self,
+        ui: Any,
+        label: str,
+        key: str,
+        label_style: dict[str, Any],
+        value_style: dict[str, Any],
+    ) -> None:
+        alignment = getattr(ui, "Alignment", None)
+        right = getattr(alignment, "RIGHT_CENTER", None) if alignment else None
+        value_kwargs = {"style": value_style}
+        if right is not None:
+            value_kwargs["alignment"] = right
+        with ui.HStack(spacing=8, height=26):
+            filename = LABEL_IMAGE_NAMES.get(label)
+            if filename:
+                self._asset_image(
+                    ui,
+                    filename,
+                    width=108,
+                    height=22,
+                    fallback_text=label,
+                    fallback_style=label_style,
+                )
+            else:
+                self._image_text(
+                    ui,
+                    label,
+                    width=108,
+                    height=22,
+                    font_size=13,
+                    color=(150, 170, 188, 255),
+                    fallback_style=label_style,
+                )
+            self._labels[key] = ui.Label("--", width=146, **value_kwargs)
+
     def _subscribe_selection(self) -> None:
         try:
             import omni.usd  # type: ignore
 
             stream = omni.usd.get_context().get_selection().get_changed_event_stream()
             self._selection_sub = stream.create_subscription_to_pop(self._on_selection_changed)
+            self._log("selection event subscription active")
         except Exception as exc:
-            print(f"[RTG Device Info] selection subscription unavailable: {exc}")
+            self._log(f"selection subscription unavailable: {exc}")
 
     def _subscribe_update_poll(self) -> None:
         try:
@@ -503,6 +680,7 @@ class RtgDeviceInfoPopupService:
 
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._update_sub = stream.create_subscription_to_pop(self._on_update)
+            self._log("selection polling active")
         except Exception as exc:
             print(f"[RTG Device Info] selection polling unavailable: {exc}")
 
@@ -510,75 +688,298 @@ class RtgDeviceInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
+        self._sync_visible_scene_panel_facing_camera()
         self._handle_selected_paths(_selected_paths(), source="poll")
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
+        if self._clearing_selection:
+            return
+        self._diagnose_idle_poll(paths, source)
         signature = tuple(paths)
         if signature == self._last_selection_signature:
             return
         self._last_selection_signature = signature
+        self._log(f"selection changed source={source} paths={list(paths)}")
 
         for path in paths:
             rtg_root = _rtg_root_path_from_selection(path)
             if rtg_root is None:
                 continue
-            print(f"[RTG Device Info] selected RTG prim ({source}): {path}")
-            self.open_device(path)
+            self._log(f"selected RTG prim ({source}): {path}")
+            self.open_device(path, rtg_root)
+            self._select_rtg_root_for_viewport_frame(rtg_root)
             return
+        if paths:
+            self._log("selection ignored: no RTG_PRIMARY_DYNAMIC path found")
+        stage = _current_stage()
+        if stage is not None:
+            hide_selection_highlight(stage, owner=HIGHLIGHT_OWNER)
         self._hide()
 
-    def open_device(self, selected_path: str) -> None:
-        try:
-            import omni.usd  # type: ignore
-
-            stage = omni.usd.get_context().get_stage()
-        except Exception as exc:
-            self._show_message(f"Stage unavailable: {exc}")
-            return
+    def open_device(self, selected_path: str, rtg_root_path: Optional[str] = None) -> None:
+        stage = _current_stage()
         if stage is None:
             self._show_message("Stage unavailable")
             return
+        hide_selection_highlight(stage)
+        self._log(
+            "opening device popup "
+            f"selected={selected_path} root={rtg_root_path or PRIMARY_RTG_PATH} "
+            f"title={WINDOW_TITLE} window={self._window is not None}"
+        )
         self._show_rows(_collect_device_info_rows(stage, selected_path))
 
     def _show_rows(self, rows: Sequence[InfoRow]) -> None:
         values = {row.label: row.value for row in rows}
-        if self._title_label is not None:
-            device = values.get("Device") or "RTG"
-            self._title_label.text = device if device != "--" else "RTG"
-        if self._subtitle_label is not None:
-            bay_id = values.get("Bay ID") or "--"
-            self._subtitle_label.text = bay_id
-        if self._status_label is not None:
-            try:
-                self._status_label.text = values.get("Mode") or "LIVE"
-            except Exception:
-                pass
-        for key, label in self._labels.items():
-            if key == "Locked":
-                text = f"LOCK {values.get(key, '--')}"
-            else:
-                text = values.get(key, "--")
-            try:
-                label.text = text
-            except Exception:
-                pass
-        if self._window is not None:
-            self._window.visible = True
+        self._bitmap_seq += 1
+        panel_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_device_panel_{os.getpid()}_{self._bitmap_seq}.png"
+        )
+        stage = _current_stage()
+        if stage is None:
+            return
+        if _render_device_panel_bitmap(values, panel_path):
+            self._show_scene_panel(stage, panel_path)
 
     def _show_message(self, message: str) -> None:
         rows = [InfoRow("Device", message)] + [InfoRow("", "--") for _ in range(11)]
         self._show_rows(rows)
 
     def _hide(self) -> None:
+        _hide_known_windows()
         if self._window is not None:
             try:
                 self._window.visible = False
             except Exception:
                 pass
+        stage = _current_stage()
+        if stage is not None:
+            self._hide_scene_panel(stage)
+
+    def _show_scene_panel(self, stage: Any, texture_path: Path) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        _hide_known_windows()
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = UsdGeom.Xform.Define(stage, DEVICE_SCENE_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._sync_scene_panel_pose(stage, root_prim)
+
+            panel = UsdGeom.Mesh.Define(stage, DEVICE_SCENE_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = DEVICE_SCENE_PANEL_WIDTH_M * 0.5
+            half_h = DEVICE_SCENE_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in DEVICE_SCENE_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute(
+                "rtg:devicePanelTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(stage, DEVICE_SCENE_PANEL_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage, f"{DEVICE_SCENE_PANEL_MATERIAL_PATH}/PreviewSurface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+            texture = UsdShade.Shader.Define(
+                stage, f"{DEVICE_SCENE_PANEL_MATERIAL_PATH}/Texture"
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage, f"{DEVICE_SCENE_PANEL_MATERIAL_PATH}/Primvar_st"
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(),
+                "result",
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(),
+                "rgb",
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(),
+                "a",
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(),
+                "surface",
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _hide_scene_panel(self, stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(DEVICE_SCENE_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+        except Exception:
+            pass
+
+    def _sync_scene_panel_pose(self, stage: Any, root_prim: Any) -> None:
+        from pxr import Gf, UsdGeom
+
+        y = 0.0
+        status = _status_prim(stage)
+        field = _read_attr(status, "rtg:currentField")
+        bay = _read_attr(status, "rtg:currentBay")
+        try:
+            from build_live_containers import container_center_y_for_bay
+
+            bay_number = int(bay)
+            size_ft = 40 if bay_number % 2 == 0 else 20
+            y = container_center_y_for_bay(str(field or "4C"), bay_number, size_ft)
+        except Exception:
+            pass
+
+        xform = UsdGeom.Xformable(root_prim)
+        translate = Gf.Vec3d(
+            DEVICE_SCENE_PANEL_WORLD_X,
+            y + DEVICE_SCENE_PANEL_Y_OFFSET_M,
+            DEVICE_SCENE_PANEL_WORLD_Z,
+        )
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                op.Set(translate)
+                break
+        else:
+            xform.AddTranslateOp().Set(translate)
+
+        rotate = Gf.Vec3f(
+            *camera_facing_rotate_xyz(stage, translate, DEVICE_SCENE_PANEL_ROTATE_XYZ)
+        )
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpName() == "xformOp:rotateXYZ":
+                op.Set(rotate)
+                break
+        else:
+            xform.AddRotateXYZOp().Set(rotate)
+
+    def _sync_visible_scene_panel_facing_camera(self) -> None:
+        stage = _current_stage()
+        if stage is None:
+            return
+        root = stage.GetPrimAtPath(DEVICE_SCENE_PANEL_ROOT_PATH)
+        if not root:
+            return
+        try:
+            from pxr import Gf, UsdGeom
+
+            xform = UsdGeom.Xformable(root)
+            translate = None
+            for op in xform.GetOrderedXformOps():
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                    translate = op.Get()
+                    break
+            if translate is None:
+                return
+            rotate = Gf.Vec3f(
+                *camera_facing_rotate_xyz(
+                    stage,
+                    translate,
+                    DEVICE_SCENE_PANEL_ROTATE_XYZ,
+                )
+            )
+            for op in xform.GetOrderedXformOps():
+                if op.GetOpName() == "xformOp:rotateXYZ":
+                    op.Set(rotate)
+                    return
+            xform.AddRotateXYZOp().Set(rotate)
+        except Exception:
+            return
+
+    def _clear_selection_gizmo(self) -> None:
+        try:
+            import omni.usd  # type: ignore
+
+            self._clearing_selection = True
+            selection = omni.usd.get_context().get_selection()
+            try:
+                selection.clear_selected_prim_paths()
+            except Exception:
+                selection.set_selected_prim_paths([], False)
+        except Exception:
+            pass
+        finally:
+            self._clearing_selection = False
+            self._last_selection_signature = ()
+
+    def _select_rtg_root_for_viewport_frame(self, rtg_root_path: str) -> None:
+        """Keep viewport focus on the full RTG so pressing F frames the machine."""
+
+        try:
+            import omni.usd  # type: ignore
+
+            self._clearing_selection = True
+            selection = omni.usd.get_context().get_selection()
+            try:
+                selection.set_selected_prim_paths([rtg_root_path], False)
+            except Exception:
+                selection.clear_selected_prim_paths()
+                selection.set_prim_path_selected(
+                    rtg_root_path,
+                    True,
+                    True,
+                    True,
+                    True,
+                )
+            self._last_selection_signature = (rtg_root_path,)
+        except Exception:
+            self._last_selection_signature = ()
+        finally:
+            self._clearing_selection = False
+
+    def _diagnose_idle_poll(self, paths: List[str], source: str) -> None:
+        if paths or source != "poll" or self._idle_diagnostics_remaining <= 0:
+            return
+        now = time.time()
+        if now - self._last_idle_diagnostic_at < DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS:
+            return
+        self._last_idle_diagnostic_at = now
+        self._idle_diagnostics_remaining -= 1
+        self._log("poll alive; selected=[]")
+
+    @staticmethod
+    def _log(message: str) -> None:
+        if DIAGNOSTIC_LOG_ENABLED:
+            print(f"[RTG Device Info] {message}")
 
 
 def start_rtg_device_info_popup() -> RtgDeviceInfoPopupService:
     global _service
+    _hide_known_windows()
     if _service is not None:
         _service.stop()
     previous = getattr(builtins, "_rtg_device_info_popup_service", None)
@@ -594,6 +995,7 @@ def start_rtg_device_info_popup() -> RtgDeviceInfoPopupService:
 
 def stop_rtg_device_info_popup() -> None:
     global _service
+    _hide_known_windows()
     if _service is not None:
         _service.stop()
         _service = None

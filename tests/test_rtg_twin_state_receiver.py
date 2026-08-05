@@ -105,6 +105,45 @@ class TaskPositionTests(unittest.TestCase):
             f"{receiver.LIVE_TASK_STACK_PATH}/R02_T03_Container",
         )
 
+    def test_task_route_endpoints_use_truck_for_load_and_unload(self) -> None:
+        self.assertEqual(
+            receiver._task_route_endpoints(
+                {
+                    "workType": "LOAD",
+                    "endPos": "4C3012",
+                    "bayMap": "144332",
+                }
+            ),
+            (("truck", 0, 0), ("slot", 1, 2)),
+        )
+        self.assertEqual(
+            receiver._task_route_endpoints(
+                {
+                    "workType": "UNLOAD",
+                    "startPos": "4C3052",
+                    "bayMap": "144332",
+                }
+            ),
+            (("slot", 5, 2), ("truck", 0, 0)),
+        )
+        self.assertEqual(
+            receiver._task_route_endpoints(
+                {
+                    "workType": "SWITCH",
+                    "startPos": "4C3052",
+                    "endPos": "4C3012",
+                    "bayMap": "144332",
+                }
+            ),
+            (("slot", 5, 2), ("slot", 1, 2)),
+        )
+
+    def test_task_panel_bay_map_draws_r6_to_r1_left_to_right(self) -> None:
+        self.assertEqual(
+            receiver.TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT,
+            (6, 5, 4, 3, 2, 1),
+        )
+
     def test_operation_state_machine_receives_current_bay_heights(self) -> None:
         machine = self.driver._build_operation_state_machine(
             {
@@ -167,11 +206,70 @@ class TaskPositionTests(unittest.TestCase):
         self.assertTrue(rendered)
         self.assertTrue(path.is_file())
 
-    def test_floating_runinfo_prefers_3d_sign_without_2d_hud(self) -> None:
+    def test_task_info_panel_bitmap_renderer_draws_chinese_panel(self) -> None:
+        font_path = receiver._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_task_panel_test.png"
+
+        rendered = receiver._render_task_info_panel_bitmap(
+            {
+                "taskId": "27130485",
+                "workType": "SWITCH",
+                "startPos": "4C3053",
+                "endPos": "4C3012",
+                "containerNo": "FFAU8892415",
+                "containerType": "GP",
+                "containerHeight": "2.9",
+                "spreaderPos": "5",
+                "carType": "内集卡",
+                "bayMap": "144332",
+            },
+            path,
+        )
+
+        self.assertTrue(rendered)
+        self.assertTrue(path.is_file())
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertEqual(
+                image.size,
+                (
+                    receiver.TASK_PANEL_IMAGE_WIDTH,
+                    receiver.TASK_PANEL_IMAGE_HEIGHT,
+                ),
+            )
+            self.assertIsNotNone(image.getchannel("A").getbbox())
+
+    def test_floating_runinfo_wraps_long_text_to_three_lines(self) -> None:
+        font_path = receiver._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        from PIL import Image, ImageDraw, ImageFont  # noqa: PLC0415
+
+        draw = ImageDraw.Draw(Image.new("RGBA", (500, 300), (0, 0, 0, 0)))
+        font = ImageFont.truetype(
+            str(font_path),
+            receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE,
+        )
+        lines = receiver._wrap_bitmap_text(
+            draw,
+            "任务开始箱号FFAU8892415目标位置4C3012请尽快执行",
+            font,
+            360,
+            receiver.RUNINFO_FLOATING_TEXT_MAX_LINES,
+        )
+
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[-1].endswith("..."))
+
+    def test_runinfo_visual_panels_are_disabled(self) -> None:
         self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
+        self.assertFalse(receiver.RUNINFO_FLOATING_ENABLED)
         self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 13.0)
-        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 8.4)
-        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 2.1)
+        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 12.0)
+        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 3.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
         self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 8)
@@ -189,6 +287,7 @@ class TaskPositionTests(unittest.TestCase):
         )
 
     def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
+        self.assertEqual(receiver.RUNINFO_FLOATING_ROTATE_XYZ, (0.0, 0.0, 180.0))
         self.assertEqual(
             receiver.RUNINFO_FLOATING_FACE_VERTEX_INDICES,
             (0, 1, 2, 3),
@@ -200,6 +299,55 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(
             receiver.RUNINFO_FLOATING_UV_COORDS[1],
             (0.0, 0.0),
+        )
+
+    def test_floating_runinfo_is_not_parented_to_rtg(self) -> None:
+        self.assertEqual(
+            receiver.RUNINFO_FLOATING_ROOT_PATH,
+            "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
+        )
+        self.assertFalse(
+            receiver.RUNINFO_FLOATING_ROOT_PATH.startswith(
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/"
+            )
+        )
+        self.assertTrue(
+            receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH.startswith(
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/"
+            )
+        )
+
+    def test_task_info_panel_is_live_hud_not_rtg_child(self) -> None:
+        self.assertEqual(
+            receiver.TASK_PANEL_ROOT_PATH,
+            "/World/LiveHUD/RTG_TASK_INFO_PANEL",
+        )
+        self.assertFalse(
+            receiver.TASK_PANEL_ROOT_PATH.startswith(
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/"
+            )
+        )
+        self.assertEqual(receiver.TASK_PANEL_ROTATE_XYZ, (0.0, 0.0, 180.0))
+        self.assertEqual(
+            receiver.TASK_PANEL_UV_COORDS,
+            (
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.0, 1.0),
+                (0.0, 1.0),
+            ),
+        )
+        self.assertNotEqual(
+            receiver.TASK_PANEL_UV_COORDS,
+            receiver.RUNINFO_FLOATING_UV_COORDS,
+        )
+        self.assertLessEqual(
+            receiver.TASK_PANEL_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
+            0.2,
+        )
+        self.assertEqual(
+            receiver.TASK_PANEL_WORLD_X,
+            12.0 + receiver.TASK_PANEL_WIDTH_M * 0.25,
         )
 
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:

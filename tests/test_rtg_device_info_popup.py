@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -49,6 +51,14 @@ class DeviceInfoPopupTests(unittest.TestCase):
             "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC",
         )
 
+    def test_rtg_path_accepts_primary_rtg_under_alternate_parent(self) -> None:
+        self.assertEqual(
+            popup._rtg_root_path_from_selection(
+                "/World/SomePayload/PortAndRTG/RTG_PRIMARY_DYNAMIC/Beam"
+            ),
+            "/World/SomePayload/PortAndRTG/RTG_PRIMARY_DYNAMIC",
+        )
+
     def test_rtg_path_rejects_non_rtg_scene_elements(self) -> None:
         self.assertIsNone(
             popup._rtg_root_path_from_selection(
@@ -60,6 +70,43 @@ class DeviceInfoPopupTests(unittest.TestCase):
                 "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
             )
         )
+
+    def test_device_panel_uses_scene_hud_without_omni_window_chrome(self) -> None:
+        self.assertEqual(
+            popup.DEVICE_SCENE_PANEL_ROOT_PATH,
+            "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
+        )
+        self.assertFalse(
+            popup.DEVICE_SCENE_PANEL_ROOT_PATH.startswith(
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/"
+            )
+        )
+        self.assertEqual(
+            popup.DEVICE_SCENE_PANEL_ROTATE_XYZ,
+            (0.0, 0.0, 180.0),
+        )
+        self.assertAlmostEqual(popup.DEVICE_SCENE_PANEL_WIDTH_M, 6.24)
+        self.assertAlmostEqual(popup.DEVICE_SCENE_PANEL_HEIGHT_M, 4.16)
+        self.assertGreaterEqual(popup.DEVICE_SCENE_PANEL_WORLD_Z, 10.0)
+
+    def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:
+        class Previous:
+            def __init__(self):
+                self.stopped = False
+
+            def stop(self):
+                self.stopped = True
+
+        previous = Previous()
+        old_value = getattr(popup.builtins, "_rtg_device_info_popup_service", None)
+        popup.builtins._rtg_device_info_popup_service = previous
+        try:
+            popup._stop_previous_builtin_service()
+
+            self.assertTrue(previous.stopped)
+            self.assertIsNone(popup.builtins._rtg_device_info_popup_service)
+        finally:
+            popup.builtins._rtg_device_info_popup_service = old_value
 
     def test_collect_device_rows_mirrors_hud_device_values(self) -> None:
         selected = (
@@ -101,6 +148,77 @@ class DeviceInfoPopupTests(unittest.TestCase):
         self.assertEqual(values["Tool Size"], "20 ft")
         self.assertEqual(values["Locked"], "YES")
         self.assertEqual(values["Selected"], selected)
+
+    def test_device_panel_bitmap_renderer_draws_without_baked_template_values(self) -> None:
+        font_path = popup._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_device_panel_clean_test.png"
+
+        rendered = popup._render_device_panel_bitmap(
+            {
+                "Device": "RTG_220",
+                "Field": "4C",
+                "Bay": "40",
+                "Gantry": "436.95 m",
+                "Trolley": "0.39 m",
+                "Hoist": "4.69 m",
+            },
+            path,
+        )
+
+        self.assertTrue(rendered)
+        self.assertTrue(path.is_file())
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertEqual(
+                image.size,
+                (popup.DEVICE_PANEL_WIDTH, popup.DEVICE_PANEL_HEIGHT),
+            )
+            self.assertIsNotNone(image.getchannel("A").getbbox())
+
+    def test_select_rtg_root_keeps_full_machine_for_viewport_frame(self) -> None:
+        selected_paths = []
+
+        class Selection:
+            def set_selected_prim_paths(self, paths, _expand):
+                selected_paths[:] = list(paths)
+
+        omni_module = types.ModuleType("omni")
+        usd_module = types.ModuleType("omni.usd")
+        usd_module.get_context = lambda: types.SimpleNamespace(
+            get_selection=lambda: Selection()
+        )
+        omni_module.usd = usd_module
+        previous_omni = sys.modules.get("omni")
+        previous_usd = sys.modules.get("omni.usd")
+        sys.modules["omni"] = omni_module
+        sys.modules["omni.usd"] = usd_module
+        try:
+            service = popup.RtgDeviceInfoPopupService.__new__(
+                popup.RtgDeviceInfoPopupService
+            )
+            service._clearing_selection = False
+            service._last_selection_signature = ()
+
+            service._select_rtg_root_for_viewport_frame(popup.PRIMARY_RTG_PATH)
+
+            self.assertEqual(selected_paths, [popup.PRIMARY_RTG_PATH])
+            self.assertEqual(
+                service._last_selection_signature,
+                (popup.PRIMARY_RTG_PATH,),
+            )
+            self.assertFalse(service._clearing_selection)
+        finally:
+            if previous_omni is None:
+                sys.modules.pop("omni", None)
+            else:
+                sys.modules["omni"] = previous_omni
+            if previous_usd is None:
+                sys.modules.pop("omni.usd", None)
+            else:
+                sys.modules["omni.usd"] = previous_usd
 
 
 if __name__ == "__main__":
