@@ -131,6 +131,14 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertIsNone(controller._bay_target)
         self.assertIsNone(controller._display_bay_target)
 
+    def test_global_view_uses_user_side_view_camera(self) -> None:
+        self.assertEqual(
+            self.manual.USER_SIDE_VIEW_CAMERA_PATH,
+            "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
+        )
+        self.assertEqual(len(self.manual.USER_SIDE_VIEW_CAMERA_TRANSLATE), 3)
+        self.assertEqual(len(self.manual.USER_SIDE_VIEW_CAMERA_ROTATE_YXZ), 3)
+
     def test_nearest_bay_uses_current_gantry_engineering_position(self) -> None:
         from yard_coordinate_mapping import bay_center_m
 

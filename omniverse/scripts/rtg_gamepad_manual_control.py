@@ -103,6 +103,16 @@ GANTRY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL
 YARD_INVENTORY_ROOT_PATH = "/World/LiveContainers/YardInventory"
 TROLLEY_CAMERA_PATH = f"{TROLLEY_PATH}/REMOTE_MANUAL_TROLLEY_CAMERA"
 KIT_DEFAULT_CAMERA_PATH = "/OmniverseKit_Persp"
+USER_SIDE_VIEW_CAMERA_PATH = (
+    "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
+)
+USER_SIDE_VIEW_CAMERA_TRANSLATE = (
+    89.73994204564764,
+    58.58709433744814,
+    -257.5675701451497,
+)
+USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
 
 # XInput button masks.  XInput is available on supported Windows gamepads
 # without installing pygame or opening a second application window.
@@ -1057,7 +1067,7 @@ class RtgGamepadManualController:
         """Select an RTG-attached operational view in the active viewport."""
 
         if mode == "GLOBAL":
-            camera_path = KIT_DEFAULT_CAMERA_PATH
+            camera_path = self._ensure_user_side_view_camera(stage)
         elif mode == "SPREADER_UNDERSIDE":
             camera_path = self._ensure_trolley_camera(stage)
         else:
@@ -1073,7 +1083,7 @@ class RtgGamepadManualController:
             self._log(f"Could not switch to {mode} view: {exc}")
         self._active_camera_mode = mode
         self._set_spreader_camera_grid(mode == "SPREADER_UNDERSIDE", stage=stage)
-        label = "RTG default camera" if mode == "GLOBAL" else "trolley overhead"
+        label = "RTG side camera" if mode == "GLOBAL" else "trolley overhead"
         self._log(f"Switched to {label} view.")
 
     def _set_spreader_camera_grid(self, enabled: bool, stage: Any = None) -> None:
@@ -1120,6 +1130,44 @@ class RtgGamepadManualController:
             matrix = Gf.Matrix4d(1.0)
             matrix.SetTranslate(eye)
             return matrix
+
+    def _ensure_user_side_view_camera(self, stage: Any) -> str:
+        """Author the menu's user camera as the RTG side view for manual mode."""
+
+        from pxr import Gf, Sdf, Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
+            camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
+            camera.CreateFocalLengthAttr(14.0)
+            camera.CreateHorizontalApertureAttr(36.0)
+            camera.CreateVerticalApertureAttr(20.25)
+            camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
+            prim = camera.GetPrim()
+            UsdGeom.Imageable(prim).MakeInvisible()
+            prim.CreateAttribute("omni:kit:cameraLock", Sdf.ValueTypeNames.Bool).Set(
+                False
+            )
+            prim.CreateAttribute(
+                "omni:kit:centerOfInterest",
+                Sdf.ValueTypeNames.Vector3d,
+                custom=True,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST))
+            prim.CreateAttribute(
+                "xformOp:translate",
+                Sdf.ValueTypeNames.Double3,
+            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
+            prim.CreateAttribute(
+                "xformOp:rotateYXZ",
+                Sdf.ValueTypeNames.Float3,
+            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
+            prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
+                Gf.Vec3f(1.0, 1.0, 1.0)
+            )
+            prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
+                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+            )
+        return USER_SIDE_VIEW_CAMERA_PATH
 
     def _ensure_trolley_camera(self, stage: Any) -> str:
         """Author the trolley overhead camera in the session layer on first use."""
