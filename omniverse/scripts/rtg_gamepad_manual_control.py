@@ -107,12 +107,13 @@ USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
 )
 USER_SIDE_VIEW_CAMERA_TRANSLATE = (
-    89.73994204564764,
-    58.58709433744814,
-    -257.5675701451497,
+    -9.754778037830361,
+    53.68323517349836,
+    12.327299017269466,
 )
-USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
-USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
+USER_SIDE_VIEW_CAMERA_ROTATE_XYZ = (77.26887, 0.0, -169.70116)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -55.93753433424596)
+USER_SIDE_VIEW_CAMERA_FOCAL_LENGTH_MM = 18.147562
 
 # XInput button masks.  XInput is available on supported Windows gamepads
 # without installing pygame or opening a second application window.
@@ -1139,7 +1140,7 @@ class RtgGamepadManualController:
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(14.0)
+            camera.CreateFocalLengthAttr(USER_SIDE_VIEW_CAMERA_FOCAL_LENGTH_MM)
             camera.CreateHorizontalApertureAttr(36.0)
             camera.CreateVerticalApertureAttr(20.25)
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
@@ -1158,14 +1159,14 @@ class RtgGamepadManualController:
                 Sdf.ValueTypeNames.Double3,
             ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
             prim.CreateAttribute(
-                "xformOp:rotateYXZ",
+                "xformOp:rotateXYZ",
                 Sdf.ValueTypeNames.Float3,
-            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
+            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_XYZ))
             prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
                 Gf.Vec3f(1.0, 1.0, 1.0)
             )
             prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
-                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+                ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
             )
         return USER_SIDE_VIEW_CAMERA_PATH
 

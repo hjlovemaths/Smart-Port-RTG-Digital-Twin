@@ -70,13 +70,14 @@ def Xform "World"
                 float exposure:fStop = 5
                 float exposure:responsivity = 1.1026709
                 float exposure:time = 0.02
+                float focalLength = 18.147562
                 bool omni:kit:cameraLock = 0
-                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -87.21255104343727)
+                custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -55.93753433424596)
                 token visibility = "invisible"
-                float3 xformOp:rotateYXZ = (-181.93245, 520.10876, -543.2226)
+                float3 xformOp:rotateXYZ = (77.26887, 0, -169.70116)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (89.73994204564764, 58.58709433744814, -257.5675701451497)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+                double3 xformOp:translate = (-9.754778037830361, 53.68323517349836, 12.327299017269466)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
             }
         }
 
