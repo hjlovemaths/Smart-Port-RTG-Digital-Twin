@@ -5,7 +5,7 @@ Run in Blender:
     blender --background blender/RTG_Model.blend --python blender/remove_side_sts_cranes.py
 
 The script is idempotent. It deletes the two side STS crane object sets, plus
-the leftover static RTG lower-frame pieces in those same side STS footprints,
+the left and right static RTG visual sets that occupied those side positions,
 and keeps the center crane unchanged.
 """
 
@@ -18,6 +18,13 @@ from mathutils import Vector
 SIDE_STS_PREFIXES = (
     "CODEx_STS_Crane0",
     "CODEx_STS_Crane3",
+    "SMART_PORT_quay_sts_crane_0",
+    "SMART_PORT_quay_sts_crane_3",
+)
+
+SIDE_STATIC_RTG_PREFIXES = (
+    "RTG_STATIC_PRIMARY_STYLE_left_",
+    "RTG_STATIC_PRIMARY_STYLE_right_",
 )
 
 SIDE_RTG_REMNANT_BOXES = (
@@ -97,6 +104,9 @@ def save_model() -> None:
 def main() -> None:
     result = {
         "side_sts": {prefix: remove_prefixed_objects(prefix) for prefix in SIDE_STS_PREFIXES},
+        "side_static_rtgs": {
+            prefix: remove_prefixed_objects(prefix) for prefix in SIDE_STATIC_RTG_PREFIXES
+        },
         "side_rtg_remnants": remove_side_rtg_remnants(),
     }
     bpy.context.scene["side_sts_cranes_removed"] = True
