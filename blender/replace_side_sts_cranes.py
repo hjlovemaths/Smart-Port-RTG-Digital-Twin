@@ -4,11 +4,10 @@ Run in Blender:
 
     blender --background blender/RTG_Model.blend --python blender/replace_side_sts_cranes.py
 
-The script is idempotent. It removes the authored left/right STS crane visual
-objects and rebuilds them from the center STS crane, keeping the original
-left/right lateral positions and labels. The seaside/landside placement stays
-identical to the center crane so beams, trolley, spreader, and top equipment
-line up across all three cranes.
+The script is idempotent. It removes the authored left/right STS crane objects
+and rebuilds them by translating exact copies of the center STS crane along the
+rail direction. Geometry, labels, lights, and camera helpers stay identical to
+the center crane; only the X position changes.
 """
 
 from __future__ import annotations
@@ -19,10 +18,10 @@ from mathutils import Matrix, Vector
 
 SOURCE_PREFIX = "CODEx_STS_Crane1"
 TARGETS = (
-    ("CODEx_STS_Crane0", "STS-00"),
-    ("CODEx_STS_Crane3", "STS-03"),
+    "CODEx_STS_Crane0",
+    "CODEx_STS_Crane3",
 )
-COPY_TYPES = {"MESH", "CURVE", "FONT", "LIGHT"}
+COPY_TYPES = {"MESH", "CURVE", "FONT", "LIGHT", "CAMERA"}
 
 
 def visible_crane_objects(prefix: str) -> list[bpy.types.Object]:
@@ -79,20 +78,11 @@ def link_clone_to_source_collections(source: bpy.types.Object, clone: bpy.types.
         collection.objects.link(clone)
 
 
-def target_object_name(source_name: str, target_prefix: str, target_label: str) -> str:
-    name = source_name.replace(SOURCE_PREFIX, target_prefix, 1)
-    label_key = target_label.replace("-", "").lower()
-    name = name.replace("sts01", label_key)
-    name = name.replace("STS01", label_key.upper())
-    return name
-
-
 def clone_source_to_target(
     source_objects: list[bpy.types.Object],
     source_bounds: tuple[float, float, float, float, float, float],
     target_prefix: str,
     target_bounds: tuple[float, float, float, float, float, float],
-    target_label: str,
 ) -> int:
     source_center_x = (source_bounds[0] + source_bounds[1]) * 0.5
     target_center_x = (target_bounds[0] + target_bounds[1]) * 0.5
@@ -102,16 +92,14 @@ def clone_source_to_target(
     for source in source_objects:
         clone = source.copy()
         if source.data is not None:
-            clone.data = source.data.copy() if source.type in {"FONT", "LIGHT"} else source.data
+            clone.data = source.data
         clone.animation_data_clear()
-        clone.name = target_object_name(source.name, target_prefix, target_label)
+        clone.name = source.name.replace(SOURCE_PREFIX, target_prefix, 1)
         clone.parent = None
         clone.matrix_world = delta @ source.matrix_world
         clone["source_sts_visual_object"] = source.name
         clone["source_sts_visual_prefix"] = SOURCE_PREFIX
-        clone["sts_visual_role"] = "side_crane_from_center_style"
-        if clone.type == "FONT" and clone.data is not None and "STS-01" in clone.data.body:
-            clone.data.body = clone.data.body.replace("STS-01", target_label)
+        clone["sts_visual_role"] = "translated_exact_center_crane"
         link_clone_to_source_collections(source, clone)
         created += 1
     return created
@@ -128,7 +116,7 @@ def main() -> None:
     source_bounds = combined_bounds(source_objects)
     result = {}
 
-    for target_prefix, target_label in TARGETS:
+    for target_prefix in TARGETS:
         target_objects = visible_crane_objects(target_prefix)
         target_bounds = combined_bounds(target_objects)
         removed = remove_prefixed_objects(target_prefix)
@@ -137,12 +125,10 @@ def main() -> None:
             source_bounds,
             target_prefix,
             target_bounds,
-            target_label,
         )
         result[target_prefix] = {
             "removed": removed,
             "created": created,
-            "label": target_label,
         }
 
     bpy.context.scene["side_sts_cranes_source_visual_model"] = SOURCE_PREFIX
