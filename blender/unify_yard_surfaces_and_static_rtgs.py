@@ -31,6 +31,7 @@ GROUND_SLOT_LENGTH_M = 2.475
 BAY_GAP_M = 0.20
 GROUND_SLOT_PITCH_M = GROUND_SLOT_LENGTH_M + BAY_GAP_M
 CONTINUOUS_BASE_MARGIN_M = 0.75
+QUAYSIDE_APRON_SEAWARD_Y_M = -10.25
 SIDE_YARD_REGIONS = (
     ("left_outer", -101.0, -59.0, -0.50, 441.50),
     ("left_extra_long", -57.5, -37.5, -0.50, 441.50),
@@ -241,6 +242,7 @@ def rebuild_unified_side_yards() -> dict[str, int]:
     yellow_mat = yellow_marking_material()
     cyan_mat = cyan_marking_material()
     base_boxes = []
+    quayside_apron_boxes = []
     pad_boxes = []
     separator_boxes = []
     boundary_boxes = []
@@ -254,6 +256,16 @@ def rebuild_unified_side_yards() -> dict[str, int]:
         (
             ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, CONTINUOUS_BASE_TOP_Z_M * 0.5),
             (max_x - min_x, max_y - min_y, CONTINUOUS_BASE_TOP_Z_M),
+        )
+    )
+    quayside_apron_boxes.append(
+        (
+            (
+                (min_x + max_x) * 0.5,
+                (QUAYSIDE_APRON_SEAWARD_Y_M + min_y) * 0.5,
+                CONTINUOUS_BASE_TOP_Z_M * 0.5,
+            ),
+            (max_x - min_x, min_y - QUAYSIDE_APRON_SEAWARD_Y_M, CONTINUOUS_BASE_TOP_Z_M),
         )
     )
 
@@ -295,6 +307,7 @@ def rebuild_unified_side_yards() -> dict[str, int]:
             )
 
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}continuous_light_grey_base", base_boxes, pad_mat, collection)
+    create_boxes_object(f"{UNIFIED_YARD_PREFIX}quayside_apron_extension", quayside_apron_boxes, pad_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}light_grey_40ft_slots", pad_boxes, pad_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}white_slot_separators", separator_boxes, white_mat, collection)
     create_boxes_object(f"{UNIFIED_YARD_PREFIX}yellow_boundaries", boundary_boxes, yellow_mat, collection)
@@ -302,6 +315,7 @@ def rebuild_unified_side_yards() -> dict[str, int]:
     return {
         "regions": len(SIDE_YARD_REGIONS),
         "continuous_base": len(base_boxes),
+        "quayside_apron": len(quayside_apron_boxes),
         "pad_slots": len(pad_boxes),
         "separators": len(separator_boxes),
         "boundaries": len(boundary_boxes),
