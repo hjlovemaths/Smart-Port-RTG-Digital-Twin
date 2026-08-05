@@ -66,7 +66,9 @@ class GamepadInputMappingTests(unittest.TestCase):
             self.manual.USER_SIDE_VIEW_CAMERA_PATH,
             "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
         )
-        self.assertGreater(self.manual.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 80.0)
+        self.assertGreater(self.manual.USER_SIDE_VIEW_CAMERA_EYE[2], 10.0)
+        self.assertLess(self.manual.USER_SIDE_VIEW_CAMERA_TARGET[2], 6.0)
+        self.assertLess(self.manual.USER_SIDE_VIEW_CAMERA_EYE[1], -30.0)
 
     def test_spreader_resize_is_not_blocked_by_deadman(self) -> None:
         self.assertFalse(self.manual.SPREADER_RESIZE_REQUIRES_DEADMAN)

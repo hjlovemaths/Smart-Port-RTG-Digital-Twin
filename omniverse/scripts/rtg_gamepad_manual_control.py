@@ -106,13 +106,10 @@ KIT_DEFAULT_CAMERA_PATH = "/OmniverseKit_Persp"
 USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
 )
-USER_SIDE_VIEW_CAMERA_TRANSLATE = (
-    89.73994204564764,
-    58.58709433744814,
-    -257.5675701451497,
-)
-USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
-USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
+USER_SIDE_VIEW_CAMERA_EYE = (20.766, -38.648, 12.457)
+USER_SIDE_VIEW_CAMERA_TARGET = (0.0, 8.0, 4.8)
+USER_SIDE_VIEW_CAMERA_UP = (0.0, 0.0, 1.0)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = USER_SIDE_VIEW_CAMERA_TARGET
 SPREADER_RESIZE_REQUIRES_DEADMAN = False
 
 # XInput button masks.  XInput is available on supported Windows gamepads
@@ -1132,11 +1129,12 @@ class RtgGamepadManualController:
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(14.0)
+            camera.CreateFocalLengthAttr(18.0)
             camera.CreateHorizontalApertureAttr(36.0)
             camera.CreateVerticalApertureAttr(20.25)
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
             prim = camera.GetPrim()
+            xform = UsdGeom.Xformable(prim)
             UsdGeom.Imageable(prim).MakeInvisible()
             prim.CreateAttribute("omni:kit:cameraLock", Sdf.ValueTypeNames.Bool).Set(
                 False
@@ -1146,19 +1144,18 @@ class RtgGamepadManualController:
                 Sdf.ValueTypeNames.Vector3d,
                 custom=True,
             ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST))
-            prim.CreateAttribute(
-                "xformOp:translate",
-                Sdf.ValueTypeNames.Double3,
-            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
-            prim.CreateAttribute(
-                "xformOp:rotateYXZ",
-                Sdf.ValueTypeNames.Float3,
-            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
-            prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
-                Gf.Vec3f(1.0, 1.0, 1.0)
+            transform_attr = prim.GetAttribute("xformOp:transform")
+            if not transform_attr:
+                transform_attr = xform.AddTransformOp().GetAttr()
+            transform_attr.Set(
+                self._camera_matrix(
+                    Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_EYE),
+                    Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TARGET),
+                    Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_UP),
+                )
             )
             prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
-                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+                ["xformOp:transform"]
             )
         return USER_SIDE_VIEW_CAMERA_PATH
 
