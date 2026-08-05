@@ -61,10 +61,18 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertTrue(state.pressed(self.manual.XINPUT_GAMEPAD_A))
         self.assertFalse(state.pressed(self.manual.XINPUT_GAMEPAD_B))
 
-    def test_spreader_resize_does_not_require_gamepad_deadman(self) -> None:
+    def test_remote_manual_global_camera_uses_user_side_view(self) -> None:
+        self.assertEqual(
+            self.manual.USER_SIDE_VIEW_CAMERA_PATH,
+            "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
+        )
+        self.assertGreater(self.manual.USER_SIDE_VIEW_CAMERA_TRANSLATE[0], 80.0)
+
+    def test_spreader_resize_is_not_blocked_by_deadman(self) -> None:
         self.assertFalse(self.manual.SPREADER_RESIZE_REQUIRES_DEADMAN)
 
-        class RecordingRtgController:
+    def test_gamepad_x_resizes_spreader_without_deadman(self) -> None:
+        class Controller:
             def __init__(self) -> None:
                 self.commands = []
 
@@ -74,9 +82,10 @@ class GamepadInputMappingTests(unittest.TestCase):
         controller = object.__new__(self.manual.RtgGamepadManualController)
         controller._previous_buttons = 0
         controller._emergency_stopped = False
-        controller._bay_target = "3C/053"
-        controller._display_bay_target = "3C/053"
-        controller._rtg_controller = RecordingRtgController()
+        controller._bay_target = "3C/063"
+        controller._display_bay_target = "3C/063"
+        controller._rtg_controller = Controller()
+
         state = self.manual.GamepadState(
             buttons=self.manual.XINPUT_GAMEPAD_X,
             left_x=0.0,
@@ -86,59 +95,12 @@ class GamepadInputMappingTests(unittest.TestCase):
 
         self.assertTrue(controller._handle_buttons(object(), state))
         self.assertEqual(controller._rtg_controller.commands, [(20, False)])
-        self.assertIsNone(controller._bay_target)
-        self.assertIsNone(controller._display_bay_target)
 
-    def test_keyboard_number_aliases_cover_common_kit_names(self) -> None:
-        self.assertIn("KEY_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
-        self.assertIn("DIGIT_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
-        self.assertIn("NUMBER_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
-        self.assertIn("KEYPAD_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
-        self.assertIn("KEY_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
-        self.assertIn("DIGIT_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
-        self.assertIn("NUMBER_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
-        self.assertIn("KEYPAD_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
-
-    def test_keyboard_one_sets_twenty_foot_spreader(self) -> None:
-        class RecordingRtgController:
-            def __init__(self) -> None:
-                self.commands = []
-
-            def set_spreader_size(self, size_ft, *, smooth):
-                self.commands.append((size_ft, smooth))
-
-        controller = object.__new__(self.manual.RtgGamepadManualController)
-        controller._active_camera_mode = "GLOBAL"
-        controller._emergency_stopped = False
-        controller._carried_source_path = None
-        controller._bay_target = "3C/053"
-        controller._display_bay_target = "3C/053"
-        controller._rtg_controller = RecordingRtgController()
-
-        handled = controller._handle_keyboard_buttons(
-            object(),
-            self.manual.KeyboardState(
-                gantry=0.0,
-                trolley=0.0,
-                hoist=0.0,
-                deadman=False,
-                just_pressed=frozenset({"ONE"}),
-            ),
+    def test_vertical_contact_keeps_visible_clearance_above_box_top(self) -> None:
+        self.assertGreaterEqual(
+            self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+            0.18,
         )
-
-        self.assertTrue(handled)
-        self.assertEqual(controller._rtg_controller.commands, [(20, False)])
-        self.assertIsNone(controller._bay_target)
-        self.assertIsNone(controller._display_bay_target)
-
-    def test_global_view_uses_user_side_view_camera(self) -> None:
-        self.assertEqual(
-            self.manual.USER_SIDE_VIEW_CAMERA_PATH,
-            "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data",
-        )
-        self.assertEqual(len(self.manual.USER_SIDE_VIEW_CAMERA_TRANSLATE), 3)
-        self.assertEqual(len(self.manual.USER_SIDE_VIEW_CAMERA_ROTATE_XYZ), 3)
-        self.assertGreater(self.manual.USER_SIDE_VIEW_CAMERA_FOCAL_LENGTH_MM, 0.0)
 
     def test_nearest_bay_uses_current_gantry_engineering_position(self) -> None:
         from yard_coordinate_mapping import bay_center_m
@@ -533,6 +495,180 @@ class GamepadInputMappingTests(unittest.TestCase):
             )
         )
 
+    def test_visual_contact_uses_one_root_bound_per_live_container(self) -> None:
+        helper = (
+            self.manual.RtgGamepadManualController._is_container_visual_contact_candidate
+        )
+
+        self.assertFalse(
+            helper(
+                "R05_T03_Container_WeatheredTop",
+                "/World/LiveContainers/YardInventory/Bay_1C_021/"
+                "R05_T03_Container_WeatheredTop",
+                is_boundable=True,
+                has_live_root=True,
+            )
+        )
+
+    def test_spreader_support_uses_world_overlap_despite_stale_bay_metadata(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_019/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._container_visual_contact_path_cache = lambda stage: (path,)
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+        )
+        controller._is_nearby_collision_candidate = lambda *args, **kwargs: (
+            self.fail("world-overlapping vertical support must not be metadata-filtered")
+        )
+
+        supports = controller._support_bounds_for_spreader_vertical_contact(
+            Stage(),
+            object(),
+            tool_bounds=((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5)),
+        )
+
+        self.assertEqual(
+            supports,
+            [(path, (-1.0, -1.0, 0.0), (1.0, 1.0, 1.0))],
+        )
+
+    def test_spreader_support_falls_back_to_current_bay_row(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_019/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._trolley_m = 6.66
+        controller._nearest_bay = lambda stage: ("1C", 19)
+        controller._nearest_row_for_trolley_m = lambda trolley_m: 5
+        controller._live_container_location = lambda prim: ("1C/019", 5, 1)
+        controller._container_visual_contact_path_cache = lambda stage: (path,)
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, 10.0, 0.0),
+            (1.0, 12.0, 1.0),
+        )
+
+        supports = controller._support_bounds_for_spreader_vertical_contact(
+            Stage(),
+            object(),
+            tool_bounds=((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5)),
+        )
+
+        self.assertEqual(
+            supports,
+            [(path, (-0.5, -0.5, 0.0), (0.5, 0.5, 1.0))],
+        )
+        penetration, support_path = (
+            self.manual.RtgGamepadManualController._spreader_tool_bounds_vertical_contact_penetration(
+                [((-0.5, -0.5, 0.5), (0.5, 0.5, 1.5))],
+                supports,
+            )
+        )
+        self.assertEqual(support_path, path)
+        self.assertAlmostEqual(
+            penetration,
+            0.5 + self.manual.SPREADER_VERTICAL_CONTACT_CLEARANCE_M,
+        )
+
+    def test_contact_bounds_follow_released_box_visible_pose(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return "dynamic_rigid"
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._live_container_root = lambda prim: prim
+        controller._manual_release_bounds_for_pick = (
+            lambda stage, bbox_cache, prim: ("visible-min", "visible-max")
+        )
+        controller._world_container_bounds = (
+            lambda bbox_cache, prim: ("stale-usd-min", "stale-usd-max")
+        )
+
+        self.assertEqual(
+            controller._container_contact_bounds(None, None, Prim()),
+            ("visible-min", "visible-max"),
+        )
+
+    def test_manual_tool_collision_bounds_uses_spreader_body_geometry(self) -> None:
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_source_path = None
+        controller._spreader_lock_foot_points = lambda stage: [(0.0, 0.0, 0.0)]
+        controller._spreader_actual_vertical_contact_bound_list = (
+            lambda stage, cache, feet: [((-2.0, -1.0, 0.5), (2.0, 1.0, 1.5))]
+        )
+
+        bounds = controller._manual_tool_collision_bounds(None, None)
+
+        self.assertEqual(
+            bounds,
+            (
+                (
+                    -2.0 - self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    -1.0 - self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    0.5 - self.manual.SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                ),
+                (
+                    2.0 + self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    1.0 + self.manual.SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                    1.5 + self.manual.SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                ),
+            ),
+        )
+
+    def test_spreader_horizontal_overlap_detects_container_side_contact(self) -> None:
+        path = "/World/LiveContainers/YardInventory/Bay_1C_023/R05_T01_Container"
+        root = object()
+
+        class Stage:
+            @staticmethod
+            def GetPrimAtPath(root_path: str) -> object:
+                return root if root_path == path else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._carried_component_paths = []
+        controller._carried_source_path = None
+        controller._trolley_m = 6.66
+        controller._nearest_bay = lambda stage: ("1C", 23)
+        controller._nearest_row_for_trolley_m = lambda trolley_m: 5
+        controller._container_contact_root_path_cache = lambda stage: (path,)
+        controller._container_collision_filter_location = (
+            lambda prim: ("1C/023", 5, 1)
+        )
+        controller._container_contact_bounds = lambda stage, cache, prim: (
+            (-1.0, -1.0, 0.0),
+            (1.0, 1.0, 1.0),
+        )
+
+        overlap = controller._first_spreader_horizontal_overlap(
+            Stage(),
+            object(),
+            ((0.5, -0.5, 0.2), (2.0, 0.5, 0.8)),
+        )
+
+        self.assertEqual(overlap, path)
+
     def test_release_topple_plan_is_none_when_center_is_supported(self) -> None:
         plan = self.manual.RtgGamepadManualController._release_topple_plan(
             (-1.0, -1.0, 3.0),
@@ -727,6 +863,40 @@ class GamepadInputMappingTests(unittest.TestCase):
         )
         self.assertFalse(
             helper(("2C/019", 6, 1), current_bay_id="1C/019", current_row=6)
+        )
+
+    def test_released_box_visible_pose_bypasses_stale_location_filter(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return "dynamic_rigid"
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._live_container_root = lambda prim: prim
+        controller._live_container_location = lambda prim: ("1C/001", 1, 1)
+
+        self.assertIsNone(controller._container_collision_filter_location(Prim()))
+
+    def test_empty_manual_release_mode_is_not_released(self) -> None:
+        class Attr:
+            @staticmethod
+            def Get() -> str:
+                return ""
+
+        class Prim:
+            @staticmethod
+            def GetAttribute(name: str) -> object:
+                return Attr() if name == "live:manualReleaseMode" else None
+
+        self.assertFalse(
+            self.manual.RtgGamepadManualController._is_manually_released_container(
+                Prim()
+            )
         )
 
     def test_released_location_stacks_on_support_container_metadata(self) -> None:

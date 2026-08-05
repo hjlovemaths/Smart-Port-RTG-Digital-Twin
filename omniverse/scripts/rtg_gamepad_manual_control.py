@@ -107,13 +107,13 @@ USER_SIDE_VIEW_CAMERA_PATH = (
     "/World/PortAndRTG/Omniverse_User_View/Omniverse_User_View_data"
 )
 USER_SIDE_VIEW_CAMERA_TRANSLATE = (
-    -9.754778037830361,
-    53.68323517349836,
-    12.327299017269466,
+    89.73994204564764,
+    58.58709433744814,
+    -257.5675701451497,
 )
-USER_SIDE_VIEW_CAMERA_ROTATE_XYZ = (77.26887, 0.0, -169.70116)
-USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -55.93753433424596)
-USER_SIDE_VIEW_CAMERA_FOCAL_LENGTH_MM = 18.147562
+USER_SIDE_VIEW_CAMERA_ROTATE_YXZ = (-181.93245, 520.10876, -543.2226)
+USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST = (0.0, 0.0, -87.21255104343727)
+SPREADER_RESIZE_REQUIRES_DEADMAN = False
 
 # XInput button masks.  XInput is available on supported Windows gamepads
 # without installing pygame or opening a second application window.
@@ -127,7 +127,6 @@ XINPUT_GAMEPAD_DPAD_DOWN = 0x0002
 XINPUT_GAMEPAD_DPAD_LEFT = 0x0004
 XINPUT_GAMEPAD_DPAD_RIGHT = 0x0008
 XINPUT_GAMEPAD_RIGHT_SHOULDER = 0x0200
-SPREADER_RESIZE_REQUIRES_DEADMAN = False
 
 GANTRY_SPEED_M_S = 1.50
 TROLLEY_SPEED_M_S = 1.00
@@ -180,9 +179,9 @@ CARRIED_CONTAINER_COLLISION_NUDGE_MIN_M = 0.002
 CARRIED_CONTAINER_COLLISION_NUDGE_MAX_M = 0.012
 CARRIED_CONTAINER_COLLISION_NUDGE_RESPONSE_RATIO = 0.06
 # The generated live-box weathered top sits about 0.021 m above its rigid cube.
-# Keep a small visual clearance above that decoration so the rendered spreader
-# cannot appear embedded even though the physical cube has already contacted.
-SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.030
+# Keep a visible clearance above that decoration so the rendered spreader never
+# appears embedded even though the physical cube has already contacted.
+SPREADER_VERTICAL_CONTACT_CLEARANCE_M = 0.180
 SPREADER_VERTICAL_CONTACT_EDGE_TOLERANCE_M = 0.08
 SPREADER_VERTICAL_CONTACT_LOG_INTERVAL_SECONDS = 0.75
 SPREADER_COLLISION_HORIZONTAL_MARGIN_M = 0.08
@@ -423,9 +422,7 @@ class KitKeyboard:
         "HOIST_UP": ("UP",), "HOIST_DOWN": ("DOWN",),
         "LEFT": ("LEFT", "KEY_LEFT"), "RIGHT": ("RIGHT", "KEY_RIGHT"),
         "SPACE": ("SPACE",),
-        "G": ("G",), "F": ("F",),
-        "ONE": ("KEY_1", "NUM_1", "DIGIT_1", "NUMBER_1", "N1", "KEYPAD_1", "1"),
-        "TWO": ("KEY_2", "NUM_2", "DIGIT_2", "NUMBER_2", "N2", "KEYPAD_2", "2"),
+        "G": ("G",), "F": ("F",), "ONE": ("KEY_1", "NUM_1"), "TWO": ("KEY_2", "NUM_2"),
         "HOME": ("HOME",), "END": ("END",), "ESCAPE": ("ESCAPE",),
         "ENTER": ("ENTER",),
     }
@@ -679,6 +676,8 @@ class RtgGamepadManualController:
         # sample and making the spreader appear to jump sideways.
         horizontal_motion_requested = False
         lowering_requested = False
+        gantry_delta_m = 0.0
+        trolley_delta_m = 0.0
         if deadman and not self._emergency_stopped and not discrete_command:
             horizontal_motion_requested = (
                 abs(gantry_input) > 0.001 or abs(trolley_input) > 0.001
@@ -688,8 +687,10 @@ class RtgGamepadManualController:
                 self._release_bay_target_for_continuous_travel()
             if abs(gantry_input) > 0.001 or abs(trolley_input) > 0.001 or abs(hoist_input) > 0.001:
                 self._pending_pick_alignment = None
-            self._gantry_m += gantry_input * GANTRY_SPEED_M_S * elapsed
-            self._trolley_m += trolley_input * TROLLEY_SPEED_M_S * elapsed
+            gantry_delta_m = gantry_input * GANTRY_SPEED_M_S * elapsed
+            trolley_delta_m = trolley_input * TROLLEY_SPEED_M_S * elapsed
+            self._gantry_m += gantry_delta_m
+            self._trolley_m += trolley_delta_m
             # Pushing the right stick up raises the spreader (larger engineering
             # hoist value), matching the panel's usual operator convention.
             self._hoist_m += hoist_input * HOIST_SPEED_M_S * elapsed
@@ -700,6 +701,12 @@ class RtgGamepadManualController:
         self._apply_held_pose()
         aligning_pick = self._pending_pick_alignment is not None
         self._advance_pick_alignment(stage)
+        self._limit_spreader_horizontal_contact(
+            stage,
+            gantry_delta_m=gantry_delta_m,
+            trolley_delta_m=trolley_delta_m,
+            horizontal_motion_requested=horizontal_motion_requested,
+        )
         self._limit_spreader_vertical_contact(
             stage,
             # Horizontal travel can enter the side of a high stack while the
@@ -1117,21 +1124,6 @@ class RtgGamepadManualController:
         except Exception as exc:  # noqa: BLE001 - camera refresh must not block control
             self._log(f"Spreader model camera refresh unavailable: {exc}")
 
-    @staticmethod
-    def _camera_matrix(eye: Any, target: Any, up: Any) -> Any:
-        from pxr import Gf
-
-        matrix = Gf.Matrix4d(1.0)
-        try:
-            matrix.SetLookAt(eye, target, up)
-            return matrix.GetInverse()
-        except Exception:
-            # The two installed views have fixed non-collinear up vectors, so
-            # this branch is primarily a compatibility fallback for old Kit.
-            matrix = Gf.Matrix4d(1.0)
-            matrix.SetTranslate(eye)
-            return matrix
-
     def _ensure_user_side_view_camera(self, stage: Any) -> str:
         """Author the menu's user camera as the RTG side view for manual mode."""
 
@@ -1140,7 +1132,7 @@ class RtgGamepadManualController:
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(USER_SIDE_VIEW_CAMERA_FOCAL_LENGTH_MM)
+            camera.CreateFocalLengthAttr(14.0)
             camera.CreateHorizontalApertureAttr(36.0)
             camera.CreateVerticalApertureAttr(20.25)
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
@@ -1159,16 +1151,31 @@ class RtgGamepadManualController:
                 Sdf.ValueTypeNames.Double3,
             ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TRANSLATE))
             prim.CreateAttribute(
-                "xformOp:rotateXYZ",
+                "xformOp:rotateYXZ",
                 Sdf.ValueTypeNames.Float3,
-            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_XYZ))
+            ).Set(Gf.Vec3f(*USER_SIDE_VIEW_CAMERA_ROTATE_YXZ))
             prim.CreateAttribute("xformOp:scale", Sdf.ValueTypeNames.Float3).Set(
                 Gf.Vec3f(1.0, 1.0, 1.0)
             )
             prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
-                ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
             )
         return USER_SIDE_VIEW_CAMERA_PATH
+
+    @staticmethod
+    def _camera_matrix(eye: Any, target: Any, up: Any) -> Any:
+        from pxr import Gf
+
+        matrix = Gf.Matrix4d(1.0)
+        try:
+            matrix.SetLookAt(eye, target, up)
+            return matrix.GetInverse()
+        except Exception:
+            # The two installed views have fixed non-collinear up vectors, so
+            # this branch is primarily a compatibility fallback for old Kit.
+            matrix = Gf.Matrix4d(1.0)
+            matrix.SetTranslate(eye)
+            return matrix
 
     def _ensure_trolley_camera(self, stage: Any) -> str:
         """Author the trolley overhead camera in the session layer on first use."""
@@ -1784,7 +1791,7 @@ class RtgGamepadManualController:
             if path in component_paths or path in support_roots_seen:
                 continue
             support_roots_seen.add(path)
-            bounds = self._world_container_bounds(bbox_cache, root)
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             supports.append((path, bounds[0], bounds[1]))
@@ -2982,13 +2989,26 @@ class RtgGamepadManualController:
         carried_root = self._carried_source_path or ""
         best: Optional[tuple[float, float, str]] = None
         best_distance = 0.0
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
         for root_path in self._container_contact_root_path_cache(stage):
             if root_path == carried_root or root_path in carried_paths:
                 continue
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             correction_x, correction_y = self._carried_collision_separation_delta(
@@ -3068,7 +3088,13 @@ class RtgGamepadManualController:
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             support_bounds.append((root_path, bounds[0], bounds[1]))
@@ -3654,14 +3680,24 @@ class RtgGamepadManualController:
         carried_paths = set(self._carried_component_paths or [])
         carried_root = self._carried_source_path or ""
         support_bounds = []
+        fallback_bounds = []
         tool_minimum, tool_maximum = tool_bounds
+        current_bay_id = None
+        current_row = None
         for root_path in self._container_visual_contact_path_cache(stage):
             if root_path == carried_root or root_path in carried_paths:
                 continue
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            # Vertical safety must follow the rendered world geometry.  The
+            # engineering bay/row estimate can differ from a live container's
+            # authored metadata after scene calibration or manual movement;
+            # using it as an exclusion filter allowed the spreader to pass
+            # through an AABB that was visibly underneath it.  The cached list
+            # already contains only one physical root per live box, so an XY
+            # bounds check is both authoritative and reasonably small.
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             if not self._bounds_overlap_xy(
@@ -3670,9 +3706,62 @@ class RtgGamepadManualController:
                 bounds[0],
                 bounds[1],
             ):
+                location = self._live_container_location(root)
+                if (
+                    location is not None
+                    and current_bay_id is None
+                    and current_row is None
+                ):
+                    current_field, current_bay = self._nearest_bay(stage)
+                    current_bay_id = (
+                        f"{current_field}/{current_bay:03d}"
+                        if current_field is not None and current_bay is not None
+                        else None
+                    )
+                    current_row = self._nearest_row_for_trolley_m(self._trolley_m)
+                if (
+                    location is not None
+                    and current_bay_id is not None
+                    and current_row is not None
+                    and location[0] == current_bay_id
+                    and int(location[1]) == int(current_row)
+                ):
+                    projected_minimum, projected_maximum = (
+                        self._support_bounds_projected_to_tool_xy(
+                            tool_minimum,
+                            tool_maximum,
+                            bounds[0],
+                            bounds[1],
+                        )
+                    )
+                    fallback_bounds.append(
+                        (root_path, projected_minimum, projected_maximum)
+                    )
                 continue
             support_bounds.append((root_path, bounds[0], bounds[1]))
-        return support_bounds
+        return support_bounds or fallback_bounds
+
+    @staticmethod
+    def _support_bounds_projected_to_tool_xy(
+        tool_minimum: Any,
+        tool_maximum: Any,
+        support_minimum: Any,
+        support_maximum: Any,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        """Keep a bay/row fallback support usable by later XY-gated checks."""
+
+        return (
+            (
+                float(tool_minimum[0]),
+                float(tool_minimum[1]),
+                float(support_minimum[2]),
+            ),
+            (
+                float(tool_maximum[0]),
+                float(tool_maximum[1]),
+                float(support_maximum[2]),
+            ),
+        )
 
     def _spreader_actual_vertical_contact_bound_list(
         self,
@@ -4058,6 +4147,23 @@ class RtgGamepadManualController:
             return None
         return bay_id, row, tier
 
+    def _container_collision_filter_location(
+        self,
+        prim: Any,
+    ) -> Optional[tuple[str, int, int]]:
+        """Return metadata only when it still constrains the visible pose.
+
+        A manually released box can move away from its authored bay/row.  Its
+        recorded world bounds remain authoritative, so stale inventory
+        metadata must not let the nearby-candidate optimization skip it.
+        Returning ``None`` intentionally keeps such boxes in the scan.
+        """
+
+        root = self._live_container_root(prim)
+        if root and self._is_manually_released_container(root):
+            return None
+        return self._live_container_location(root)
+
     def _live_container_root_path_cache(self, stage: Any) -> tuple[str, ...]:
         cached = getattr(self, "_live_container_root_paths", None)
         if cached is not None:
@@ -4119,11 +4225,13 @@ class RtgGamepadManualController:
         path: str,
         *,
         is_boundable: bool,
+        has_live_root: bool = False,
     ) -> bool:
         """Recognize legacy visible container meshes missed by live-root metadata."""
 
         return (
             bool(is_boundable)
+            and not bool(has_live_root)
             and "container" in str(name).lower()
             and not str(path).startswith(f"{HOIST_PATH}/")
         )
@@ -4149,12 +4257,22 @@ class RtgGamepadManualController:
                 name = str(prim.GetName())
                 path = str(prim.GetPath())
                 is_boundable = bool(prim.IsA(UsdGeom.Boundable))
+                live_root = self._live_container_root(prim)
+                has_live_root = bool(
+                    live_root and live_root.GetAttribute("live:bayId")
+                )
             except RuntimeError:
                 continue
             if path in seen or not self._is_container_visual_contact_candidate(
                 name,
                 path,
                 is_boundable=is_boundable,
+                # Generated live boxes already contribute their main cube via
+                # ``_container_contact_root_path_cache``.  Querying every rib,
+                # line and top-detail sibling made each lowering frame compute
+                # hundreds of redundant bounds.  Keep per-mesh candidates
+                # only for legacy boxes that have no live container root.
+                has_live_root=has_live_root,
             ):
                 continue
             try:
@@ -4226,6 +4344,30 @@ class RtgGamepadManualController:
         if any(float(minimum[index]) > float(maximum[index]) for index in range(3)):
             return None
         return minimum, maximum
+
+    def _container_contact_bounds(
+        self,
+        stage: Any,
+        bbox_cache: Any,
+        prim: Any,
+    ) -> Optional[tuple[Any, Any]]:
+        """Return the bounds at the position currently visible to the operator.
+
+        PhysX can publish a released rigid body's pose through Fabric while
+        its USD xform still describes the old inventory slot.  Contact checks
+        must use the recorded PhysX bounds for that box, just as re-pick does,
+        or the spreader is stopped over the old slot and can pass through the
+        visibly released box.
+        """
+
+        root = self._live_container_root(prim)
+        if root and self._is_manually_released_container(root):
+            return self._manual_release_bounds_for_pick(
+                stage,
+                bbox_cache,
+                root,
+            )
+        return self._world_container_bounds(bbox_cache, prim)
 
     def _manual_release_bounds_for_pick(
         self,
@@ -4569,7 +4711,11 @@ class RtgGamepadManualController:
             source = stage.GetPrimAtPath(str(release.get("sourcePath", "")))
             if not source:
                 continue
-            source_bounds = self._world_container_bounds(bbox_cache, source)
+            source_bounds = self._container_contact_bounds(
+                stage,
+                bbox_cache,
+                source,
+            )
             if source_bounds is None:
                 return False
             if self._bounds_overlap_3d(
@@ -4751,29 +4897,113 @@ class RtgGamepadManualController:
                     )
         lock_foot_points = self._spreader_lock_foot_points(stage)
         if lock_foot_points:
-            minimum = (
-                min(float(point[0]) for point in lock_foot_points),
-                min(float(point[1]) for point in lock_foot_points),
-                min(float(point[2]) for point in lock_foot_points)
-                - SPREADER_COLLISION_VERTICAL_MARGIN_M,
-            )
-            maximum = (
-                max(float(point[0]) for point in lock_foot_points),
-                max(float(point[1]) for point in lock_foot_points),
-                min(float(point[2]) for point in lock_foot_points)
-                + SPREADER_COLLISION_TOOL_HEIGHT_M,
-            )
-            bounds.append(
-                self._expanded_bounds(
-                    minimum,
-                    maximum,
-                    margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
-                    margin_z=0.0,
+            for tool_minimum, tool_maximum in self._spreader_actual_vertical_contact_bound_list(
+                stage,
+                bbox_cache,
+                lock_foot_points,
+            ):
+                bounds.append(
+                    self._expanded_bounds(
+                        tool_minimum,
+                        tool_maximum,
+                        margin_xy=SPREADER_COLLISION_HORIZONTAL_MARGIN_M,
+                        margin_z=SPREADER_COLLISION_VERTICAL_MARGIN_M,
+                    )
                 )
-            )
         if not bounds:
             return None
         return self._union_bounds(bounds)
+
+    def _limit_spreader_horizontal_contact(
+        self,
+        stage: Any,
+        *,
+        gantry_delta_m: float,
+        trolley_delta_m: float,
+        horizontal_motion_requested: bool,
+    ) -> bool:
+        """Undo a horizontal frame when the spreader body enters a container."""
+
+        if (
+            not horizontal_motion_requested
+            or (
+                abs(float(gantry_delta_m)) < 1.0e-6
+                and abs(float(trolley_delta_m)) < 1.0e-6
+            )
+        ):
+            return False
+        from pxr import Usd, UsdGeom
+
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        tool_bounds = self._manual_tool_collision_bounds(stage, bbox_cache)
+        if tool_bounds is None:
+            return False
+        root_path = self._first_spreader_horizontal_overlap(
+            stage,
+            bbox_cache,
+            tool_bounds,
+        )
+        if root_path is None:
+            return False
+
+        self._gantry_m -= float(gantry_delta_m)
+        self._trolley_m -= float(trolley_delta_m)
+        self._apply_held_pose()
+        self._last_collision_probe_center_world = None
+        now = time.monotonic()
+        if (
+            now - self._last_spreader_contact_notice_at
+            > SPREADER_VERTICAL_CONTACT_LOG_INTERVAL_SECONDS
+        ):
+            self._last_spreader_contact_notice_at = now
+            self._log(
+                "Spreader horizontal contact blocked travel "
+                f"(support={root_path})."
+            )
+        return True
+
+    def _first_spreader_horizontal_overlap(
+        self,
+        stage: Any,
+        bbox_cache: Any,
+        tool_bounds: tuple[Any, Any],
+    ) -> Optional[str]:
+        carried_paths = set(self._carried_component_paths or [])
+        carried_root = self._carried_source_path or ""
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
+        for root_path in self._container_contact_root_path_cache(stage):
+            if root_path == carried_root or root_path in carried_paths:
+                continue
+            root = stage.GetPrimAtPath(root_path)
+            if not root:
+                continue
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
+            if bounds is None:
+                continue
+            if self._bounds_overlap_3d(
+                tool_bounds[0],
+                tool_bounds[1],
+                bounds[0],
+                bounds[1],
+            ):
+                return root_path
+        return None
 
     def _nudge_containers_touched_by_spreader(
         self,
@@ -4846,6 +5076,13 @@ class RtgGamepadManualController:
             dynamic_paths.add(str(release.get("sourcePath", "")))
             for path in release.get("followers", {}):
                 dynamic_paths.add(str(path))
+        current_field, current_bay = self._nearest_bay(stage)
+        current_bay_id = (
+            f"{current_field}/{current_bay:03d}"
+            if current_field is not None and current_bay is not None
+            else None
+        )
+        current_row = self._nearest_row_for_trolley_m(self._trolley_m)
         nudges: list[tuple[str, tuple[float, float]]] = []
         for root_path in self._container_contact_root_path_cache(stage):
             if (
@@ -4858,7 +5095,13 @@ class RtgGamepadManualController:
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            bounds = self._world_container_bounds(bbox_cache, root)
+            if not self._is_nearby_collision_candidate(
+                self._container_collision_filter_location(root),
+                current_bay_id=current_bay_id,
+                current_row=current_row,
+            ):
+                continue
+            bounds = self._container_contact_bounds(stage, bbox_cache, root)
             if bounds is None:
                 continue
             delta_xy = self._collision_nudge_delta(
