@@ -61,6 +61,76 @@ class GamepadInputMappingTests(unittest.TestCase):
         self.assertTrue(state.pressed(self.manual.XINPUT_GAMEPAD_A))
         self.assertFalse(state.pressed(self.manual.XINPUT_GAMEPAD_B))
 
+    def test_spreader_resize_does_not_require_gamepad_deadman(self) -> None:
+        self.assertFalse(self.manual.SPREADER_RESIZE_REQUIRES_DEADMAN)
+
+        class RecordingRtgController:
+            def __init__(self) -> None:
+                self.commands = []
+
+            def set_spreader_size(self, size_ft, *, smooth):
+                self.commands.append((size_ft, smooth))
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._previous_buttons = 0
+        controller._emergency_stopped = False
+        controller._bay_target = "3C/053"
+        controller._display_bay_target = "3C/053"
+        controller._rtg_controller = RecordingRtgController()
+        state = self.manual.GamepadState(
+            buttons=self.manual.XINPUT_GAMEPAD_X,
+            left_x=0.0,
+            left_y=0.0,
+            right_y=0.0,
+        )
+
+        self.assertTrue(controller._handle_buttons(object(), state))
+        self.assertEqual(controller._rtg_controller.commands, [(20, False)])
+        self.assertIsNone(controller._bay_target)
+        self.assertIsNone(controller._display_bay_target)
+
+    def test_keyboard_number_aliases_cover_common_kit_names(self) -> None:
+        self.assertIn("KEY_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
+        self.assertIn("DIGIT_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
+        self.assertIn("NUMBER_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
+        self.assertIn("KEYPAD_1", self.manual.KitKeyboard._INPUT_NAMES["ONE"])
+        self.assertIn("KEY_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
+        self.assertIn("DIGIT_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
+        self.assertIn("NUMBER_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
+        self.assertIn("KEYPAD_2", self.manual.KitKeyboard._INPUT_NAMES["TWO"])
+
+    def test_keyboard_one_sets_twenty_foot_spreader(self) -> None:
+        class RecordingRtgController:
+            def __init__(self) -> None:
+                self.commands = []
+
+            def set_spreader_size(self, size_ft, *, smooth):
+                self.commands.append((size_ft, smooth))
+
+        controller = object.__new__(self.manual.RtgGamepadManualController)
+        controller._active_camera_mode = "GLOBAL"
+        controller._emergency_stopped = False
+        controller._carried_source_path = None
+        controller._bay_target = "3C/053"
+        controller._display_bay_target = "3C/053"
+        controller._rtg_controller = RecordingRtgController()
+
+        handled = controller._handle_keyboard_buttons(
+            object(),
+            self.manual.KeyboardState(
+                gantry=0.0,
+                trolley=0.0,
+                hoist=0.0,
+                deadman=False,
+                just_pressed=frozenset({"ONE"}),
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(controller._rtg_controller.commands, [(20, False)])
+        self.assertIsNone(controller._bay_target)
+        self.assertIsNone(controller._display_bay_target)
+
     def test_nearest_bay_uses_current_gantry_engineering_position(self) -> None:
         from yard_coordinate_mapping import bay_center_m
 

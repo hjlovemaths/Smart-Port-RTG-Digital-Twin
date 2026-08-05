@@ -116,6 +116,7 @@ XINPUT_GAMEPAD_DPAD_DOWN = 0x0002
 XINPUT_GAMEPAD_DPAD_LEFT = 0x0004
 XINPUT_GAMEPAD_DPAD_RIGHT = 0x0008
 XINPUT_GAMEPAD_RIGHT_SHOULDER = 0x0200
+SPREADER_RESIZE_REQUIRES_DEADMAN = False
 
 GANTRY_SPEED_M_S = 1.50
 TROLLEY_SPEED_M_S = 1.00
@@ -411,7 +412,9 @@ class KitKeyboard:
         "HOIST_UP": ("UP",), "HOIST_DOWN": ("DOWN",),
         "LEFT": ("LEFT", "KEY_LEFT"), "RIGHT": ("RIGHT", "KEY_RIGHT"),
         "SPACE": ("SPACE",),
-        "G": ("G",), "F": ("F",), "ONE": ("KEY_1", "NUM_1"), "TWO": ("KEY_2", "NUM_2"),
+        "G": ("G",), "F": ("F",),
+        "ONE": ("KEY_1", "NUM_1", "DIGIT_1", "NUMBER_1", "N1", "KEYPAD_1", "1"),
+        "TWO": ("KEY_2", "NUM_2", "DIGIT_2", "NUMBER_2", "N2", "KEYPAD_2", "2"),
         "HOME": ("HOME",), "END": ("END",), "ESCAPE": ("ESCAPE",),
         "ENTER": ("ENTER",),
     }
@@ -774,7 +777,21 @@ class RtgGamepadManualController:
                 self._adjust_trolley_camera_zoom(stage, +2.0)
         if self._emergency_stopped:
             return command_triggered
-        # Gripping and spreader resizing also require the dead-man switch.
+        resize_allowed = (
+            not SPREADER_RESIZE_REQUIRES_DEADMAN
+            or state.pressed(XINPUT_GAMEPAD_RIGHT_SHOULDER)
+        )
+        if resize_allowed and just_pressed(XINPUT_GAMEPAD_X):
+            command_triggered = True
+            self._bay_target = None
+            self._display_bay_target = None
+            self._rtg_controller.set_spreader_size(20, smooth=False)
+        if resize_allowed and just_pressed(XINPUT_GAMEPAD_B):
+            command_triggered = True
+            self._bay_target = None
+            self._display_bay_target = None
+            self._rtg_controller.set_spreader_size(40, smooth=False)
+        # Gripping still requires the dead-man switch.
         if not state.pressed(XINPUT_GAMEPAD_RIGHT_SHOULDER):
             return command_triggered
         if just_pressed(XINPUT_GAMEPAD_A):
@@ -783,16 +800,6 @@ class RtgGamepadManualController:
                 self._release_container(stage)
             else:
                 self._pick_container(stage)
-        if just_pressed(XINPUT_GAMEPAD_X):
-            command_triggered = True
-            self._bay_target = None
-            self._display_bay_target = None
-            self._rtg_controller.set_spreader_size(20, smooth=False)
-        if just_pressed(XINPUT_GAMEPAD_B):
-            command_triggered = True
-            self._bay_target = None
-            self._display_bay_target = None
-            self._rtg_controller.set_spreader_size(40, smooth=False)
         return command_triggered
 
     def _handle_keyboard_buttons(self, stage: Any, state: KeyboardState) -> bool:
