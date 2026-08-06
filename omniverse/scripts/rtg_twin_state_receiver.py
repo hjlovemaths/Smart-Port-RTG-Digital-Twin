@@ -42,6 +42,11 @@ from typing import Any, Callable, Dict, Optional
 
 
 _previous_stop_live_driver = globals().get("stop_live_driver")
+_previous_builtin_stop_live_driver = getattr(
+    builtins,
+    "_smart_port_rtg_twin_stop_live_driver",
+    None,
+)
 
 
 def _resolve_script_dir() -> Path:
@@ -68,6 +73,11 @@ if callable(_previous_stop_live_driver):
         _previous_stop_live_driver()
     except Exception as exc:
         print(f"[RTG Twin Driver] previous driver stop failed: {exc}")
+if callable(_previous_builtin_stop_live_driver) and _previous_builtin_stop_live_driver is not _previous_stop_live_driver:
+    try:
+        _previous_builtin_stop_live_driver()
+    except Exception as exc:
+        print(f"[RTG Twin Driver] previous builtin driver stop failed: {exc}")
 
 # Kit's Script Editor executes this receiver from a generated temp file.  Load
 # the sibling state-machine source explicitly instead of relying on its module
@@ -99,7 +109,11 @@ from yard_inventory import (  # noqa: E402
     normalize_bay_number as normalize_inventory_bay_number,
     parse_task_position as parse_inventory_task_position,
 )
-from rtg_billboard_utils import camera_facing_rotate_xyz  # noqa: E402
+from rtg_billboard_utils import (  # noqa: E402
+    active_viewport_camera_position,
+    camera_facing_rotate_xyz,
+    camera_facing_rotate_xyz_from_camera,
+)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
@@ -118,7 +132,7 @@ RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
 RUNINFO_FLOATING_ABOVE_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 RUNINFO_FLOATING_ABOVE_GAP_M = 1.2
 RUNINFO_FLOATING_RIGHT_X_OFFSET_M = 1.2
-RUNINFO_FLOATING_BACK_Y_OFFSET_M = 2.4
+RUNINFO_FLOATING_BACK_Y_OFFSET_M = 6.0
 RUNINFO_FLOATING_UP_Z_OFFSET_M = 1.0
 RUNINFO_FLOATING_ENABLED = True
 RUNINFO_LEVEL_PROMPT = "PROMPT"
@@ -181,6 +195,11 @@ RUNINFO_FLOATING_TIME_OFFSET_HOURS = 8
 RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT = "--"
 RUNINFO_FLOATING_DEFAULT_TEXT = "待执行"
 RUNINFO_FLOATING_ROTATE_XYZ = (0.0, 0.0, 180.0)
+RUNINFO_CLEANUP_PATH_TOKENS = ("runinfo", "run_info")
+RUNINFO_EXPLICIT_STALE_ROOT_PATHS = (
+    LEGACY_RUNINFO_FLOATING_ROOT_PATH,
+    "/World/PortAndRTG/RTG_RUNINFO_FLOATING_BILLBOARD",
+)
 TASK_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_TASK_INFO_PANEL"
 TASK_PANEL_MESH_PATH = f"{TASK_PANEL_ROOT_PATH}/Panel"
 TASK_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Task_Info_Panel"
@@ -207,6 +226,12 @@ LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
     RUNINFO_FLOATING_ROOT_PATH,
 )
+LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ = {
+    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL": LIVE_INFO_PANEL_ROTATE_XYZ,
+    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL": LIVE_INFO_PANEL_ROTATE_XYZ,
+    RUNINFO_FLOATING_ROOT_PATH: RUNINFO_FLOATING_ROTATE_XYZ,
+}
+LIVE_INFO_CAMERA_FACING_UPDATE_INTERVAL_SECONDS = 1.0 / 30.0
 TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
 TASK_ROUTE_INDICATOR_LINE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Line"
 TASK_ROUTE_INDICATOR_HEAD_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Head"
@@ -849,6 +874,135 @@ def _dismiss_legacy_runinfo_window() -> None:
                 pass
     except Exception:
         return
+
+
+def _is_descendant_path(path: str, root_path: str) -> bool:
+    return path == root_path or path.startswith(f"{root_path}/")
+
+
+def _is_runinfo_cleanup_path(path: str, name: str) -> bool:
+    lowered = f"{path}/{name}".lower()
+    return any(token in lowered for token in RUNINFO_CLEANUP_PATH_TOKENS)
+
+
+def _remove_explicit_stale_runinfo_billboards(stage: Any) -> int:
+    stale: list[Any] = []
+    for path in RUNINFO_EXPLICIT_STALE_ROOT_PATHS:
+        try:
+            prim = stage.GetPrimAtPath(path)
+            if prim:
+                stale.append(prim.GetPath())
+        except Exception:
+            continue
+    if not stale:
+        return 0
+
+    try:
+        from pxr import Usd
+    except Exception:
+        return 0
+
+    removed = 0
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for path_obj in stale:
+            try:
+                stage.RemovePrim(path_obj)
+                removed += 1
+            except Exception:
+                continue
+    return removed
+
+
+def _remove_runinfo_billboards(stage: Any, *, keep_current: bool) -> int:
+    """Delete 3D RunInfo billboards from the stage."""
+
+    try:
+        from pxr import Usd
+    except Exception:
+        return 0
+
+    keep_roots = (
+        RUNINFO_FLOATING_ROOT_PATH,
+        RUNINFO_FLOATING_MATERIAL_PATH,
+    )
+    stale: list[tuple[str, Any]] = []
+
+    def add_prim(prim: Any) -> None:
+        if not prim:
+            return
+        try:
+            path_obj = prim.GetPath()
+            path = str(path_obj)
+            name = str(prim.GetName())
+        except Exception:
+            return
+        if keep_current and any(_is_descendant_path(path, root) for root in keep_roots):
+            return
+        if _is_runinfo_cleanup_path(path, name):
+            stale.append((path, path_obj))
+
+    try:
+        traverse = getattr(stage, "TraverseAll", None)
+        if not callable(traverse):
+            traverse = getattr(stage, "Traverse", None)
+        if callable(traverse):
+            for prim in list(traverse()):
+                add_prim(prim)
+    except Exception:
+        pass
+
+    explicit_paths = (
+        *RUNINFO_EXPLICIT_STALE_ROOT_PATHS,
+        RUNINFO_FLOATING_ROOT_PATH,
+        RUNINFO_FLOATING_MATERIAL_PATH,
+    )
+    for explicit_path in explicit_paths:
+        try:
+            add_prim(stage.GetPrimAtPath(explicit_path))
+        except Exception:
+            pass
+
+    unique: dict[str, Any] = {}
+    for path, path_obj in stale:
+        unique.setdefault(path, path_obj)
+
+    root_paths: list[tuple[str, Any]] = []
+    for path, path_obj in sorted(unique.items(), key=lambda item: item[0].count("/")):
+        if any(_is_descendant_path(path, existing) for existing, _ in root_paths):
+            continue
+        root_paths.append((path, path_obj))
+
+    removed = 0
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for _path, path_obj in root_paths:
+            try:
+                stage.RemovePrim(path_obj)
+                removed += 1
+            except Exception:
+                continue
+    return removed
+
+
+def _remove_stale_runinfo_billboards(stage: Any) -> int:
+    return _remove_runinfo_billboards(stage, keep_current=True)
+
+
+def _current_omniverse_stage() -> Any:
+    try:
+        import omni.usd  # type: ignore
+
+        return omni.usd.get_context().get_stage()
+    except Exception:
+        return None
+
+
+def cleanup_runinfo_billboards() -> int:
+    """Immediately delete all 3D RunInfo billboards in the current stage."""
+
+    stage = _current_omniverse_stage()
+    if stage is None:
+        return 0
+    return _remove_runinfo_billboards(stage, keep_current=False)
 
 
 def _runinfo_level_key(runinfo: Optional[Dict[str, Any]]) -> str:
@@ -2003,6 +2157,7 @@ class OmniverseRtgTwinDriver:
         self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
+        self._last_panel_facing_update_at = 0.0
         self._last_error_at = 0.0
 
     def start(self) -> None:
@@ -2017,6 +2172,7 @@ class OmniverseRtgTwinDriver:
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
                 self._sync_user_side_view_camera(stage)
+                _remove_runinfo_billboards(stage, keep_current=False)
                 self._sync_floating_runinfo_billboard(stage, {})
                 self._sync_floating_task_panel(stage, {})
             if self._status_overlay is None:
@@ -2025,19 +2181,28 @@ class OmniverseRtgTwinDriver:
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgTwinDriver"
             )
+            builtins._smart_port_rtg_panel_facing_driver = self
             self._log("Omniverse main-thread driver started")
         except Exception as exc:  # noqa: BLE001 - Kit may not be loaded in tests
             self._log(f"unable to start Omniverse update driver: {exc}")
 
     def stop(self) -> None:
+        subscription = self._subscription
+        if subscription is not None:
+            try:
+                subscription.unsubscribe()
+            except Exception:
+                pass
+            self._subscription = None
         stage = self._current_stage()
         if stage is not None:
             try:
-                self._sync_floating_runinfo_billboard(stage, {})
+                _remove_runinfo_billboards(stage, keep_current=False)
             except Exception:
                 pass
+        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is self:
+            builtins._smart_port_rtg_panel_facing_driver = None
         _dismiss_legacy_runinfo_window()
-        self._subscription = None
         self._controller = None
         self._controller_stage_id = None
         self._demo_artifacts_stage_id = None
@@ -2070,8 +2235,7 @@ class OmniverseRtgTwinDriver:
             self._latest_state = state
 
     def _on_update(self, _event: Any) -> None:
-        self._sync_visible_task_panel_facing_camera()
-        self._sync_visible_live_info_panels_facing_camera()
+        self._sync_visible_panels_facing_camera_if_due()
         with self._latest_lock:
             state = self._latest_state
             self._latest_state = None
@@ -5108,6 +5272,24 @@ class OmniverseRtgTwinDriver:
         except Exception:
             return
 
+    def _sync_visible_panels_facing_camera_if_due(self) -> None:
+        """Update every 3D info panel from one camera read, capped at 30 Hz."""
+
+        now = time.monotonic()
+        last_update = float(
+            getattr(self, "_last_panel_facing_update_at", 0.0) or 0.0
+        )
+        if now - last_update < LIVE_INFO_CAMERA_FACING_UPDATE_INTERVAL_SECONDS:
+            return
+        self._last_panel_facing_update_at = now
+
+        stage = self._current_stage()
+        if stage is None:
+            return
+        camera_position = active_viewport_camera_position(stage)
+        self._sync_visible_task_panel_facing_camera(stage, camera_position)
+        self._sync_visible_live_info_panels_facing_camera(stage, camera_position)
+
     def _sync_floating_task_panel(self, stage: Any, task: Dict[str, Any]) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
@@ -5298,8 +5480,12 @@ class OmniverseRtgTwinDriver:
         )
         self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
 
-    def _sync_visible_task_panel_facing_camera(self) -> None:
-        stage = self._current_stage()
+    def _sync_visible_task_panel_facing_camera(
+        self,
+        stage: Any = None,
+        camera_position: Any = None,
+    ) -> None:
+        stage = stage or self._current_stage()
         if stage is None:
             return
         root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
@@ -5311,15 +5497,27 @@ class OmniverseRtgTwinDriver:
         try:
             from pxr import Gf
 
-            rotate = camera_facing_rotate_xyz(stage, translate, TASK_PANEL_ROTATE_XYZ)
+            rotate = (
+                camera_facing_rotate_xyz_from_camera(
+                    translate,
+                    camera_position,
+                    TASK_PANEL_ROTATE_XYZ,
+                )
+                if camera_position is not None
+                else camera_facing_rotate_xyz(stage, translate, TASK_PANEL_ROTATE_XYZ)
+            )
             self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
         except Exception:
             return
 
-    def _sync_visible_live_info_panels_facing_camera(self) -> None:
+    def _sync_visible_live_info_panels_facing_camera(
+        self,
+        stage: Any = None,
+        camera_position: Any = None,
+    ) -> None:
         """Keep click-to-inspect scene panels facing the camera each frame."""
 
-        stage = self._current_stage()
+        stage = stage or self._current_stage()
         if stage is None:
             return
         self._clear_runinfo_viewport_selection()
@@ -5335,10 +5533,18 @@ class OmniverseRtgTwinDriver:
             if translate is None:
                 continue
             try:
-                rotate = camera_facing_rotate_xyz(
-                    stage,
-                    translate,
+                fallback_rotate = LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ.get(
+                    root_path,
                     LIVE_INFO_PANEL_ROTATE_XYZ,
+                )
+                rotate = (
+                    camera_facing_rotate_xyz_from_camera(
+                        translate,
+                        camera_position,
+                        fallback_rotate,
+                    )
+                    if camera_position is not None
+                    else camera_facing_rotate_xyz(stage, translate, fallback_rotate)
                 )
                 self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
             except Exception:
@@ -5774,6 +5980,10 @@ def stop_live_driver() -> None:
     if _driver is not None:
         _driver.stop()
         _driver = None
+    cleanup_runinfo_billboards()
+
+
+builtins._smart_port_rtg_twin_stop_live_driver = stop_live_driver
 
 
 def get_latest_state() -> Optional[Dict[str, Any]]:

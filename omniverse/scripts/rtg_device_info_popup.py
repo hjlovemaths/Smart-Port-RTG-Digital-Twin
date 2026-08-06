@@ -46,6 +46,7 @@ from rtg_billboard_utils import camera_facing_rotate_xyz
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+PORT_AND_RTG_ROOT_NAME = "PortAndRTG"
 UI_ASSET_DIR = Path(
     r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/assets/ui/rtg_device_panel"
 )
@@ -58,6 +59,7 @@ LEGACY_WINDOW_TITLES = ("RTG Digital Twin", "RTG Device Location")
 DIAGNOSTIC_LOG_ENABLED = False
 DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS = 3.0
 DIAGNOSTIC_IDLE_POLL_LIMIT = 3
+UPDATE_POLL_INTERVAL_SECONDS = 1.0 / 30.0
 CJK_FONT_PATHS = (
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
@@ -125,6 +127,8 @@ def _rtg_root_path_from_selection(path: str) -> Optional[str]:
     if text == PRIMARY_RTG_PATH or text.startswith(f"{PRIMARY_RTG_PATH}/"):
         return PRIMARY_RTG_PATH
     parts = [part for part in text.split("/") if part]
+    if parts and parts[-1] == PORT_AND_RTG_ROOT_NAME:
+        return "/" + "/".join((*parts, "RTG_PRIMARY_DYNAMIC"))
     if "RTG_PRIMARY_DYNAMIC" in parts:
         index = parts.index("RTG_PRIMARY_DYNAMIC")
         return "/" + "/".join(parts[: index + 1])
@@ -477,6 +481,7 @@ class RtgDeviceInfoPopupService:
         self._normalizing_hud_selection = False
         self._last_selection_signature: tuple[str, ...] = ()
         self._last_idle_diagnostic_at = 0.0
+        self._last_update_poll_at = 0.0
         self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
         self._log("starting device popup service")
         self._build_window()
@@ -706,8 +711,14 @@ class RtgDeviceInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
+        now = time.monotonic()
+        last_update = float(getattr(self, "_last_update_poll_at", 0.0) or 0.0)
+        if now - last_update < UPDATE_POLL_INTERVAL_SECONDS:
+            return
+        self._last_update_poll_at = now
         self._handle_selected_paths(_selected_paths(), source="poll")
-        self._sync_visible_scene_panel_facing_camera()
+        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is None:
+            self._sync_visible_scene_panel_facing_camera()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection or self._normalizing_hud_selection:

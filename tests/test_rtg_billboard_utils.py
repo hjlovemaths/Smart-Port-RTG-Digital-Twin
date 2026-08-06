@@ -89,6 +89,16 @@ class BillboardUtilsTests(unittest.TestCase):
                 (3.0, 4.0, 5.0),
             )
 
+    def test_cached_camera_position_can_drive_multiple_panels(self) -> None:
+        self.assertEqual(
+            billboard.camera_facing_rotate_xyz_from_camera(
+                (0.0, 0.0, 0.0),
+                (-10.0, 0.0, 5.0),
+                (0.0, 0.0, 180.0),
+            ),
+            (0.0, 0.0, 90.0),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

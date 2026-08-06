@@ -30,15 +30,22 @@ MARKING_TOP_Z_M = 0.135
 GROUND_SLOT_LENGTH_M = 2.475
 BAY_GAP_M = 0.20
 GROUND_SLOT_PITCH_M = GROUND_SLOT_LENGTH_M + BAY_GAP_M
+FOUR_C_END_EXTENSION_BAY_COUNT = 40
+FOUR_C_END_EXTENSION_SLOT_COUNT = (FOUR_C_END_EXTENSION_BAY_COUNT + 1) // 2
+FOUR_C_END_EXTENSION_LENGTH_M = (
+    FOUR_C_END_EXTENSION_SLOT_COUNT * GROUND_SLOT_LENGTH_M
+    + max(0, FOUR_C_END_EXTENSION_SLOT_COUNT - 1) * BAY_GAP_M
+)
+UNIFIED_SIDEYARD_END_Y_M = 441.50 + FOUR_C_END_EXTENSION_LENGTH_M - GROUND_SLOT_LENGTH_M
 CONTINUOUS_BASE_MARGIN_M = 0.75
 QUAYSIDE_APRON_SEAWARD_Y_M = -10.25
 SIDE_YARD_REGIONS = (
-    ("left_outer", -101.0, -59.0, -0.50, 441.50),
-    ("left_extra_long", -57.5, -37.5, -0.50, 441.50),
-    ("left_inner", -48.0, -32.0, -0.50, 441.50),
-    ("right_extra_long", 37.5, 57.5, -0.50, 441.50),
-    ("right_inner", 46.0, 60.0, -0.50, 441.50),
-    ("right_outer", 67.0, 108.0, -0.50, 441.50),
+    ("left_outer", -101.0, -59.0, -0.50, UNIFIED_SIDEYARD_END_Y_M),
+    ("left_extra_long", -57.5, -37.5, -0.50, UNIFIED_SIDEYARD_END_Y_M),
+    ("left_inner", -48.0, -32.0, -0.50, UNIFIED_SIDEYARD_END_Y_M),
+    ("right_extra_long", 37.5, 57.5, -0.50, UNIFIED_SIDEYARD_END_Y_M),
+    ("right_inner", 46.0, 60.0, -0.50, UNIFIED_SIDEYARD_END_Y_M),
+    ("right_outer", 67.0, 108.0, -0.50, UNIFIED_SIDEYARD_END_Y_M),
     ("near_left_stack", -39.0, -9.0, 18.50, 153.50),
     ("near_right_stack", 9.0, 39.0, 18.50, 153.50),
     ("far_left_four", -39.0, -5.0, 202.50, 417.50),

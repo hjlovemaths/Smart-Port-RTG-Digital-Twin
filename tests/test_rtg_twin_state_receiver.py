@@ -379,6 +379,149 @@ class TaskPositionTests(unittest.TestCase):
             )
         )
 
+    def test_stale_runinfo_billboards_are_removed_from_stage(self) -> None:
+        class Prim:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+            def GetPath(self) -> str:
+                return self.path
+
+            def GetName(self) -> str:
+                return self.path.rsplit("/", 1)[-1]
+
+        class EditContext:
+            def __init__(self, *_args) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args) -> bool:
+                return False
+
+        live = Prim(receiver.RUNINFO_FLOATING_ROOT_PATH)
+        live_panel = Prim(f"{receiver.RUNINFO_FLOATING_ROOT_PATH}/Panel")
+        live_material = Prim(receiver.RUNINFO_FLOATING_MATERIAL_PATH)
+        legacy = Prim(receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH)
+        copied = Prim("/World/PortAndRTG/RTG_RUNINFO_FLOATING_BILLBOARD_001")
+        old_named = Prim("/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/RunInfoPanel")
+        other = Prim("/World/LiveHUD/RTG_TASK_INFO_PANEL")
+        prims = {
+            prim.path: prim
+            for prim in (
+                live,
+                live_panel,
+                live_material,
+                legacy,
+                copied,
+                old_named,
+                other,
+            )
+        }
+        removed: list[str] = []
+        stage = types.SimpleNamespace(
+            GetSessionLayer=lambda: object(),
+            GetPrimAtPath=lambda path: prims.get(path),
+            Traverse=lambda: list(prims.values()),
+            RemovePrim=lambda path: removed.append(str(path)),
+        )
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Usd = types.SimpleNamespace(EditContext=EditContext)
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            count = receiver._remove_stale_runinfo_billboards(stage)
+
+        self.assertEqual(count, 3)
+        self.assertEqual(
+            set(removed),
+            {
+                "/World/PortAndRTG/RTG_RUNINFO_FLOATING_BILLBOARD_001",
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/RunInfoPanel",
+                receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH,
+            },
+        )
+
+    def test_all_runinfo_billboards_can_be_removed_from_stage(self) -> None:
+        class Prim:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+            def GetPath(self) -> str:
+                return self.path
+
+            def GetName(self) -> str:
+                return self.path.rsplit("/", 1)[-1]
+
+        class EditContext:
+            def __init__(self, *_args) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args) -> bool:
+                return False
+
+        live = Prim(receiver.RUNINFO_FLOATING_ROOT_PATH)
+        live_panel = Prim(f"{receiver.RUNINFO_FLOATING_ROOT_PATH}/Panel")
+        live_material = Prim(receiver.RUNINFO_FLOATING_MATERIAL_PATH)
+        live_material_shader = Prim(f"{receiver.RUNINFO_FLOATING_MATERIAL_PATH}/Texture")
+        legacy = Prim(receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH)
+        prims = {
+            prim.path: prim
+            for prim in (
+                live,
+                live_panel,
+                live_material,
+                live_material_shader,
+                legacy,
+            )
+        }
+        removed: list[str] = []
+        stage = types.SimpleNamespace(
+            GetSessionLayer=lambda: object(),
+            GetPrimAtPath=lambda path: prims.get(path),
+            Traverse=lambda: list(prims.values()),
+            RemovePrim=lambda path: removed.append(str(path)),
+        )
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Usd = types.SimpleNamespace(EditContext=EditContext)
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            count = receiver._remove_runinfo_billboards(stage, keep_current=False)
+
+        self.assertEqual(count, 3)
+        self.assertEqual(
+            set(removed),
+            {
+                receiver.RUNINFO_FLOATING_ROOT_PATH,
+                receiver.RUNINFO_FLOATING_MATERIAL_PATH,
+                receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH,
+            },
+        )
+
+    def test_driver_stop_unsubscribes_update_callback(self) -> None:
+        class Subscription:
+            def __init__(self) -> None:
+                self.unsubscribed = False
+
+            def unsubscribe(self) -> None:
+                self.unsubscribed = True
+
+        driver = receiver.OmniverseRtgTwinDriver(
+            inventory_mode=receiver.INVENTORY_MODE_SIMULATION,
+            inventory_autosave=False,
+        )
+        subscription = Subscription()
+        driver._subscription = subscription
+        driver._current_stage = lambda: None
+
+        driver.stop()
+
+        self.assertTrue(subscription.unsubscribed)
+        self.assertIsNone(driver._subscription)
+
     def test_task_info_panel_is_live_hud_not_rtg_child(self) -> None:
         self.assertEqual(
             receiver.TASK_PANEL_ROOT_PATH,
@@ -1585,13 +1728,33 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
         )
 
         with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            facing_calls = []
+
+            def fake_facing(stage_arg, translate_arg, rotate_arg):
+                facing_calls.append((stage_arg, translate_arg, rotate_arg))
+                return (0.0, 0.0, 123.0)
+
             with patch.object(
                 receiver,
                 "camera_facing_rotate_xyz",
-                return_value=(0.0, 0.0, 123.0),
+                side_effect=fake_facing,
             ):
                 driver._sync_visible_live_info_panels_facing_camera()
 
+        self.assertEqual(
+            [call[2] for call in facing_calls],
+            [
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
+                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
+                ],
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
+                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
+                ],
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
+                    receiver.RUNINFO_FLOATING_ROOT_PATH
+                ],
+            ],
+        )
         self.assertEqual(
             rotations,
             [
@@ -1607,6 +1770,46 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
                     "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
                     (0.0, 0.0, 123.0),
                 ),
+            ],
+        )
+
+    def test_panel_facing_update_reads_camera_once_and_is_throttled(self) -> None:
+        stage = object()
+        camera_position = (12.0, -8.0, 16.0)
+        calls = []
+        driver = receiver.OmniverseRtgTwinDriver.__new__(
+            receiver.OmniverseRtgTwinDriver
+        )
+        driver._last_panel_facing_update_at = 0.0
+        driver._current_stage = lambda: stage
+        driver._sync_visible_task_panel_facing_camera = (
+            lambda stage_arg, camera_arg: calls.append(
+                ("task", stage_arg, camera_arg)
+            )
+        )
+        driver._sync_visible_live_info_panels_facing_camera = (
+            lambda stage_arg, camera_arg: calls.append(
+                ("live", stage_arg, camera_arg)
+            )
+        )
+
+        with (
+            patch.object(receiver.time, "monotonic", side_effect=(10.0, 10.01)),
+            patch.object(
+                receiver,
+                "active_viewport_camera_position",
+                return_value=camera_position,
+            ) as camera_read,
+        ):
+            driver._sync_visible_panels_facing_camera_if_due()
+            driver._sync_visible_panels_facing_camera_if_due()
+
+        camera_read.assert_called_once_with(stage)
+        self.assertEqual(
+            calls,
+            [
+                ("task", stage, camera_position),
+                ("live", stage, camera_position),
             ],
         )
 

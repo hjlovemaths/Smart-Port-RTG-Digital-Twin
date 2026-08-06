@@ -57,6 +57,7 @@ LEGACY_WINDOW_TITLES = ("RTG Container Info",)
 DIAGNOSTIC_LOG_ENABLED = False
 DIAGNOSTIC_IDLE_POLL_INTERVAL_SECONDS = 3.0
 DIAGNOSTIC_IDLE_POLL_LIMIT = 3
+UPDATE_POLL_INTERVAL_SECONDS = 1.0 / 30.0
 CJK_FONT_PATHS = (
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
@@ -581,6 +582,7 @@ class RtgContainerInfoPopupService:
         self._active_container_root_path: Optional[str] = None
         self._last_selection_signature: tuple[str, ...] = ()
         self._last_idle_diagnostic_at = 0.0
+        self._last_update_poll_at = 0.0
         self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
         self._log("starting container popup service")
         self._build_window()
@@ -641,8 +643,14 @@ class RtgContainerInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
+        now = time.monotonic()
+        last_update = float(getattr(self, "_last_update_poll_at", 0.0) or 0.0)
+        if now - last_update < UPDATE_POLL_INTERVAL_SECONDS:
+            return
+        self._last_update_poll_at = now
         self._handle_selected_paths(_selected_paths(), source="poll")
-        self._sync_visible_scene_panel_facing_camera()
+        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is None:
+            self._sync_visible_scene_panel_facing_camera()
         self._sync_visible_guide_line()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:

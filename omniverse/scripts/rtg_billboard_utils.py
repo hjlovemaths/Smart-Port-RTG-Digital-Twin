@@ -53,12 +53,25 @@ def camera_facing_rotate_xyz(
 ) -> Tuple[float, float, float]:
     """Return rotateXYZ that faces the active viewport camera when available."""
 
+    return camera_facing_rotate_xyz_from_camera(
+        panel_position,
+        active_viewport_camera_position(stage),
+        fallback_rotate_xyz,
+    )
+
+
+def camera_facing_rotate_xyz_from_camera(
+    panel_position: Sequence[float],
+    camera_position: Optional[Sequence[float]],
+    fallback_rotate_xyz: Sequence[float],
+) -> Tuple[float, float, float]:
+    """Return rotateXYZ using an already-resolved camera position."""
+
     fallback = (
         float(fallback_rotate_xyz[0]),
         float(fallback_rotate_xyz[1]),
         float(fallback_rotate_xyz[2]),
     )
-    camera_position = active_viewport_camera_position(stage)
     if camera_position is None:
         return fallback
     return (

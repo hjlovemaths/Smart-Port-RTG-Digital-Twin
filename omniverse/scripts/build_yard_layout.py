@@ -31,9 +31,14 @@ BAY_LENGTH_M = 2.475
 BAY_GAP_M = 0.20
 GROUND_SLOT_BAY_STRIDE = 2
 GROUND_SLOT_LENGTH_M = BAY_LENGTH_M
-# Keep one extra 40 ft work-slot length after 4C/041 so the rendered yard pad
-# does not end immediately at the final bay marker.
-YARD_END_EXTENSION_LENGTH_M = GROUND_SLOT_LENGTH_M
+# Extend the visual ground after 4C/041 without creating logical bay anchors or
+# bay-number markings. Forty 20 ft bay units equals twenty 40 ft ground slots.
+YARD_END_EXTENSION_BAY_COUNT = 40
+YARD_END_EXTENSION_SLOT_COUNT = (YARD_END_EXTENSION_BAY_COUNT + 1) // GROUND_SLOT_BAY_STRIDE
+YARD_END_EXTENSION_LENGTH_M = (
+    YARD_END_EXTENSION_SLOT_COUNT * GROUND_SLOT_LENGTH_M
+    + max(0, YARD_END_EXTENSION_SLOT_COUNT - 1) * BAY_GAP_M
+)
 BLOCK_GAP_M = 5.0
 START_Y_M = -0.50
 
@@ -459,6 +464,7 @@ def build_yard_layout() -> dict[str, object]:
     root["bay_gap_m"] = BAY_GAP_M
     root["ground_mark_rule"] = "odd bay marks only; one visual ground slot spans two 20ft bay units"
     root["ground_slot_length_m"] = GROUND_SLOT_LENGTH_M
+    root["yard_end_extension_bay_count"] = YARD_END_EXTENSION_BAY_COUNT
     root["yard_end_extension_length_m"] = YARD_END_EXTENSION_LENGTH_M
     root["block_gap_m"] = BLOCK_GAP_M
     root["total_length_m"] = total_length
@@ -634,22 +640,50 @@ def build_yard_layout() -> dict[str, object]:
         extension_start_y = START_Y_M + base_layout_length
         extension_end_y = extension_start_y + YARD_END_EXTENSION_LENGTH_M
         extension_center_y = (extension_start_y + extension_end_y) * 0.5
+        extension_slot_boxes = []
+        extension_separator_boxes = []
+        slot_start = extension_start_y
+        for slot_index in range(YARD_END_EXTENSION_SLOT_COUNT):
+            slot_end = min(slot_start + GROUND_SLOT_LENGTH_M, extension_end_y)
+            slot_center = (slot_start + slot_end) * 0.5
+            extension_slot_boxes.append(
+                (
+                    (0.0, slot_center, PAD_TOP_Z_M - 0.015),
+                    (BAY_WIDTH_M, slot_end - slot_start, 0.03),
+                )
+            )
+            if slot_index < YARD_END_EXTENSION_SLOT_COUNT - 1:
+                gap_center = slot_end + BAY_GAP_M * 0.5
+                extension_separator_boxes.append(
+                    ((0.0, gap_center, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.055, 0.015))
+                )
+            slot_start = slot_end + BAY_GAP_M
+
         extension_pad = create_boxes_object(
             "YARD_LAYOUT_1C4C_4C_END_EXTENSION_PAD",
-            [
-                (
-                    (0.0, extension_center_y, PAD_TOP_Z_M - 0.015),
-                    (BAY_WIDTH_M, YARD_END_EXTENSION_LENGTH_M, 0.03),
-                )
-            ],
+            extension_slot_boxes,
             pad_materials["4C"],
             surface_collection,
         )
         extension_pad.parent = root
         extension_pad["yard_block"] = "4C"
         extension_pad["extension_after_bay_id"] = "4C/041"
+        extension_pad["extension_bay_count"] = YARD_END_EXTENSION_BAY_COUNT
+        extension_pad["extension_slot_count"] = YARD_END_EXTENSION_SLOT_COUNT
         extension_pad["extension_length_m"] = YARD_END_EXTENSION_LENGTH_M
-        extension_pad["extension_role"] = "visual tail clearance after final bay"
+        extension_pad["extension_role"] = "40-bay visual ground extension after final bay without bay-number labels"
+
+        if extension_separator_boxes:
+            extension_separators = create_boxes_object(
+                "YARD_LAYOUT_1C4C_4C_END_EXTENSION_SLOT_SEPARATORS",
+                extension_separator_boxes,
+                white,
+                marking_collection,
+            )
+            extension_separators.parent = root
+            extension_separators["yard_block"] = "4C"
+            extension_separators["extension_after_bay_id"] = "4C/041"
+            extension_separators["bay_number_labels"] = "none"
 
         extension_markings = create_boxes_object(
             "YARD_LAYOUT_1C4C_4C_END_EXTENSION_BOUNDARIES",
@@ -674,7 +708,7 @@ def build_yard_layout() -> dict[str, object]:
     bpy.context.scene["yard_layout_spec"] = (
         "1C-3C:91 bays; 4C:41 bays; ground shows odd bay marks only "
         "(01,03,...); each visible ground slot spans two 20ft bay units; "
-        "bay gap 0.2m; block gap 5m; one extra 40ft visual clearance slot "
+        "bay gap 0.2m; block gap 5m; 40 unnumbered visual bay units "
         "after 4C/041"
     )
     bpy.context.scene["yard_layout_total_length_m"] = total_length
@@ -690,6 +724,7 @@ def build_yard_layout() -> dict[str, object]:
         "infill_yards": infill_results,
         "total_length_m": total_length,
         "base_layout_length_m": base_layout_length,
+        "yard_end_extension_bay_count": YARD_END_EXTENSION_BAY_COUNT,
         "yard_end_extension_length_m": YARD_END_EXTENSION_LENGTH_M,
         "total_bays": sum(count for _, count in BLOCKS),
         "blocks": block_results,
