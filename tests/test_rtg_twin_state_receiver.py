@@ -194,6 +194,15 @@ class TaskPositionTests(unittest.TestCase):
             )
             alpha = image.getchannel("A")
             self.assertIsNotNone(alpha.getbbox())
+            self.assertGreaterEqual(
+                image.getpixel(
+                    (
+                        receiver.RUNINFO_FLOATING_IMAGE_WIDTH // 2,
+                        receiver.RUNINFO_FLOATING_IMAGE_HEIGHT - 52,
+                    )
+                )[3],
+                240,
+            )
 
     def test_floating_runinfo_bitmap_renderer_draws_default_text(self) -> None:
         path = Path(tempfile.gettempdir()) / "smart_port_rtg_runinfo_float_default.png"
@@ -275,6 +284,8 @@ class TaskPositionTests(unittest.TestCase):
                 ),
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
+            self.assertGreaterEqual(image.getpixel((80, 150))[3], 240)
+            self.assertGreaterEqual(image.getpixel((90, 50))[3], 240)
 
     def test_floating_runinfo_wraps_long_text_to_three_lines(self) -> None:
         font_path = receiver._find_cjk_font_path()
@@ -298,12 +309,16 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(len(lines), 3)
         self.assertTrue(lines[-1].endswith("..."))
 
-    def test_runinfo_visual_panels_use_transparent_3d_variants(self) -> None:
+    def test_runinfo_visual_panels_use_solid_3d_variants(self) -> None:
         self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
         self.assertTrue(receiver.RUNINFO_FLOATING_ENABLED)
         self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 13.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 12.0)
-        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 3.0)
+        self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 3.5)
+        self.assertEqual(receiver.RUNINFO_FLOATING_IMAGE_HEIGHT, 448)
+        self.assertGreater(receiver.RUNINFO_FLOATING_RIGHT_X_OFFSET_M, 0.0)
+        self.assertGreater(receiver.RUNINFO_FLOATING_BACK_Y_OFFSET_M, 0.0)
+        self.assertGreater(receiver.RUNINFO_FLOATING_UP_Z_OFFSET_M, 0.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
         self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 8)
@@ -388,13 +403,19 @@ class TaskPositionTests(unittest.TestCase):
             receiver.TASK_PANEL_UV_COORDS,
             receiver.RUNINFO_FLOATING_UV_COORDS,
         )
-        self.assertLessEqual(
-            receiver.TASK_PANEL_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
-            0.2,
-        )
         self.assertEqual(
+            receiver.TASK_PANEL_ONE_TIER_VISUAL_HEIGHT_M,
+            receiver.REFERENCE_CONTAINER_VISUAL_HEIGHT_Z_M,
+        )
+        self.assertAlmostEqual(
+            receiver.TASK_PANEL_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
+            receiver.TASK_PANEL_ONE_TIER_VISUAL_HEIGHT_M,
+        )
+        self.assertAlmostEqual(
             receiver.TASK_PANEL_WORLD_X,
-            12.0 + receiver.TASK_PANEL_WIDTH_M * 0.25,
+            12.0
+            + receiver.TASK_PANEL_WIDTH_M * 0.25
+            + receiver.TASK_PANEL_CONTAINER_WIDTH_X_M,
         )
 
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
@@ -1453,14 +1474,36 @@ class TaskFlowTests(unittest.TestCase):
 
 
 class LiveInfoPopupFacingSyncTests(unittest.TestCase):
-    def test_runinfo_pose_refresh_keeps_panel_facing_camera(self) -> None:
+    def test_runinfo_pose_refresh_anchors_above_rtg_and_faces_camera(self) -> None:
         root_prim = types.SimpleNamespace(path=receiver.RUNINFO_FLOATING_ROOT_PATH)
-        task_panel = types.SimpleNamespace(path=receiver.TASK_PANEL_ROOT_PATH)
+        rtg_prim = types.SimpleNamespace(path=receiver.RUNINFO_FLOATING_ABOVE_RTG_PATH)
 
         def get_prim_at_path(path: str) -> object | None:
-            if path == receiver.TASK_PANEL_ROOT_PATH:
-                return task_panel
+            if path == receiver.RUNINFO_FLOATING_ABOVE_RTG_PATH:
+                return rtg_prim
             return None
+
+        class FakeBox:
+            @staticmethod
+            def GetMin() -> tuple[float, float, float]:
+                return (2.0, 4.0, 6.0)
+
+            @staticmethod
+            def GetMax() -> tuple[float, float, float]:
+                return (10.0, 14.0, 16.0)
+
+        class FakeWorldBound:
+            @staticmethod
+            def ComputeAlignedBox() -> FakeBox:
+                return FakeBox()
+
+        class FakeBBoxCache:
+            def __init__(self, *_args: object) -> None:
+                pass
+
+            @staticmethod
+            def ComputeWorldBound(_prim: object) -> FakeWorldBound:
+                return FakeWorldBound()
 
         stage = types.SimpleNamespace(GetPrimAtPath=get_prim_at_path)
         fake_pxr = types.ModuleType("pxr")
@@ -1468,15 +1511,19 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
             Vec3d=lambda *values: tuple(values),
             Vec3f=lambda *values: tuple(values),
         )
-        fake_pxr.Usd = types.SimpleNamespace()
-        fake_pxr.UsdGeom = types.SimpleNamespace()
+        fake_pxr.Usd = types.SimpleNamespace(
+            TimeCode=types.SimpleNamespace(Default=lambda: None)
+        )
+        fake_pxr.UsdGeom = types.SimpleNamespace(
+            BBoxCache=FakeBBoxCache,
+            Tokens=types.SimpleNamespace(default_="default"),
+        )
         translations = []
         rotations = []
 
         driver = receiver.OmniverseRtgTwinDriver.__new__(
             receiver.OmniverseRtgTwinDriver
         )
-        driver._get_xform_translate = lambda _prim: (9.0, 10.0, 11.0)
         driver._set_xform_translate = lambda prim, translate: translations.append(
             (prim.path, translate)
         )
@@ -1493,9 +1540,12 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
                 driver._sync_floating_runinfo_pose(stage, root_prim)
 
         expected_translate = (
-            9.0,
-            10.0,
-            receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2],
+            6.0 + receiver.RUNINFO_FLOATING_RIGHT_X_OFFSET_M,
+            9.0 + receiver.RUNINFO_FLOATING_BACK_Y_OFFSET_M,
+            16.0
+            + receiver.RUNINFO_FLOATING_ABOVE_GAP_M
+            + receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M * 0.5
+            + receiver.RUNINFO_FLOATING_UP_Z_OFFSET_M,
         )
         self.assertEqual(
             translations,

@@ -102,8 +102,9 @@ CONTAINER_SCENE_PANEL_MIN_BOTTOM_WORLD_Z = (
 CONTAINER_SCENE_PANEL_Y_OFFSET_M = -1.8
 CONTAINER_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 CONTAINER_SCENE_GUIDE_LINE_WIDTH_M = 0.045
-CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M = 0.72
 CONTAINER_SCENE_GUIDE_PANEL_BOTTOM_MARGIN_M = 0.18
+CONTAINER_SCENE_GUIDE_SOURCE_SURFACE_GAP_M = 0.008
+LIVE_HUD_ROOT_PATH = "/World/LiveHUD"
 CONTAINER_SCENE_HUD_SELECTABLE_PATH_PREFIXES = (
     CONTAINER_SCENE_PANEL_ROOT_PATH,
     CONTAINER_SCENE_GUIDE_LINE_PATH,
@@ -246,14 +247,37 @@ def _is_container_hud_selection_path(path: str) -> bool:
 
 
 def _container_panel_guide_points(
-    container_origin: Sequence[Any],
+    container_bounds: Sequence[Sequence[Any]],
     panel_translate: Sequence[Any],
 ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
-    start = (
-        float(container_origin[0]),
-        float(container_origin[1]),
-        float(container_origin[2]) + CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M,
-    )
+    bounds_min, bounds_max = container_bounds
+    target = tuple(float(value) for value in panel_translate[:3])
+    low = tuple(float(value) for value in bounds_min[:3])
+    high = tuple(float(value) for value in bounds_max[:3])
+    start_values = [max(low[index], min(high[index], target[index])) for index in range(3)]
+
+    # If the panel is inside the box bounds, project to the nearest face.
+    if all(low[index] <= target[index] <= high[index] for index in range(3)):
+        nearest_axis = min(
+            range(3),
+            key=lambda index: min(target[index] - low[index], high[index] - target[index]),
+        )
+        if target[nearest_axis] - low[nearest_axis] <= high[nearest_axis] - target[nearest_axis]:
+            start_values[nearest_axis] = low[nearest_axis]
+        else:
+            start_values[nearest_axis] = high[nearest_axis]
+
+    # Keep the line just above the surface so it does not z-fight with the box.
+    for index in range(3):
+        direction = target[index] - start_values[index]
+        if abs(direction) > 1e-6:
+            start_values[index] += (
+                CONTAINER_SCENE_GUIDE_SOURCE_SURFACE_GAP_M
+                if direction > 0.0
+                else -CONTAINER_SCENE_GUIDE_SOURCE_SURFACE_GAP_M
+            )
+            break
+    start = tuple(start_values)
     end = (
         float(panel_translate[0]),
         float(panel_translate[1]),
@@ -262,6 +286,18 @@ def _container_panel_guide_points(
         + CONTAINER_SCENE_GUIDE_PANEL_BOTTOM_MARGIN_M,
     )
     return start, end
+
+
+def _is_live_hud_selection_path(path: str) -> bool:
+    text = str(path or "").strip()
+    return text == LIVE_HUD_ROOT_PATH or text.startswith(f"{LIVE_HUD_ROOT_PATH}/")
+
+
+def _container_hud_root_from_selection(path: str) -> Optional[str]:
+    text = str(path or "").strip()
+    if _is_container_hud_selection_path(text):
+        return CONTAINER_SCENE_PANEL_ROOT_PATH
+    return None
 
 
 def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -> bool:
@@ -281,27 +317,27 @@ def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -
         glow_draw.rounded_rectangle(
             panel_box,
             radius=5,
-            fill=(82, 175, 216, 36),
-            outline=(128, 210, 236, 154),
-            width=2,
+            fill=(54, 151, 190, 44),
+            outline=(150, 228, 248, 222),
+            width=3,
         )
-        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(5)))
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4)))
 
         draw = ImageDraw.Draw(image)
         draw.rounded_rectangle(
             panel_box,
             radius=4,
-            fill=(38, 92, 121, 132),
-            outline=(130, 207, 232, 176),
-            width=1,
+            fill=(9, 31, 46, 250),
+            outline=(154, 230, 250, 238),
+            width=2,
         )
-        draw.line((8, 8, width - 9, 8), fill=(255, 156, 22, 232), width=3)
-        draw.rectangle((4, 4, width - 5, height - 5), outline=(142, 219, 238, 48))
+        draw.line((8, 8, width - 9, 8), fill=(255, 172, 44, 255), width=3)
+        draw.rectangle((4, 4, width - 5, height - 5), outline=(142, 219, 238, 120))
         draw.polygon(
             [(width - 26, height - 1), (width - 1, height - 26), (width - 1, height - 1)],
-            fill=(153, 206, 218, 56),
+            fill=(109, 194, 220, 150),
         )
-        draw.rectangle((0, 0, width, 58), fill=(49, 105, 134, 90))
+        draw.rectangle((0, 0, width, 58), fill=(16, 55, 76, 252))
 
         title_font = ImageFont.truetype(str(font_path), 16)
         label_font = ImageFont.truetype(str(font_path), 13)
@@ -309,28 +345,37 @@ def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -
         value_font_big = ImageFont.truetype(str(font_path), 20)
         badge_font = ImageFont.truetype(str(font_path), 12)
 
-        draw.text((12, 15), "箱信息", fill=(248, 252, 255, 255), font=title_font)
+        draw.text(
+            (12, 15),
+            "箱信息",
+            fill=(255, 255, 255, 255),
+            font=title_font,
+            stroke_width=1,
+            stroke_fill=(0, 16, 24, 220),
+        )
         badge = "选中箱"
         badge_bbox = draw.textbbox((0, 0), badge, font=badge_font)
         badge_w = badge_bbox[2] - badge_bbox[0] + 18
         draw.rounded_rectangle(
             (width - badge_w - 12, 15, width - 12, 38),
             radius=11,
-            fill=(86, 110, 83, 96),
-            outline=(255, 190, 78, 140),
+            fill=(58, 74, 50, 218),
+            outline=(255, 197, 72, 230),
         )
         draw.text(
             (width - badge_w - 3, 18),
             badge,
-            fill=(255, 190, 78, 255),
+            fill=(255, 211, 92, 255),
             font=badge_font,
+            stroke_width=1,
+            stroke_fill=(42, 30, 0, 180),
         )
 
         visual = (12, 66, width - 12, 106)
-        draw.rectangle(visual, fill=(84, 150, 171, 72), outline=(132, 214, 236, 104))
+        draw.rectangle(visual, fill=(43, 92, 115, 242), outline=(156, 232, 250, 220))
         for x in range(visual[0] + 20, visual[2], 24):
-            draw.line((x, visual[1], x, visual[3]), fill=(184, 236, 246, 44), width=1)
-        draw.line((visual[0], visual[1] + 9, visual[2], visual[1] + 9), fill=(255, 255, 255, 34))
+            draw.line((x, visual[1], x, visual[3]), fill=(190, 242, 252, 82), width=1)
+        draw.line((visual[0], visual[1] + 9, visual[2], visual[1] + 9), fill=(255, 255, 255, 74))
 
         values["Bay"] = " / ".join(
             part for part in (values.get("Bay", "--"), values.get("Row / Tier", "--")) if part and part != "--"
@@ -344,12 +389,28 @@ def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -
             max_value_width = 184
             while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > max_value_width:
                 value = value[:-2] + "..."
-            draw.text((12, y - 11), label, fill=(198, 221, 232, 255), font=label_font)
+            draw.text(
+                (12, y - 11),
+                label,
+                fill=(218, 238, 247, 255),
+                font=label_font,
+                stroke_width=1,
+                stroke_fill=(0, 15, 22, 190),
+            )
             bbox = draw.textbbox((0, 0), value, font=font)
-            color = (88, 222, 248, 255) if key == "Container" else (246, 252, 255, 255)
+            color = (116, 234, 255, 255) if key == "Container" else (255, 255, 255, 255)
+            if key == "Bay":
+                color = (221, 246, 255, 255)
             if key == "Locked" and value == "未锁闭":
-                color = (255, 116, 109, 255)
-            draw.text((width - 14 - (bbox[2] - bbox[0]), y - 14), value, fill=color, font=font)
+                color = (255, 86, 86, 255)
+            draw.text(
+                (width - 14 - (bbox[2] - bbox[0]), y - 14),
+                value,
+                fill=color,
+                font=font,
+                stroke_width=1,
+                stroke_fill=(0, 14, 22, 210),
+            )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -516,6 +577,7 @@ class RtgContainerInfoPopupService:
         self._panel_image = None
         self._bitmap_seq = 0
         self._clearing_selection = False
+        self._normalizing_hud_selection = False
         self._active_container_root_path: Optional[str] = None
         self._last_selection_signature: tuple[str, ...] = ()
         self._last_idle_diagnostic_at = 0.0
@@ -584,7 +646,14 @@ class RtgContainerInfoPopupService:
         self._sync_visible_guide_line()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
-        if self._clearing_selection:
+        if self._clearing_selection or self._normalizing_hud_selection:
+            return
+        if not paths and any(
+            _is_live_hud_selection_path(path) for path in self._last_selection_signature
+        ):
+            # The live driver dismisses the non-draggable runinfo mesh to avoid
+            # leaving an orange USD selection outline around the billboard.
+            self._last_selection_signature = ()
             return
         self._diagnose_idle_poll(paths, source)
         signature = tuple(paths)
@@ -594,10 +663,20 @@ class RtgContainerInfoPopupService:
         self._log(f"selection changed source={source} paths={list(paths)}")
 
         actionable_paths = [
-            path for path in paths if not _is_container_hud_selection_path(path)
+            path for path in paths if not _is_live_hud_selection_path(path)
         ]
         if paths and not actionable_paths:
-            self._log("selection ignored: container HUD selected")
+            hud_root = next(
+                (
+                    root
+                    for root in (_container_hud_root_from_selection(path) for path in paths)
+                    if root is not None
+                ),
+                None,
+            )
+            if hud_root is not None:
+                self._select_hud_root_for_dragging(paths, hud_root)
+            self._log("selection ignored: live HUD selected")
             return
 
         for path in actionable_paths:
@@ -780,7 +859,11 @@ class RtgContainerInfoPopupService:
             xform.AddRotateXYZOp().Set(rotate)
 
         if source_origin is not None:
-            self._sync_scene_panel_guide_line(stage, source_origin, translate)
+            source_bounds = self._container_world_bounds(stage, selected)
+            if source_bounds is not None:
+                self._sync_scene_panel_guide_line(stage, source_bounds, translate)
+            else:
+                self._hide_scene_panel_guide_line(stage)
         else:
             self._hide_scene_panel_guide_line(stage)
 
@@ -796,7 +879,7 @@ class RtgContainerInfoPopupService:
         if not panel_root or not selected:
             return
         try:
-            from pxr import Gf, Usd, UsdGeom
+            from pxr import UsdGeom
 
             panel_translate = None
             panel_xform = UsdGeom.Xformable(panel_root)
@@ -807,23 +890,33 @@ class RtgContainerInfoPopupService:
             if panel_translate is None:
                 return
 
-            cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-            matrix = cache.GetLocalToWorldTransform(selected)
-            source_origin = matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
-            self._sync_scene_panel_guide_line(stage, source_origin, panel_translate)
+            source_bounds = self._container_world_bounds(stage, selected)
+            if source_bounds is not None:
+                self._sync_scene_panel_guide_line(stage, source_bounds, panel_translate)
         except Exception:
             return
+
+    @staticmethod
+    def _container_world_bounds(stage: Any, selected: Any) -> Optional[Tuple[Any, Any]]:
+        try:
+            from pxr import Usd, UsdGeom
+
+            cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+            aligned = cache.ComputeWorldBound(selected).ComputeAlignedBox()
+            return aligned.GetMin(), aligned.GetMax()
+        except Exception:
+            return None
 
     def _sync_scene_panel_guide_line(
         self,
         stage: Any,
-        container_origin: Sequence[Any],
+        container_bounds: Sequence[Sequence[Any]],
         panel_translate: Sequence[Any],
     ) -> None:
         try:
             from pxr import Gf, Usd, UsdGeom
 
-            start, end = _container_panel_guide_points(container_origin, panel_translate)
+            start, end = _container_panel_guide_points(container_bounds, panel_translate)
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 curve = UsdGeom.BasisCurves.Define(stage, CONTAINER_SCENE_GUIDE_LINE_PATH)
                 curve_prim = curve.GetPrim()
@@ -907,6 +1000,27 @@ class RtgContainerInfoPopupService:
         finally:
             self._clearing_selection = False
             self._last_selection_signature = ()
+
+    def _select_hud_root_for_dragging(self, paths: Sequence[str], root_path: str) -> None:
+        """Make the scene panel root the active transform target without hiding it."""
+
+        if tuple(paths) == (root_path,):
+            return
+        try:
+            import omni.usd  # type: ignore
+
+            self._normalizing_hud_selection = True
+            selection = omni.usd.get_context().get_selection()
+            try:
+                selection.set_selected_prim_paths([root_path], False)
+            except Exception:
+                selection.clear_selected_prim_paths()
+                selection.set_prim_path_selected(root_path, True, True, True, True)
+            self._last_selection_signature = (root_path,)
+        except Exception:
+            pass
+        finally:
+            self._normalizing_hud_selection = False
 
     def _diagnose_idle_poll(self, paths: List[str], source: str) -> None:
         if paths or source != "poll" or self._idle_diagnostics_remaining <= 0:

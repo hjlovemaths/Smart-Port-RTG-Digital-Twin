@@ -93,6 +93,22 @@ class ContainerInfoPopupTests(unittest.TestCase):
             )
         )
 
+    def test_any_live_hud_selection_does_not_close_container_popup(self) -> None:
+        self.assertTrue(
+            popup._is_live_hud_selection_path("/World/LiveHUD/RTG_TASK_INFO_PANEL/Panel")
+        )
+        self.assertFalse(
+            popup._is_live_hud_selection_path("/World/LiveContainers/YardInventory")
+        )
+
+    def test_container_hud_selection_maps_to_panel_root_for_dragging(self) -> None:
+        self.assertEqual(
+            popup._container_hud_root_from_selection(
+                f"{popup.CONTAINER_SCENE_PANEL_ROOT_PATH}/Panel"
+            ),
+            popup.CONTAINER_SCENE_PANEL_ROOT_PATH,
+        )
+
     def test_container_panel_bottom_is_at_least_visual_six_tier_stack_top(self) -> None:
         six_tier_top = 0.12 + 6 * 0.904353 + 5 * 0.035
         low_origin_center_z = popup._container_panel_world_z(1.0)
@@ -107,18 +123,13 @@ class ContainerInfoPopupTests(unittest.TestCase):
 
     def test_container_panel_guide_line_runs_from_box_top_to_panel_bottom(self) -> None:
         start, end = popup._container_panel_guide_points(
-            (10.0, 20.0, 3.0),
+            ((9.0, 19.0, 2.0), (11.0, 21.0, 4.0)),
             (12.0, 18.0, 9.0),
         )
 
-        self.assertEqual(
-            start,
-            (
-                10.0,
-                20.0,
-                3.0 + popup.CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M,
-            ),
-        )
+        self.assertAlmostEqual(start[0], 11.0 + popup.CONTAINER_SCENE_GUIDE_SOURCE_SURFACE_GAP_M)
+        self.assertAlmostEqual(start[1], 19.0)
+        self.assertAlmostEqual(start[2], 4.0)
         self.assertEqual(
             end,
             (
@@ -256,7 +267,7 @@ class ContainerInfoPopupTests(unittest.TestCase):
         self.assertEqual(values["Size"], "40 ft")
         self.assertEqual(values["Height"], "2.896 m")
 
-    def test_container_panel_bitmap_renderer_draws_transparent_blue_panel(self) -> None:
+    def test_container_panel_bitmap_renderer_draws_readable_blue_panel(self) -> None:
         font_path = popup._find_cjk_font_path()
         if font_path is None:
             self.skipTest("CJK font unavailable")
@@ -287,6 +298,8 @@ class ContainerInfoPopupTests(unittest.TestCase):
                 (popup.CONTAINER_PANEL_WIDTH, popup.CONTAINER_PANEL_HEIGHT),
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
+            self.assertGreaterEqual(image.getpixel((popup.CONTAINER_PANEL_WIDTH // 2, 120))[3], 240)
+            self.assertGreaterEqual(image.getpixel((24, 50))[3], 240)
 
 
 if __name__ == "__main__":

@@ -89,6 +89,19 @@ class DeviceInfoPopupTests(unittest.TestCase):
         self.assertAlmostEqual(popup.DEVICE_SCENE_PANEL_HEIGHT_M, 4.16)
         self.assertGreaterEqual(popup.DEVICE_SCENE_PANEL_WORLD_Z, 10.0)
 
+    def test_device_hud_selection_maps_to_panel_root_for_dragging(self) -> None:
+        self.assertTrue(
+            popup._is_live_hud_selection_path(
+                f"{popup.DEVICE_SCENE_PANEL_ROOT_PATH}/Panel"
+            )
+        )
+        self.assertEqual(
+            popup._device_hud_root_from_selection(
+                f"{popup.DEVICE_SCENE_PANEL_ROOT_PATH}/Panel"
+            ),
+            popup.DEVICE_SCENE_PANEL_ROOT_PATH,
+        )
+
     def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:
         class Previous:
             def __init__(self):
@@ -177,6 +190,8 @@ class DeviceInfoPopupTests(unittest.TestCase):
                 (popup.DEVICE_PANEL_WIDTH, popup.DEVICE_PANEL_HEIGHT),
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
+            self.assertGreaterEqual(image.getpixel((80, 120))[3], 240)
+            self.assertGreaterEqual(image.getpixel((80, 44))[3], 240)
 
     def test_update_poll_keeps_device_scene_panel_facing_camera(self) -> None:
         service = popup.RtgDeviceInfoPopupService.__new__(

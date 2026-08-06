@@ -117,6 +117,9 @@ RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
 RUNINFO_FLOATING_ABOVE_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 RUNINFO_FLOATING_ABOVE_GAP_M = 1.2
+RUNINFO_FLOATING_RIGHT_X_OFFSET_M = 1.2
+RUNINFO_FLOATING_BACK_Y_OFFSET_M = 2.4
+RUNINFO_FLOATING_UP_Z_OFFSET_M = 1.0
 RUNINFO_FLOATING_ENABLED = True
 RUNINFO_LEVEL_PROMPT = "PROMPT"
 RUNINFO_LEVEL_ALERT = "ALERT"
@@ -125,7 +128,7 @@ RUNINFO_LEVEL_STYLES = {
     RUNINFO_LEVEL_PROMPT: {
         "title": "提示信息",
         "badge": "提示",
-        "fill": (7, 18, 33, 224),
+        "fill": (7, 18, 33, 250),
         "glow": (0, 190, 255, 86),
         "outline": (65, 205, 255, 238),
         "inner": (75, 190, 255, 130),
@@ -136,7 +139,7 @@ RUNINFO_LEVEL_STYLES = {
     RUNINFO_LEVEL_ALERT: {
         "title": "告警信息",
         "badge": "告警",
-        "fill": (32, 24, 9, 232),
+        "fill": (32, 24, 9, 250),
         "glow": (255, 171, 36, 110),
         "outline": (255, 190, 55, 248),
         "inner": (255, 198, 62, 145),
@@ -147,7 +150,7 @@ RUNINFO_LEVEL_STYLES = {
     RUNINFO_LEVEL_EXCEPTION: {
         "title": "异常信息",
         "badge": "异常",
-        "fill": (39, 11, 19, 238),
+        "fill": (39, 11, 19, 250),
         "glow": (255, 65, 83, 125),
         "outline": (255, 83, 98, 252),
         "inner": (255, 87, 105, 150),
@@ -157,9 +160,9 @@ RUNINFO_LEVEL_STYLES = {
     },
 }
 RUNINFO_FLOATING_IMAGE_WIDTH = 1536
-RUNINFO_FLOATING_IMAGE_HEIGHT = 384
+RUNINFO_FLOATING_IMAGE_HEIGHT = 448
 RUNINFO_FLOATING_PANEL_WIDTH_M = 12.0
-RUNINFO_FLOATING_PANEL_HEIGHT_M = 3.0
+RUNINFO_FLOATING_PANEL_HEIGHT_M = 3.5
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
 RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
 RUNINFO_FLOATING_UV_COORDS = (
@@ -185,8 +188,10 @@ TASK_PANEL_IMAGE_WIDTH = 1024
 TASK_PANEL_IMAGE_HEIGHT = 768
 TASK_PANEL_WIDTH_M = 7.6
 TASK_PANEL_HEIGHT_M = 5.7
-TASK_PANEL_WORLD_X = 13.9
-TASK_PANEL_WORLD_Z = 3.0
+TASK_PANEL_CONTAINER_WIDTH_X_M = 1.306287
+TASK_PANEL_ONE_TIER_VISUAL_HEIGHT_M = 0.904353
+TASK_PANEL_WORLD_X = 12.0 + TASK_PANEL_WIDTH_M * 0.25 + TASK_PANEL_CONTAINER_WIDTH_X_M
+TASK_PANEL_WORLD_Z = TASK_PANEL_HEIGHT_M * 0.5 + TASK_PANEL_ONE_TIER_VISUAL_HEIGHT_M
 TASK_PANEL_Y_OFFSET_M = -2.2
 TASK_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 TASK_PANEL_UV_COORDS = (
@@ -949,7 +954,7 @@ def _render_floating_runinfo_bitmap(
         draw.rounded_rectangle(
             (badge_x1, 31, badge_x2, 78),
             radius=int(18 * scale),
-            fill=(style["accent"][0], style["accent"][1], style["accent"][2], 38),
+            fill=(style["accent"][0], style["accent"][1], style["accent"][2], 150),
             outline=style["accent"],
             width=max(2, int(2 * scale)),
         )
@@ -1009,9 +1014,15 @@ def _render_floating_runinfo_bitmap(
         )
         line_gap = int(RUNINFO_FLOATING_TEXT_LINE_GAP * scale)
         text_area_top = divider_y + 22
-        text_area_bottom = height - 20
+        text_area_bottom = height - int(38 * scale)
+        line_heights = [
+            draw.textbbox((0, 0), line or " ", font=body_font)[3]
+            - draw.textbbox((0, 0), line or " ", font=body_font)[1]
+            for line in lines
+        ]
+        line_height = max(line_heights or [RUNINFO_FLOATING_TEXT_FONT_SIZE])
         total_text_height = (
-            len(lines) * RUNINFO_FLOATING_TEXT_FONT_SIZE
+            len(lines) * line_height
             + max(0, len(lines) - 1) * line_gap
         )
         y = max(
@@ -1025,7 +1036,7 @@ def _render_floating_runinfo_bitmap(
                 fill=style["body"],
                 font=body_font,
             )
-            y += RUNINFO_FLOATING_TEXT_FONT_SIZE + line_gap
+            y += line_height + line_gap
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -1157,7 +1168,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
         draw.rounded_rectangle(
             panel_box,
             radius=12,
-            fill=(38, 92, 121, 132),
+            fill=(10, 38, 58, 248),
             outline=(130, 207, 232, 176),
             width=2,
         )
@@ -1172,7 +1183,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
                 (width - 4, height - 90),
                 (width - 4, height - 4),
             ],
-            fill=(153, 206, 218, 56),
+            fill=(153, 206, 218, 112),
         )
 
         title_font = ImageFont.truetype(str(font_path), 42)
@@ -1183,7 +1194,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
         route_value_font = ImageFont.truetype(str(font_path), 36)
         map_label_font = ImageFont.truetype(str(font_path), 24)
 
-        draw.rectangle((0, 0, width, 104), fill=(49, 105, 134, 90))
+        draw.rectangle((0, 0, width, 104), fill=(22, 68, 91, 250))
         draw.text((40, 31), "作业信息", fill=(248, 252, 255, 255), font=title_font)
         status = _task_panel_state_text(task)
         status_bbox = draw.textbbox((0, 0), status, font=badge_font)
@@ -1197,7 +1208,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
         draw.rounded_rectangle(
             badge_box,
             radius=20,
-            fill=(42, 118, 102, 112),
+            fill=(28, 94, 78, 228),
             outline=(91, 238, 178, 138),
         )
         draw.text((badge_box[0] + 22, 41), status, fill=(91, 238, 178, 255), font=badge_font)
@@ -1215,7 +1226,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
         ):
             draw.rectangle(
                 (x, route_y, x + box_w, route_y + box_h),
-                fill=(66, 132, 158, 82),
+                fill=(29, 75, 96, 245),
                 outline=(132, 214, 236, 120),
             )
             draw.text((x + 24, route_y + 16), label, fill=(198, 221, 232, 255), font=route_label_font)
@@ -1272,7 +1283,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
             bottom = height - 76
             draw.rectangle(
                 (lane_left, bottom - 78, lane_left + lane_w, bottom),
-                fill=(255, 190, 78, 56),
+                fill=(255, 190, 78, 132),
                 outline=(255, 190, 78, 132),
             )
             draw.text((lane_left - 4, bottom + 12), "车道", fill=(255, 190, 78, 232), font=map_label_font)
@@ -1290,7 +1301,7 @@ def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> b
                 for tier in range(1, stack_height + 1):
                     y0 = bottom - tier * (cell_h + 9)
                     is_target = target_row == row_index and tier == stack_height
-                    fill = (255, 190, 78, 180) if is_target else (122, 206, 228, 58)
+                    fill = (255, 190, 78, 210) if is_target else (63, 132, 154, 205)
                     outline = (255, 190, 78, 232) if is_target else (150, 224, 240, 118)
                     draw.rectangle((x, y0, x + cell_w, y0 + cell_h), fill=fill, outline=outline)
         else:
@@ -5057,19 +5068,6 @@ class OmniverseRtgTwinDriver:
                 )
             except Exception:
                 pass
-        # Keep RunInfo on the same vertical side plane as the task panel.
-        # Its height still follows the RTG, but its X/Y anchor follows the
-        # visible task panel so both panels read as one in-world HUD surface.
-        task_panel = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
-        task_translate = (
-            self._get_xform_translate(task_panel) if task_panel else None
-        )
-        if task_translate is not None:
-            translate = Gf.Vec3d(
-                float(task_translate[0]),
-                float(task_translate[1]),
-                float(translate[2]),
-            )
         if rtg is None and attach:
             try:
                 cache = UsdGeom.XformCache(Usd.TimeCode.Default())
@@ -5077,6 +5075,11 @@ class OmniverseRtgTwinDriver:
                 translate = matrix.Transform(Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE))
             except Exception:
                 pass
+        translate = Gf.Vec3d(
+            float(translate[0]) + RUNINFO_FLOATING_RIGHT_X_OFFSET_M,
+            float(translate[1]) + RUNINFO_FLOATING_BACK_Y_OFFSET_M,
+            float(translate[2]) + RUNINFO_FLOATING_UP_Z_OFFSET_M,
+        )
         self._set_xform_translate(root_prim, translate)
         rotate = camera_facing_rotate_xyz(
             stage,

@@ -91,6 +91,8 @@ DEVICE_SCENE_PANEL_WORLD_X = -9.0
 DEVICE_SCENE_PANEL_WORLD_Z = 12.0
 DEVICE_SCENE_PANEL_Y_OFFSET_M = -2.2
 DEVICE_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+LIVE_HUD_ROOT_PATH = "/World/LiveHUD"
+DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES = (DEVICE_SCENE_PANEL_ROOT_PATH,)
 DEVICE_SCENE_PANEL_UV_COORDS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -126,6 +128,21 @@ def _rtg_root_path_from_selection(path: str) -> Optional[str]:
     if "RTG_PRIMARY_DYNAMIC" in parts:
         index = parts.index("RTG_PRIMARY_DYNAMIC")
         return "/" + "/".join(parts[: index + 1])
+    return None
+
+
+def _is_live_hud_selection_path(path: str) -> bool:
+    text = str(path or "").strip()
+    return text == LIVE_HUD_ROOT_PATH or text.startswith(f"{LIVE_HUD_ROOT_PATH}/")
+
+
+def _device_hud_root_from_selection(path: str) -> Optional[str]:
+    text = str(path or "").strip()
+    if any(
+        text == prefix or text.startswith(f"{prefix}/")
+        for prefix in DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES
+    ):
+        return DEVICE_SCENE_PANEL_ROOT_PATH
     return None
 
 
@@ -293,7 +310,7 @@ def _render_device_panel_bitmap(values: dict[str, str], output_path: Path) -> bo
         draw.rounded_rectangle(
             panel_box,
             radius=10,
-            fill=(38, 92, 121, 128),
+            fill=(10, 38, 58, 248),
             outline=(130, 207, 232, 176),
             width=2,
         )
@@ -308,9 +325,9 @@ def _render_device_panel_bitmap(values: dict[str, str], output_path: Path) -> bo
                 (DEVICE_PANEL_WIDTH - 1, DEVICE_PANEL_HEIGHT - 68),
                 (DEVICE_PANEL_WIDTH - 1, DEVICE_PANEL_HEIGHT - 1),
             ],
-            fill=(153, 206, 218, 54),
+            fill=(153, 206, 218, 112),
         )
-        draw.rectangle((0, 0, DEVICE_PANEL_WIDTH, 86), fill=(49, 105, 134, 90))
+        draw.rectangle((0, 0, DEVICE_PANEL_WIDTH, 86), fill=(22, 68, 91, 250))
 
         title_font = ImageFont.truetype(str(font_path), 38)
         label_font = ImageFont.truetype(str(font_path), 28)
@@ -457,6 +474,7 @@ class RtgDeviceInfoPopupService:
         self._panel_image = None
         self._bitmap_seq = 0
         self._clearing_selection = False
+        self._normalizing_hud_selection = False
         self._last_selection_signature: tuple[str, ...] = ()
         self._last_idle_diagnostic_at = 0.0
         self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
@@ -692,7 +710,14 @@ class RtgDeviceInfoPopupService:
         self._sync_visible_scene_panel_facing_camera()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
-        if self._clearing_selection:
+        if self._clearing_selection or self._normalizing_hud_selection:
+            return
+        if not paths and any(
+            _is_live_hud_selection_path(path) for path in self._last_selection_signature
+        ):
+            # The live driver dismisses the non-draggable runinfo mesh to avoid
+            # leaving an orange USD selection outline around the billboard.
+            self._last_selection_signature = ()
             return
         self._diagnose_idle_poll(paths, source)
         signature = tuple(paths)
@@ -701,7 +726,24 @@ class RtgDeviceInfoPopupService:
         self._last_selection_signature = signature
         self._log(f"selection changed source={source} paths={list(paths)}")
 
-        for path in paths:
+        actionable_paths = [
+            path for path in paths if not _is_live_hud_selection_path(path)
+        ]
+        if paths and not actionable_paths:
+            hud_root = next(
+                (
+                    root
+                    for root in (_device_hud_root_from_selection(path) for path in paths)
+                    if root is not None
+                ),
+                None,
+            )
+            if hud_root is not None:
+                self._select_hud_root_for_dragging(paths, hud_root)
+            self._log("selection ignored: live HUD selected")
+            return
+
+        for path in actionable_paths:
             rtg_root = _rtg_root_path_from_selection(path)
             if rtg_root is None:
                 continue
@@ -935,6 +977,27 @@ class RtgDeviceInfoPopupService:
         finally:
             self._clearing_selection = False
             self._last_selection_signature = ()
+
+    def _select_hud_root_for_dragging(self, paths: Sequence[str], root_path: str) -> None:
+        """Make the scene panel root the active transform target without hiding it."""
+
+        if tuple(paths) == (root_path,):
+            return
+        try:
+            import omni.usd  # type: ignore
+
+            self._normalizing_hud_selection = True
+            selection = omni.usd.get_context().get_selection()
+            try:
+                selection.set_selected_prim_paths([root_path], False)
+            except Exception:
+                selection.clear_selected_prim_paths()
+                selection.set_prim_path_selected(root_path, True, True, True, True)
+            self._last_selection_signature = (root_path,)
+        except Exception:
+            pass
+        finally:
+            self._normalizing_hud_selection = False
 
     def _select_rtg_root_for_viewport_frame(self, rtg_root_path: str) -> None:
         """Keep viewport focus on the full RTG so pressing F frames the machine."""
