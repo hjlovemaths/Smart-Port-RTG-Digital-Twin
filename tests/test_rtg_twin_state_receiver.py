@@ -206,6 +206,40 @@ class TaskPositionTests(unittest.TestCase):
         self.assertTrue(rendered)
         self.assertTrue(path.is_file())
 
+    def test_runinfo_msg_types_select_three_panel_variants(self) -> None:
+        self.assertEqual(
+            receiver._runinfo_level_key({"msgType": 1}),
+            receiver.RUNINFO_LEVEL_PROMPT,
+        )
+        self.assertEqual(
+            receiver._runinfo_level_key({"msgType": "2"}),
+            receiver.RUNINFO_LEVEL_ALERT,
+        )
+        self.assertEqual(
+            receiver._runinfo_level_key({"msg_type": 3}),
+            receiver.RUNINFO_LEVEL_EXCEPTION,
+        )
+
+    def test_floating_runinfo_renderer_supports_three_visual_variants(self) -> None:
+        for level_key in (
+            receiver.RUNINFO_LEVEL_PROMPT,
+            receiver.RUNINFO_LEVEL_ALERT,
+            receiver.RUNINFO_LEVEL_EXCEPTION,
+        ):
+            path = (
+                Path(tempfile.gettempdir())
+                / f"smart_port_rtg_runinfo_{level_key.lower()}_test.png"
+            )
+            self.assertTrue(
+                receiver._render_floating_runinfo_bitmap(
+                    "设备状态需要关注",
+                    path,
+                    "2026-08-06 12:00:00",
+                    level_key,
+                )
+            )
+            self.assertTrue(path.is_file())
+
     def test_task_info_panel_bitmap_renderer_draws_chinese_panel(self) -> None:
         font_path = receiver._find_cjk_font_path()
         if font_path is None:
@@ -264,15 +298,23 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(len(lines), 3)
         self.assertTrue(lines[-1].endswith("..."))
 
-    def test_runinfo_visual_panels_are_disabled(self) -> None:
+    def test_runinfo_visual_panels_use_transparent_3d_variants(self) -> None:
         self.assertFalse(receiver.RUNINFO_OVERLAY_ENABLED)
-        self.assertFalse(receiver.RUNINFO_FLOATING_ENABLED)
+        self.assertTrue(receiver.RUNINFO_FLOATING_ENABLED)
         self.assertGreaterEqual(receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2], 13.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 12.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 3.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
         self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 8)
+        self.assertEqual(
+            set(receiver.RUNINFO_LEVEL_STYLES),
+            {
+                receiver.RUNINFO_LEVEL_PROMPT,
+                receiver.RUNINFO_LEVEL_ALERT,
+                receiver.RUNINFO_LEVEL_EXCEPTION,
+            },
+        )
 
     def test_runinfo_time_text_uses_runinfo_timespan(self) -> None:
         self.assertEqual(
@@ -294,11 +336,16 @@ class TaskPositionTests(unittest.TestCase):
         )
         self.assertEqual(
             receiver.RUNINFO_FLOATING_UV_COORDS[0],
-            (1.0, 0.0),
+            (0.0, 0.0),
         )
         self.assertEqual(
-            receiver.RUNINFO_FLOATING_UV_COORDS[1],
-            (0.0, 0.0),
+            receiver.RUNINFO_FLOATING_UV_COORDS,
+            (
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.0, 1.0),
+                (0.0, 1.0),
+            ),
         )
 
     def test_floating_runinfo_is_not_parented_to_rtg(self) -> None:
@@ -337,7 +384,7 @@ class TaskPositionTests(unittest.TestCase):
                 (0.0, 1.0),
             ),
         )
-        self.assertNotEqual(
+        self.assertEqual(
             receiver.TASK_PANEL_UV_COORDS,
             receiver.RUNINFO_FLOATING_UV_COORDS,
         )
@@ -1406,7 +1453,65 @@ class TaskFlowTests(unittest.TestCase):
 
 
 class LiveInfoPopupFacingSyncTests(unittest.TestCase):
-    def test_sync_visible_live_info_panels_rotates_both_usd_panel_roots(self) -> None:
+    def test_runinfo_pose_refresh_keeps_panel_facing_camera(self) -> None:
+        root_prim = types.SimpleNamespace(path=receiver.RUNINFO_FLOATING_ROOT_PATH)
+        task_panel = types.SimpleNamespace(path=receiver.TASK_PANEL_ROOT_PATH)
+
+        def get_prim_at_path(path: str) -> object | None:
+            if path == receiver.TASK_PANEL_ROOT_PATH:
+                return task_panel
+            return None
+
+        stage = types.SimpleNamespace(GetPrimAtPath=get_prim_at_path)
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace(
+            Vec3d=lambda *values: tuple(values),
+            Vec3f=lambda *values: tuple(values),
+        )
+        fake_pxr.Usd = types.SimpleNamespace()
+        fake_pxr.UsdGeom = types.SimpleNamespace()
+        translations = []
+        rotations = []
+
+        driver = receiver.OmniverseRtgTwinDriver.__new__(
+            receiver.OmniverseRtgTwinDriver
+        )
+        driver._get_xform_translate = lambda _prim: (9.0, 10.0, 11.0)
+        driver._set_xform_translate = lambda prim, translate: translations.append(
+            (prim.path, translate)
+        )
+        driver._set_xform_rotate_xyz = lambda prim, rotate: rotations.append(
+            (prim.path, rotate)
+        )
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            with patch.object(
+                receiver,
+                "camera_facing_rotate_xyz",
+                return_value=(0.0, 0.0, 123.0),
+            ) as facing:
+                driver._sync_floating_runinfo_pose(stage, root_prim)
+
+        expected_translate = (
+            9.0,
+            10.0,
+            receiver.RUNINFO_FLOATING_LOCAL_TRANSLATE[2],
+        )
+        self.assertEqual(
+            translations,
+            [(receiver.RUNINFO_FLOATING_ROOT_PATH, expected_translate)],
+        )
+        facing.assert_called_once_with(
+            stage,
+            expected_translate,
+            receiver.RUNINFO_FLOATING_ROTATE_XYZ,
+        )
+        self.assertEqual(
+            rotations,
+            [(receiver.RUNINFO_FLOATING_ROOT_PATH, (0.0, 0.0, 123.0))],
+        )
+
+    def test_sync_visible_live_info_panels_rotates_all_usd_panel_roots(self) -> None:
         class FakePrim:
             def __init__(self, path: str) -> None:
                 self.path = path
@@ -1446,6 +1551,10 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
                 ),
                 (
                     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
+                    (0.0, 0.0, 123.0),
+                ),
+                (
+                    "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
                     (0.0, 0.0, 123.0),
                 ),
             ],

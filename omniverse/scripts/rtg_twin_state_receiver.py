@@ -115,7 +115,47 @@ LEGACY_RUNINFO_FLOATING_ROOT_PATH = (
 RUNINFO_FLOATING_ROOT_PATH = "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD"
 RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
-RUNINFO_FLOATING_ENABLED = False
+RUNINFO_FLOATING_ABOVE_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+RUNINFO_FLOATING_ABOVE_GAP_M = 1.2
+RUNINFO_FLOATING_ENABLED = True
+RUNINFO_LEVEL_PROMPT = "PROMPT"
+RUNINFO_LEVEL_ALERT = "ALERT"
+RUNINFO_LEVEL_EXCEPTION = "EXCEPTION"
+RUNINFO_LEVEL_STYLES = {
+    RUNINFO_LEVEL_PROMPT: {
+        "title": "提示信息",
+        "badge": "提示",
+        "fill": (7, 18, 33, 224),
+        "glow": (0, 190, 255, 86),
+        "outline": (65, 205, 255, 238),
+        "inner": (75, 190, 255, 130),
+        "accent": (54, 216, 255, 255),
+        "badge_text": (5, 22, 35, 255),
+        "body": (224, 248, 255, 255),
+    },
+    RUNINFO_LEVEL_ALERT: {
+        "title": "告警信息",
+        "badge": "告警",
+        "fill": (32, 24, 9, 232),
+        "glow": (255, 171, 36, 110),
+        "outline": (255, 190, 55, 248),
+        "inner": (255, 198, 62, 145),
+        "accent": (255, 194, 55, 255),
+        "badge_text": (45, 27, 4, 255),
+        "body": (255, 238, 189, 255),
+    },
+    RUNINFO_LEVEL_EXCEPTION: {
+        "title": "异常信息",
+        "badge": "异常",
+        "fill": (39, 11, 19, 238),
+        "glow": (255, 65, 83, 125),
+        "outline": (255, 83, 98, 252),
+        "inner": (255, 87, 105, 150),
+        "accent": (255, 83, 98, 255),
+        "badge_text": (52, 7, 15, 255),
+        "body": (255, 220, 224, 255),
+    },
+}
 RUNINFO_FLOATING_IMAGE_WIDTH = 1536
 RUNINFO_FLOATING_IMAGE_HEIGHT = 384
 RUNINFO_FLOATING_PANEL_WIDTH_M = 12.0
@@ -123,10 +163,10 @@ RUNINFO_FLOATING_PANEL_HEIGHT_M = 3.0
 RUNINFO_FLOATING_LOCAL_TRANSLATE = (-0.35, -5.05, 13.4)
 RUNINFO_FLOATING_FACE_VERTEX_INDICES = (0, 1, 2, 3)
 RUNINFO_FLOATING_UV_COORDS = (
-    (1.0, 0.0),
     (0.0, 0.0),
-    (0.0, 1.0),
+    (1.0, 0.0),
     (1.0, 1.0),
+    (0.0, 1.0),
 )
 RUNINFO_FLOATING_TEXT_FONT_SIZE = 60
 RUNINFO_FLOATING_TITLE_FONT_SIZE = 44
@@ -160,6 +200,7 @@ LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
     "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
+    RUNINFO_FLOATING_ROOT_PATH,
 )
 TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
 TASK_ROUTE_INDICATOR_LINE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Line"
@@ -296,6 +337,7 @@ HOISTED_LOAD_LOCAL_CENTER_Y = -5.00
 SPREADER_CONTAINER_CONTACT_LOCAL_Z = 2.55
 STATUS_OVERLAY_UPDATE_SECONDS = 0.2
 RUNINFO_OVERLAY_ENABLED = False
+LEGACY_RUNINFO_WINDOW_TITLE = "RTG RunInfo HUD"
 RUNINFO_OVERLAY_WIDTH = 320
 RUNINFO_OVERLAY_HEIGHT = 58
 RUNINFO_OVERLAY_MARGIN_RIGHT = 12
@@ -784,12 +826,52 @@ def _runinfo_time_text(runinfo: Dict[str, Any]) -> str:
     return _format_runinfo_time_text(runinfo.get("receivedAtUtc"))
 
 
+def _dismiss_legacy_runinfo_window() -> None:
+    """Hide the pre-3D RunInfo window left behind by an older script run."""
+
+    try:
+        import omni.ui as ui  # type: ignore
+
+        workspace = getattr(ui, "Workspace", None)
+        get_window = getattr(workspace, "get_window", None)
+        if not callable(get_window):
+            return
+        window = get_window(LEGACY_RUNINFO_WINDOW_TITLE)
+        if window is not None:
+            try:
+                window.visible = False
+            except Exception:
+                pass
+    except Exception:
+        return
+
+
+def _runinfo_level_key(runinfo: Optional[Dict[str, Any]]) -> str:
+    """Map the upstream runinfo msg_type to one of the three visual panels."""
+
+    if not isinstance(runinfo, dict):
+        return RUNINFO_LEVEL_PROMPT
+    raw_type = runinfo.get("msgType")
+    if raw_type is None:
+        raw_type = runinfo.get("msg_type")
+    try:
+        msg_type = int(raw_type)
+    except (TypeError, ValueError):
+        msg_type = 1
+    return {
+        1: RUNINFO_LEVEL_PROMPT,
+        2: RUNINFO_LEVEL_ALERT,
+        3: RUNINFO_LEVEL_EXCEPTION,
+    }.get(msg_type, RUNINFO_LEVEL_PROMPT)
+
+
 def _render_floating_runinfo_bitmap(
     text: str,
     output_path: Path,
     clock_text: Optional[str] = None,
+    level_key: str = RUNINFO_LEVEL_PROMPT,
 ) -> bool:
-    """Render the 3D floating RUNINFO billboard texture."""
+    """Render one of the three transparent 3D RUNINFO panel variants."""
 
     font_path = _find_cjk_font_path()
     if font_path is None:
@@ -799,6 +881,10 @@ def _render_floating_runinfo_bitmap(
 
         width = RUNINFO_FLOATING_IMAGE_WIDTH
         height = RUNINFO_FLOATING_IMAGE_HEIGHT
+        style = RUNINFO_LEVEL_STYLES.get(
+            level_key,
+            RUNINFO_LEVEL_STYLES[RUNINFO_LEVEL_PROMPT],
+        )
         scale = max(1.0, width / 768.0)
         margin = int(22 * scale)
         inner_margin = int(34 * scale)
@@ -811,8 +897,8 @@ def _render_floating_runinfo_bitmap(
         glow_draw.rounded_rectangle(
             panel_box,
             radius=corner_radius,
-            fill=(0, 172, 255, 80),
-            outline=(255, 213, 78, 170),
+            fill=style["glow"],
+            outline=style["outline"],
             width=int(5 * scale),
         )
         image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(int(8 * scale))))
@@ -821,51 +907,109 @@ def _render_floating_runinfo_bitmap(
         draw.rounded_rectangle(
             panel_box,
             radius=corner_radius,
-            fill=(7, 18, 33, 218),
-            outline=(255, 205, 74, 238),
+            fill=style["fill"],
+            outline=style["outline"],
             width=int(3 * scale),
         )
         draw.rounded_rectangle(
             (inner_margin, inner_margin, width - inner_margin, height - inner_margin),
             radius=inner_radius,
-            outline=(68, 201, 255, 120),
+            outline=style["inner"],
             width=int(2 * scale),
         )
         title_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_TITLE_FONT_SIZE)
         clock_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_CLOCK_FONT_SIZE)
         body_font = ImageFont.truetype(str(font_path), RUNINFO_FLOATING_TEXT_FONT_SIZE)
         draw.text(
-            (int(54 * scale), int(42 * scale)),
-            "RUNINFO",
-            fill=(122, 222, 255, 235),
+            (int(54 * scale), 42),
+            style["title"],
+            fill=style["accent"],
+            font=title_font,
+        )
+        title_box = draw.textbbox(
+            (int(54 * scale), 42),
+            style["title"],
             font=title_font,
         )
         draw.ellipse(
             (
-                int(170 * scale),
-                int(50 * scale),
-                int(186 * scale),
-                int(66 * scale),
+                title_box[2] + int(24 * scale),
+                50,
+                title_box[2] + int(40 * scale),
+                66,
             ),
-            fill=(37, 255, 135, 235),
+            fill=style["accent"],
+        )
+        badge_font = ImageFont.truetype(str(font_path), 32)
+        badge_text = style["badge"]
+        badge_box = draw.textbbox((0, 0), badge_text, font=badge_font)
+        badge_width = badge_box[2] - badge_box[0] + int(42 * scale)
+        badge_x2 = width - int(54 * scale)
+        badge_x1 = badge_x2 - badge_width
+        draw.rounded_rectangle(
+            (badge_x1, 31, badge_x2, 78),
+            radius=int(18 * scale),
+            fill=(style["accent"][0], style["accent"][1], style["accent"][2], 38),
+            outline=style["accent"],
+            width=max(2, int(2 * scale)),
         )
         draw.text(
-            (int(210 * scale), int(39 * scale)),
+            (
+                badge_x1 + int(21 * scale),
+                37,
+            ),
+            badge_text,
+            fill=style["badge_text"],
+            font=badge_font,
+        )
+        clock_box = draw.textbbox((0, 0), clock_text or RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT, font=clock_font)
+        clock_width = clock_box[2] - clock_box[0]
+        draw.text(
+            (badge_x1 - clock_width - int(28 * scale), 39),
             clock_text or RUNINFO_FLOATING_DEFAULT_CLOCK_TEXT,
             fill=(245, 252, 255, 245),
             font=clock_font,
         )
 
+        divider_y = 104
+        draw.line(
+            (int(54 * scale), divider_y, width - int(54 * scale), divider_y),
+            fill=style["inner"],
+            width=max(2, int(2 * scale)),
+        )
+        if level_key == RUNINFO_LEVEL_EXCEPTION:
+            draw.rounded_rectangle(
+                (
+                    int(54 * scale),
+                    divider_y + 18,
+                    int(68 * scale),
+                    height - 22,
+                ),
+                radius=int(6 * scale),
+                fill=style["accent"],
+            )
+        elif level_key == RUNINFO_LEVEL_ALERT:
+            draw.ellipse(
+                (
+                    int(54 * scale),
+                    divider_y + 26,
+                    int(72 * scale),
+                    divider_y + 44,
+                ),
+                fill=style["accent"],
+            )
+
+        body_x = int(88 * scale) if level_key != RUNINFO_LEVEL_PROMPT else int(54 * scale)
         lines = _wrap_bitmap_text(
             draw,
             text.strip() or "--",
             body_font,
-            width - int(108 * scale),
+            width - body_x - int(54 * scale),
             RUNINFO_FLOATING_TEXT_MAX_LINES,
         )
         line_gap = int(RUNINFO_FLOATING_TEXT_LINE_GAP * scale)
-        text_area_top = int(64 * scale)
-        text_area_bottom = height - int(20 * scale)
+        text_area_top = divider_y + 22
+        text_area_bottom = height - 20
         total_text_height = (
             len(lines) * RUNINFO_FLOATING_TEXT_FONT_SIZE
             + max(0, len(lines) - 1) * line_gap
@@ -876,9 +1020,9 @@ def _render_floating_runinfo_bitmap(
         )
         for line in lines:
             draw.text(
-                (int(54 * scale), y),
+                (body_x, y),
                 line,
-                fill=(255, 238, 184, 255),
+                fill=style["body"],
                 font=body_font,
             )
             y += RUNINFO_FLOATING_TEXT_FONT_SIZE + line_gap
@@ -1325,6 +1469,7 @@ class RtgTwinStatusOverlay:
     """Small omni.ui HUD for current PLC pose and task information."""
 
     def __init__(self) -> None:
+        _dismiss_legacy_runinfo_window()
         self._window = None
         self._runinfo_window = None
         self._labels: Dict[str, Any] = {}
@@ -1421,6 +1566,7 @@ class RtgTwinStatusOverlay:
         self._labels.clear()
         self._runinfo_label = None
         self._runinfo_image = None
+        _dismiss_legacy_runinfo_window()
 
     def _build(self) -> None:
         import omni.ui as ui  # type: ignore
@@ -1841,6 +1987,7 @@ class OmniverseRtgTwinDriver:
         self._last_status_overlay_at: float = 0.0
         self._floating_runinfo_text: Optional[str] = None
         self._floating_runinfo_clock_text: Optional[str] = None
+        self._floating_runinfo_level_key: Optional[str] = None
         self._floating_runinfo_bitmap_seq = 0
         self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
         self._floating_task_panel_bitmap_seq = 0
@@ -1853,6 +2000,7 @@ class OmniverseRtgTwinDriver:
         try:
             import omni.kit.app  # type: ignore
 
+            _dismiss_legacy_runinfo_window()
             pause_timeline_for_live_control(self._log)
             stage = self._current_stage()
             if stage is not None:
@@ -1871,6 +2019,13 @@ class OmniverseRtgTwinDriver:
             self._log(f"unable to start Omniverse update driver: {exc}")
 
     def stop(self) -> None:
+        stage = self._current_stage()
+        if stage is not None:
+            try:
+                self._sync_floating_runinfo_billboard(stage, {})
+            except Exception:
+                pass
+        _dismiss_legacy_runinfo_window()
         self._subscription = None
         self._controller = None
         self._controller_stage_id = None
@@ -1890,6 +2045,7 @@ class OmniverseRtgTwinDriver:
         self._spreader_task_target_size_ft = None
         self._floating_runinfo_text = None
         self._floating_runinfo_clock_text = None
+        self._floating_runinfo_level_key = None
         self._floating_runinfo_bitmap_seq = 0
         self._floating_task_panel_key = None
         self._floating_task_panel_bitmap_seq = 0
@@ -1905,6 +2061,9 @@ class OmniverseRtgTwinDriver:
     def _on_update(self, _event: Any) -> None:
         self._sync_visible_task_panel_facing_camera()
         self._sync_visible_live_info_panels_facing_camera()
+        with self._latest_lock:
+            state = self._latest_state
+            self._latest_state = None
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -1913,10 +2072,20 @@ class OmniverseRtgTwinDriver:
             manual_snapshot = remote_manual_hud_snapshot()
             if manual_snapshot is not None:
                 self._sync_status_overlay(*manual_snapshot)
+            # RunInfo is independent of motion authority.  Consume the latest
+            # network state here so incoming messages still refresh the 3D
+            # panel while manual control owns the RTG pose.
+            if isinstance(state, dict):
+                stage = self._current_stage()
+                if stage is not None:
+                    try:
+                        self._sync_floating_runinfo_billboard(
+                            stage,
+                            state.get("runinfo") or {},
+                        )
+                    except Exception as exc:  # noqa: BLE001 - keep manual control alive
+                        self._log(f"runinfo panel update failed: {exc}")
             return
-        with self._latest_lock:
-            state = self._latest_state
-            self._latest_state = None
         if state is None:
             return
         try:
@@ -4737,10 +4906,25 @@ class OmniverseRtgTwinDriver:
                         stage.RemovePrim(prim.GetPath())
             self._floating_runinfo_text = None
             self._floating_runinfo_clock_text = None
+            self._floating_runinfo_level_key = None
             return
 
-        text = str(runinfo.get("message") or "").strip() or RUNINFO_FLOATING_DEFAULT_TEXT
+        text = str(runinfo.get("message") or "").strip() if isinstance(runinfo, dict) else ""
+        if not text:
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                legacy = stage.GetPrimAtPath(LEGACY_RUNINFO_FLOATING_ROOT_PATH)
+                if legacy:
+                    stage.RemovePrim(legacy.GetPath())
+                root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
+                if root:
+                    stage.RemovePrim(root.GetPath())
+            self._floating_runinfo_text = None
+            self._floating_runinfo_clock_text = None
+            self._floating_runinfo_level_key = None
+            return
+
         clock_text = clock_text or _runinfo_time_text(runinfo)
+        level_key = _runinfo_level_key(runinfo)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             legacy = stage.GetPrimAtPath(LEGACY_RUNINFO_FLOATING_ROOT_PATH)
             if legacy:
@@ -4748,6 +4932,7 @@ class OmniverseRtgTwinDriver:
             if (
                 self._floating_runinfo_text == text
                 and self._floating_runinfo_clock_text == clock_text
+                and self._floating_runinfo_level_key == level_key
                 and stage.GetPrimAtPath(RUNINFO_FLOATING_PANEL_PATH)
             ):
                 root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
@@ -4758,12 +4943,18 @@ class OmniverseRtgTwinDriver:
 
             self._floating_runinfo_text = text
             self._floating_runinfo_clock_text = clock_text
+            self._floating_runinfo_level_key = level_key
             self._floating_runinfo_bitmap_seq += 1
             texture_path = (
                 Path(tempfile.gettempdir())
                 / f"smart_port_rtg_runinfo_float_{os.getpid()}_{self._floating_runinfo_bitmap_seq}.png"
             )
-            if not _render_floating_runinfo_bitmap(text, texture_path, clock_text):
+            if not _render_floating_runinfo_bitmap(
+                text,
+                texture_path,
+                clock_text,
+                level_key,
+            ):
                 self._log("floating runinfo bitmap render failed")
                 return
 
@@ -4847,7 +5038,39 @@ class OmniverseRtgTwinDriver:
 
         attach = stage.GetPrimAtPath(RUNINFO_FLOATING_ATTACH_PATH.rstrip("/"))
         translate = Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
-        if attach:
+        rtg = stage.GetPrimAtPath(RUNINFO_FLOATING_ABOVE_RTG_PATH)
+        if rtg:
+            try:
+                cache = UsdGeom.BBoxCache(
+                    Usd.TimeCode.Default(),
+                    [UsdGeom.Tokens.default_],
+                )
+                aligned = cache.ComputeWorldBound(rtg).ComputeAlignedBox()
+                bounds_min = aligned.GetMin()
+                bounds_max = aligned.GetMax()
+                translate = Gf.Vec3d(
+                    (float(bounds_min[0]) + float(bounds_max[0])) * 0.5,
+                    (float(bounds_min[1]) + float(bounds_max[1])) * 0.5,
+                    float(bounds_max[2])
+                    + RUNINFO_FLOATING_ABOVE_GAP_M
+                    + RUNINFO_FLOATING_PANEL_HEIGHT_M * 0.5,
+                )
+            except Exception:
+                pass
+        # Keep RunInfo on the same vertical side plane as the task panel.
+        # Its height still follows the RTG, but its X/Y anchor follows the
+        # visible task panel so both panels read as one in-world HUD surface.
+        task_panel = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
+        task_translate = (
+            self._get_xform_translate(task_panel) if task_panel else None
+        )
+        if task_translate is not None:
+            translate = Gf.Vec3d(
+                float(task_translate[0]),
+                float(task_translate[1]),
+                float(translate[2]),
+            )
+        if rtg is None and attach:
             try:
                 cache = UsdGeom.XformCache(Usd.TimeCode.Default())
                 matrix = cache.GetLocalToWorldTransform(attach)
@@ -4855,7 +5078,32 @@ class OmniverseRtgTwinDriver:
             except Exception:
                 pass
         self._set_xform_translate(root_prim, translate)
-        self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*RUNINFO_FLOATING_ROTATE_XYZ))
+        rotate = camera_facing_rotate_xyz(
+            stage,
+            translate,
+            RUNINFO_FLOATING_ROTATE_XYZ,
+        )
+        self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+
+    @staticmethod
+    def _clear_runinfo_viewport_selection() -> None:
+        try:
+            import omni.usd  # type: ignore
+
+            selection = omni.usd.get_context().get_selection()
+            paths = list(selection.get_selected_prim_paths())
+            if not any(
+                path == RUNINFO_FLOATING_ROOT_PATH
+                or path.startswith(f"{RUNINFO_FLOATING_ROOT_PATH}/")
+                for path in paths
+            ):
+                return
+            try:
+                selection.clear_selected_prim_paths()
+            except Exception:
+                selection.set_selected_prim_paths([], False)
+        except Exception:
+            return
 
     def _sync_floating_task_panel(self, stage: Any, task: Dict[str, Any]) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
@@ -5071,6 +5319,7 @@ class OmniverseRtgTwinDriver:
         stage = self._current_stage()
         if stage is None:
             return
+        self._clear_runinfo_viewport_selection()
         try:
             from pxr import Gf
         except Exception:
