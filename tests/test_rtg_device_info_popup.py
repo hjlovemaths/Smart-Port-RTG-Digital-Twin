@@ -178,6 +178,32 @@ class DeviceInfoPopupTests(unittest.TestCase):
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
 
+    def test_update_poll_keeps_device_scene_panel_facing_camera(self) -> None:
+        service = popup.RtgDeviceInfoPopupService.__new__(
+            popup.RtgDeviceInfoPopupService
+        )
+        calls = []
+        service._handle_selected_paths = (
+            lambda paths, source="selection": calls.append(("selection", paths, source))
+        )
+        service._sync_visible_scene_panel_facing_camera = (
+            lambda: calls.append(("facing",))
+        )
+        previous_selected_paths = popup._selected_paths
+        popup._selected_paths = lambda: [popup.DEVICE_SCENE_PANEL_ROOT_PATH]
+        try:
+            service._on_update()
+        finally:
+            popup._selected_paths = previous_selected_paths
+
+        self.assertEqual(
+            calls,
+            [
+                ("selection", [popup.DEVICE_SCENE_PANEL_ROOT_PATH], "poll"),
+                ("facing",),
+            ],
+        )
+
     def test_clear_selection_gizmo_removes_default_selection_outline(self) -> None:
         selected_paths = [popup.PRIMARY_RTG_PATH]
         cleared = []

@@ -688,8 +688,8 @@ class RtgDeviceInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
-        self._sync_visible_scene_panel_facing_camera()
         self._handle_selected_paths(_selected_paths(), source="poll")
+        self._sync_visible_scene_panel_facing_camera()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection:

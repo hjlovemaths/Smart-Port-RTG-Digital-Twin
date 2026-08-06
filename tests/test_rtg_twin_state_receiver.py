@@ -1405,5 +1405,52 @@ class TaskFlowTests(unittest.TestCase):
             )
 
 
+class LiveInfoPopupFacingSyncTests(unittest.TestCase):
+    def test_sync_visible_live_info_panels_rotates_both_usd_panel_roots(self) -> None:
+        class FakePrim:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+        prims = {
+            path: FakePrim(path)
+            for path in receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS
+        }
+        stage = types.SimpleNamespace(GetPrimAtPath=lambda path: prims.get(path))
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace(Vec3f=lambda *values: tuple(values))
+        rotations = []
+
+        driver = receiver.OmniverseRtgTwinDriver.__new__(
+            receiver.OmniverseRtgTwinDriver
+        )
+        driver._current_stage = lambda: stage
+        driver._get_xform_translate = lambda _prim: (1.0, 2.0, 3.0)
+        driver._set_xform_rotate_xyz = lambda prim, rotate: rotations.append(
+            (prim.path, rotate)
+        )
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            with patch.object(
+                receiver,
+                "camera_facing_rotate_xyz",
+                return_value=(0.0, 0.0, 123.0),
+            ):
+                driver._sync_visible_live_info_panels_facing_camera()
+
+        self.assertEqual(
+            rotations,
+            [
+                (
+                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
+                    (0.0, 0.0, 123.0),
+                ),
+                (
+                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
+                    (0.0, 0.0, 123.0),
+                ),
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

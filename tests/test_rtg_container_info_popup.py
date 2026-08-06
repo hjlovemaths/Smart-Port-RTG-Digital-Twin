@@ -69,8 +69,93 @@ class ContainerInfoPopupTests(unittest.TestCase):
             "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
         )
         self.assertEqual(
+            popup.CONTAINER_SCENE_GUIDE_LINE_PATH,
+            "/World/LiveHUD/RTG_CONTAINER_INFO_GUIDE_LINE",
+        )
+        self.assertEqual(
             popup.CONTAINER_SCENE_PANEL_ROTATE_XYZ,
             (0.0, 0.0, 180.0),
+        )
+        self.assertEqual(popup.CONTAINER_SCENE_PANEL_Z_OFFSET_M, 4.4)
+
+    def test_container_hud_selection_paths_are_ignored_for_dragging(self) -> None:
+        self.assertTrue(
+            popup._is_container_hud_selection_path(
+                f"{popup.CONTAINER_SCENE_PANEL_ROOT_PATH}/Panel"
+            )
+        )
+        self.assertTrue(
+            popup._is_container_hud_selection_path(popup.CONTAINER_SCENE_GUIDE_LINE_PATH)
+        )
+        self.assertFalse(
+            popup._is_container_hud_selection_path(
+                "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container"
+            )
+        )
+
+    def test_container_panel_bottom_is_at_least_visual_six_tier_stack_top(self) -> None:
+        six_tier_top = 0.12 + 6 * 0.904353 + 5 * 0.035
+        low_origin_center_z = popup._container_panel_world_z(1.0)
+        self.assertAlmostEqual(
+            low_origin_center_z - popup.CONTAINER_SCENE_PANEL_HEIGHT_M * 0.5,
+            six_tier_top,
+        )
+        self.assertGreater(
+            popup._container_panel_world_z(8.0),
+            low_origin_center_z,
+        )
+
+    def test_container_panel_guide_line_runs_from_box_top_to_panel_bottom(self) -> None:
+        start, end = popup._container_panel_guide_points(
+            (10.0, 20.0, 3.0),
+            (12.0, 18.0, 9.0),
+        )
+
+        self.assertEqual(
+            start,
+            (
+                10.0,
+                20.0,
+                3.0 + popup.CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M,
+            ),
+        )
+        self.assertEqual(
+            end,
+            (
+                12.0,
+                18.0,
+                9.0
+                - popup.CONTAINER_SCENE_PANEL_HEIGHT_M * 0.5
+                + popup.CONTAINER_SCENE_GUIDE_PANEL_BOTTOM_MARGIN_M,
+            ),
+        )
+
+    def test_update_poll_keeps_container_scene_panel_facing_camera(self) -> None:
+        service = popup.RtgContainerInfoPopupService.__new__(
+            popup.RtgContainerInfoPopupService
+        )
+        calls = []
+        service._handle_selected_paths = (
+            lambda paths, source="selection": calls.append(("selection", paths, source))
+        )
+        service._sync_visible_scene_panel_facing_camera = (
+            lambda: calls.append(("facing",))
+        )
+        service._sync_visible_guide_line = lambda: calls.append(("guide",))
+        previous_selected_paths = popup._selected_paths
+        popup._selected_paths = lambda: [popup.CONTAINER_SCENE_PANEL_ROOT_PATH]
+        try:
+            service._on_update()
+        finally:
+            popup._selected_paths = previous_selected_paths
+
+        self.assertEqual(
+            calls,
+            [
+                ("selection", [popup.CONTAINER_SCENE_PANEL_ROOT_PATH], "poll"),
+                ("facing",),
+                ("guide",),
+            ],
         )
 
     def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:

@@ -156,6 +156,11 @@ TASK_PANEL_UV_COORDS = (
     (0.0, 1.0),
 )
 TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
+LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
+    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
+    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
+)
 TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
 TASK_ROUTE_INDICATOR_LINE_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Line"
 TASK_ROUTE_INDICATOR_HEAD_PATH = f"{TASK_ROUTE_INDICATOR_ROOT_PATH}/Head"
@@ -1899,6 +1904,7 @@ class OmniverseRtgTwinDriver:
 
     def _on_update(self, _event: Any) -> None:
         self._sync_visible_task_panel_facing_camera()
+        self._sync_visible_live_info_panels_facing_camera()
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -5058,6 +5064,33 @@ class OmniverseRtgTwinDriver:
             self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
         except Exception:
             return
+
+    def _sync_visible_live_info_panels_facing_camera(self) -> None:
+        """Keep click-to-inspect scene panels facing the camera each frame."""
+
+        stage = self._current_stage()
+        if stage is None:
+            return
+        try:
+            from pxr import Gf
+        except Exception:
+            return
+        for root_path in LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS:
+            root = stage.GetPrimAtPath(root_path)
+            if not root:
+                continue
+            translate = self._get_xform_translate(root)
+            if translate is None:
+                continue
+            try:
+                rotate = camera_facing_rotate_xyz(
+                    stage,
+                    translate,
+                    LIVE_INFO_PANEL_ROTATE_XYZ,
+                )
+                self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+            except Exception:
+                continue
 
     def _sync_user_side_view_camera(self, stage: Any) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom

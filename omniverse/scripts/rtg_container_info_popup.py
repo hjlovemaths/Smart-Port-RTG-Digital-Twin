@@ -87,11 +87,27 @@ CONTAINER_PANEL_LABELS = {
 CONTAINER_SCENE_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
 CONTAINER_SCENE_PANEL_MESH_PATH = f"{CONTAINER_SCENE_PANEL_ROOT_PATH}/Panel"
 CONTAINER_SCENE_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Container_Info_Panel"
+CONTAINER_SCENE_GUIDE_LINE_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_GUIDE_LINE"
 CONTAINER_SCENE_PANEL_WIDTH_M = 4.4
 CONTAINER_SCENE_PANEL_HEIGHT_M = 5.2
-CONTAINER_SCENE_PANEL_Z_OFFSET_M = 3.0
+CONTAINER_SCENE_PANEL_Z_OFFSET_M = 4.4
+CONTAINER_SCENE_PANEL_STACK_BASE_Z_M = 0.12
+CONTAINER_SCENE_PANEL_VISUAL_TIER_HEIGHT_M = 0.904353
+CONTAINER_SCENE_PANEL_TIER_GAP_Z_M = 0.035
+CONTAINER_SCENE_PANEL_MIN_BOTTOM_WORLD_Z = (
+    CONTAINER_SCENE_PANEL_STACK_BASE_Z_M
+    + 6 * CONTAINER_SCENE_PANEL_VISUAL_TIER_HEIGHT_M
+    + 5 * CONTAINER_SCENE_PANEL_TIER_GAP_Z_M
+)
 CONTAINER_SCENE_PANEL_Y_OFFSET_M = -1.8
 CONTAINER_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+CONTAINER_SCENE_GUIDE_LINE_WIDTH_M = 0.045
+CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M = 0.72
+CONTAINER_SCENE_GUIDE_PANEL_BOTTOM_MARGIN_M = 0.18
+CONTAINER_SCENE_HUD_SELECTABLE_PATH_PREFIXES = (
+    CONTAINER_SCENE_PANEL_ROOT_PATH,
+    CONTAINER_SCENE_GUIDE_LINE_PATH,
+)
 CONTAINER_SCENE_PANEL_UV_COORDS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -207,6 +223,45 @@ def _find_cjk_font_path() -> Optional[Path]:
         except Exception:
             continue
     return None
+
+
+def _container_panel_world_z(origin_z: Any) -> float:
+    try:
+        z = float(origin_z) + CONTAINER_SCENE_PANEL_Z_OFFSET_M
+    except Exception:
+        z = 4.0
+    min_center_z = (
+        CONTAINER_SCENE_PANEL_MIN_BOTTOM_WORLD_Z
+        + CONTAINER_SCENE_PANEL_HEIGHT_M * 0.5
+    )
+    return max(z, min_center_z)
+
+
+def _is_container_hud_selection_path(path: str) -> bool:
+    text = str(path or "").strip()
+    return any(
+        text == prefix or text.startswith(f"{prefix}/")
+        for prefix in CONTAINER_SCENE_HUD_SELECTABLE_PATH_PREFIXES
+    )
+
+
+def _container_panel_guide_points(
+    container_origin: Sequence[Any],
+    panel_translate: Sequence[Any],
+) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+    start = (
+        float(container_origin[0]),
+        float(container_origin[1]),
+        float(container_origin[2]) + CONTAINER_SCENE_GUIDE_SOURCE_Z_LIFT_M,
+    )
+    end = (
+        float(panel_translate[0]),
+        float(panel_translate[1]),
+        float(panel_translate[2])
+        - CONTAINER_SCENE_PANEL_HEIGHT_M * 0.5
+        + CONTAINER_SCENE_GUIDE_PANEL_BOTTOM_MARGIN_M,
+    )
+    return start, end
 
 
 def _render_container_panel_bitmap(rows: Sequence[InfoRow], output_path: Path) -> bool:
@@ -461,6 +516,7 @@ class RtgContainerInfoPopupService:
         self._panel_image = None
         self._bitmap_seq = 0
         self._clearing_selection = False
+        self._active_container_root_path: Optional[str] = None
         self._last_selection_signature: tuple[str, ...] = ()
         self._last_idle_diagnostic_at = 0.0
         self._idle_diagnostics_remaining = DIAGNOSTIC_IDLE_POLL_LIMIT
@@ -523,8 +579,9 @@ class RtgContainerInfoPopupService:
         self._handle_selected_paths(_selected_paths(), source="event")
 
     def _on_update(self, *_args: Any) -> None:
-        self._sync_visible_scene_panel_facing_camera()
         self._handle_selected_paths(_selected_paths(), source="poll")
+        self._sync_visible_scene_panel_facing_camera()
+        self._sync_visible_guide_line()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection:
@@ -536,7 +593,14 @@ class RtgContainerInfoPopupService:
         self._last_selection_signature = signature
         self._log(f"selection changed source={source} paths={list(paths)}")
 
-        for path in paths:
+        actionable_paths = [
+            path for path in paths if not _is_container_hud_selection_path(path)
+        ]
+        if paths and not actionable_paths:
+            self._log("selection ignored: container HUD selected")
+            return
+
+        for path in actionable_paths:
             root_path = _container_root_path_from_selection(path)
             if root_path is None:
                 continue
@@ -562,6 +626,7 @@ class RtgContainerInfoPopupService:
             f"root={root_path} window={self._window is not None}"
         )
         rows = _collect_info_rows(stage, root_path)
+        self._active_container_root_path = root_path
         self._show_rows(rows, root_path=root_path)
 
     def _show_rows(self, rows: Sequence[InfoRow], root_path: str = "") -> None:
@@ -577,6 +642,7 @@ class RtgContainerInfoPopupService:
             self._show_scene_panel(stage, root_path, panel_path)
 
     def _show_message(self, message: str) -> None:
+        self._active_container_root_path = None
         rows = [InfoRow("Container", message)] + [InfoRow("", "--") for _ in range(14)]
         self._show_rows(rows)
 
@@ -661,6 +727,7 @@ class RtgContainerInfoPopupService:
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
 
     def _hide_scene_panel(self, stage: Any) -> None:
+        self._active_container_root_path = None
         try:
             from pxr import Usd, UsdGeom
 
@@ -668,6 +735,9 @@ class RtgContainerInfoPopupService:
                 root = stage.GetPrimAtPath(CONTAINER_SCENE_PANEL_ROOT_PATH)
                 if root:
                     UsdGeom.Imageable(root).MakeInvisible()
+                guide = stage.GetPrimAtPath(CONTAINER_SCENE_GUIDE_LINE_PATH)
+                if guide:
+                    UsdGeom.Imageable(guide).MakeInvisible()
         except Exception:
             pass
 
@@ -675,16 +745,18 @@ class RtgContainerInfoPopupService:
         from pxr import Gf, Usd, UsdGeom
 
         translate = Gf.Vec3d(8.0, 0.0, 4.0)
+        source_origin = None
         selected = stage.GetPrimAtPath(root_path) if root_path else None
         if selected:
             try:
                 cache = UsdGeom.XformCache(Usd.TimeCode.Default())
                 matrix = cache.GetLocalToWorldTransform(selected)
                 origin = matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+                source_origin = origin
                 translate = Gf.Vec3d(
                     float(origin[0]) + 1.2,
                     float(origin[1]) + CONTAINER_SCENE_PANEL_Y_OFFSET_M,
-                    float(origin[2]) + CONTAINER_SCENE_PANEL_Z_OFFSET_M,
+                    _container_panel_world_z(origin[2]),
                 )
             except Exception:
                 pass
@@ -706,6 +778,86 @@ class RtgContainerInfoPopupService:
                 break
         else:
             xform.AddRotateXYZOp().Set(rotate)
+
+        if source_origin is not None:
+            self._sync_scene_panel_guide_line(stage, source_origin, translate)
+        else:
+            self._hide_scene_panel_guide_line(stage)
+
+    def _sync_visible_guide_line(self) -> None:
+        root_path = self._active_container_root_path
+        if not root_path:
+            return
+        stage = _current_stage()
+        if stage is None:
+            return
+        panel_root = stage.GetPrimAtPath(CONTAINER_SCENE_PANEL_ROOT_PATH)
+        selected = stage.GetPrimAtPath(root_path)
+        if not panel_root or not selected:
+            return
+        try:
+            from pxr import Gf, Usd, UsdGeom
+
+            panel_translate = None
+            panel_xform = UsdGeom.Xformable(panel_root)
+            for op in panel_xform.GetOrderedXformOps():
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                    panel_translate = op.Get()
+                    break
+            if panel_translate is None:
+                return
+
+            cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+            matrix = cache.GetLocalToWorldTransform(selected)
+            source_origin = matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+            self._sync_scene_panel_guide_line(stage, source_origin, panel_translate)
+        except Exception:
+            return
+
+    def _sync_scene_panel_guide_line(
+        self,
+        stage: Any,
+        container_origin: Sequence[Any],
+        panel_translate: Sequence[Any],
+    ) -> None:
+        try:
+            from pxr import Gf, Usd, UsdGeom
+
+            start, end = _container_panel_guide_points(container_origin, panel_translate)
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                curve = UsdGeom.BasisCurves.Define(stage, CONTAINER_SCENE_GUIDE_LINE_PATH)
+                curve_prim = curve.GetPrim()
+                UsdGeom.Imageable(curve_prim).MakeVisible()
+                curve.CreateTypeAttr("linear")
+                curve.CreateWrapAttr("nonperiodic")
+                curve.CreateCurveVertexCountsAttr([2])
+                curve.CreatePointsAttr(
+                    [
+                        Gf.Vec3f(*start),
+                        Gf.Vec3f(*end),
+                    ]
+                )
+                curve.CreateWidthsAttr(
+                    [
+                        CONTAINER_SCENE_GUIDE_LINE_WIDTH_M,
+                        CONTAINER_SCENE_GUIDE_LINE_WIDTH_M,
+                    ]
+                )
+                curve.CreateDisplayColorAttr([Gf.Vec3f(0.46, 0.88, 1.0)])
+                curve.CreateDisplayOpacityAttr([0.86])
+        except Exception:
+            return
+
+    def _hide_scene_panel_guide_line(self, stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                guide = stage.GetPrimAtPath(CONTAINER_SCENE_GUIDE_LINE_PATH)
+                if guide:
+                    UsdGeom.Imageable(guide).MakeInvisible()
+        except Exception:
+            pass
 
     def _sync_visible_scene_panel_facing_camera(self) -> None:
         stage = _current_stage()
