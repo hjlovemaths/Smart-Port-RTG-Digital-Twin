@@ -224,13 +224,22 @@ TASK_PANEL_UV_COORDS = (
 )
 TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
 LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+DEVICE_LOCATION_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
+DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
+    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT"
+)
+CONTAINER_INFO_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
 LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
-    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
     RUNINFO_FLOATING_ROOT_PATH,
+    DEVICE_LOCATION_PANEL_ROOT_PATH,
+    DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH,
+    CONTAINER_INFO_PANEL_ROOT_PATH,
 )
 LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ = {
-    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL": LIVE_INFO_PANEL_ROTATE_XYZ,
     RUNINFO_FLOATING_ROOT_PATH: RUNINFO_FLOATING_ROTATE_XYZ,
+    DEVICE_LOCATION_PANEL_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
+    DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
+    CONTAINER_INFO_PANEL_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
 }
 LIVE_INFO_CAMERA_FACING_UPDATE_INTERVAL_SECONDS = 1.0 / 30.0
 TASK_ROUTE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_TASK_ROUTE_INDICATOR"
@@ -850,7 +859,7 @@ def _format_runinfo_time_text(value: Any) -> str:
 
 
 def _runinfo_time_text(runinfo: Dict[str, Any]) -> str:
-    for key in ("timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
+    for key in ("happentime", "timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
         value = runinfo.get(key)
         if value is not None:
             return _format_runinfo_time_text(value)
@@ -1007,22 +1016,24 @@ def cleanup_runinfo_billboards() -> int:
 
 
 def _runinfo_level_key(runinfo: Optional[Dict[str, Any]]) -> str:
-    """Map the upstream runinfo msg_type to one of the three visual panels."""
+    """Map the upstream runinfo state/type to one of the three visual panels."""
 
     if not isinstance(runinfo, dict):
         return RUNINFO_LEVEL_PROMPT
-    raw_type = runinfo.get("msgType")
-    if raw_type is None:
-        raw_type = runinfo.get("msg_type")
+    raw_type = None
+    for key in ("runState", "run_state"):
+        raw_type = runinfo.get(key)
+        if raw_type is not None:
+            break
     try:
-        msg_type = int(raw_type)
+        run_state = int(raw_type)
     except (TypeError, ValueError):
-        msg_type = 1
+        run_state = 1
     return {
         1: RUNINFO_LEVEL_PROMPT,
         2: RUNINFO_LEVEL_ALERT,
         3: RUNINFO_LEVEL_EXCEPTION,
-    }.get(msg_type, RUNINFO_LEVEL_PROMPT)
+    }.get(run_state, RUNINFO_LEVEL_PROMPT)
 
 
 def _render_floating_runinfo_bitmap(
@@ -4741,11 +4752,7 @@ class OmniverseRtgTwinDriver:
         from pxr import UsdGeom
 
         xform = UsdGeom.Xformable(prim)
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpName() == "xformOp:rotateXYZ":
-                op.Set(value)
-                return
-        OmniverseRtgTwinDriver._get_or_add_xform_op(
+        _billboard_utils.get_or_add_xform_op(
             xform,
             "xformOp:rotateXYZ",
             xform.AddRotateXYZOp,
@@ -4760,10 +4767,8 @@ class OmniverseRtgTwinDriver:
         from pxr import UsdGeom
 
         xform = UsdGeom.Xformable(prim)
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                return op.Get()
-        return None
+        op = _billboard_utils.existing_xform_op(xform, "xformOp:translate")
+        return op.Get() if op is not None else None
 
     @staticmethod
     def _get_xform_scale(prim: Any) -> Any:

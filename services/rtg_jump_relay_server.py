@@ -351,9 +351,11 @@ class JumpRelayServer:
         if cmd_id == "cmd_rcms_runinfo":
             return {
                 "taskId": content.get("task_id"),
-                "msgType": content.get("msg_type"),
-                "msgDescription": text_value(content.get("msg_descption")) or text_value(content.get("msg_description")),
                 "runState": content.get("run_state"),
+                "happenTime": content.get("happentime"),
+                "msgDescription": text_value(content.get("msg_descption"))
+                or text_value(content.get("msg_description"))
+                or text_value(content.get("msg_descptionn")),
                 "exceptionCode": content.get("exception_code"),
             }
         return {"cmdId": cmd_id, "keys": sorted(content.keys())[:20]}

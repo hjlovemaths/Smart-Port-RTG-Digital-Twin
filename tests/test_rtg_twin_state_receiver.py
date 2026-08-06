@@ -215,17 +215,21 @@ class TaskPositionTests(unittest.TestCase):
         self.assertTrue(rendered)
         self.assertTrue(path.is_file())
 
-    def test_runinfo_msg_types_select_three_panel_variants(self) -> None:
+    def test_runinfo_run_state_selects_three_panel_variants(self) -> None:
         self.assertEqual(
-            receiver._runinfo_level_key({"msgType": 1}),
+            receiver._runinfo_level_key({"runState": 1}),
             receiver.RUNINFO_LEVEL_PROMPT,
         )
         self.assertEqual(
-            receiver._runinfo_level_key({"msgType": "2"}),
+            receiver._runinfo_level_key({"run_state": "2"}),
             receiver.RUNINFO_LEVEL_ALERT,
         )
         self.assertEqual(
-            receiver._runinfo_level_key({"msg_type": 3}),
+            receiver._runinfo_level_key({"runState": 3}),
+            receiver.RUNINFO_LEVEL_EXCEPTION,
+        )
+        self.assertEqual(
+            receiver._runinfo_level_key({"run_state": "3"}),
             receiver.RUNINFO_LEVEL_EXCEPTION,
         )
 
@@ -1745,10 +1749,16 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
             [call[2] for call in facing_calls],
             [
                 receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
+                    receiver.RUNINFO_FLOATING_ROOT_PATH
                 ],
                 receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    receiver.RUNINFO_FLOATING_ROOT_PATH
+                    receiver.DEVICE_LOCATION_PANEL_ROOT_PATH
+                ],
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
+                    receiver.DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH
+                ],
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
+                    receiver.CONTAINER_INFO_PANEL_ROOT_PATH
                 ],
             ],
         )
@@ -1756,11 +1766,19 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
             rotations,
             [
                 (
-                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
+                    "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
                     (0.0, 0.0, 123.0),
                 ),
                 (
-                    "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
+                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
+                    (0.0, 0.0, 123.0),
+                ),
+                (
+                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT",
+                    (0.0, 0.0, 123.0),
+                ),
+                (
+                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
                     (0.0, 0.0, 123.0),
                 ),
             ],

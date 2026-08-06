@@ -46,6 +46,8 @@ import rtg_billboard_utils as _billboard_utils
 
 _billboard_utils = importlib.reload(_billboard_utils)
 camera_facing_rotate_xyz = _billboard_utils.camera_facing_rotate_xyz
+existing_xform_op = _billboard_utils.existing_xform_op
+get_or_add_xform_op = _billboard_utils.get_or_add_xform_op
 
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
@@ -89,6 +91,7 @@ DEVICE_PANEL_VALUE_Y = {
     "Hoist": 452,
 }
 DEVICE_SCENE_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
+DEVICE_SCENE_PANEL_RIGHT_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT"
 DEVICE_SCENE_PANEL_MESH_PATH = f"{DEVICE_SCENE_PANEL_ROOT_PATH}/Panel"
 DEVICE_SCENE_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Device_Location_Panel"
 DEVICE_SCENE_PANEL_WIDTH_M = 6.24
@@ -98,7 +101,11 @@ DEVICE_SCENE_PANEL_WORLD_Z = 12.0
 DEVICE_SCENE_PANEL_Y_OFFSET_M = -2.2
 DEVICE_SCENE_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 LIVE_HUD_ROOT_PATH = "/World/LiveHUD"
-DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES = (DEVICE_SCENE_PANEL_ROOT_PATH,)
+DEVICE_SCENE_PANEL_ROOT_PATHS = (
+    DEVICE_SCENE_PANEL_ROOT_PATH,
+    DEVICE_SCENE_PANEL_RIGHT_ROOT_PATH,
+)
+DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES = DEVICE_SCENE_PANEL_ROOT_PATHS
 DEVICE_SCENE_PANEL_UV_COORDS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -146,11 +153,9 @@ def _is_live_hud_selection_path(path: str) -> bool:
 
 def _device_hud_root_from_selection(path: str) -> Optional[str]:
     text = str(path or "").strip()
-    if any(
-        text == prefix or text.startswith(f"{prefix}/")
-        for prefix in DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES
-    ):
-        return DEVICE_SCENE_PANEL_ROOT_PATH
+    for prefix in DEVICE_SCENE_HUD_SELECTABLE_PATH_PREFIXES:
+        if text == prefix or text.startswith(f"{prefix}/"):
+            return prefix
     return None
 
 
@@ -403,16 +408,20 @@ def _hide_known_windows() -> None:
 
 
 def _stop_previous_builtin_service() -> None:
-    previous = getattr(builtins, "_rtg_device_info_popup_service", None)
-    if previous is not None:
-        try:
-            previous.stop()
-        except Exception:
-            pass
-        try:
-            builtins._rtg_device_info_popup_service = None
-        except Exception:
-            pass
+    for name in (
+        "_rtg_device_info_popup_service",
+        "_rtg_device_location_panel_service",
+    ):
+        previous = getattr(builtins, name, None)
+        if previous is not None:
+            try:
+                previous.stop()
+            except Exception:
+                pass
+            try:
+                setattr(builtins, name, None)
+            except Exception:
+                pass
     _hide_known_windows()
 
 
@@ -898,9 +907,10 @@ class RtgDeviceInfoPopupService:
             from pxr import Usd, UsdGeom
 
             with Usd.EditContext(stage, stage.GetSessionLayer()):
-                root = stage.GetPrimAtPath(DEVICE_SCENE_PANEL_ROOT_PATH)
-                if root:
-                    UsdGeom.Imageable(root).MakeInvisible()
+                for root_path in DEVICE_SCENE_PANEL_ROOT_PATHS:
+                    root = stage.GetPrimAtPath(root_path)
+                    if root:
+                        UsdGeom.Imageable(root).MakeInvisible()
         except Exception:
             pass
 
@@ -926,53 +936,51 @@ class RtgDeviceInfoPopupService:
             y + DEVICE_SCENE_PANEL_Y_OFFSET_M,
             DEVICE_SCENE_PANEL_WORLD_Z,
         )
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                op.Set(translate)
-                break
-        else:
-            xform.AddTranslateOp().Set(translate)
+        get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(translate)
 
         rotate = Gf.Vec3f(
             *camera_facing_rotate_xyz(stage, translate, DEVICE_SCENE_PANEL_ROTATE_XYZ)
         )
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpName() == "xformOp:rotateXYZ":
-                op.Set(rotate)
-                break
-        else:
-            xform.AddRotateXYZOp().Set(rotate)
+        get_or_add_xform_op(
+            xform,
+            "xformOp:rotateXYZ",
+            xform.AddRotateXYZOp,
+        ).Set(rotate)
 
     def _sync_visible_scene_panel_facing_camera(self) -> None:
         stage = _current_stage()
         if stage is None:
             return
-        root = stage.GetPrimAtPath(DEVICE_SCENE_PANEL_ROOT_PATH)
-        if not root:
-            return
         try:
             from pxr import Gf, UsdGeom
 
-            xform = UsdGeom.Xformable(root)
-            translate = None
-            for op in xform.GetOrderedXformOps():
-                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                    translate = op.Get()
-                    break
-            if translate is None:
-                return
-            rotate = Gf.Vec3f(
-                *camera_facing_rotate_xyz(
-                    stage,
-                    translate,
-                    DEVICE_SCENE_PANEL_ROTATE_XYZ,
+            for root_path in DEVICE_SCENE_PANEL_ROOT_PATHS:
+                root = stage.GetPrimAtPath(root_path)
+                if not root:
+                    continue
+                xform = UsdGeom.Xformable(root)
+                translate_op = existing_xform_op(xform, "xformOp:translate")
+                if translate_op is None:
+                    continue
+                translate = translate_op.Get()
+                rotate = Gf.Vec3f(
+                    *camera_facing_rotate_xyz(
+                        stage,
+                        translate,
+                        DEVICE_SCENE_PANEL_ROTATE_XYZ,
+                    )
                 )
-            )
-            for op in xform.GetOrderedXformOps():
-                if op.GetOpName() == "xformOp:rotateXYZ":
-                    op.Set(rotate)
-                    return
-            xform.AddRotateXYZOp().Set(rotate)
+                rotate_op = get_or_add_xform_op(
+                    xform,
+                    "xformOp:rotateXYZ",
+                    xform.AddRotateXYZOp,
+                )
+                rotate_op.Set(rotate)
+                xform.SetXformOpOrder([translate_op, rotate_op])
         except Exception:
             return
 
@@ -1059,14 +1067,23 @@ def start_rtg_device_info_popup() -> RtgDeviceInfoPopupService:
     _hide_known_windows()
     if _service is not None:
         _service.stop()
-    previous = getattr(builtins, "_rtg_device_info_popup_service", None)
-    if previous is not None and previous is not _service:
-        try:
-            previous.stop()
-        except Exception:
-            pass
+    for name in (
+        "_rtg_device_info_popup_service",
+        "_rtg_device_location_panel_service",
+    ):
+        previous = getattr(builtins, name, None)
+        if previous is not None and previous is not _service:
+            try:
+                previous.stop()
+            except Exception:
+                pass
+            try:
+                setattr(builtins, name, None)
+            except Exception:
+                pass
     _service = RtgDeviceInfoPopupService()
     builtins._rtg_device_info_popup_service = _service
+    builtins._rtg_device_location_panel_service = None
     return _service
 
 
@@ -1076,13 +1093,17 @@ def stop_rtg_device_info_popup() -> None:
     if _service is not None:
         _service.stop()
         _service = None
-    previous = getattr(builtins, "_rtg_device_info_popup_service", None)
-    if previous is not None:
-        try:
-            previous.stop()
-        except Exception:
-            pass
-        builtins._rtg_device_info_popup_service = None
+    for name in (
+        "_rtg_device_info_popup_service",
+        "_rtg_device_location_panel_service",
+    ):
+        previous = getattr(builtins, name, None)
+        if previous is not None:
+            try:
+                previous.stop()
+            except Exception:
+                pass
+        setattr(builtins, name, None)
 
 
 if __name__ == "__main__":

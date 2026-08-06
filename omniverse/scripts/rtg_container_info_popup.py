@@ -18,6 +18,7 @@ window with task and container metadata from the selected prim plus
 from __future__ import annotations
 
 import builtins
+import importlib
 import importlib.util
 import os
 import sys
@@ -42,7 +43,12 @@ except ModuleNotFoundError:
     hide_selection_highlight = helper_module.hide_selection_highlight
     show_selection_highlight = helper_module.show_selection_highlight
 
-from rtg_billboard_utils import camera_facing_rotate_xyz
+import rtg_billboard_utils as _billboard_utils
+
+_billboard_utils = importlib.reload(_billboard_utils)
+camera_facing_rotate_xyz = _billboard_utils.camera_facing_rotate_xyz
+existing_xform_op = _billboard_utils.existing_xform_op
+get_or_add_xform_op = _billboard_utils.get_or_add_xform_op
 
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
@@ -649,8 +655,7 @@ class RtgContainerInfoPopupService:
             return
         self._last_update_poll_at = now
         self._handle_selected_paths(_selected_paths(), source="poll")
-        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is None:
-            self._sync_visible_scene_panel_facing_camera()
+        self._sync_visible_scene_panel_facing_camera()
         self._sync_visible_guide_line()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
@@ -849,22 +854,20 @@ class RtgContainerInfoPopupService:
                 pass
 
         xform = UsdGeom.Xformable(root_prim)
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                op.Set(translate)
-                break
-        else:
-            xform.AddTranslateOp().Set(translate)
+        get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(translate)
 
         rotate = Gf.Vec3f(
             *camera_facing_rotate_xyz(stage, translate, CONTAINER_SCENE_PANEL_ROTATE_XYZ)
         )
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpName() == "xformOp:rotateXYZ":
-                op.Set(rotate)
-                break
-        else:
-            xform.AddRotateXYZOp().Set(rotate)
+        get_or_add_xform_op(
+            xform,
+            "xformOp:rotateXYZ",
+            xform.AddRotateXYZOp,
+        ).Set(rotate)
 
         if source_origin is not None:
             source_bounds = self._container_world_bounds(stage, selected)
@@ -971,13 +974,10 @@ class RtgContainerInfoPopupService:
             from pxr import Gf, UsdGeom
 
             xform = UsdGeom.Xformable(root)
-            translate = None
-            for op in xform.GetOrderedXformOps():
-                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                    translate = op.Get()
-                    break
-            if translate is None:
+            translate_op = existing_xform_op(xform, "xformOp:translate")
+            if translate_op is None:
                 return
+            translate = translate_op.Get()
             rotate = Gf.Vec3f(
                 *camera_facing_rotate_xyz(
                     stage,
@@ -985,11 +985,13 @@ class RtgContainerInfoPopupService:
                     CONTAINER_SCENE_PANEL_ROTATE_XYZ,
                 )
             )
-            for op in xform.GetOrderedXformOps():
-                if op.GetOpName() == "xformOp:rotateXYZ":
-                    op.Set(rotate)
-                    return
-            xform.AddRotateXYZOp().Set(rotate)
+            rotate_op = get_or_add_xform_op(
+                xform,
+                "xformOp:rotateXYZ",
+                xform.AddRotateXYZOp,
+            )
+            rotate_op.Set(rotate)
+            xform.SetXformOpOrder([translate_op, rotate_op])
         except Exception:
             return
 

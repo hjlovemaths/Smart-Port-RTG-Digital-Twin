@@ -169,6 +169,42 @@ class ContainerInfoPopupTests(unittest.TestCase):
             ],
         )
 
+    def test_container_service_keeps_facing_control_while_live_driver_runs(self) -> None:
+        service = popup.RtgContainerInfoPopupService.__new__(
+            popup.RtgContainerInfoPopupService
+        )
+        service._last_update_poll_at = 0.0
+        calls = []
+        service._handle_selected_paths = (
+            lambda paths, source="selection": calls.append((paths, source))
+        )
+        service._sync_visible_scene_panel_facing_camera = (
+            lambda: calls.append(("facing",))
+        )
+        service._sync_visible_guide_line = lambda: calls.append(("guide",))
+        old_owner = getattr(
+            popup.builtins,
+            "_smart_port_rtg_panel_facing_driver",
+            None,
+        )
+        popup.builtins._smart_port_rtg_panel_facing_driver = object()
+        old_selected_paths = popup._selected_paths
+        popup._selected_paths = lambda: [popup.CONTAINER_SCENE_PANEL_ROOT_PATH]
+        try:
+            service._on_update()
+        finally:
+            popup._selected_paths = old_selected_paths
+            popup.builtins._smart_port_rtg_panel_facing_driver = old_owner
+
+        self.assertEqual(
+            calls,
+            [
+                ([popup.CONTAINER_SCENE_PANEL_ROOT_PATH], "poll"),
+                ("facing",),
+                ("guide",),
+            ],
+        )
+
     def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:
         class Previous:
             def __init__(self):

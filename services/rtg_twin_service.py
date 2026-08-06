@@ -147,12 +147,24 @@ def unwrap_core_message(message: Any) -> tuple[str, Optional[Dict[str, Any]]]:
 def is_task_complete_runinfo(cmd_id: str, content: Optional[Dict[str, Any]]) -> bool:
     if cmd_id != "cmd_rcms_runinfo" or not content:
         return False
-    desc = text_value(content.get("msg_descption")) or text_value(content.get("msg_description")) or ""
+    desc = _runinfo_description_value(content) or ""
     return "本关任务完成" in desc or "任务完成" in desc
 
 
+def _runinfo_description_value(content: Dict[str, Any]) -> Optional[str]:
+    for key in ("msg_descption", "msg_description", "msg_descptionn"):
+        value = text_value(content.get(key))
+        if value:
+            return value
+    return None
+
+
+def _runinfo_state_value(content: Dict[str, Any]) -> int:
+    return int_value(content.get("run_state"), 0)
+
+
 def _runinfo_timespan_value(content: Dict[str, Any]) -> Optional[str]:
-    for key in ("timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
+    for key in ("happentime", "timespan", "timeSpan", "msg_timespan", "msgTimeSpan"):
         value = text_value(content.get(key))
         if value:
             return value
@@ -210,6 +222,7 @@ class TwinStateCache:
         self._last_runinfo: Optional[str] = None
         self._last_runinfo_at: Optional[float] = None
         self._last_runinfo_timespan: Optional[str] = None
+        self._last_runinfo_state: Optional[Any] = None
 
     def update_plc(self, plc_model: Dict[str, Any]) -> None:
         with self._lock:
@@ -259,14 +272,22 @@ class TwinStateCache:
         """Store the latest runinfo description for the HUD overlay."""
         if not content:
             return
-        desc = text_value(content.get("msg_descption")) or text_value(content.get("msg_description")) or ""
+        desc = _runinfo_description_value(content) or ""
         if not desc:
+            return
+        run_state = _runinfo_state_value(content)
+        if run_state <= 0:
             return
         timespan = _runinfo_timespan_value(content)
         with self._lock:
-            is_new = self._last_runinfo != desc or self._last_runinfo_timespan != timespan
+            is_new = (
+                self._last_runinfo != desc
+                or self._last_runinfo_timespan != timespan
+                or self._last_runinfo_state != run_state
+            )
             self._last_runinfo = desc
             self._last_runinfo_timespan = timespan
+            self._last_runinfo_state = run_state
             self._last_runinfo_at = time.time()
         if is_new:
             logging.info("runinfo: %s", desc)
@@ -369,11 +390,13 @@ class TwinStateCache:
             message = self._last_runinfo
             at_time = self._last_runinfo_at
             timespan = self._last_runinfo_timespan
+            run_state = self._last_runinfo_state
         if message is None:
             return None
         return {
             "message": message,
             "timespan": timespan,
+            "runState": run_state,
             "receivedAtUtc": (
                 datetime.fromtimestamp(at_time, tz=timezone.utc)
                 .isoformat(timespec="seconds")

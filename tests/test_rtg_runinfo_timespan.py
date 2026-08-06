@@ -21,6 +21,7 @@ class RunInfoTimespanTests(unittest.TestCase):
             {
                 "msg_descption": "作业完成",
                 "timespan": "2026-08-04T15:30:45Z",
+                "run_state": 3,
             }
         )
 
@@ -28,6 +29,35 @@ class RunInfoTimespanTests(unittest.TestCase):
 
         self.assertEqual(runinfo["message"], "作业完成")
         self.assertEqual(runinfo["timespan"], "2026-08-04T15:30:45Z")
+        self.assertEqual(runinfo["runState"], 3)
+
+    def test_runinfo_zero_state_is_ignored(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+
+        cache.update_runinfo(
+            {
+                "msg_descption": "45秒集卡超时未到位申请远控",
+                "run_state": 0,
+            }
+        )
+
+        self.assertIsNone(cache.build_state()["runinfo"])
+
+    def test_runinfo_happentime_is_forwarded_as_timespan(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+
+        cache.update_runinfo(
+            {
+                "msg_descption": "45秒集卡超时未到位申请远控",
+                "happentime": "166544125411",
+                "run_state": 3,
+            }
+        )
+
+        runinfo = cache.build_state()["runinfo"]
+
+        self.assertEqual(runinfo["timespan"], "166544125411")
+        self.assertEqual(runinfo["runState"], 3)
 
 
 if __name__ == "__main__":

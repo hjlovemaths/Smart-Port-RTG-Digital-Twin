@@ -111,6 +111,12 @@ class DeviceInfoPopupTests(unittest.TestCase):
             ),
             popup.DEVICE_SCENE_PANEL_ROOT_PATH,
         )
+        self.assertEqual(
+            popup._device_hud_root_from_selection(
+                f"{popup.DEVICE_SCENE_PANEL_RIGHT_ROOT_PATH}/Panel"
+            ),
+            popup.DEVICE_SCENE_PANEL_RIGHT_ROOT_PATH,
+        )
 
     def test_stop_previous_builtin_service_clears_legacy_window_service(self) -> None:
         class Previous:
@@ -121,15 +127,25 @@ class DeviceInfoPopupTests(unittest.TestCase):
                 self.stopped = True
 
         previous = Previous()
+        legacy_location = Previous()
         old_value = getattr(popup.builtins, "_rtg_device_info_popup_service", None)
+        old_location = getattr(
+            popup.builtins,
+            "_rtg_device_location_panel_service",
+            None,
+        )
         popup.builtins._rtg_device_info_popup_service = previous
+        popup.builtins._rtg_device_location_panel_service = legacy_location
         try:
             popup._stop_previous_builtin_service()
 
             self.assertTrue(previous.stopped)
+            self.assertTrue(legacy_location.stopped)
             self.assertIsNone(popup.builtins._rtg_device_info_popup_service)
+            self.assertIsNone(popup.builtins._rtg_device_location_panel_service)
         finally:
             popup.builtins._rtg_device_info_popup_service = old_value
+            popup.builtins._rtg_device_location_panel_service = old_location
 
     def test_collect_device_rows_mirrors_hud_device_values(self) -> None:
         selected = (
@@ -260,6 +276,78 @@ class DeviceInfoPopupTests(unittest.TestCase):
             [
                 ([popup.DEVICE_SCENE_PANEL_ROOT_PATH], "poll"),
                 ("facing",),
+            ],
+        )
+
+    def test_visible_scene_panel_facing_updates_all_device_panel_roots(self) -> None:
+        class FakeRoot:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+            @staticmethod
+            def AddRotateXYZOp():
+                return None
+
+            @staticmethod
+            def SetXformOpOrder(_ops):
+                pass
+
+        class TranslateOp:
+            @staticmethod
+            def Get():
+                return (1.0, 2.0, 3.0)
+
+        class RotateOp:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+            def Set(self, value):
+                rotations.append((self.path, value))
+
+        roots = {
+            root_path: FakeRoot(root_path)
+            for root_path in popup.DEVICE_SCENE_PANEL_ROOT_PATHS
+        }
+        rotations = []
+        stage = types.SimpleNamespace(GetPrimAtPath=lambda path: roots.get(path))
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace(Vec3f=lambda *values: tuple(values))
+        fake_pxr.UsdGeom = types.SimpleNamespace(Xformable=lambda root: root)
+
+        old_current_stage = popup._current_stage
+        old_existing_xform_op = popup.existing_xform_op
+        old_get_or_add_xform_op = popup.get_or_add_xform_op
+        old_camera_facing_rotate_xyz = popup.camera_facing_rotate_xyz
+        popup._current_stage = lambda: stage
+        popup.existing_xform_op = lambda _xform, _name: TranslateOp()
+        popup.get_or_add_xform_op = (
+            lambda xform, _name, _add_op: RotateOp(xform.path)
+        )
+        popup.camera_facing_rotate_xyz = (
+            lambda _stage, _translate, _fallback: (4.0, 5.0, 6.0)
+        )
+        previous_pxr = sys.modules.get("pxr")
+        sys.modules["pxr"] = fake_pxr
+        try:
+            service = popup.RtgDeviceInfoPopupService.__new__(
+                popup.RtgDeviceInfoPopupService
+            )
+            service._sync_visible_scene_panel_facing_camera()
+        finally:
+            popup._current_stage = old_current_stage
+            popup.existing_xform_op = old_existing_xform_op
+            popup.get_or_add_xform_op = old_get_or_add_xform_op
+            popup.camera_facing_rotate_xyz = old_camera_facing_rotate_xyz
+            if previous_pxr is None:
+                sys.modules.pop("pxr", None)
+            else:
+                sys.modules["pxr"] = previous_pxr
+
+        self.assertEqual(
+            rotations,
+            [
+                (popup.DEVICE_SCENE_PANEL_ROOT_PATH, (4.0, 5.0, 6.0)),
+                (popup.DEVICE_SCENE_PANEL_RIGHT_ROOT_PATH, (4.0, 5.0, 6.0)),
             ],
         )
 

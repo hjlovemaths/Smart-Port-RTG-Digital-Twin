@@ -6,6 +6,47 @@ import math
 from typing import Any, Optional, Sequence, Tuple
 
 
+def existing_xform_op(xform: Any, op_name: str) -> Any:
+    """Return an existing xform op by name, including unordered attributes."""
+
+    try:
+        for op in xform.GetOrderedXformOps():
+            if op.GetOpName() == op_name:
+                return op
+    except Exception:
+        pass
+    try:
+        from pxr import UsdGeom
+
+        attr = xform.GetPrim().GetAttribute(op_name)
+        return UsdGeom.XformOp(attr) if attr else None
+    except Exception:
+        return None
+
+
+def get_or_add_xform_op(xform: Any, op_name: str, add_op: Any) -> Any:
+    """Reuse an authored xform op and only add it when it truly is absent."""
+
+    try:
+        ordered_ops = list(xform.GetOrderedXformOps())
+    except Exception:
+        ordered_ops = []
+    for op in ordered_ops:
+        try:
+            if op.GetOpName() == op_name:
+                return op
+        except Exception:
+            pass
+    op = existing_xform_op(xform, op_name)
+    if op is None:
+        return add_op()
+    try:
+        xform.SetXformOpOrder(ordered_ops + [op])
+    except Exception:
+        pass
+    return op
+
+
 def billboard_z_rotation_degrees(
     panel_position: Sequence[float],
     camera_position: Sequence[float],
@@ -21,6 +62,25 @@ def billboard_z_rotation_degrees(
     if abs(dx) < 1e-6 and abs(dy) < 1e-6:
         return float(fallback_degrees)
     return math.degrees(math.atan2(-dx, dy)) % 360.0
+
+
+def billboard_x_rotation_degrees(
+    panel_position: Sequence[float],
+    camera_position: Sequence[float],
+    fallback_degrees: float = 0.0,
+) -> float:
+    """Return the X rotation that pitches a +Y-facing panel toward the camera."""
+
+    try:
+        dx = float(camera_position[0]) - float(panel_position[0])
+        dy = float(camera_position[1]) - float(panel_position[1])
+        dz = float(camera_position[2]) - float(panel_position[2])
+    except Exception:
+        return float(fallback_degrees)
+    horizontal_distance = math.hypot(dx, dy)
+    if horizontal_distance < 1e-6 and abs(dz) < 1e-6:
+        return float(fallback_degrees)
+    return math.degrees(math.atan2(dz, horizontal_distance))
 
 
 def active_viewport_camera_position(stage: Any) -> Optional[Any]:
@@ -75,7 +135,11 @@ def camera_facing_rotate_xyz_from_camera(
     if camera_position is None:
         return fallback
     return (
-        fallback[0],
+        fallback[0]
+        + billboard_x_rotation_degrees(
+            panel_position,
+            camera_position,
+        ),
         fallback[1],
         billboard_z_rotation_degrees(panel_position, camera_position, fallback[2]),
     )
