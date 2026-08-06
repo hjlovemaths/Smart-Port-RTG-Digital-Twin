@@ -17,6 +17,7 @@ or clearing selection hides it.
 from __future__ import annotations
 
 import builtins
+import importlib
 import importlib.util
 import os
 import sys
@@ -41,7 +42,10 @@ except ModuleNotFoundError:
     hide_selection_highlight = helper_module.hide_selection_highlight
     show_selection_highlight = helper_module.show_selection_highlight
 
-from rtg_billboard_utils import camera_facing_rotate_xyz
+import rtg_billboard_utils as _billboard_utils
+
+_billboard_utils = importlib.reload(_billboard_utils)
+camera_facing_rotate_xyz = _billboard_utils.camera_facing_rotate_xyz
 
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
@@ -717,8 +721,7 @@ class RtgDeviceInfoPopupService:
             return
         self._last_update_poll_at = now
         self._handle_selected_paths(_selected_paths(), source="poll")
-        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is None:
-            self._sync_visible_scene_panel_facing_camera()
+        self._sync_visible_scene_panel_facing_camera()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection or self._normalizing_hud_selection:

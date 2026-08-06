@@ -1745,9 +1745,6 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
             [call[2] for call in facing_calls],
             [
                 receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
-                ],
-                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
                     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
                 ],
                 receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
@@ -1758,10 +1755,6 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
         self.assertEqual(
             rotations,
             [
-                (
-                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
-                    (0.0, 0.0, 123.0),
-                ),
                 (
                     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
                     (0.0, 0.0, 123.0),

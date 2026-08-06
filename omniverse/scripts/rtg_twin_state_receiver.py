@@ -109,10 +109,13 @@ from yard_inventory import (  # noqa: E402
     normalize_bay_number as normalize_inventory_bay_number,
     parse_task_position as parse_inventory_task_position,
 )
-from rtg_billboard_utils import (  # noqa: E402
-    active_viewport_camera_position,
-    camera_facing_rotate_xyz,
-    camera_facing_rotate_xyz_from_camera,
+import rtg_billboard_utils as _billboard_utils  # noqa: E402
+
+_billboard_utils = importlib.reload(_billboard_utils)
+active_viewport_camera_position = _billboard_utils.active_viewport_camera_position
+camera_facing_rotate_xyz = _billboard_utils.camera_facing_rotate_xyz
+camera_facing_rotate_xyz_from_camera = (
+    _billboard_utils.camera_facing_rotate_xyz_from_camera
 )
 
 DEFAULT_HOST = "127.0.0.1"
@@ -222,12 +225,10 @@ TASK_PANEL_UV_COORDS = (
 TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
 LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
-    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
     RUNINFO_FLOATING_ROOT_PATH,
 )
 LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ = {
-    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL": LIVE_INFO_PANEL_ROTATE_XYZ,
     "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL": LIVE_INFO_PANEL_ROTATE_XYZ,
     RUNINFO_FLOATING_ROOT_PATH: RUNINFO_FLOATING_ROTATE_XYZ,
 }

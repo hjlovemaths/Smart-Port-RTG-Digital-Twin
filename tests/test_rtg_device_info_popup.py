@@ -229,7 +229,7 @@ class DeviceInfoPopupTests(unittest.TestCase):
             ],
         )
 
-    def test_live_driver_owns_device_panel_facing_without_duplicate_work(self) -> None:
+    def test_device_service_keeps_facing_control_while_live_driver_runs(self) -> None:
         service = popup.RtgDeviceInfoPopupService.__new__(
             popup.RtgDeviceInfoPopupService
         )
@@ -239,7 +239,7 @@ class DeviceInfoPopupTests(unittest.TestCase):
             lambda paths, source="selection": calls.append((paths, source))
         )
         service._sync_visible_scene_panel_facing_camera = (
-            lambda: calls.append(("duplicate-facing",))
+            lambda: calls.append(("facing",))
         )
         old_owner = getattr(
             popup.builtins,
@@ -257,7 +257,10 @@ class DeviceInfoPopupTests(unittest.TestCase):
 
         self.assertEqual(
             calls,
-            [([popup.DEVICE_SCENE_PANEL_ROOT_PATH], "poll")],
+            [
+                ([popup.DEVICE_SCENE_PANEL_ROOT_PATH], "poll"),
+                ("facing",),
+            ],
         )
 
     def test_clear_selection_gizmo_removes_default_selection_outline(self) -> None:
