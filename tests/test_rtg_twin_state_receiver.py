@@ -154,6 +154,23 @@ class TaskPositionTests(unittest.TestCase):
             )
         )
 
+    def test_container_selection_preserves_visible_device_panel(self) -> None:
+        self.driver._device_panel_selected = True
+        with patch.object(
+            receiver.OmniverseRtgTwinDriver,
+            "_viewport_selection_paths",
+            return_value=[
+                "/World/LiveContainers/YardInventory/Bay_4C_018/"
+                "R02_T03_Container/WeatheredTop"
+            ],
+        ):
+            self.assertTrue(self.driver._refresh_device_panel_selection("test"))
+        self.assertTrue(self.driver._device_panel_selected)
+        self.assertEqual(
+            self.driver._container_info_selected_root_path,
+            "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container",
+        )
+
     def test_task_panel_bay_map_draws_r6_to_r1_left_to_right(self) -> None:
         self.assertEqual(
             receiver.TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT,
@@ -307,6 +324,123 @@ class TaskPositionTests(unittest.TestCase):
             self.assertGreaterEqual(image.getpixel((80, 150))[3], 240)
             self.assertGreaterEqual(image.getpixel((90, 50))[3], 240)
 
+    def test_task_panel_route_indicator_supports_three_work_types(self) -> None:
+        common = {
+            "taskId": "27130485",
+            "bayMap": "144332",
+            "containerNo": "FFAU8892415",
+        }
+        cases = (
+            (receiver.WORK_TYPE_LOAD, "", "4C3051"),
+            (receiver.WORK_TYPE_UNLOAD, "4C3051", ""),
+            (receiver.WORK_TYPE_SWITCH, "4C3051", "4C3011"),
+        )
+        for work_type, start_pos, end_pos in cases:
+            task = {
+                **common,
+                "workType": work_type,
+                "startPos": start_pos,
+                "endPos": end_pos,
+            }
+            route = receiver._task_panel_route_map_points(
+                task,
+                map_left=568,
+                bottom=692,
+                cell_w=54,
+                cell_h=24,
+                gap=16,
+                lane_left=574,
+                lane_w=42,
+            )
+            self.assertIsNotNone(route)
+            self.assertEqual(route[2], work_type)
+
+    def test_task_panel_load_route_can_target_empty_bay_slot(self) -> None:
+        route = receiver._task_panel_route_map_points(
+            {
+                "workType": receiver.WORK_TYPE_LOAD,
+                "startPos": "4C0421",
+                "endPos": "4C0421",
+                "bayMap": "401332",
+            },
+            map_left=568,
+            bottom=692,
+            cell_w=54,
+            cell_h=24,
+            gap=16,
+            lane_left=574,
+            lane_w=42,
+        )
+        self.assertIsNotNone(route)
+        self.assertEqual(route[2], receiver.WORK_TYPE_LOAD)
+
+    def test_task_panel_route_polyline_uses_horizontal_and_vertical_segments(self) -> None:
+        route = ((100.0, 640.0), (940.0, 520.0), receiver.WORK_TYPE_SWITCH)
+        points = receiver._task_panel_route_polyline(route)
+        self.assertEqual(points[0], route[0])
+        self.assertEqual(points[-1], route[1])
+        for start, end in zip(points, points[1:]):
+            self.assertTrue(start[0] == end[0] or start[1] == end[1])
+
+    def test_container_routes_lift_before_horizontal_transfer_for_all_work_types(self) -> None:
+        common = {
+            "bayMap": "144332",
+            "startPos": "4C3051",
+            "endPos": "4C3011",
+        }
+        cases = (
+            (receiver.WORK_TYPE_LOAD, "", "4C3011"),
+            (receiver.WORK_TYPE_UNLOAD, "4C3051", ""),
+            (receiver.WORK_TYPE_SWITCH, "4C3051", "4C3011"),
+        )
+        for work_type, start_pos, end_pos in cases:
+            route = receiver._task_panel_route_map_points(
+                {
+                    **common,
+                    "workType": work_type,
+                    "startPos": start_pos,
+                    "endPos": end_pos,
+                },
+                map_left=568,
+                bottom=692,
+                cell_w=54,
+                cell_h=24,
+                gap=16,
+                lane_left=574,
+                lane_w=42,
+            )
+            self.assertIsNotNone(route)
+            points = receiver._task_panel_route_polyline(route)
+            self.assertEqual(len(points), 4)
+            self.assertEqual(points[0][0], points[1][0])
+            self.assertEqual(points[1][1], points[2][1])
+            self.assertEqual(points[2][0], points[3][0])
+            self.assertLess(points[1][1], points[0][1])
+
+    def test_task_panel_route_indicator_draws_static_dashed_arrow(self) -> None:
+        font_path = receiver._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        task = {
+            "taskId": "27130485",
+            "workType": receiver.WORK_TYPE_SWITCH,
+            "startPos": "4C3051",
+            "endPos": "4C3011",
+            "bayMap": "144332",
+        }
+        path = Path(tempfile.gettempdir()) / "smart_port_task_route_static.png"
+        self.assertTrue(
+            receiver._render_task_info_panel_bitmap(
+                task,
+                path,
+                route_phase=0.0,
+            )
+        )
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertIsNotNone(image.getchannel("A").getbbox())
+
     def test_floating_runinfo_wraps_long_text_to_three_lines(self) -> None:
         font_path = receiver._find_cjk_font_path()
         if font_path is None:
@@ -341,7 +475,7 @@ class TaskPositionTests(unittest.TestCase):
         self.assertGreater(receiver.RUNINFO_FLOATING_UP_Z_OFFSET_M, 0.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
-        self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 8)
+        self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 0)
         self.assertEqual(
             set(receiver.RUNINFO_LEVEL_STYLES),
             {
@@ -354,13 +488,31 @@ class TaskPositionTests(unittest.TestCase):
     def test_runinfo_time_text_uses_runinfo_timespan(self) -> None:
         self.assertEqual(
             receiver._runinfo_time_text({"timespan": "2026-08-04T15:30:45Z"}),
-            "2026-08-04 23:30:45",
+            "2026-08-04 15:30:45",
         )
 
     def test_runinfo_time_text_formats_unix_milliseconds(self) -> None:
         self.assertRegex(
             receiver._runinfo_time_text({"timespan": 1785857445000}),
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
+        )
+
+    def test_runinfo_message_persists_until_explicit_clear(self) -> None:
+        self.assertEqual(
+            self.driver._effective_runinfo_payload({"message": "作业完成"}),
+            {"message": "作业完成"},
+        )
+        self.assertEqual(
+            self.driver._effective_runinfo_payload({}),
+            {"message": "作业完成"},
+        )
+        self.assertEqual(
+            self.driver._effective_runinfo_payload(None),
+            {"message": "作业完成"},
+        )
+        self.assertEqual(
+            self.driver._effective_runinfo_payload({"message": ""}),
+            {},
         )
 
     def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
@@ -571,7 +723,7 @@ class TaskPositionTests(unittest.TestCase):
             receiver.REFERENCE_CONTAINER_VISUAL_HEIGHT_Z_M,
         )
         self.assertAlmostEqual(
-            receiver.TASK_PANEL_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
+            receiver.TASK_PANEL_BASE_WORLD_Z - receiver.TASK_PANEL_HEIGHT_M * 0.5,
             receiver.TASK_PANEL_ONE_TIER_VISUAL_HEIGHT_M,
         )
         self.assertAlmostEqual(
@@ -581,23 +733,25 @@ class TaskPositionTests(unittest.TestCase):
             + receiver.TASK_PANEL_CONTAINER_WIDTH_X_M,
         )
 
-    def test_device_location_panel_is_always_above_task_panel(self) -> None:
+    def test_panel_positions_put_device_left_and_swap_task_container(self) -> None:
         self.assertEqual(
             receiver.DEVICE_LOCATION_PANEL_ROOT_PATH,
             "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
         )
-        self.assertEqual(
-            receiver.DEVICE_LOCATION_PANEL_WORLD_X,
-            receiver.TASK_PANEL_WORLD_X,
+        self.assertLess(receiver.DEVICE_LOCATION_PANEL_WORLD_X, 12.0)
+        self.assertAlmostEqual(
+            receiver.CONTAINER_INFO_PANEL_WORLD_X,
+            receiver.TASK_PANEL_WORLD_X
+            - receiver.CONTAINER_INFO_PANEL_WIDTH_M * 0.7,
         )
+        self.assertAlmostEqual(
+            receiver.CONTAINER_INFO_PANEL_WORLD_Z,
+            receiver.TASK_PANEL_BASE_WORLD_Z - 0.8,
+        )
+        self.assertEqual(receiver.TASK_PANEL_WORLD_Z, receiver.DEVICE_LOCATION_PANEL_WORLD_Z)
         self.assertEqual(
             receiver.DEVICE_LOCATION_PANEL_Y_OFFSET_M,
             receiver.TASK_PANEL_Y_OFFSET_M,
-        )
-        self.assertGreater(
-            receiver.DEVICE_LOCATION_PANEL_WORLD_Z
-            - receiver.DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5,
-            receiver.TASK_PANEL_WORLD_Z + receiver.TASK_PANEL_HEIGHT_M * 0.5,
         )
         self.assertEqual(
             receiver.DEVICE_LOCATION_PANEL_ROTATE_XYZ,
@@ -661,6 +815,32 @@ class TaskPositionTests(unittest.TestCase):
                 ),
             )
             self.assertIsNotNone(image.getchannel("A").getbbox())
+
+    def test_device_location_refresh_key_ignores_motion_positions(self) -> None:
+        first = {
+            "Device": "RTG_220",
+            "Field": "4C",
+            "Bay": "021",
+            "Gantry": "10.00 m",
+            "Trolley": "2.00 m",
+            "Hoist": "3.00 m",
+        }
+        second = dict(first)
+        second.update(
+            {
+                "Gantry": "388.80 m",
+                "Trolley": "10.38 m",
+                "Hoist": "15.03 m",
+            }
+        )
+        self.assertEqual(
+            receiver._device_location_panel_value_key(first),
+            receiver._device_location_panel_value_key(second),
+        )
+        self.assertEqual(
+            set(receiver.DEVICE_LOCATION_PANEL_VALUE_Y),
+            {"Device", "Field", "Bay"},
+        )
 
     def test_device_location_panel_values_read_live_status(self) -> None:
         class Attr:
