@@ -283,6 +283,15 @@ INVENTORY_SYNC_READY = "READY"
 INVENTORY_SYNC_PENDING = "PENDING"
 INVENTORY_WARNING_INTERVAL_SECONDS = 5.0
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
+LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES = (
+    "TrailerMainFrame",
+    "TrailerDeck",
+    "TrailerLeftRail",
+    "TrailerRightRail",
+    "CabBody",
+    "CabWindshield",
+    "CabBumper",
+)
 # The live stack uses this box as the physical bay-centre reference whenever
 # the pattern contains it.  Every box in a stack shares the same bay Y centre,
 # so it represents the rendered 40 ft work line without relying on ground text.
@@ -3568,9 +3577,21 @@ class OmniverseRtgTwinDriver:
             alarmed=_as_int(pose.get("alarmStatus"), 0) != 0,
             vision_confirmed=bool(task.get("visionConfirmed", True)),
         )
-        transition = machine.update(plc, time.time())
-        self._set_operation_state_attr(stage, machine.state.value)
+        now = time.time()
+        transitions = []
+        transition = machine.update(plc, now)
         if transition is not None:
+            transitions.append(transition)
+            if (
+                transition.current is OperationState.GANTRY_TO_SOURCE
+                and machine.uses_truck
+                and machine._at_slot(plc, machine.task.source)
+            ):
+                immediate = machine.update(plc, now)
+                if immediate is not None:
+                    transitions.append(immediate)
+        self._set_operation_state_attr(stage, machine.state.value)
+        for transition in transitions:
             self._log(
                 "operation state "
                 f"{transition.previous.value} -> {transition.current.value}: "
@@ -3841,57 +3862,49 @@ class OmniverseRtgTwinDriver:
             ).Set(float(container_height_m))
             self._set_xform_translate(root, Gf.Vec3d(0.0, 0.0, PAD_TOP_Z_M))
 
-            self._create_task_cube(
+            steel = material(
                 stage,
-                f"{LIVE_TASK_TRUCK_PATH}/Trailer",
-                Gf.Vec3d(0.0, trailer_center_y, trailer_center_z),
-                Gf.Vec3f(TASK_TRUCK_TRAILER_WIDTH_X_M, trailer_length_y, 0.18),
-                Gf.Vec3f(0.28, 0.24, 0.18),
+                "TaskTruckSteel",
+                Gf.Vec3f(0.075, 0.070, 0.065),
             )
-            self._create_task_cube(
+            deck = material(
                 stage,
-                f"{LIVE_TASK_TRUCK_PATH}/Cab",
-                Gf.Vec3d(0.0, cab_center_y, 0.66),
-                Gf.Vec3f(1.65, 1.35, 0.78),
-                Gf.Vec3f(0.92, 0.90, 0.84),
+                "TaskTruckDeck",
+                Gf.Vec3f(0.30, 0.24, 0.16),
             )
-            self._create_task_cube(
+            cab_white = material(
                 stage,
-                f"{LIVE_TASK_TRUCK_PATH}/CabWindshield",
-                Gf.Vec3d(0.0, cab_center_y - 0.69, 0.83),
-                Gf.Vec3f(1.15, 0.05, 0.30),
+                "TaskTruckCabWhite",
+                Gf.Vec3f(0.90, 0.88, 0.80),
+            )
+            glass = material(
+                stage,
+                "TaskTruckGlass",
                 Gf.Vec3f(0.02, 0.04, 0.055),
             )
-            for index, (x, y) in enumerate(
-                (
-                    (
-                        -TASK_TRUCK_TRAILER_WHEEL_X_M,
-                        trailer_center_y - trailer_length_y * 0.36,
-                    ),
-                    (
-                        TASK_TRUCK_TRAILER_WHEEL_X_M,
-                        trailer_center_y - trailer_length_y * 0.36,
-                    ),
-                    (
-                        -TASK_TRUCK_TRAILER_WHEEL_X_M,
-                        trailer_center_y + trailer_length_y * 0.36,
-                    ),
-                    (
-                        TASK_TRUCK_TRAILER_WHEEL_X_M,
-                        trailer_center_y + trailer_length_y * 0.36,
-                    ),
-                    (-0.84, cab_center_y - 0.07),
-                    (0.84, cab_center_y - 0.07),
-                ),
-                start=1,
-            ):
-                self._create_task_cube(
-                    stage,
-                    f"{LIVE_TASK_TRUCK_PATH}/Wheel_{index:02d}",
-                    Gf.Vec3d(x, y, 0.22),
-                    Gf.Vec3f(0.30, 0.18, 0.34),
-                    Gf.Vec3f(0.015, 0.015, 0.013),
-                )
+            black = material(
+                stage,
+                "TaskTruckBlack",
+                Gf.Vec3f(0.015, 0.015, 0.013),
+            )
+            light = material(
+                stage,
+                "TaskTruckHeadlight",
+                Gf.Vec3f(1.0, 0.88, 0.42),
+            )
+            self._create_white_cab_task_truck_visual(
+                stage,
+                trailer_length_y=trailer_length_y,
+                trailer_center_y=trailer_center_y,
+                trailer_center_z=trailer_center_z,
+                cab_center_y=cab_center_y,
+                steel=steel,
+                deck=deck,
+                cab_white=cab_white,
+                glass=glass,
+                black=black,
+                light=light,
+            )
 
             truck_box_path = f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer"
             truck_box_scale = Gf.Vec3f(
@@ -4706,6 +4719,152 @@ class OmniverseRtgTwinDriver:
         for sibling in parent.GetChildren():
             if sibling.GetName().startswith(detail_prefix):
                 self._set_visibility(sibling, visible)
+
+    @staticmethod
+    def _create_white_cab_task_truck_visual(
+        stage: Any,
+        *,
+        trailer_length_y: float,
+        trailer_center_y: float,
+        trailer_center_z: float,
+        cab_center_y: float,
+        steel: Any,
+        deck: Any,
+        cab_white: Any,
+        glass: Any,
+        black: Any,
+        light: Any,
+    ) -> None:
+        from pxr import Gf
+
+        def cube(name: str, center: Any, scale: Any, mat: Any) -> None:
+            OmniverseRtgTwinDriver._create_task_material_cube(
+                stage,
+                f"{LIVE_TASK_TRUCK_PATH}/{name}",
+                center,
+                scale,
+                mat,
+            )
+
+        wheel_x = min(TASK_TRUCK_TRAILER_WHEEL_X_M, 0.88)
+        trailer_width_x = min(TASK_TRUCK_TRAILER_WIDTH_X_M, 1.28)
+        rail_x = trailer_width_x * 0.5 - 0.07
+        frame_z = trailer_center_z - 0.02
+        deck_z = trailer_center_z + 0.07
+
+        cube(
+            "TrailerMainFrame",
+            Gf.Vec3d(0.0, trailer_center_y, frame_z),
+            Gf.Vec3f(0.72, trailer_length_y, 0.12),
+            steel,
+        )
+        cube(
+            "TrailerDeck",
+            Gf.Vec3d(0.0, trailer_center_y, deck_z),
+            Gf.Vec3f(1.18, trailer_length_y, 0.04),
+            deck,
+        )
+        cube(
+            "TrailerLeftRail",
+            Gf.Vec3d(-rail_x, trailer_center_y, deck_z + 0.03),
+            Gf.Vec3f(0.07, trailer_length_y, 0.08),
+            steel,
+        )
+        cube(
+            "TrailerRightRail",
+            Gf.Vec3d(rail_x, trailer_center_y, deck_z + 0.03),
+            Gf.Vec3f(0.07, trailer_length_y, 0.08),
+            steel,
+        )
+        for index, offset in enumerate((-0.46, -0.23, 0.0, 0.23, 0.46), start=1):
+            cube(
+                f"TrailerCrossbar_{index:02d}",
+                Gf.Vec3d(
+                    0.0,
+                    trailer_center_y + trailer_length_y * offset,
+                    deck_z,
+                ),
+                Gf.Vec3f(1.22, 0.08, 0.08),
+                steel,
+            )
+
+        cube(
+            "CabBody",
+            Gf.Vec3d(0.0, cab_center_y, 0.70),
+            Gf.Vec3f(1.02, 1.00, 0.72),
+            cab_white,
+        )
+        cube(
+            "CabWindshield",
+            Gf.Vec3d(0.0, cab_center_y - 0.51, 0.88),
+            Gf.Vec3f(0.78, 0.035, 0.30),
+            glass,
+        )
+        cube(
+            "CabSideWindowLeft",
+            Gf.Vec3d(-0.53, cab_center_y - 0.12, 0.88),
+            Gf.Vec3f(0.035, 0.42, 0.24),
+            glass,
+        )
+        cube(
+            "CabSideWindowRight",
+            Gf.Vec3d(0.53, cab_center_y - 0.12, 0.88),
+            Gf.Vec3f(0.035, 0.42, 0.24),
+            glass,
+        )
+        cube(
+            "CabBumper",
+            Gf.Vec3d(0.0, cab_center_y - 0.55, 0.38),
+            Gf.Vec3f(1.05, 0.07, 0.12),
+            black,
+        )
+        for side_name, x in (("Left", -0.34), ("Right", 0.34)):
+            cube(
+                f"Headlight{side_name}",
+                Gf.Vec3d(x, cab_center_y - 0.60, 0.51),
+                Gf.Vec3f(0.14, 0.025, 0.08),
+                light,
+            )
+
+        wheel_y_positions = (
+            cab_center_y - 0.07,
+            trailer_center_y - trailer_length_y * 0.34,
+            trailer_center_y + trailer_length_y * 0.26,
+            trailer_center_y + trailer_length_y * 0.42,
+        )
+        for axle_index, wheel_y in enumerate(wheel_y_positions, start=1):
+            for side_name, x in (("L", -wheel_x), ("R", wheel_x)):
+                cube(
+                    f"Wheel_{axle_index}_{side_name}",
+                    Gf.Vec3d(x, wheel_y, 0.36),
+                    Gf.Vec3f(0.18, 0.44, 0.44),
+                    black,
+                )
+
+    @staticmethod
+    def _create_task_material_cube(
+        stage: Any,
+        path: str,
+        center: Any,
+        scale: Any,
+        mat: Any,
+    ) -> None:
+        from pxr import UsdGeom, UsdShade
+
+        cube = UsdGeom.Cube.Define(stage, path)
+        cube.CreateSizeAttr(1.0)
+        xform = UsdGeom.Xformable(cube.GetPrim())
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(center)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:scale",
+            xform.AddScaleOp,
+        ).Set(scale)
+        UsdShade.MaterialBindingAPI.Apply(cube.GetPrim()).Bind(mat)
 
     @staticmethod
     def _create_task_cube(

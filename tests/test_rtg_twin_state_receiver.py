@@ -587,6 +587,12 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
+    def test_live_task_truck_uses_white_cab_visual_parts(self) -> None:
+        self.assertIn("CabBody", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
+        self.assertIn("CabWindshield", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
+        self.assertIn("TrailerMainFrame", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
+        self.assertNotIn("Cab", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
+
     def test_demo_sequence_artifacts_are_disabled_without_touching_live_task_truck(self) -> None:
         class Prim:
             def __init__(self, path: str, parent: object = None) -> None:
@@ -1533,6 +1539,39 @@ class TaskFlowTests(unittest.TestCase):
                     "trolleyMeter": 3.70,
                     "hoistMeter": 14.70,
                     "lockState": 0,
+                    "alarmStatus": 0,
+                },
+            )
+
+        self.assertEqual(state, receiver.TASK_STATE_TRUCK_APPROACH)
+        self.assertEqual(driver._task_vehicle_started_at, 200.0)
+
+    def test_load_task_starts_truck_immediately_when_already_at_task_bay(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._set_operation_state_attr = lambda *_args: None
+        driver._set_task_flow_attr = lambda *_args: None
+        task = {
+            "taskId": "27155095",
+            "workType": "LOAD",
+            "startPos": "3C0551",
+            "endPos": "3C0551",
+            "containerSize": 0,
+            "bayMap": "244402",
+        }
+        key = driver._task_vehicle_key(task)
+
+        with patch.object(receiver.time, "time", return_value=200.0):
+            state = driver._advance_operation_flow(
+                object(),
+                key,
+                task,
+                {
+                    "currentField": "3C",
+                    "currentBay": 5,
+                    "trolleyMeter": 0.453,
+                    "hoistMeter": 15.026,
+                    "lockState": 0,
+                    "unlockState": 1,
                     "alarmStatus": 0,
                 },
             )
