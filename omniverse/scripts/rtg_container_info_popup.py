@@ -971,13 +971,12 @@ class RtgContainerInfoPopupService:
         if not root:
             return
         try:
-            from pxr import Gf, UsdGeom
+            from pxr import Gf, Usd, UsdGeom
 
             xform = UsdGeom.Xformable(root)
-            translate_op = existing_xform_op(xform, "xformOp:translate")
-            if translate_op is None:
+            translate = self._scene_panel_world_translate(stage, root)
+            if translate is None:
                 return
-            translate = translate_op.Get()
             rotate = Gf.Vec3f(
                 *camera_facing_rotate_xyz(
                     stage,
@@ -991,9 +990,36 @@ class RtgContainerInfoPopupService:
                 xform.AddRotateXYZOp,
             )
             rotate_op.Set(rotate)
-            xform.SetXformOpOrder([translate_op, rotate_op])
+            translate_op = existing_xform_op(xform, "xformOp:translate")
+            if translate_op is not None:
+                xform.SetXformOpOrder([translate_op, rotate_op])
         except Exception:
             return
+
+    @staticmethod
+    def _scene_panel_world_translate(stage: Any, root: Any) -> Any:
+        """Return the panel origin in world coordinates for billboard facing."""
+
+        try:
+            from pxr import Usd, UsdGeom
+
+            matrix = UsdGeom.XformCache(
+                Usd.TimeCode.Default()
+            ).GetLocalToWorldTransform(root)
+            for name in ("ExtractTranslation", "GetTranslation"):
+                method = getattr(matrix, name, None)
+                if callable(method):
+                    return method()
+        except Exception:
+            pass
+        try:
+            from pxr import UsdGeom
+
+            xform = UsdGeom.Xformable(root)
+            translate_op = existing_xform_op(xform, "xformOp:translate")
+            return translate_op.Get() if translate_op is not None else None
+        except Exception:
+            return None
 
     def _clear_selection_gizmo(self) -> None:
         try:

@@ -730,7 +730,11 @@ class RtgDeviceInfoPopupService:
             return
         self._last_update_poll_at = now
         self._handle_selected_paths(_selected_paths(), source="poll")
-        self._sync_visible_scene_panel_facing_camera()
+        # The live twin driver already updates this panel from the same camera
+        # sample used by the task-info panel. Keep a standalone fallback for
+        # running this popup script by itself, but avoid two writers in live mode.
+        if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is None:
+            self._sync_visible_scene_panel_facing_camera()
 
     def _handle_selected_paths(self, paths: List[str], source: str = "selection") -> None:
         if self._clearing_selection or self._normalizing_hud_selection:
@@ -942,8 +946,13 @@ class RtgDeviceInfoPopupService:
             xform.AddTranslateOp,
         ).Set(translate)
 
+        panel_position = self._world_translate(stage, root_prim) or translate
         rotate = Gf.Vec3f(
-            *camera_facing_rotate_xyz(stage, translate, DEVICE_SCENE_PANEL_ROTATE_XYZ)
+            *camera_facing_rotate_xyz(
+                stage,
+                panel_position,
+                DEVICE_SCENE_PANEL_ROTATE_XYZ,
+            )
         )
         get_or_add_xform_op(
             xform,
@@ -956,33 +965,61 @@ class RtgDeviceInfoPopupService:
         if stage is None:
             return
         try:
-            from pxr import Gf, UsdGeom
+            from pxr import Gf, Usd, UsdGeom
 
-            for root_path in DEVICE_SCENE_PANEL_ROOT_PATHS:
-                root = stage.GetPrimAtPath(root_path)
-                if not root:
-                    continue
-                xform = UsdGeom.Xformable(root)
-                translate_op = existing_xform_op(xform, "xformOp:translate")
-                if translate_op is None:
-                    continue
-                translate = translate_op.Get()
-                rotate = Gf.Vec3f(
-                    *camera_facing_rotate_xyz(
-                        stage,
-                        translate,
-                        DEVICE_SCENE_PANEL_ROTATE_XYZ,
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for root_path in DEVICE_SCENE_PANEL_ROOT_PATHS:
+                    root = stage.GetPrimAtPath(root_path)
+                    if not root:
+                        continue
+                    xform = UsdGeom.Xformable(root)
+                    translate_op = existing_xform_op(xform, "xformOp:translate")
+                    if translate_op is None:
+                        continue
+                    translate = self._world_translate(stage, root)
+                    if translate is None:
+                        continue
+                    rotate = Gf.Vec3f(
+                        *camera_facing_rotate_xyz(
+                            stage,
+                            translate,
+                            DEVICE_SCENE_PANEL_ROTATE_XYZ,
+                        )
                     )
-                )
-                rotate_op = get_or_add_xform_op(
-                    xform,
-                    "xformOp:rotateXYZ",
-                    xform.AddRotateXYZOp,
-                )
-                rotate_op.Set(rotate)
-                xform.SetXformOpOrder([translate_op, rotate_op])
+                    rotate_op = get_or_add_xform_op(
+                        xform,
+                        "xformOp:rotateXYZ",
+                        xform.AddRotateXYZOp,
+                    )
+                    rotate_op.Set(rotate)
+                    xform.SetXformOpOrder([translate_op, rotate_op])
         except Exception:
             return
+
+    @staticmethod
+    def _world_translate(stage: Any, root_prim: Any) -> Any:
+        """Return a panel's world-space origin, with a local-op fallback."""
+
+        try:
+            from pxr import Usd, UsdGeom
+
+            matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(
+                root_prim
+            )
+            for name in ("ExtractTranslation", "GetTranslation"):
+                method = getattr(matrix, name, None)
+                if callable(method):
+                    return method()
+        except Exception:
+            pass
+        try:
+            from pxr import UsdGeom
+
+            xform = UsdGeom.Xformable(root_prim)
+            translate_op = existing_xform_op(xform, "xformOp:translate")
+            return translate_op.Get() if translate_op is not None else None
+        except Exception:
+            return None
 
     def _clear_selection_gizmo(self) -> None:
         try:

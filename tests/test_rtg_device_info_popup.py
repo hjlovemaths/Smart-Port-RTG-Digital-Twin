@@ -245,7 +245,7 @@ class DeviceInfoPopupTests(unittest.TestCase):
             ],
         )
 
-    def test_device_service_keeps_facing_control_while_live_driver_runs(self) -> None:
+    def test_device_service_defers_facing_to_live_driver(self) -> None:
         service = popup.RtgDeviceInfoPopupService.__new__(
             popup.RtgDeviceInfoPopupService
         )
@@ -275,7 +275,6 @@ class DeviceInfoPopupTests(unittest.TestCase):
             calls,
             [
                 ([popup.DEVICE_SCENE_PANEL_ROOT_PATH], "poll"),
-                ("facing",),
             ],
         )
 
@@ -312,7 +311,19 @@ class DeviceInfoPopupTests(unittest.TestCase):
         stage = types.SimpleNamespace(GetPrimAtPath=lambda path: roots.get(path))
         fake_pxr = types.ModuleType("pxr")
         fake_pxr.Gf = types.SimpleNamespace(Vec3f=lambda *values: tuple(values))
+        class EditContext:
+            def __init__(self, *_args):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        fake_pxr.Usd = types.SimpleNamespace(EditContext=EditContext)
         fake_pxr.UsdGeom = types.SimpleNamespace(Xformable=lambda root: root)
+        stage.GetSessionLayer = lambda: object()
 
         old_current_stage = popup._current_stage
         old_existing_xform_op = popup.existing_xform_op

@@ -133,6 +133,7 @@ RUNINFO_FLOATING_ROOT_PATH = "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD"
 RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
 RUNINFO_FLOATING_ABOVE_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+PRIMARY_RTG_SELECTION_ROOT_PATH = RUNINFO_FLOATING_ABOVE_RTG_PATH
 RUNINFO_FLOATING_ABOVE_GAP_M = 1.2
 RUNINFO_FLOATING_RIGHT_X_OFFSET_M = 1.2
 RUNINFO_FLOATING_BACK_Y_OFFSET_M = 6.0
@@ -223,8 +224,34 @@ TASK_PANEL_UV_COORDS = (
     (0.0, 1.0),
 )
 TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
-LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 DEVICE_LOCATION_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
+DEVICE_LOCATION_PANEL_MESH_PATH = f"{DEVICE_LOCATION_PANEL_ROOT_PATH}/Panel"
+DEVICE_LOCATION_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Device_Location_Panel_Live"
+DEVICE_LOCATION_PANEL_IMAGE_WIDTH = 768
+DEVICE_LOCATION_PANEL_IMAGE_HEIGHT = 512
+DEVICE_LOCATION_PANEL_WIDTH_M = 6.24
+DEVICE_LOCATION_PANEL_HEIGHT_M = 4.16
+DEVICE_LOCATION_PANEL_GAP_M = 0.35
+DEVICE_LOCATION_PANEL_RENDER_INTERVAL_SECONDS = 0.5
+DEVICE_LOCATION_PANEL_WORLD_X = TASK_PANEL_WORLD_X
+DEVICE_LOCATION_PANEL_WORLD_Z = (
+    TASK_PANEL_WORLD_Z
+    + TASK_PANEL_HEIGHT_M * 0.5
+    + DEVICE_LOCATION_PANEL_GAP_M
+    + DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5
+)
+DEVICE_LOCATION_PANEL_Y_OFFSET_M = TASK_PANEL_Y_OFFSET_M
+DEVICE_LOCATION_PANEL_ROTATE_XYZ = TASK_PANEL_ROTATE_XYZ
+DEVICE_LOCATION_PANEL_UV_COORDS = TASK_PANEL_UV_COORDS
+DEVICE_LOCATION_PANEL_VALUE_Y = {
+    "Device": 132,
+    "Field": 196,
+    "Bay": 260,
+    "Gantry": 324,
+    "Trolley": 388,
+    "Hoist": 452,
+}
+LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
     "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT"
 )
@@ -336,6 +363,9 @@ TASK_VISUAL_STATES = frozenset(
 WORK_TYPE_LOAD = "LOAD"
 WORK_TYPE_UNLOAD = "UNLOAD"
 WORK_TYPE_SWITCH = "SWITCH"
+CONTAINER_WORK_TYPES = frozenset(
+    (WORK_TYPE_LOAD, WORK_TYPE_UNLOAD, WORK_TYPE_SWITCH)
+)
 
 TRUCK_APPROACH_SECONDS = 5.0
 TRUCK_SETTLE_SECONDS = 1.5
@@ -728,6 +758,28 @@ def _field_name(value: Any) -> Optional[str]:
     return text or None
 
 
+def _is_supported_yard_bay(field: Any, bay: Any) -> bool:
+    """Return whether a PLC field/bay identifies a real modelled yard bay."""
+
+    normalized_field = _field_name(field)
+    bay_number = _as_int(bay, 0)
+    if not normalized_field or bay_number <= 0:
+        return False
+    try:
+        from yard_coordinate_mapping import validate_bay
+
+        validate_bay(normalized_field, bay_number)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_container_work_task(task: Dict[str, Any]) -> bool:
+    """Return whether a task owns a box/stack/集卡 visual transaction."""
+
+    return _task_work_type(task) in CONTAINER_WORK_TYPES
+
+
 def _fmt_number(value: Any, digits: int = 2, suffix: str = "") -> str:
     number = _as_float(value)
     if number is None:
@@ -897,6 +949,22 @@ def _dismiss_legacy_runinfo_window() -> None:
 
 def _is_descendant_path(path: str, root_path: str) -> bool:
     return path == root_path or path.startswith(f"{root_path}/")
+
+
+def _selected_rtg_path() -> Optional[str]:
+    """Return the selected RTG prim, or None when the click is elsewhere."""
+
+    try:
+        import omni.usd  # type: ignore
+
+        selection = omni.usd.get_context().get_selection()
+        for raw_path in selection.get_selected_prim_paths():
+            path = str(raw_path)
+            if _is_descendant_path(path, PRIMARY_RTG_SELECTION_ROOT_PATH):
+                return path
+    except Exception:
+        return None
+    return None
 
 
 def _is_runinfo_cleanup_path(path: str, name: str) -> bool:
@@ -1316,6 +1384,138 @@ def _draw_fitted_text(
         draw.text(xy, value, fill=fill, font=font, anchor=anchor)
     else:
         draw.text(xy, value, fill=fill, font=font)
+
+
+def _read_status_value(stage: Any, name: str, default: Any = None) -> Any:
+    try:
+        status = stage.GetPrimAtPath(STATUS_PRIM_PATH)
+        if not status:
+            return default
+        attr = status.GetAttribute(name)
+        value = attr.Get() if attr else None
+        return default if value is None else value
+    except Exception:
+        return default
+
+
+def _device_location_panel_values(stage: Any) -> dict[str, str]:
+    """Return the live device values shown by the always-visible panel."""
+
+    return {
+        "Device": _fmt_text(_read_status_value(stage, "rtg:rtgName")),
+        "Field": _fmt_text(_read_status_value(stage, "rtg:currentField")),
+        "Bay": _fmt_int(_read_status_value(stage, "rtg:currentBay")),
+        "Gantry": _fmt_number(
+            _read_status_value(stage, "rtg:gantryMeter"),
+            2,
+            " m",
+        ),
+        "Trolley": _fmt_number(
+            _read_status_value(stage, "rtg:trolleyMeter"),
+            2,
+            " m",
+        ),
+        "Hoist": _fmt_number(
+            _read_status_value(stage, "rtg:hoistMeter"),
+            2,
+            " m",
+        ),
+    }
+
+
+def _render_device_location_panel_bitmap(
+    values: dict[str, str],
+    output_path: Path,
+) -> bool:
+    """Render the persistent device location panel with the task-panel flow."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        width = DEVICE_LOCATION_PANEL_IMAGE_WIDTH
+        height = DEVICE_LOCATION_PANEL_IMAGE_HEIGHT
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        panel_box = (1, 1, width - 2, height - 2)
+        glow_draw.rounded_rectangle(
+            panel_box,
+            radius=12,
+            fill=(82, 175, 216, 34),
+            outline=(128, 210, 236, 148),
+            width=4,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(10)))
+
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            panel_box,
+            radius=10,
+            fill=(10, 38, 58, 248),
+            outline=(130, 207, 232, 176),
+            width=2,
+        )
+        draw.line((14, 14, width - 15, 14), fill=(255, 156, 22, 232), width=4)
+        draw.rectangle(
+            (12, 12, width - 13, height - 13),
+            outline=(142, 219, 238, 50),
+        )
+        draw.polygon(
+            [(width - 68, height - 1), (width - 1, height - 68), (width - 1, height - 1)],
+            fill=(153, 206, 218, 112),
+        )
+        draw.rectangle((0, 0, width, 86), fill=(22, 68, 91, 250))
+
+        title_font = ImageFont.truetype(str(font_path), 38)
+        label_font = ImageFont.truetype(str(font_path), 28)
+        value_font = ImageFont.truetype(str(font_path), 31)
+        device_font = ImageFont.truetype(str(font_path), 42)
+        draw.text((36, 25), "设备定位", fill=(248, 252, 255, 255), font=title_font)
+
+        labels = {
+            "Device": "设备编号",
+            "Field": "当前堆场",
+            "Bay": "当前贝位",
+            "Gantry": "大车位置",
+            "Trolley": "小车位置",
+            "Hoist": "吊具高度",
+        }
+        for key, y in DEVICE_LOCATION_PANEL_VALUE_Y.items():
+            text = str(values.get(key) or "--")
+            font = device_font if key == "Device" else value_font
+            color = (
+                (88, 222, 248, 255)
+                if key == "Device"
+                else (246, 252, 255, 255)
+            )
+            draw.text(
+                (40, y - 18),
+                labels.get(key, key),
+                font=label_font,
+                fill=(198, 221, 232, 255),
+            )
+            max_width = 260 if key == "Device" else 220
+            while (
+                len(text) > 2
+                and draw.textbbox((0, 0), text, font=font)[2] > max_width
+            ):
+                text = text[:-2] + "..."
+            bbox = draw.textbbox((0, 0), text, font=font)
+            x = width - 44 - (bbox[2] - bbox[0])
+            draw.text(
+                (x, y - (bbox[3] - bbox[1]) // 2),
+                text,
+                font=font,
+                fill=color,
+            )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        return True
+    except Exception:
+        return False
 
 
 def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> bool:
@@ -2178,6 +2378,15 @@ class OmniverseRtgTwinDriver:
         self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
+        self._floating_device_panel_key: Optional[tuple[Any, ...]] = None
+        self._floating_device_panel_bitmap_seq = 0
+        self._last_device_panel_render_at = 0.0
+        self._pending_device_panel_key: Optional[tuple[Any, ...]] = None
+        self._pending_device_panel_since = 0.0
+        self._device_panel_selection_sub = None
+        self._device_panel_selected = False
+        self._device_panel_visible = False
+        self._device_panel_last_selection_signature: tuple[str, ...] = ()
         self._last_panel_facing_update_at = 0.0
         self._last_error_at = 0.0
 
@@ -2194,8 +2403,12 @@ class OmniverseRtgTwinDriver:
                 self._disable_demo_artifacts_for_stage(stage)
                 self._sync_user_side_view_camera(stage)
                 _remove_runinfo_billboards(stage, keep_current=False)
+                self._hide_floating_device_panel(stage)
+                self._device_panel_selected = _selected_rtg_path() is not None
                 self._sync_floating_runinfo_billboard(stage, {})
+                self._sync_floating_device_panel(stage, {})
                 self._sync_floating_task_panel(stage, {})
+            self._subscribe_device_panel_selection()
             if self._status_overlay is None:
                 self._status_overlay = RtgTwinStatusOverlay()
             stream = omni.kit.app.get_app().get_update_event_stream()
@@ -2208,6 +2421,13 @@ class OmniverseRtgTwinDriver:
             self._log(f"unable to start Omniverse update driver: {exc}")
 
     def stop(self) -> None:
+        selection_sub = self._device_panel_selection_sub
+        if selection_sub is not None:
+            try:
+                selection_sub.unsubscribe()
+            except Exception:
+                pass
+            self._device_panel_selection_sub = None
         subscription = self._subscription
         if subscription is not None:
             try:
@@ -2247,6 +2467,16 @@ class OmniverseRtgTwinDriver:
         self._floating_task_panel_key = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key = None
+        self._floating_device_panel_key = None
+        self._floating_device_panel_bitmap_seq = 0
+        self._last_device_panel_render_at = 0.0
+        self._pending_device_panel_key = None
+        self._pending_device_panel_since = 0.0
+        self._device_panel_selected = False
+        self._device_panel_visible = False
+        self._device_panel_last_selection_signature = ()
+        if stage is not None:
+            self._hide_floating_device_panel(stage)
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -2257,6 +2487,15 @@ class OmniverseRtgTwinDriver:
 
     def _on_update(self, _event: Any) -> None:
         self._sync_visible_panels_facing_camera_if_due()
+        if self._refresh_device_panel_selection("poll"):
+            stage = self._current_stage()
+            if stage is not None:
+                with self._latest_lock:
+                    pending_state = dict(self._latest_state or {})
+                self._sync_floating_device_panel(
+                    stage,
+                    dict(pending_state.get("task") or {}),
+                )
         with self._latest_lock:
             state = self._latest_state
             self._latest_state = None
@@ -2278,6 +2517,10 @@ class OmniverseRtgTwinDriver:
                         self._sync_floating_runinfo_billboard(
                             stage,
                             state.get("runinfo") or {},
+                        )
+                        self._sync_floating_device_panel(
+                            stage,
+                            state.get("task") or {},
                         )
                     except Exception as exc:  # noqa: BLE001 - keep manual control alive
                         self._log(f"runinfo panel update failed: {exc}")
@@ -2346,8 +2589,13 @@ class OmniverseRtgTwinDriver:
         # removed; every persistent inventory bay remains in the world.
         task_complete = _task_is_complete(task)
         if task_complete:
-            if self._settle_inventory_task(stage, task):
-                self._clear_completed_task_visuals(stage, task)
+            if _is_container_work_task(task):
+                if self._settle_inventory_task(stage, task):
+                    self._clear_completed_task_visuals(stage, task)
+            elif task:
+                # BAYCHANGE and other equipment-only tasks do not own a
+                # container transaction, but must still release stale visuals.
+                self._discard_task_visuals(stage, remove_stack=True)
         else:
             self._cleared_completed_task_key = None
             # Create the physical stack before positioning the RTG so the
@@ -2358,7 +2606,12 @@ class OmniverseRtgTwinDriver:
 
         # Prefer PLC field/bay because it matches yard occupation.  If PLC has
         # not published a bay yet, fall back to continuous gantry metres.
-        if field and bay > 0 and not task_is_gantry_traveling:
+        if (
+            field
+            and bay > 0
+            and _is_supported_yard_bay(field, bay)
+            and not task_is_gantry_traveling
+        ):
             applied_gantry_m = controller.set_gantry_bay(
                 field,
                 bay,
@@ -2420,6 +2673,7 @@ class OmniverseRtgTwinDriver:
             # discard the disposable task visuals exactly once.
             if (
                 task
+                and _is_container_work_task(task)
                 and self._operation_state_machine is not None
                 and self._operation_state_machine.state is OperationState.COMPLETE
             ):
@@ -2647,8 +2901,10 @@ class OmniverseRtgTwinDriver:
             try:
                 bay_map = str(task.get("bayMap") or "").strip()
                 has_authoritative_bay_map = bool(re.fullmatch(r"\d{6}", bay_map))
+                is_container_task = _is_container_work_task(task)
                 if (
-                    self._inventory_mode == INVENTORY_MODE_LIVE
+                    is_container_task
+                    and self._inventory_mode == INVENTORY_MODE_LIVE
                     and not self._inventory_full_sync_ready
                     and not has_authoritative_bay_map
                 ):
@@ -4929,6 +5185,25 @@ class OmniverseRtgTwinDriver:
         op = _billboard_utils.existing_xform_op(xform, "xformOp:translate")
         return op.Get() if op is not None else None
 
+    def _get_xform_world_translate(self, stage: Any, prim: Any) -> Any:
+        """Return an info panel origin in world space for camera-facing math."""
+
+        if not prim:
+            return None
+        try:
+            from pxr import Gf, Usd, UsdGeom
+
+            matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(
+                prim
+            )
+            for name in ("ExtractTranslation", "GetTranslation"):
+                method = getattr(matrix, name, None)
+                if callable(method):
+                    return method()
+            return matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+        except Exception:
+            return self._get_xform_translate(prim)
+
     @staticmethod
     def _get_xform_scale(prim: Any) -> Any:
         if not prim:
@@ -5455,6 +5730,308 @@ class OmniverseRtgTwinDriver:
         self._sync_visible_task_panel_facing_camera(stage, camera_position)
         self._sync_visible_live_info_panels_facing_camera(stage, camera_position)
 
+    def _device_panel_bay_center_y(
+        self,
+        stage: Any,
+        task: Dict[str, Any],
+    ) -> float:
+        stack_key = self._task_stack_key(task) if task else None
+        if stack_key is not None:
+            block, bay_number, _pattern, container_size_ft = stack_key
+            try:
+                from build_live_containers import container_center_y_for_bay
+
+                return float(
+                    container_center_y_for_bay(
+                        block,
+                        bay_number,
+                        container_size_ft,
+                    )
+                )
+            except Exception:
+                pass
+
+        field = _field_name(_read_status_value(stage, "rtg:currentField")) or "4C"
+        bay_number = _as_int(_read_status_value(stage, "rtg:currentBay"), 0)
+        if not _is_supported_yard_bay(field, bay_number):
+            return 0.0
+        try:
+            from build_live_containers import container_center_y_for_bay
+
+            size_ft = 40 if bay_number % 2 == 0 else 20
+            return float(container_center_y_for_bay(field, bay_number, size_ft))
+        except Exception:
+            return 0.0
+
+    def _subscribe_device_panel_selection(self) -> None:
+        """Track RTG selection changes without rebuilding the panel per frame."""
+
+        try:
+            import omni.usd  # type: ignore
+
+            stream = omni.usd.get_context().get_selection().get_changed_event_stream()
+            self._device_panel_selection_sub = stream.create_subscription_to_pop(
+                self._on_device_panel_selection_changed,
+                name="SmartPortRtgDevicePanelSelection",
+            )
+            self._log("device panel selection subscription active")
+        except Exception as exc:  # noqa: BLE001 - selection is optional in tests
+            self._device_panel_selection_sub = None
+            self._log(f"device panel selection subscription unavailable: {exc}")
+
+    @staticmethod
+    def _viewport_selection_paths() -> list[str]:
+        try:
+            import omni.usd  # type: ignore
+
+            return [
+                str(path)
+                for path in (
+                omni.usd.get_context()
+                .get_selection()
+                .get_selected_prim_paths()
+                )
+            ]
+        except Exception:
+            return []
+
+    def _refresh_device_panel_selection(self, source: str) -> bool:
+        paths = self._viewport_selection_paths()
+        signature = tuple(paths)
+        if signature == self._device_panel_last_selection_signature:
+            return False
+        self._device_panel_last_selection_signature = signature
+        self._device_panel_selected = any(
+            _is_descendant_path(path, PRIMARY_RTG_SELECTION_ROOT_PATH)
+            for path in paths
+        )
+        self._log(
+            "device panel selection changed "
+            f"source={source} matched={self._device_panel_selected} "
+            f"paths={list(paths)}"
+        )
+        return True
+
+    def _on_device_panel_selection_changed(self, *_args: Any) -> None:
+        """Show or hide immediately when the viewport selection changes."""
+
+        if not self._refresh_device_panel_selection("event"):
+            return
+
+        stage = self._current_stage()
+        if stage is None:
+            self._log("device panel selection changed but stage is unavailable")
+            return
+        if not self._device_panel_selected:
+            self._log("device panel action=hide reason=non_rtg_selection")
+            if self._device_panel_visible:
+                self._hide_floating_device_panel(stage)
+                self._device_panel_visible = False
+            return
+
+        self._log("device panel action=show reason=rtg_selection")
+        with self._latest_lock:
+            state = dict(self._latest_state or {})
+        self._sync_floating_device_panel(stage, dict(state.get("task") or {}))
+
+    def _sync_floating_device_panel(
+        self,
+        stage: Any,
+        task: Dict[str, Any],
+    ) -> None:
+        """Show device location only while an RTG prim is selected."""
+
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        if not self._device_panel_selected:
+            if self._device_panel_visible:
+                self._hide_floating_device_panel(stage)
+                self._device_panel_visible = False
+            return
+
+        values = _device_location_panel_values(stage)
+        bay_center_y = self._device_panel_bay_center_y(stage, task)
+        panel_key = (
+            tuple(values.items()),
+            round(bay_center_y, 5),
+        )
+        now = time.monotonic()
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            mesh_exists = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_MESH_PATH)
+            if mesh_exists and panel_key == self._floating_device_panel_key:
+                self._pending_device_panel_key = None
+                self._pending_device_panel_since = 0.0
+                root = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeVisible()
+                    self._device_panel_visible = True
+                    self._sync_floating_device_panel_pose(
+                        stage,
+                        root,
+                        bay_center_y,
+                    )
+                return
+
+            if mesh_exists and self._floating_device_panel_key is not None:
+                if self._pending_device_panel_key != panel_key:
+                    self._pending_device_panel_key = panel_key
+                    self._pending_device_panel_since = now
+                elif (
+                    now - self._pending_device_panel_since
+                    < DEVICE_LOCATION_PANEL_RENDER_INTERVAL_SECONDS
+                ):
+                    root = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_ROOT_PATH)
+                    if root:
+                        UsdGeom.Imageable(root).MakeVisible()
+                        self._device_panel_visible = True
+                        self._sync_floating_device_panel_pose(
+                            stage,
+                            root,
+                            bay_center_y,
+                        )
+                    return
+
+            self._floating_device_panel_bitmap_seq += 1
+            texture_path = (
+                Path(tempfile.gettempdir())
+                / f"smart_port_rtg_device_location_{os.getpid()}_{self._floating_device_panel_bitmap_seq}.png"
+            )
+            if not _render_device_location_panel_bitmap(values, texture_path):
+                self._log("device location panel bitmap render failed")
+                return
+
+            self._floating_device_panel_key = panel_key
+            self._last_device_panel_render_at = now
+            self._pending_device_panel_key = None
+            self._pending_device_panel_since = 0.0
+            root = UsdGeom.Xform.Define(stage, DEVICE_LOCATION_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._device_panel_visible = True
+            self._sync_floating_device_panel_pose(
+                stage,
+                root_prim,
+                bay_center_y,
+            )
+
+            panel = UsdGeom.Mesh.Define(stage, DEVICE_LOCATION_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = DEVICE_LOCATION_PANEL_WIDTH_M * 0.5
+            half_h = DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in DEVICE_LOCATION_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute(
+                "rtg:deviceLocationTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(
+                stage,
+                DEVICE_LOCATION_PANEL_MATERIAL_PATH,
+            )
+            shader = UsdShade.Shader.Define(
+                stage,
+                f"{DEVICE_LOCATION_PANEL_MATERIAL_PATH}/PreviewSurface",
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+            texture = UsdShade.Shader.Define(
+                stage,
+                f"{DEVICE_LOCATION_PANEL_MATERIAL_PATH}/Texture",
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage,
+                f"{DEVICE_LOCATION_PANEL_MATERIAL_PATH}/Primvar_st",
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(),
+                "result",
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(),
+                "rgb",
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(),
+                "a",
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(),
+                "surface",
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+    def _sync_floating_device_panel_pose(
+        self,
+        stage: Any,
+        root_prim: Any,
+        bay_center_y: float,
+    ) -> None:
+        from pxr import Gf
+
+        translate = Gf.Vec3d(
+            DEVICE_LOCATION_PANEL_WORLD_X,
+            bay_center_y + DEVICE_LOCATION_PANEL_Y_OFFSET_M,
+            DEVICE_LOCATION_PANEL_WORLD_Z,
+        )
+        self._set_xform_translate(root_prim, translate)
+        rotate = camera_facing_rotate_xyz(
+            stage,
+            translate,
+            DEVICE_LOCATION_PANEL_ROTATE_XYZ,
+        )
+        self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+
+    @staticmethod
+    def _hide_floating_device_panel(stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                current_root = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_ROOT_PATH)
+                if current_root:
+                    UsdGeom.Imageable(current_root).MakeInvisible()
+
+                # The old click-to-open service created a second panel on the
+                # right.  Hiding it is not enough: its stale mesh/material can
+                # be made visible again by a cached service after hot reload.
+                legacy_root = stage.GetPrimAtPath(
+                    DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH
+                )
+                if legacy_root:
+                    stage.RemovePrim(legacy_root.GetPath())
+        except Exception:
+            return
+
     def _sync_floating_task_panel(self, stage: Any, task: Dict[str, Any]) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
@@ -5472,15 +6049,23 @@ class OmniverseRtgTwinDriver:
 
         stack_key = self._task_stack_key(task)
         if stack_key is None:
-            self._log_task_panel_status(
-                "hidden_invalid_task",
-                "task panel hidden: task has no valid bayMap/position "
-                f"task={task.get('taskId') or '--'} "
-                f"work={task.get('workType') or task.get('taskType') or '--'} "
-                f"start={task.get('startPos') or task.get('sourcePos') or '--'} "
-                f"end={task.get('endPos') or task.get('targetPos') or '--'} "
-                f"bayMap={task.get('bayMap') or '--'}",
-            )
+            work_type = _task_work_type(task)
+            if work_type not in CONTAINER_WORK_TYPES:
+                self._log_task_panel_status(
+                    "hidden_non_container_task",
+                    "task panel hidden: non-container task "
+                    f"work={work_type or '--'} task={task.get('taskId') or '--'}",
+                )
+            else:
+                self._log_task_panel_status(
+                    "hidden_invalid_task",
+                    "task panel hidden: task has no valid bayMap/position "
+                    f"task={task.get('taskId') or '--'} "
+                    f"work={task.get('workType') or task.get('taskType') or '--'} "
+                    f"start={task.get('startPos') or task.get('sourcePos') or '--'} "
+                    f"end={task.get('endPos') or task.get('targetPos') or '--'} "
+                    f"bayMap={task.get('bayMap') or '--'}",
+                )
             with Usd.EditContext(stage, stage.GetSessionLayer()):
                 root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
                 if root:
@@ -5656,7 +6241,7 @@ class OmniverseRtgTwinDriver:
         root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
         if not root:
             return
-        translate = self._get_xform_translate(root)
+        translate = self._get_xform_world_translate(stage, root)
         if translate is None:
             return
         try:
@@ -5694,7 +6279,7 @@ class OmniverseRtgTwinDriver:
             root = stage.GetPrimAtPath(root_path)
             if not root:
                 continue
-            translate = self._get_xform_translate(root)
+            translate = self._get_xform_world_translate(stage, root)
             if translate is None:
                 continue
             try:
@@ -5975,6 +6560,7 @@ class OmniverseRtgTwinDriver:
                 runinfo.get("message"),
             )
             self._sync_floating_runinfo_billboard(stage, runinfo)
+            self._sync_floating_device_panel(stage, task)
             self._sync_floating_task_panel(stage, task)
             self._set_attr(
                 prim, "rtg:lastAppliedUnix", Sdf.ValueTypeNames.Double, time.time()
@@ -5997,11 +6583,51 @@ _receiver: Optional[RtgTwinStateReceiver] = None
 _driver: Optional[OmniverseRtgTwinDriver] = None
 
 
+def _stop_legacy_device_info_popup() -> None:
+    """Disable all old click-to-open device panel services."""
+
+    for module_name, stopper_names in (
+        (
+            "rtg_device_info_popup",
+            ("stop_rtg_device_info_popup", "stop_rtg_device_location_panel"),
+        ),
+        (
+            "rtg_device_location_panel",
+            ("stop_rtg_device_location_panel", "stop_rtg_device_info_popup"),
+        ),
+    ):
+        try:
+            module = importlib.import_module(module_name)
+            for stopper_name in stopper_names:
+                stopper = getattr(module, stopper_name, None)
+                if callable(stopper):
+                    stopper()
+                    break
+        except Exception as exc:  # noqa: BLE001 - legacy cleanup is best-effort
+            print(
+                "[RTG Twin Driver] unable to disable legacy device popup "
+                f"module={module_name}: {exc}"
+            )
+
+    # A previous Script Editor execution may have left a service object in
+    # builtins even when its source module is no longer importable.
+    for service_name in (
+        "_rtg_device_location_panel_service",
+        "_rtg_device_info_popup_service",
+    ):
+        previous = getattr(builtins, service_name, None)
+        if previous is not None:
+            try:
+                previous.stop()
+            except Exception:
+                pass
+        setattr(builtins, service_name, None)
+
+
 def _start_live_info_popups() -> None:
-    """Enable click-to-inspect live RTG and container HUD popups."""
+    """Enable the remaining click-to-inspect container HUD popup."""
 
     for module_name, starter_name in (
-        ("rtg_device_info_popup", "start_rtg_device_info_popup"),
         ("rtg_container_info_popup", "start_rtg_container_info_popup"),
     ):
         try:
@@ -6015,18 +6641,19 @@ def _start_live_info_popups() -> None:
 
 
 def _stop_live_info_popups() -> None:
-    """Stop click-to-inspect live UI services when live mode is stopped."""
+    """Stop the remaining click-to-inspect live UI service."""
 
-    for module_name, stopper_name in (
-        ("rtg_container_info_popup", "stop_rtg_container_info_popup"),
-        ("rtg_device_info_popup", "stop_rtg_device_info_popup"),
-    ):
+    for module_name, stopper_name in ((
+        "rtg_container_info_popup",
+        "stop_rtg_container_info_popup",
+    ),):
         try:
             module = importlib.import_module(module_name)
             stopper = getattr(module, stopper_name)
             stopper()
         except Exception as exc:  # noqa: BLE001 - shutdown should be best-effort
             print(f"[RTG Twin Driver] unable to stop {module_name}: {exc}")
+    _stop_legacy_device_info_popup()
 
 
 def _enable_live_viewport_selection() -> None:
@@ -6123,7 +6750,16 @@ def start_live_driver(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> Rtg
     """Start receiver and apply incoming states to the primary RTG."""
     global _driver
     if _driver is not None:
-        _driver.stop()
+        previous_driver = _driver
+        try:
+            previous_driver.stop()
+        except Exception as exc:  # noqa: BLE001 - hot reload cleanup must continue
+            print(f"[RTG Twin Driver] previous driver stop failed: {exc}")
+        finally:
+            _driver = None
+    # The persistent device panel owns the old popup's USD path, so clear the
+    # legacy service before the driver creates the replacement panel.
+    _stop_legacy_device_info_popup()
     _driver = OmniverseRtgTwinDriver(inventory_mode=INVENTORY_MODE_LIVE)
     _driver.start()
     _enable_live_viewport_selection()
@@ -6143,8 +6779,13 @@ def stop_live_driver() -> None:
     stop_receiver()
     _stop_live_info_popups()
     if _driver is not None:
-        _driver.stop()
-        _driver = None
+        driver = _driver
+        try:
+            driver.stop()
+        except Exception as exc:  # noqa: BLE001 - shutdown must clear stale driver
+            print(f"[RTG Twin Driver] driver stop failed: {exc}")
+        finally:
+            _driver = None
     cleanup_runinfo_billboards()
 
 

@@ -160,7 +160,10 @@ def _runinfo_description_value(content: Dict[str, Any]) -> Optional[str]:
 
 
 def _runinfo_state_value(content: Dict[str, Any]) -> int:
-    return int_value(content.get("run_state"), 0)
+    for key in ("run_state", "runState", "msg_type", "msgType"):
+        if key in content:
+            return int_value(content.get(key), 0)
+    return 0
 
 
 def _runinfo_timespan_value(content: Dict[str, Any]) -> Optional[str]:
@@ -276,8 +279,6 @@ class TwinStateCache:
         if not desc:
             return
         run_state = _runinfo_state_value(content)
-        if run_state <= 0:
-            return
         timespan = _runinfo_timespan_value(content)
         with self._lock:
             is_new = (

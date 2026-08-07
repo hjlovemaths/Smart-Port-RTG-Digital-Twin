@@ -565,6 +565,100 @@ class TaskPositionTests(unittest.TestCase):
             + receiver.TASK_PANEL_CONTAINER_WIDTH_X_M,
         )
 
+    def test_device_location_panel_is_always_above_task_panel(self) -> None:
+        self.assertEqual(
+            receiver.DEVICE_LOCATION_PANEL_ROOT_PATH,
+            "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
+        )
+        self.assertEqual(
+            receiver.DEVICE_LOCATION_PANEL_WORLD_X,
+            receiver.TASK_PANEL_WORLD_X,
+        )
+        self.assertEqual(
+            receiver.DEVICE_LOCATION_PANEL_Y_OFFSET_M,
+            receiver.TASK_PANEL_Y_OFFSET_M,
+        )
+        self.assertGreater(
+            receiver.DEVICE_LOCATION_PANEL_WORLD_Z
+            - receiver.DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5,
+            receiver.TASK_PANEL_WORLD_Z + receiver.TASK_PANEL_HEIGHT_M * 0.5,
+        )
+        self.assertEqual(
+            receiver.DEVICE_LOCATION_PANEL_ROTATE_XYZ,
+            receiver.TASK_PANEL_ROTATE_XYZ,
+        )
+
+    def test_device_location_panel_renderer_draws_live_device_values(self) -> None:
+        font_path = receiver._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_device_location_test.png"
+        rendered = receiver._render_device_location_panel_bitmap(
+            {
+                "Device": "RTG_220",
+                "Field": "4C",
+                "Bay": "031",
+                "Gantry": "165.23 m",
+                "Trolley": "12.35 m",
+                "Hoist": "8.00 m",
+            },
+            path,
+        )
+        self.assertTrue(rendered)
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertEqual(
+                image.size,
+                (
+                    receiver.DEVICE_LOCATION_PANEL_IMAGE_WIDTH,
+                    receiver.DEVICE_LOCATION_PANEL_IMAGE_HEIGHT,
+                ),
+            )
+            self.assertIsNotNone(image.getchannel("A").getbbox())
+
+    def test_device_location_panel_values_read_live_status(self) -> None:
+        class Attr:
+            def __init__(self, value):
+                self.value = value
+
+            def Get(self):
+                return self.value
+
+        class Prim:
+            def __init__(self, values):
+                self.values = values
+
+            def GetAttribute(self, name):
+                return Attr(self.values[name]) if name in self.values else None
+
+        status = Prim(
+            {
+                "rtg:rtgName": "RTG_220",
+                "rtg:currentField": "4C",
+                "rtg:currentBay": 31,
+                "rtg:gantryMeter": 165.234,
+                "rtg:trolleyMeter": 12.35,
+                "rtg:hoistMeter": 8.0,
+            }
+        )
+        stage = types.SimpleNamespace(
+            GetPrimAtPath=lambda path: status
+            if path == receiver.STATUS_PRIM_PATH
+            else None
+        )
+        self.assertEqual(
+            receiver._device_location_panel_values(stage),
+            {
+                "Device": "RTG_220",
+                "Field": "4C",
+                "Bay": "31",
+                "Gantry": "165.23 m",
+                "Trolley": "12.35 m",
+                "Hoist": "8.00 m",
+            },
+        )
+
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
         self.assertEqual(
             receiver.USER_SIDE_VIEW_CAMERA_PATH,
@@ -575,6 +669,67 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(
             receiver.USER_SIDE_VIEW_CAMERA_ROTATE_YXZ,
             (-181.93245, 520.10876, -543.2226),
+        )
+
+
+class LivePoseValidationTests(unittest.TestCase):
+    def test_non_yard_plc_field_or_bay_is_rejected(self) -> None:
+        self.assertFalse(receiver._is_supported_yard_bay("CR", 1))
+        self.assertFalse(receiver._is_supported_yard_bay("4C", 91))
+        self.assertTrue(receiver._is_supported_yard_bay("4C", 41))
+
+    def test_invalid_plc_field_and_bay_fall_back_to_continuous_gantry_distance(self) -> None:
+        class Controller:
+            @staticmethod
+            def current_spreader_size_ft():
+                return 40.0
+
+            @staticmethod
+            def set_gantry_safe(value):
+                return value
+
+            @staticmethod
+            def set_trolley_safe(value):
+                return value
+
+            @staticmethod
+            def set_hoist_safe(value, carried_load=False):
+                return value
+
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._current_stage = lambda: object()
+        driver._disable_demo_artifacts_for_stage = lambda _stage: None
+        driver._sync_inventory_scene = lambda _stage: None
+        driver._controller_for_stage = lambda _stage: Controller()
+        driver._sync_spreader_size_for_task = lambda _controller, _task: (40.0, None)
+        driver._sync_task_stack = lambda _stage, _task: False
+        driver._sync_task_route_indicator = lambda _stage, _task: None
+        driver._sync_task_vehicle = lambda *_args: None
+        driver._sync_task_switch = lambda *_args: None
+        driver._write_status = lambda *_args: None
+        driver._sync_status_overlay = lambda *_args: None
+
+        applied = driver.apply_state(
+            {
+                "pose": {
+                    "currentField": "CR",
+                    "currentBay": 91,
+                    "bigcarElecDistance": 12.5,
+                    "trolleyMeter": 1.0,
+                    "hoistMeter": 2.0,
+                },
+                "task": {},
+            }
+        )
+
+        self.assertEqual(applied["gantryMeter"], 12.5)
+        self.assertEqual(applied["gantrySource"], "bigcarElecDistance")
+
+    def test_baychange_is_not_a_container_work_task(self) -> None:
+        self.assertFalse(
+            receiver._is_container_work_task(
+                {"taskId": "27167922", "workType": "BAYCHANGE"}
+            )
         )
 
 
