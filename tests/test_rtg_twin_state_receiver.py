@@ -138,6 +138,22 @@ class TaskPositionTests(unittest.TestCase):
             (("slot", 5, 2), ("slot", 1, 2)),
         )
 
+    def test_container_selection_normalizes_detail_prim_to_box_root(self) -> None:
+        self.assertEqual(
+            receiver._container_root_path_from_selection(
+                "/World/LiveContainers/YardInventory/Bay_4C_018/"
+                "R02_T03_Container/WeatheredTop"
+            ),
+            "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container",
+        )
+
+    def test_rtg_selection_is_not_treated_as_container_selection(self) -> None:
+        self.assertIsNone(
+            receiver._container_root_path_from_selection(
+                "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/Body"
+            )
+        )
+
     def test_task_panel_bay_map_draws_r6_to_r1_left_to_right(self) -> None:
         self.assertEqual(
             receiver.TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT,
@@ -601,6 +617,35 @@ class TaskPositionTests(unittest.TestCase):
                 "Gantry": "165.23 m",
                 "Trolley": "12.35 m",
                 "Hoist": "8.00 m",
+            },
+            path,
+        )
+        self.assertTrue(rendered)
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as image:
+            self.assertEqual(
+                image.size,
+                (
+                    receiver.DEVICE_LOCATION_PANEL_IMAGE_WIDTH,
+                    receiver.DEVICE_LOCATION_PANEL_IMAGE_HEIGHT,
+                ),
+            )
+            self.assertIsNotNone(image.getchannel("A").getbbox())
+
+    def test_device_location_values_overlay_contains_visible_pixels(self) -> None:
+        font_path = receiver._find_cjk_font_path()
+        if font_path is None:
+            self.skipTest("CJK font unavailable")
+        path = Path(tempfile.gettempdir()) / "smart_port_rtg_device_values_overlay_test.png"
+        rendered = receiver._render_device_location_values_bitmap(
+            {
+                "Device": "RTG_220",
+                "Field": "4C",
+                "Bay": "021",
+                "Gantry": "76.04 m",
+                "Trolley": "3.00 m",
+                "Hoist": "14.14 m",
             },
             path,
         )

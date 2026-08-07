@@ -227,11 +227,14 @@ TASK_PANEL_DIAGNOSTIC_LOG_ENABLED = True
 DEVICE_LOCATION_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL"
 DEVICE_LOCATION_PANEL_MESH_PATH = f"{DEVICE_LOCATION_PANEL_ROOT_PATH}/Panel"
 DEVICE_LOCATION_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Device_Location_Panel_Live"
-DEVICE_LOCATION_PANEL_IMAGE_WIDTH = 768
-DEVICE_LOCATION_PANEL_IMAGE_HEIGHT = 512
-DEVICE_LOCATION_PANEL_WIDTH_M = 6.24
-DEVICE_LOCATION_PANEL_HEIGHT_M = 4.16
+DEVICE_LOCATION_PANEL_VALUES_MESH_PATH = f"{DEVICE_LOCATION_PANEL_ROOT_PATH}/Values"
+DEVICE_LOCATION_PANEL_VALUES_MATERIAL_PATH = "/World/Looks/RTG_Device_Location_Panel_Values_Live"
+DEVICE_LOCATION_PANEL_IMAGE_WIDTH = 1024
+DEVICE_LOCATION_PANEL_IMAGE_HEIGHT = 768
+DEVICE_LOCATION_PANEL_WIDTH_M = TASK_PANEL_WIDTH_M
+DEVICE_LOCATION_PANEL_HEIGHT_M = TASK_PANEL_HEIGHT_M
 DEVICE_LOCATION_PANEL_GAP_M = 0.35
+DEVICE_LOCATION_PANEL_VERTICAL_LIFT_M = DEVICE_LOCATION_PANEL_WIDTH_M / 5.0
 DEVICE_LOCATION_PANEL_RENDER_INTERVAL_SECONDS = 0.5
 DEVICE_LOCATION_PANEL_WORLD_X = TASK_PANEL_WORLD_X
 DEVICE_LOCATION_PANEL_WORLD_Z = (
@@ -239,6 +242,7 @@ DEVICE_LOCATION_PANEL_WORLD_Z = (
     + TASK_PANEL_HEIGHT_M * 0.5
     + DEVICE_LOCATION_PANEL_GAP_M
     + DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5
+    + DEVICE_LOCATION_PANEL_VERTICAL_LIFT_M
 )
 DEVICE_LOCATION_PANEL_Y_OFFSET_M = TASK_PANEL_Y_OFFSET_M
 DEVICE_LOCATION_PANEL_ROTATE_XYZ = TASK_PANEL_ROTATE_XYZ
@@ -256,6 +260,36 @@ DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
     "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT"
 )
 CONTAINER_INFO_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
+CONTAINER_INFO_PANEL_MESH_PATH = f"{CONTAINER_INFO_PANEL_ROOT_PATH}/Panel"
+CONTAINER_INFO_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Container_Info_Panel_Live"
+CONTAINER_INFO_PANEL_IMAGE_WIDTH = 320
+CONTAINER_INFO_PANEL_IMAGE_HEIGHT = 380
+CONTAINER_INFO_PANEL_WIDTH_M = 4.4
+CONTAINER_INFO_PANEL_HEIGHT_M = 5.2
+CONTAINER_INFO_PANEL_Y_OFFSET_M = -1.8
+CONTAINER_INFO_PANEL_Z_OFFSET_M = 4.4
+CONTAINER_INFO_PANEL_MIN_BOTTOM_WORLD_Z = (
+    0.12 + 6 * 0.904353 + 5 * 0.035
+)
+CONTAINER_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
+CONTAINER_INFO_PANEL_ROW_Y = {
+    "Container": 124,
+    "Size": 158,
+    "Type": 192,
+    "Height": 226,
+    "Bay": 260,
+    "Task ID": 294,
+    "Locked": 328,
+}
+CONTAINER_INFO_PANEL_LABELS = {
+    "Container": "箱号",
+    "Size": "箱尺寸",
+    "Type": "箱型",
+    "Height": "箱高",
+    "Bay": "当前位置",
+    "Task ID": "关联任务",
+    "Locked": "锁闭",
+}
 LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
     RUNINFO_FLOATING_ROOT_PATH,
     DEVICE_LOCATION_PANEL_ROOT_PATH,
@@ -310,6 +344,7 @@ INVENTORY_SYNC_READY = "READY"
 INVENTORY_SYNC_PENDING = "PENDING"
 INVENTORY_WARNING_INTERVAL_SECONDS = 5.0
 LIVE_TASK_TRUCK_PATH = "/World/LiveContainers/LiveTaskTruck"
+LIVE_HOISTED_LOAD_PATH = "/World/LiveContainers/LiveTwinHoistedContainer"
 LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES = (
     "TrailerMainFrame",
     "TrailerDeck",
@@ -951,6 +986,34 @@ def _is_descendant_path(path: str, root_path: str) -> bool:
     return path == root_path or path.startswith(f"{root_path}/")
 
 
+def _container_component_index(parts: tuple[str, ...]) -> Optional[int]:
+    for index, part in enumerate(parts):
+        if part in {"LiveContainers", "YardInventory"}:
+            continue
+        if part in {"LiveTwinHoistedContainer", "LIVE_TwinHoistedContainer", "LoadedContainer"}:
+            return index
+        if part.endswith("_Container") or "_Container_" in part:
+            return index
+        if part.lower().endswith("container") and part.lower() != "livecontainers":
+            return index
+    return None
+
+
+def _container_root_path_from_selection(path: Any) -> Optional[str]:
+    """Normalize a clicked box/detail prim to its physical container root."""
+
+    text = str(path or "").strip()
+    if not text.startswith("/"):
+        return None
+    if text == LIVE_HOISTED_LOAD_PATH or text.startswith(f"{LIVE_HOISTED_LOAD_PATH}/"):
+        return LIVE_HOISTED_LOAD_PATH
+    parts = tuple(part for part in text.split("/") if part)
+    index = _container_component_index(parts)
+    if index is None:
+        return None
+    return "/" + "/".join(parts[: index + 1])
+
+
 def _selected_rtg_path() -> Optional[str]:
     """Return the selected RTG prim, or None when the click is elsewhere."""
 
@@ -1423,9 +1486,31 @@ def _device_location_panel_values(stage: Any) -> dict[str, str]:
     }
 
 
+def _save_bitmap_atomically(image: Any, output_path: Path) -> None:
+    """Publish a completed PNG so Kit never reads a partially written file."""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{output_path.stem}_",
+        suffix=".tmp",
+        dir=str(output_path.parent),
+    )
+    os.close(fd)
+    try:
+        image.save(temp_name, format="PNG")
+        os.replace(temp_name, output_path)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+
+
 def _render_device_location_panel_bitmap(
     values: dict[str, str],
     output_path: Path,
+    *,
+    draw_values: bool = True,
 ) -> bool:
     """Render the persistent device location panel with the task-panel flow."""
 
@@ -1435,12 +1520,12 @@ def _render_device_location_panel_bitmap(
     try:
         from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
 
-        width = DEVICE_LOCATION_PANEL_IMAGE_WIDTH
-        height = DEVICE_LOCATION_PANEL_IMAGE_HEIGHT
-        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw_width = 768
+        draw_height = 512
+        image = Image.new("RGBA", (draw_width, draw_height), (0, 0, 0, 0))
         glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
         glow_draw = ImageDraw.Draw(glow)
-        panel_box = (1, 1, width - 2, height - 2)
+        panel_box = (1, 1, draw_width - 2, draw_height - 2)
         glow_draw.rounded_rectangle(
             panel_box,
             radius=12,
@@ -1458,21 +1543,21 @@ def _render_device_location_panel_bitmap(
             outline=(130, 207, 232, 176),
             width=2,
         )
-        draw.line((14, 14, width - 15, 14), fill=(255, 156, 22, 232), width=4)
+        draw.line((14, 14, draw_width - 15, 14), fill=(255, 156, 22, 232), width=4)
         draw.rectangle(
-            (12, 12, width - 13, height - 13),
+            (12, 12, draw_width - 13, draw_height - 13),
             outline=(142, 219, 238, 50),
         )
         draw.polygon(
-            [(width - 68, height - 1), (width - 1, height - 68), (width - 1, height - 1)],
+            [(draw_width - 68, draw_height - 1), (draw_width - 1, draw_height - 68), (draw_width - 1, draw_height - 1)],
             fill=(153, 206, 218, 112),
         )
-        draw.rectangle((0, 0, width, 86), fill=(22, 68, 91, 250))
+        draw.rectangle((0, 0, draw_width, 86), fill=(22, 68, 91, 250))
 
-        title_font = ImageFont.truetype(str(font_path), 38)
-        label_font = ImageFont.truetype(str(font_path), 28)
-        value_font = ImageFont.truetype(str(font_path), 31)
-        device_font = ImageFont.truetype(str(font_path), 42)
+        title_font = ImageFont.truetype(str(font_path), 42)
+        label_font = ImageFont.truetype(str(font_path), 31)
+        value_font = ImageFont.truetype(str(font_path), 35)
+        device_font = ImageFont.truetype(str(font_path), 46)
         draw.text((36, 25), "设备定位", fill=(248, 252, 255, 255), font=title_font)
 
         labels = {
@@ -1497,6 +1582,8 @@ def _render_device_location_panel_bitmap(
                 font=label_font,
                 fill=(198, 221, 232, 255),
             )
+            if not draw_values:
+                continue
             max_width = 260 if key == "Device" else 220
             while (
                 len(text) > 2
@@ -1504,18 +1591,246 @@ def _render_device_location_panel_bitmap(
             ):
                 text = text[:-2] + "..."
             bbox = draw.textbbox((0, 0), text, font=font)
-            x = width - 44 - (bbox[2] - bbox[0])
+            x = draw_width - 44 - (bbox[2] - bbox[0])
             draw.text(
                 (x, y - (bbox[3] - bbox[1]) // 2),
                 text,
                 font=font,
                 fill=color,
             )
+        image = image.resize(
+            (DEVICE_LOCATION_PANEL_IMAGE_WIDTH, DEVICE_LOCATION_PANEL_IMAGE_HEIGHT),
+            Image.Resampling.LANCZOS,
+        )
+        _save_bitmap_atomically(image, output_path)
+        return True
+    except Exception:
+        return False
+
+
+def _render_device_location_values_bitmap(
+    values: dict[str, str],
+    output_path: Path,
+) -> bool:
+    """Render only changing values onto a transparent overlay."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore
+
+        image = Image.new(
+            "RGBA",
+            (768, 512),
+            (0, 0, 0, 0),
+        )
+        draw = ImageDraw.Draw(image)
+        value_font = ImageFont.truetype(str(font_path), 35)
+        device_font = ImageFont.truetype(str(font_path), 46)
+        for key, y in DEVICE_LOCATION_PANEL_VALUE_Y.items():
+            text = str(values.get(key) or "--")
+            font = device_font if key == "Device" else value_font
+            max_width = 260 if key == "Device" else 220
+            while len(text) > 2 and draw.textbbox((0, 0), text, font=font)[2] > max_width:
+                text = text[:-2] + "..."
+            bbox = draw.textbbox((0, 0), text, font=font)
+            x = 768 - 44 - (bbox[2] - bbox[0])
+            draw.text(
+                (x, y - (bbox[3] - bbox[1]) // 2),
+                text,
+                font=font,
+                fill=(88, 222, 248, 255) if key == "Device" else (246, 252, 255, 255),
+            )
+        image = image.resize(
+            (DEVICE_LOCATION_PANEL_IMAGE_WIDTH, DEVICE_LOCATION_PANEL_IMAGE_HEIGHT),
+            Image.Resampling.LANCZOS,
+        )
+        _save_bitmap_atomically(image, output_path)
+        return True
+    except Exception:
+        return False
+
+
+@dataclass(frozen=True)
+class ContainerInfoRow:
+    label: str
+    value: str
+
+
+def _container_read_attr(prim: Any, name: str, default: Any = None) -> Any:
+    if not prim:
+        return default
+    try:
+        attr = prim.GetAttribute(name)
+        value = attr.Get() if attr else None
+        return default if value is None else value
+    except Exception:
+        return default
+
+
+def _container_first_attr(
+    prims: tuple[Any, ...],
+    names: tuple[str, ...],
+    default: Any = None,
+) -> Any:
+    for prim in prims:
+        for name in names:
+            value = _container_read_attr(prim, name)
+            if value not in (None, ""):
+                return value
+    return default
+
+
+def _container_fmt(value: Any, suffix: str = "") -> str:
+    if value is None:
+        return "--"
+    if isinstance(value, float):
+        text = f"{value:.3f}".rstrip("0").rstrip(".")
+    else:
+        text = str(value).strip()
+    return f"{text}{suffix}" if text else "--"
+
+
+def _container_fmt_bool(value: Any) -> str:
+    if value is None:
+        return "--"
+    return "YES" if bool(value) else "NO"
+
+
+def _container_context_prims(stage: Any, root_path: str) -> tuple[Any, ...]:
+    paths = [root_path, f"{root_path}/Body"]
+    if root_path.startswith(f"{LIVE_TASK_STACK_PATH}/"):
+        paths.append(LIVE_TASK_STACK_PATH)
+    if root_path.startswith(f"{YARD_INVENTORY_ROOT_PATH}/"):
+        parts = tuple(part for part in root_path.split("/") if part)
+        if len(parts) >= 4:
+            paths.append("/" + "/".join(parts[:4]))
+    prims = []
+    for path in paths:
+        prim = stage.GetPrimAtPath(path)
+        if prim:
+            prims.append(prim)
+    return tuple(prims)
+
+
+def _collect_container_info_rows(stage: Any, root_path: str) -> tuple[ContainerInfoRow, ...]:
+    status = stage.GetPrimAtPath(STATUS_PRIM_PATH)
+    prims = _container_context_prims(stage, root_path)
+    bay_id = _container_first_attr(prims, ("live:bayId", "inventory:bayId"))
+    row = _container_first_attr(prims, ("live:row",))
+    tier = _container_first_attr(prims, ("live:tier",))
+    tiers = _container_first_attr(prims, ("live:tiers",))
+    size = _container_first_attr(
+        prims,
+        ("live:containerSizeFt", "inventory:containerSizeFt"),
+        _container_read_attr(status, "rtg:containerSize"),
+    )
+    height = _container_first_attr(
+        prims,
+        ("live:containerHeightMeters", "live:taskContainerHeightMeters"),
+        _container_read_attr(status, "rtg:containerHeight"),
+    )
+    container_no = _container_first_attr(
+        prims,
+        ("live:containerNo", "inventory:containerNo", "containerNo"),
+        _container_read_attr(status, "rtg:containerNo"),
+    )
+    container_type = _container_first_attr(
+        prims,
+        ("live:containerType", "inventory:containerType", "containerType"),
+        _container_read_attr(status, "rtg:containerType"),
+    )
+    row_tier = "--"
+    if row not in (None, "") and tier not in (None, ""):
+        row_tier = f"R{int(row):02d} / T{int(tier):02d}"
+        if tiers not in (None, ""):
+            row_tier += f" of {int(tiers)}"
+    return (
+        ContainerInfoRow("Container", _container_fmt(container_no)),
+        ContainerInfoRow("Type", _container_fmt(container_type)),
+        ContainerInfoRow(
+            "Size",
+            _container_fmt(size, " ft") if size not in (None, "", 0, "0") else "--",
+        ),
+        ContainerInfoRow(
+            "Height",
+            _container_fmt(height, " m") if height not in (None, "") else "--",
+        ),
+        ContainerInfoRow("Bay", " / ".join(part for part in (str(bay_id or "--"), row_tier) if part != "--") or "--"),
+        ContainerInfoRow("Task ID", _container_fmt(_container_read_attr(status, "rtg:taskId"))),
+        ContainerInfoRow("Locked", _container_fmt_bool(_container_read_attr(status, "rtg:spreaderLocked"))),
+    )
+
+
+def _render_container_info_panel_bitmap(
+    rows: tuple[ContainerInfoRow, ...],
+    output_path: Path,
+) -> bool:
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        width = CONTAINER_INFO_PANEL_IMAGE_WIDTH
+        height = CONTAINER_INFO_PANEL_IMAGE_HEIGHT
+        values = {row.label: row.value for row in rows}
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        box = (1, 1, width - 2, height - 2)
+        glow_draw.rounded_rectangle(box, radius=5, fill=(54, 151, 190, 44), outline=(150, 228, 248, 222), width=3)
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4)))
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(box, radius=4, fill=(9, 31, 46, 250), outline=(154, 230, 250, 238), width=2)
+        draw.line((8, 8, width - 9, 8), fill=(255, 172, 44, 255), width=3)
+        draw.rectangle((4, 4, width - 5, height - 5), outline=(142, 219, 238, 120))
+        draw.rectangle((0, 0, width, 58), fill=(16, 55, 76, 252))
+
+        title_font = ImageFont.truetype(str(font_path), 16)
+        label_font = ImageFont.truetype(str(font_path), 13)
+        value_font = ImageFont.truetype(str(font_path), 15)
+        big_font = ImageFont.truetype(str(font_path), 20)
+        draw.text((12, 15), "箱信息", fill=(255, 255, 255, 255), font=title_font)
+        badge = "选中箱"
+        badge_font = ImageFont.truetype(str(font_path), 12)
+        badge_bbox = draw.textbbox((0, 0), badge, font=badge_font)
+        badge_w = badge_bbox[2] - badge_bbox[0] + 18
+        draw.rounded_rectangle((width - badge_w - 12, 15, width - 12, 38), radius=11, fill=(58, 74, 50, 218), outline=(255, 197, 72, 230))
+        draw.text((width - badge_w - 3, 18), badge, fill=(255, 211, 92, 255), font=badge_font)
+        draw.rectangle((12, 66, width - 12, 106), fill=(43, 92, 115, 242), outline=(156, 232, 250, 220))
+        for key, y in CONTAINER_INFO_PANEL_ROW_Y.items():
+            label = CONTAINER_INFO_PANEL_LABELS[key]
+            value = str(values.get(key) or "--")
+            if key == "Locked":
+                value = {"YES": "已锁闭", "NO": "未锁闭"}.get(value, value)
+            font = big_font if key == "Container" else value_font
+            while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > 184:
+                value = value[:-2] + "..."
+            draw.text((12, y - 11), label, fill=(218, 238, 247, 255), font=label_font)
+            bbox = draw.textbbox((0, 0), value, font=font)
+            color = (116, 234, 255, 255) if key == "Container" else (255, 255, 255, 255)
+            if key == "Locked" and value == "未锁闭":
+                color = (255, 86, 86, 255)
+            draw.text((width - 14 - (bbox[2] - bbox[0]), y - 14), value, fill=color, font=font)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
         return True
     except Exception:
         return False
+
+
+def _container_info_panel_world_z(origin_z: Any) -> float:
+    try:
+        z = float(origin_z) + CONTAINER_INFO_PANEL_Z_OFFSET_M
+    except Exception:
+        z = 4.0
+    minimum_center_z = (
+        CONTAINER_INFO_PANEL_MIN_BOTTOM_WORLD_Z
+        + CONTAINER_INFO_PANEL_HEIGHT_M * 0.5
+    )
+    return max(z, minimum_center_z)
 
 
 def _render_task_info_panel_bitmap(task: Dict[str, Any], output_path: Path) -> bool:
@@ -2379,6 +2694,7 @@ class OmniverseRtgTwinDriver:
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
         self._floating_device_panel_key: Optional[tuple[Any, ...]] = None
+        self._floating_device_panel_value_key: Optional[tuple[Any, ...]] = None
         self._floating_device_panel_bitmap_seq = 0
         self._last_device_panel_render_at = 0.0
         self._pending_device_panel_key: Optional[tuple[Any, ...]] = None
@@ -2387,6 +2703,10 @@ class OmniverseRtgTwinDriver:
         self._device_panel_selected = False
         self._device_panel_visible = False
         self._device_panel_last_selection_signature: tuple[str, ...] = ()
+        self._container_info_selected_root_path: Optional[str] = None
+        self._container_info_panel_visible = False
+        self._container_info_panel_key: Optional[tuple[Any, ...]] = None
+        self._container_info_panel_bitmap_seq = 0
         self._last_panel_facing_update_at = 0.0
         self._last_error_at = 0.0
 
@@ -2404,6 +2724,7 @@ class OmniverseRtgTwinDriver:
                 self._sync_user_side_view_camera(stage)
                 _remove_runinfo_billboards(stage, keep_current=False)
                 self._hide_floating_device_panel(stage)
+                self._hide_container_info_panel(stage)
                 self._device_panel_selected = _selected_rtg_path() is not None
                 self._sync_floating_runinfo_billboard(stage, {})
                 self._sync_floating_device_panel(stage, {})
@@ -2468,6 +2789,7 @@ class OmniverseRtgTwinDriver:
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key = None
         self._floating_device_panel_key = None
+        self._floating_device_panel_value_key = None
         self._floating_device_panel_bitmap_seq = 0
         self._last_device_panel_render_at = 0.0
         self._pending_device_panel_key = None
@@ -2475,8 +2797,13 @@ class OmniverseRtgTwinDriver:
         self._device_panel_selected = False
         self._device_panel_visible = False
         self._device_panel_last_selection_signature = ()
+        self._container_info_selected_root_path = None
+        self._container_info_panel_visible = False
+        self._container_info_panel_key = None
+        self._container_info_panel_bitmap_seq = 0
         if stage is not None:
             self._hide_floating_device_panel(stage)
+            self._hide_container_info_panel(stage)
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -2492,9 +2819,23 @@ class OmniverseRtgTwinDriver:
             if stage is not None:
                 with self._latest_lock:
                     pending_state = dict(self._latest_state or {})
+                if self._container_info_selected_root_path:
+                    self._show_container_info_panel(
+                        stage,
+                        self._container_info_selected_root_path,
+                    )
+                elif self._container_info_panel_visible:
+                    self._hide_container_info_panel(stage)
                 self._sync_floating_device_panel(
                     stage,
                     dict(pending_state.get("task") or {}),
+                )
+        elif self._container_info_selected_root_path:
+            stage = self._current_stage()
+            if stage is not None:
+                self._show_container_info_panel(
+                    stage,
+                    self._container_info_selected_root_path,
                 )
         with self._latest_lock:
             state = self._latest_state
@@ -5774,7 +6115,6 @@ class OmniverseRtgTwinDriver:
                 self._on_device_panel_selection_changed,
                 name="SmartPortRtgDevicePanelSelection",
             )
-            self._log("device panel selection subscription active")
         except Exception as exc:  # noqa: BLE001 - selection is optional in tests
             self._device_panel_selection_sub = None
             self._log(f"device panel selection subscription unavailable: {exc}")
@@ -5800,15 +6140,19 @@ class OmniverseRtgTwinDriver:
         signature = tuple(paths)
         if signature == self._device_panel_last_selection_signature:
             return False
+        del source
         self._device_panel_last_selection_signature = signature
         self._device_panel_selected = any(
             _is_descendant_path(path, PRIMARY_RTG_SELECTION_ROOT_PATH)
             for path in paths
         )
-        self._log(
-            "device panel selection changed "
-            f"source={source} matched={self._device_panel_selected} "
-            f"paths={list(paths)}"
+        self._container_info_selected_root_path = next(
+            (
+                root
+                for root in (_container_root_path_from_selection(path) for path in paths)
+                if root is not None
+            ),
+            None,
         )
         return True
 
@@ -5822,17 +6166,228 @@ class OmniverseRtgTwinDriver:
         if stage is None:
             self._log("device panel selection changed but stage is unavailable")
             return
+        if self._container_info_selected_root_path:
+            self._show_container_info_panel(
+                stage,
+                self._container_info_selected_root_path,
+            )
+        elif self._container_info_panel_visible:
+            self._hide_container_info_panel(stage)
         if not self._device_panel_selected:
-            self._log("device panel action=hide reason=non_rtg_selection")
             if self._device_panel_visible:
                 self._hide_floating_device_panel(stage)
                 self._device_panel_visible = False
             return
 
-        self._log("device panel action=show reason=rtg_selection")
         with self._latest_lock:
             state = dict(self._latest_state or {})
         self._sync_floating_device_panel(stage, dict(state.get("task") or {}))
+
+    @staticmethod
+    def _hide_container_info_panel(stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(CONTAINER_INFO_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+        except Exception:
+            return
+
+    @staticmethod
+    def _container_info_panel_world_translate(stage: Any, root_path: str) -> Any:
+        from pxr import Gf, Usd, UsdGeom
+
+        selected = stage.GetPrimAtPath(root_path)
+        if not selected:
+            return Gf.Vec3d(8.0, 0.0, 4.0)
+        try:
+            cache = UsdGeom.BBoxCache(
+                Usd.TimeCode.Default(),
+                [UsdGeom.Tokens.default_],
+            )
+            bounds = cache.ComputeWorldBound(selected).ComputeAlignedBox()
+            minimum = bounds.GetMin()
+            maximum = bounds.GetMax()
+            origin_x = (float(minimum[0]) + float(maximum[0])) * 0.5
+            origin_y = (float(minimum[1]) + float(maximum[1])) * 0.5
+            origin_z = float(maximum[2])
+            return Gf.Vec3d(
+                origin_x + 1.2,
+                origin_y + CONTAINER_INFO_PANEL_Y_OFFSET_M,
+                _container_info_panel_world_z(origin_z),
+            )
+        except Exception:
+            return Gf.Vec3d(8.0, 0.0, 4.0)
+
+    def _sync_container_info_panel_pose(self, stage: Any, root: Any, root_path: str) -> None:
+        from pxr import Gf
+
+        translate = self._container_info_panel_world_translate(stage, root_path)
+        self._set_xform_translate(root, translate)
+        rotate = camera_facing_rotate_xyz(
+            stage,
+            translate,
+            CONTAINER_INFO_PANEL_ROTATE_XYZ,
+        )
+        self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+
+    def _show_container_info_panel(self, stage: Any, root_path: str) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        rows = _collect_container_info_rows(stage, root_path)
+        panel_key = (root_path, tuple((row.label, row.value) for row in rows))
+        mesh = stage.GetPrimAtPath(CONTAINER_INFO_PANEL_MESH_PATH)
+        if (
+            mesh
+            and panel_key == self._container_info_panel_key
+            and stage.GetPrimAtPath(CONTAINER_INFO_PANEL_ROOT_PATH)
+        ):
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(CONTAINER_INFO_PANEL_ROOT_PATH)
+                UsdGeom.Imageable(root).MakeVisible()
+                self._sync_container_info_panel_pose(stage, root, root_path)
+            self._container_info_panel_visible = True
+            return
+
+        self._container_info_panel_bitmap_seq += 1
+        texture_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_container_info_{os.getpid()}_{self._container_info_panel_bitmap_seq}.png"
+        )
+        if not _render_container_info_panel_bitmap(rows, texture_path):
+            self._log("container info panel bitmap render failed")
+            return
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = UsdGeom.Xform.Define(stage, CONTAINER_INFO_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._sync_container_info_panel_pose(stage, root_prim, root_path)
+
+            panel = UsdGeom.Mesh.Define(stage, CONTAINER_INFO_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = CONTAINER_INFO_PANEL_WIDTH_M * 0.5
+            half_h = CONTAINER_INFO_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [Gf.Vec3f(-half_w, 0.0, -half_h), Gf.Vec3f(half_w, 0.0, half_h)]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in TASK_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute(
+                "rtg:containerInfoTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(
+                stage,
+                CONTAINER_INFO_PANEL_MATERIAL_PATH,
+            )
+            shader = UsdShade.Shader.Define(
+                stage,
+                f"{CONTAINER_INFO_PANEL_MATERIAL_PATH}/PreviewSurface",
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            texture = UsdShade.Shader.Define(
+                stage,
+                f"{CONTAINER_INFO_PANEL_MATERIAL_PATH}/Texture",
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage,
+                f"{CONTAINER_INFO_PANEL_MATERIAL_PATH}/Primvar_st",
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(), "result"
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(), "a"
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+        self._container_info_panel_key = panel_key
+        self._container_info_panel_visible = True
+        self._log(
+            "container info panel shown "
+            f"root={root_path} path={CONTAINER_INFO_PANEL_ROOT_PATH}"
+        )
+
+    def _sync_device_location_values_overlay(
+        self,
+        stage: Any,
+        values: dict[str, str],
+    ) -> bool:
+        """Refresh the existing panel texture without rebuilding its mesh.
+
+        The target Kit build does not consistently blend a second
+        PreviewSurface over this panel. Keep one complete texture instead so
+        the Chinese labels and background remain visible.
+        """
+
+        from pxr import Sdf, Usd, UsdGeom, UsdShade
+
+        self._floating_device_panel_bitmap_seq += 1
+        texture_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_device_location_{os.getpid()}_{self._floating_device_panel_bitmap_seq}.png"
+        )
+        if not _render_device_location_panel_bitmap(values, texture_path):
+            self._log("device location panel texture render failed")
+            return False
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            values_prim = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_VALUES_MESH_PATH)
+            if values_prim:
+                UsdGeom.Imageable(values_prim).MakeInvisible()
+
+            panel_prim = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_MESH_PATH)
+            if not panel_prim:
+                self._log("device location panel mesh unavailable during texture refresh")
+                return False
+
+            panel_prim.CreateAttribute(
+                "rtg:deviceLocationTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+            texture = UsdShade.Shader.Define(
+                stage,
+                f"{DEVICE_LOCATION_PANEL_MATERIAL_PATH}/Texture",
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+        self._floating_device_panel_value_key = tuple(values.items())
+        return True
 
     def _sync_floating_device_panel(
         self,
@@ -5851,16 +6406,10 @@ class OmniverseRtgTwinDriver:
 
         values = _device_location_panel_values(stage)
         bay_center_y = self._device_panel_bay_center_y(stage, task)
-        panel_key = (
-            tuple(values.items()),
-            round(bay_center_y, 5),
-        )
-        now = time.monotonic()
+        value_key = tuple(values.items())
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             mesh_exists = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_MESH_PATH)
-            if mesh_exists and panel_key == self._floating_device_panel_key:
-                self._pending_device_panel_key = None
-                self._pending_device_panel_since = 0.0
+            if mesh_exists and self._floating_device_panel_key is not None:
                 root = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_ROOT_PATH)
                 if root:
                     UsdGeom.Imageable(root).MakeVisible()
@@ -5870,38 +6419,27 @@ class OmniverseRtgTwinDriver:
                         root,
                         bay_center_y,
                     )
+                values_prim = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_VALUES_MESH_PATH)
+                if values_prim:
+                    UsdGeom.Imageable(values_prim).MakeInvisible()
+                if value_key != self._floating_device_panel_value_key:
+                    self._sync_device_location_values_overlay(stage, values)
                 return
-
-            if mesh_exists and self._floating_device_panel_key is not None:
-                if self._pending_device_panel_key != panel_key:
-                    self._pending_device_panel_key = panel_key
-                    self._pending_device_panel_since = now
-                elif (
-                    now - self._pending_device_panel_since
-                    < DEVICE_LOCATION_PANEL_RENDER_INTERVAL_SECONDS
-                ):
-                    root = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_ROOT_PATH)
-                    if root:
-                        UsdGeom.Imageable(root).MakeVisible()
-                        self._device_panel_visible = True
-                        self._sync_floating_device_panel_pose(
-                            stage,
-                            root,
-                            bay_center_y,
-                        )
-                    return
 
             self._floating_device_panel_bitmap_seq += 1
             texture_path = (
                 Path(tempfile.gettempdir())
                 / f"smart_port_rtg_device_location_{os.getpid()}_{self._floating_device_panel_bitmap_seq}.png"
             )
-            if not _render_device_location_panel_bitmap(values, texture_path):
+            if not _render_device_location_panel_bitmap(
+                values,
+                texture_path,
+            ):
                 self._log("device location panel bitmap render failed")
                 return
 
-            self._floating_device_panel_key = panel_key
-            self._last_device_panel_render_at = now
+            self._floating_device_panel_key = ("static",)
+            self._last_device_panel_render_at = time.monotonic()
             self._pending_device_panel_key = None
             self._pending_device_panel_since = 0.0
             root = UsdGeom.Xform.Define(stage, DEVICE_LOCATION_PANEL_ROOT_PATH)
@@ -5989,6 +6527,10 @@ class OmniverseRtgTwinDriver:
                 "surface",
             )
             UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+            values_prim = stage.GetPrimAtPath(DEVICE_LOCATION_PANEL_VALUES_MESH_PATH)
+            if values_prim:
+                UsdGeom.Imageable(values_prim).MakeInvisible()
+        self._floating_device_panel_value_key = value_key
 
     def _sync_floating_device_panel_pose(
         self,
@@ -6625,34 +7167,35 @@ def _stop_legacy_device_info_popup() -> None:
 
 
 def _start_live_info_popups() -> None:
-    """Enable the remaining click-to-inspect container HUD popup."""
+    """Keep container inspection inside this receiver's update loop."""
 
-    for module_name, starter_name in (
-        ("rtg_container_info_popup", "start_rtg_container_info_popup"),
-    ):
+    _stop_legacy_container_info_popup()
+    print("[RTG Twin Driver] container info popup is owned by receiver")
+
+
+def _stop_legacy_container_info_popup() -> None:
+    """Stop the old standalone container popup service."""
+
+    try:
+        module = importlib.import_module("rtg_container_info_popup")
+        stopper = getattr(module, "stop_rtg_container_info_popup", None)
+        if callable(stopper):
+            stopper()
+    except Exception as exc:  # noqa: BLE001 - legacy cleanup is best-effort
+        print(f"[RTG Twin Driver] unable to disable legacy container popup: {exc}")
+    previous = getattr(builtins, "_rtg_container_info_popup_service", None)
+    if previous is not None:
         try:
-            module = importlib.import_module(module_name)
-            module = importlib.reload(module)
-            starter = getattr(module, starter_name)
-            starter()
-            print(f"[RTG Twin Driver] enabled {module_name}")
-        except Exception as exc:  # noqa: BLE001 - live driver can run without UI
-            print(f"[RTG Twin Driver] unable to enable {module_name}: {exc}")
+            previous.stop()
+        except Exception:
+            pass
+    builtins._rtg_container_info_popup_service = None
 
 
 def _stop_live_info_popups() -> None:
-    """Stop the remaining click-to-inspect live UI service."""
+    """Stop standalone legacy UI services when live mode stops."""
 
-    for module_name, stopper_name in ((
-        "rtg_container_info_popup",
-        "stop_rtg_container_info_popup",
-    ),):
-        try:
-            module = importlib.import_module(module_name)
-            stopper = getattr(module, stopper_name)
-            stopper()
-        except Exception as exc:  # noqa: BLE001 - shutdown should be best-effort
-            print(f"[RTG Twin Driver] unable to stop {module_name}: {exc}")
+    _stop_legacy_container_info_popup()
     _stop_legacy_device_info_popup()
 
 
@@ -6759,6 +7302,7 @@ def start_live_driver(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> Rtg
             _driver = None
     # The persistent device panel owns the old popup's USD path, so clear the
     # legacy service before the driver creates the replacement panel.
+    _stop_legacy_container_info_popup()
     _stop_legacy_device_info_popup()
     _driver = OmniverseRtgTwinDriver(inventory_mode=INVENTORY_MODE_LIVE)
     _driver.start()
