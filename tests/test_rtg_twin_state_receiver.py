@@ -740,9 +740,15 @@ class TaskPositionTests(unittest.TestCase):
         )
         self.assertLess(receiver.DEVICE_LOCATION_PANEL_WORLD_X, 12.0)
         self.assertAlmostEqual(
+            receiver.DEVICE_LOCATION_PANEL_WORLD_X,
+            12.0
+            - receiver.TASK_PANEL_WIDTH_M * 2.25
+            - receiver.TASK_PANEL_CONTAINER_WIDTH_X_M,
+        )
+        self.assertAlmostEqual(
             receiver.CONTAINER_INFO_PANEL_WORLD_X,
             receiver.TASK_PANEL_WORLD_X
-            - receiver.CONTAINER_INFO_PANEL_WIDTH_M * 0.7,
+            - receiver.CONTAINER_INFO_PANEL_WIDTH_M * 0.2,
         )
         self.assertAlmostEqual(
             receiver.CONTAINER_INFO_PANEL_WORLD_Z,

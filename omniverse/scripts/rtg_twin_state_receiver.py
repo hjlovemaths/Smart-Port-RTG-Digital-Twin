@@ -253,7 +253,7 @@ DEVICE_LOCATION_PANEL_RENDER_INTERVAL_SECONDS = 0.5
 # Mirror the task-panel anchor around the RTG's x=12.0 centreline so the
 # device panel sits on the RTG's left side.
 DEVICE_LOCATION_PANEL_WORLD_X = (
-    12.0 - TASK_PANEL_WIDTH_M * 0.25 - TASK_PANEL_CONTAINER_WIDTH_X_M
+    12.0 - TASK_PANEL_WIDTH_M * 2.25 - TASK_PANEL_CONTAINER_WIDTH_X_M
 )
 DEVICE_LOCATION_PANEL_WORLD_Z = (
     TASK_PANEL_WORLD_Z
@@ -273,11 +273,11 @@ DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
 CONTAINER_INFO_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL"
 CONTAINER_INFO_PANEL_MESH_PATH = f"{CONTAINER_INFO_PANEL_ROOT_PATH}/Panel"
 CONTAINER_INFO_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Container_Info_Panel_Live"
-CONTAINER_INFO_PANEL_IMAGE_WIDTH = 320
-CONTAINER_INFO_PANEL_IMAGE_HEIGHT = 380
-CONTAINER_INFO_PANEL_WIDTH_M = 4.4
-CONTAINER_INFO_PANEL_HEIGHT_M = 5.2
-CONTAINER_INFO_PANEL_HORIZONTAL_OFFSET_M = -CONTAINER_INFO_PANEL_WIDTH_M * 0.7
+CONTAINER_INFO_PANEL_IMAGE_WIDTH = TASK_PANEL_IMAGE_WIDTH
+CONTAINER_INFO_PANEL_IMAGE_HEIGHT = TASK_PANEL_IMAGE_HEIGHT
+CONTAINER_INFO_PANEL_WIDTH_M = DEVICE_LOCATION_PANEL_WIDTH_M
+CONTAINER_INFO_PANEL_HEIGHT_M = TASK_PANEL_HEIGHT_M
+CONTAINER_INFO_PANEL_HORIZONTAL_OFFSET_M = -CONTAINER_INFO_PANEL_WIDTH_M * 0.2
 CONTAINER_INFO_PANEL_VERTICAL_OFFSET_M = -0.8
 CONTAINER_INFO_PANEL_WORLD_X = (
     TASK_PANEL_WORLD_X + CONTAINER_INFO_PANEL_HORIZONTAL_OFFSET_M
@@ -290,13 +290,13 @@ CONTAINER_INFO_PANEL_MIN_BOTTOM_WORLD_Z = (
 )
 CONTAINER_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 CONTAINER_INFO_PANEL_ROW_Y = {
-    "Container": 124,
-    "Size": 158,
-    "Type": 192,
-    "Height": 226,
-    "Bay": 260,
-    "Task ID": 294,
-    "Locked": 328,
+    "Container": 174,
+    "Size": 260,
+    "Type": 346,
+    "Height": 432,
+    "Bay": 518,
+    "Task ID": 604,
+    "Locked": 690,
 }
 CONTAINER_INFO_PANEL_LABELS = {
     "Container": "箱号",
@@ -1947,42 +1947,42 @@ def _render_container_info_panel_bitmap(
         glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
         glow_draw = ImageDraw.Draw(glow)
         box = (1, 1, width - 2, height - 2)
-        glow_draw.rounded_rectangle(box, radius=5, fill=(54, 151, 190, 44), outline=(150, 228, 248, 222), width=3)
+        glow_draw.rounded_rectangle(box, radius=12, fill=(54, 151, 190, 44), outline=(150, 228, 248, 222), width=4)
         image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4)))
         draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle(box, radius=4, fill=(9, 31, 46, 250), outline=(154, 230, 250, 238), width=2)
-        draw.line((8, 8, width - 9, 8), fill=(255, 172, 44, 255), width=3)
-        draw.rectangle((4, 4, width - 5, height - 5), outline=(142, 219, 238, 120))
-        draw.rectangle((0, 0, width, 58), fill=(16, 55, 76, 252))
+        draw.rounded_rectangle(box, radius=10, fill=(9, 31, 46, 250), outline=(154, 230, 250, 238), width=2)
+        draw.line((14, 14, width - 15, 14), fill=(255, 172, 44, 255), width=4)
+        draw.rectangle((12, 12, width - 13, height - 13), outline=(142, 219, 238, 120))
+        draw.rectangle((0, 0, width, 104), fill=(16, 55, 76, 252))
 
-        title_font = ImageFont.truetype(str(font_path), 16)
-        label_font = ImageFont.truetype(str(font_path), 13)
-        value_font = ImageFont.truetype(str(font_path), 15)
-        big_font = ImageFont.truetype(str(font_path), 20)
+        title_font = ImageFont.truetype(str(font_path), 42)
+        label_font = ImageFont.truetype(str(font_path), 31)
+        value_font = ImageFont.truetype(str(font_path), 35)
+        big_font = ImageFont.truetype(str(font_path), 46)
         draw.text((12, 15), "箱信息", fill=(255, 255, 255, 255), font=title_font)
         badge = "选中箱"
-        badge_font = ImageFont.truetype(str(font_path), 12)
+        badge_font = ImageFont.truetype(str(font_path), 26)
         badge_bbox = draw.textbbox((0, 0), badge, font=badge_font)
-        badge_w = badge_bbox[2] - badge_bbox[0] + 18
-        draw.rounded_rectangle((width - badge_w - 12, 15, width - 12, 38), radius=11, fill=(58, 74, 50, 218), outline=(255, 197, 72, 230))
-        draw.text((width - badge_w - 3, 18), badge, fill=(255, 211, 92, 255), font=badge_font)
-        draw.rectangle((12, 66, width - 12, 106), fill=(43, 92, 115, 242), outline=(156, 232, 250, 220))
+        badge_w = badge_bbox[2] - badge_bbox[0] + 36
+        badge_x2 = width - 40
+        badge_x1 = badge_x2 - badge_w
+        draw.rounded_rectangle((badge_x1, 36, badge_x2, 76), radius=18, fill=(58, 74, 50, 218), outline=(255, 197, 72, 230), width=2)
+        draw.text((badge_x1 + 18, 39), badge, fill=(255, 211, 92, 255), font=badge_font)
         for key, y in CONTAINER_INFO_PANEL_ROW_Y.items():
             label = CONTAINER_INFO_PANEL_LABELS[key]
             value = str(values.get(key) or "--")
             if key == "Locked":
                 value = {"YES": "已锁闭", "NO": "未锁闭"}.get(value, value)
             font = big_font if key == "Container" else value_font
-            while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > 184:
+            while len(value) > 2 and draw.textbbox((0, 0), value, font=font)[2] > 560:
                 value = value[:-2] + "..."
-            draw.text((12, y - 11), label, fill=(218, 238, 247, 255), font=label_font)
+            draw.text((44, y - 23), label, fill=(198, 221, 232, 255), font=label_font)
             bbox = draw.textbbox((0, 0), value, font=font)
-            color = (116, 234, 255, 255) if key == "Container" else (255, 255, 255, 255)
+            color = (88, 222, 248, 255) if key == "Container" else (246, 252, 255, 255)
             if key == "Locked" and value == "未锁闭":
                 color = (255, 86, 86, 255)
-            draw.text((width - 14 - (bbox[2] - bbox[0]), y - 14), value, fill=color, font=font)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        image.save(output_path)
+            draw.text((width - 44 - (bbox[2] - bbox[0]), y - 28), value, fill=color, font=font)
+        _save_bitmap_atomically(image, output_path)
         return True
     except Exception:
         return False
