@@ -68,6 +68,146 @@ if str(SCRIPT_DIR) in sys.path:
     sys.path.remove(str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPT_DIR))
 
+
+def _ensure_pillow_available() -> bool:
+    """Load Pillow from Kit's pip archive when it is not on ``sys.path``."""
+
+    try:
+        import PIL  # noqa: F401, PLC0415
+
+        return True
+    except ImportError:
+        pass
+
+    local_app_data = Path(
+        os.environ.get("LOCALAPPDATA")
+        or (Path.home() / "AppData" / "Local")
+    )
+    extension_root = local_app_data / "ov" / "data" / "exts" / "v2"
+    try:
+        archives = sorted(
+            extension_root.glob("omni.kit.pip_archive-*"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        archives = []
+
+    python_tag = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    for archive in archives:
+        prebundle = archive / "pip_prebundle"
+        pil_dir = prebundle / "PIL"
+        if not (pil_dir / "__init__.py").is_file():
+            continue
+        if not any(pil_dir.glob(f"_imaging.{python_tag}-*.pyd")):
+            continue
+        prebundle_text = str(prebundle)
+        if prebundle_text not in sys.path:
+            sys.path.insert(0, prebundle_text)
+        importlib.invalidate_caches()
+        try:
+            import PIL  # noqa: F401, PLC0415
+
+            return True
+        except ImportError:
+            sys.modules.pop("PIL", None)
+            if prebundle_text in sys.path:
+                sys.path.remove(prebundle_text)
+    return False
+
+
+PILLOW_AVAILABLE = _ensure_pillow_available()
+
+# The RTG payload contains two feeder-ship reference sets as direct children
+# of PortAndRTG.  They are authored inside the payload, so the static scene
+# replacement layer is not sufficient when Kit keeps an already-open stage.
+FOUR_C_FEEDER_SHIP_ASSET_PATH = (
+    SCRIPT_DIR.parent / "assets" / "resource" / "ship" / "Cargo_Ship_09_variant_b.usdz"
+)
+FOUR_C_FEEDER_SHIP_OLD_PREFIXES = (
+    "CODEx_left_reference_feeder_ship_clone",
+    "CODEx_right_reference_feeder_ship_clone",
+)
+FOUR_C_LEGACY_SHIP_ROOT_NAMES = (
+    "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_ROOT",
+    "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_ROOT",
+    "SMART_PORT_LOCAL_SHIP_4c40_near_sea_mid_ROOT",
+    "SMART_PORT_LOCAL_SHIP_4c40_near_sea_east_ROOT",
+)
+FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
+    "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED": (
+        (-46.61905930853182, -14.315740402231246, 1.3012471449582028),
+    ),
+    "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED": (
+        (49.38094069146818, -14.315740402231246, 1.3012471449582028),
+    ),
+}
+FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (0.03883929, 0.027641999, 0.043764994)
+FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
+    "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
+    "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
+)
+
+
+def ensure_4c_feeder_ship_replacements(stage: Any) -> tuple[bool, int, int]:
+    """Hide payload feeder ships and mount the replacement models in-place.
+
+    Returns ``(old_found, hidden_old_count, created_or_reused_new_count)``.
+    This edits only the session layer, so it remains safe for a live stage and
+    does not rewrite the authored RTG asset.
+    """
+
+    from pxr import Usd, UsdGeom
+
+    port_path = "/World/PortAndRTG"
+    port = stage.GetPrimAtPath(port_path)
+    if not port:
+        return False, 0, 0
+    asset_path = FOUR_C_FEEDER_SHIP_ASSET_PATH.as_posix()
+    if not FOUR_C_FEEDER_SHIP_ASSET_PATH.is_file():
+        return False, 0, 0
+
+    old_paths: set[str] = set()
+    for prim in port.GetChildren():
+        name = str(prim.GetName())
+        if any(name.startswith(prefix) for prefix in FOUR_C_FEEDER_SHIP_OLD_PREFIXES):
+            old_paths.add(str(prim.GetPath()))
+    old_found = bool(old_paths)
+    hidden = 0
+    mounted = 0
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for name in FOUR_C_LEGACY_SHIP_ROOT_NAMES:
+            legacy = stage.GetPrimAtPath(f"{port_path}/{name}")
+            if legacy and legacy.IsActive():
+                legacy.SetActive(False)
+                hidden += 1
+        for name in FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES:
+            stale = stage.GetPrimAtPath(f"{port_path}/{name}")
+            if stale and stale.IsActive():
+                stale.SetActive(False)
+        for path in _top_level_paths(old_paths):
+            prim = stage.GetPrimAtPath(path)
+            if prim and prim.IsActive():
+                prim.SetActive(False)
+                hidden += 1
+
+        for name, (translate,) in FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS.items():
+            path = f"{port_path}/{name}"
+            prim = stage.GetPrimAtPath(path)
+            if not prim:
+                prim = UsdGeom.Xform.Define(stage, path).GetPrim()
+            references = prim.GetReferences()
+            if not prim.HasAuthoredReferences():
+                references.AddReference(asset_path)
+            prim.SetInstanceable(True)
+            xform = UsdGeom.Xformable(prim)
+            xform.ClearXformOpOrder()
+            xform.AddTranslateOp().Set(translate)
+            xform.AddRotateXOp().Set(90.0)
+            xform.AddScaleOp().Set(FOUR_C_FEEDER_SHIP_RUNTIME_SCALE)
+            mounted += 1
+    return old_found, hidden, mounted
+
 if callable(_previous_stop_live_driver):
     try:
         _previous_stop_live_driver()
@@ -1015,6 +1155,22 @@ def _container_root_path_from_selection(path: Any) -> Optional[str]:
     if text == LIVE_HOISTED_LOAD_PATH or text.startswith(f"{LIVE_HOISTED_LOAD_PATH}/"):
         return LIVE_HOISTED_LOAD_PATH
     parts = tuple(part for part in text.split("/") if part)
+    for index, part in enumerate(parts):
+        logical_name = part
+        if logical_name.endswith("_ImportedModel"):
+            logical_name = logical_name[: -len("_ImportedModel")]
+        if "_Container_" in logical_name:
+            logical_name = logical_name.partition("_Container_")[0] + "_Container"
+        if logical_name != part and (
+            logical_name in {
+                "LiveTwinHoistedContainer",
+                "LIVE_TwinHoistedContainer",
+                "LoadedContainer",
+            }
+            or logical_name.endswith("_Container")
+            or logical_name.lower().endswith("container")
+        ):
+            return "/" + "/".join((*parts[:index], logical_name))
     index = _container_component_index(parts)
     if index is None:
         return None
@@ -2861,6 +3017,7 @@ class OmniverseRtgTwinDriver:
         self._controller = None
         self._controller_stage_id: Optional[int] = None
         self._demo_artifacts_stage_id: Optional[int] = None
+        self._feeder_ship_replacement_stage_id: Optional[int] = None
         self._crossbeam_stage_id: Optional[int] = None
         self._lower_portal_crossbeam_path: Optional[str] = None
         self._lower_portal_crossbeam_checked: bool = False
@@ -2920,6 +3077,7 @@ class OmniverseRtgTwinDriver:
             stage = self._current_stage()
             if stage is not None:
                 self._disable_demo_artifacts_for_stage(stage)
+                self._ensure_4c_feeder_ship_replacements(stage)
                 self._sync_user_side_view_camera(stage)
                 _remove_runinfo_billboards(stage, keep_current=False)
                 self._hide_floating_device_panel(stage)
@@ -2967,6 +3125,7 @@ class OmniverseRtgTwinDriver:
         self._controller = None
         self._controller_stage_id = None
         self._demo_artifacts_stage_id = None
+        self._feeder_ship_replacement_stage_id = None
         self._crossbeam_stage_id = None
         self._lower_portal_crossbeam_path = None
         self._lower_portal_crossbeam_checked = False
@@ -3063,8 +3222,12 @@ class OmniverseRtgTwinDriver:
                             stage,
                             state.get("task") or {},
                         )
+                        self._sync_floating_task_panel(
+                            stage,
+                            dict(state.get("task") or {}),
+                        )
                     except Exception as exc:  # noqa: BLE001 - keep manual control alive
-                        self._log(f"runinfo panel update failed: {exc}")
+                        self._log(f"live panel update failed: {exc}")
             return
         if state is None:
             return
@@ -3090,12 +3253,45 @@ class OmniverseRtgTwinDriver:
             self._log(f"unable to disable sequence-demo artifacts: {exc}")
         self._demo_artifacts_stage_id = stage_id
 
+    def _ensure_4c_feeder_ship_replacements(self, stage: Any) -> None:
+        stage_id = id(stage)
+        if self._feeder_ship_replacement_stage_id == stage_id:
+            return
+        try:
+            _old_found, hidden, mounted = ensure_4c_feeder_ship_replacements(stage)
+            if hidden or mounted:
+                self._log(
+                    f"4C feeder ships: hidden_old={hidden} mounted_new={mounted}"
+                )
+            # Ship replacement is a one-time stage setup. Repeating the USD
+            # traversal and transform writes on every PLC frame stalls RTX.
+            self._feeder_ship_replacement_stage_id = stage_id
+        except Exception as exc:  # noqa: BLE001 - ship visuals must not stop live control
+            self._log(f"unable to replace 4C feeder ships: {exc}")
+
     def apply_state(self, state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         stage = self._current_stage()
         if stage is None:
             return None
 
+        # HUD messages are independent from inventory/model synchronization.
+        # Render them first so a malformed bay or asset cannot suppress the
+        # operator-facing RunInfo and task panels.
+        raw_task = dict(state.get("task") or {})
+        try:
+            self._sync_floating_runinfo_billboard(
+                stage,
+                self._effective_runinfo_payload(state.get("runinfo")),
+            )
+        except Exception as exc:  # noqa: BLE001 - physical state can still apply
+            self._log(f"runinfo panel update failed: {exc}")
+        try:
+            self._sync_floating_task_panel(stage, raw_task)
+        except Exception as exc:  # noqa: BLE001 - physical state can still apply
+            self._log(f"task panel update failed: {exc}")
+
         self._disable_demo_artifacts_for_stage(stage)
+        self._ensure_4c_feeder_ship_replacements(stage)
         self._sync_inventory_scene(stage)
         controller = self._controller_for_stage(stage)
         pose = dict(state.get("pose") or {})
@@ -4730,6 +4926,7 @@ class OmniverseRtgTwinDriver:
                 truck_box_path,
                 Gf.Vec3d(0.0, TASK_TRUCK_LOADED_BOX_LOCAL_Y_M, box_center_z),
                 truck_box_scale,
+                truck_box_material,
             )
 
     def _update_task_vehicle_pose(
@@ -5029,6 +5226,7 @@ class OmniverseRtgTwinDriver:
             body_path,
             local_center,
             scale,
+            bound_material,
         )
         self._log(
             f"created hoisted copy from {source_path} "
@@ -5163,7 +5361,7 @@ class OmniverseRtgTwinDriver:
             tier=tier,
             tiers=new_height,
         )
-        create_container_details(stage, target_path, center, scale)
+        create_container_details(stage, target_path, center, scale, bound_material)
         placed = stage.GetPrimAtPath(target_path)
         placed.CreateAttribute("live:source", Sdf.ValueTypeNames.Token).Set(
             "load_placement"
@@ -5715,6 +5913,38 @@ class OmniverseRtgTwinDriver:
         ).Set(value)
 
     @staticmethod
+    def _normalize_panel_xform_op_order(prim: Any) -> None:
+        """Keep a billboard anchored while rotating around its own center."""
+
+        try:
+            from pxr import UsdGeom
+
+            xform = UsdGeom.Xformable(prim)
+            ordered_ops = list(xform.GetOrderedXformOps())
+        except Exception:
+            return
+        translate_op = next(
+            (
+                op
+                for op in ordered_ops
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate
+            ),
+            None,
+        )
+        rotate_op = next(
+            (op for op in ordered_ops if op.GetOpName() == "xformOp:rotateXYZ"),
+            None,
+        )
+        if translate_op is None or rotate_op is None:
+            return
+        extras = [
+            op
+            for op in ordered_ops
+            if op is not translate_op and op is not rotate_op
+        ]
+        xform.SetXformOpOrder([translate_op, rotate_op, *extras])
+
+    @staticmethod
     def _get_xform_translate(prim: Any) -> Any:
         """Return the authored translate value without creating a new xform op."""
 
@@ -5996,6 +6226,7 @@ class OmniverseRtgTwinDriver:
                     container_path,
                     Gf.Vec3d(x, bay_center_y, z),
                     Gf.Vec3f(row_width, container_length_y, visual_height_z),
+                    mat,
                 )
                 container = stage.GetPrimAtPath(container_path)
                 container.CreateAttribute(
@@ -6065,19 +6296,11 @@ class OmniverseRtgTwinDriver:
             self._floating_runinfo_level_key = None
             return
 
-        text = str(runinfo.get("message") or "").strip() if isinstance(runinfo, dict) else ""
-        if not text:
-            with Usd.EditContext(stage, stage.GetSessionLayer()):
-                legacy = stage.GetPrimAtPath(LEGACY_RUNINFO_FLOATING_ROOT_PATH)
-                if legacy:
-                    stage.RemovePrim(legacy.GetPath())
-                root = stage.GetPrimAtPath(RUNINFO_FLOATING_ROOT_PATH)
-                if root:
-                    stage.RemovePrim(root.GetPath())
-            self._floating_runinfo_text = None
-            self._floating_runinfo_clock_text = None
-            self._floating_runinfo_level_key = None
-            return
+        text = (
+            str(runinfo.get("message") or "").strip()
+            if isinstance(runinfo, dict)
+            else ""
+        ) or RUNINFO_FLOATING_DEFAULT_TEXT
 
         clock_text = clock_text or _runinfo_time_text(runinfo)
         level_key = _runinfo_level_key(runinfo)
@@ -6232,6 +6455,7 @@ class OmniverseRtgTwinDriver:
             RUNINFO_FLOATING_ROTATE_XYZ,
         )
         self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+        self._normalize_panel_xform_op_order(root_prim)
 
     @staticmethod
     def _clear_runinfo_viewport_selection() -> None:
@@ -6443,6 +6667,7 @@ class OmniverseRtgTwinDriver:
             CONTAINER_INFO_PANEL_ROTATE_XYZ,
         )
         self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+        self._normalize_panel_xform_op_order(root)
 
     def _show_container_info_panel(self, stage: Any, root_path: str) -> None:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
@@ -6799,7 +7024,7 @@ class OmniverseRtgTwinDriver:
         root_prim: Any,
         bay_center_y: float,
     ) -> None:
-        from pxr import Gf, UsdGeom
+        from pxr import Gf
 
         translate = Gf.Vec3d(
             DEVICE_LOCATION_PANEL_WORLD_X,
@@ -6814,25 +7039,7 @@ class OmniverseRtgTwinDriver:
             DEVICE_LOCATION_PANEL_ROTATE_XYZ,
         )
         self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
-        # Hot-reloaded panels can retain an older op order. Keep translation
-        # before rotation so the panel rotates around its own centered mesh.
-        xform = UsdGeom.Xformable(root_prim)
-        ordered_ops = list(xform.GetOrderedXformOps())
-        translate_op = next(
-            (op for op in ordered_ops if op.GetOpType() == UsdGeom.XformOp.TypeTranslate),
-            None,
-        )
-        rotate_op = next(
-            (op for op in ordered_ops if op.GetOpName() == "xformOp:rotateXYZ"),
-            None,
-        )
-        if translate_op is not None and rotate_op is not None:
-            extras = [
-                op
-                for op in ordered_ops
-                if op is not translate_op and op is not rotate_op
-            ]
-            xform.SetXformOpOrder([translate_op, rotate_op, *extras])
+        self._normalize_panel_xform_op_order(root_prim)
 
     @staticmethod
     def _hide_floating_device_panel(stage: Any) -> None:
@@ -6875,26 +7082,20 @@ class OmniverseRtgTwinDriver:
             work_type = _task_work_type(task)
             if work_type not in CONTAINER_WORK_TYPES:
                 self._log_task_panel_status(
-                    "hidden_non_container_task",
-                    "task panel hidden: non-container task "
+                    "shown_non_container_task",
+                    "task panel uses current RTG bay: non-container task "
                     f"work={work_type or '--'} task={task.get('taskId') or '--'}",
                 )
             else:
                 self._log_task_panel_status(
-                    "hidden_invalid_task",
-                    "task panel hidden: task has no valid bayMap/position "
+                    "shown_fallback_position",
+                    "task panel uses current RTG bay: task has no valid bayMap/position "
                     f"task={task.get('taskId') or '--'} "
                     f"work={task.get('workType') or task.get('taskType') or '--'} "
                     f"start={task.get('startPos') or task.get('sourcePos') or '--'} "
                     f"end={task.get('endPos') or task.get('targetPos') or '--'} "
                     f"bayMap={task.get('bayMap') or '--'}",
                 )
-            with Usd.EditContext(stage, stage.GetSessionLayer()):
-                root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
-                if root:
-                    UsdGeom.Imageable(root).MakeInvisible()
-            self._floating_task_panel_key = None
-            return
 
         panel_key = (
             str(task.get("taskId") or ""),
@@ -6919,7 +7120,7 @@ class OmniverseRtgTwinDriver:
                 root = stage.GetPrimAtPath(TASK_PANEL_ROOT_PATH)
                 if root:
                     UsdGeom.Imageable(root).MakeVisible()
-                    self._sync_floating_task_panel_pose(root, stack_key)
+                    self._sync_floating_task_panel_pose(root, stack_key, task)
                 return
 
             self._floating_task_panel_key = panel_key
@@ -6939,7 +7140,7 @@ class OmniverseRtgTwinDriver:
             root = UsdGeom.Xform.Define(stage, TASK_PANEL_ROOT_PATH)
             root_prim = root.GetPrim()
             UsdGeom.Imageable(root_prim).MakeVisible()
-            self._sync_floating_task_panel_pose(root_prim, stack_key)
+            self._sync_floating_task_panel_pose(root_prim, stack_key, task)
 
             panel = UsdGeom.Mesh.Define(stage, TASK_PANEL_MESH_PATH)
             panel_prim = panel.GetPrim()
@@ -7031,13 +7232,27 @@ class OmniverseRtgTwinDriver:
     def _sync_floating_task_panel_pose(
         self,
         root_prim: Any,
-        stack_key: tuple[str, int, str, int],
+        stack_key: Optional[tuple[str, int, str, int]],
+        task: Optional[Dict[str, Any]] = None,
     ) -> None:
         from pxr import Gf
-        from build_live_containers import container_center_y_for_bay
 
-        block, bay_number, _pattern, container_size_ft = stack_key
-        bay_center_y = container_center_y_for_bay(block, bay_number, container_size_ft)
+        if stack_key is not None:
+            from build_live_containers import container_center_y_for_bay
+
+            block, bay_number, _pattern, container_size_ft = stack_key
+            bay_center_y = container_center_y_for_bay(
+                block,
+                bay_number,
+                container_size_ft,
+            )
+        else:
+            stage = self._current_stage()
+            bay_center_y = (
+                self._device_panel_bay_center_y(stage, task or {})
+                if stage is not None
+                else 0.0
+            )
         self._set_xform_translate(
             root_prim,
             Gf.Vec3d(
@@ -7056,6 +7271,7 @@ class OmniverseRtgTwinDriver:
             TASK_PANEL_ROTATE_XYZ,
         )
         self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+        self._normalize_panel_xform_op_order(root_prim)
 
     def _sync_visible_task_panel_facing_camera(
         self,
@@ -7084,6 +7300,7 @@ class OmniverseRtgTwinDriver:
                 else camera_facing_rotate_xyz(stage, translate, TASK_PANEL_ROTATE_XYZ)
             )
             self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+            self._normalize_panel_xform_op_order(root)
         except Exception:
             return
 
@@ -7124,6 +7341,7 @@ class OmniverseRtgTwinDriver:
                     else camera_facing_rotate_xyz(stage, translate, fallback_rotate)
                 )
                 self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+                self._normalize_panel_xform_op_order(root)
             except Exception:
                 continue
 

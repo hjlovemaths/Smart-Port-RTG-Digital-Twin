@@ -8,6 +8,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -33,6 +34,15 @@ from yard_coordinate_mapping import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "live_containers.usda"
+CONTAINER_ASSET_PATH = (
+    PROJECT_ROOT / "omniverse" / "assets" / "resource" / "container" / "Shipping_Container.usdz"
+)
+
+# Shipping_Container.usdz is authored in centimetres with Y-up coordinates:
+# X is width, Y is height, and Z is the long container axis.  The live yard
+# stage uses metres, Z-up coordinates, and the container length on Y.
+CONTAINER_ASSET_SOURCE_SIZE_M = Gf.Vec3f(2.400, 2.902, 6.015)
+CONTAINER_ASSET_ROTATE_X_DEG = 90.0
 
 LIVE_ROOT_PATH = "/World/LiveContainers"
 PAD_TOP_Z_M = 0.10
@@ -71,6 +81,14 @@ CONTAINER_COLORS = (
     # near-black navy made a complete side face look missing in Composer.
     ("dark_navy", Gf.Vec3f(0.12, 0.24, 0.42)),
 )
+CONTAINER_MATERIAL_TRAITS = {
+    "weathered_blue": (0.76, 0.08),
+    "oxide_red": (0.82, 0.06),
+    "warm_gray": (0.70, 0.10),
+    "faded_teal": (0.79, 0.07),
+    "sand_yellow": (0.74, 0.05),
+    "dark_navy": (0.72, 0.10),
+}
 
 
 def reference_first_row_center_x_m(row_count: int) -> float:
@@ -138,9 +156,75 @@ def material(stage: Usd.Stage, name: str, color: Gf.Vec3f) -> UsdShade.Material:
     shader = UsdShade.Shader.Define(stage, f"{material_path}/PreviewSurface")
     shader.CreateIdAttr("UsdPreviewSurface")
     shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(color)
-    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.62)
+    profile = next(
+        (profile_name for profile_name, _ in CONTAINER_COLORS if name.endswith(profile_name)),
+        "",
+    )
+    roughness, metallic = CONTAINER_MATERIAL_TRAITS.get(profile, (0.72, 0.07))
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+    shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
     mat.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
     return mat
+
+
+def imported_container_model_available() -> bool:
+    return CONTAINER_ASSET_PATH.is_file()
+
+
+def _container_asset_reference_path(stage: Usd.Stage) -> str:
+    """Use a project-relative asset path whenever the stage has a file path."""
+
+    identifier = stage.GetRootLayer().identifier
+    if identifier and not identifier.startswith("anon:"):
+        try:
+            return Path(
+                os.path.relpath(
+                    CONTAINER_ASSET_PATH,
+                    Path(identifier).resolve().parent,
+                )
+            ).as_posix()
+        except (OSError, ValueError):
+            pass
+    return CONTAINER_ASSET_PATH.as_posix()
+
+
+def create_imported_container_model(
+    stage: Usd.Stage,
+    path: str,
+    center: Gf.Vec3d,
+    scale: Gf.Vec3f,
+) -> bool:
+    """Reference the textured container and fit it to the live visual box."""
+
+    if not imported_container_model_available():
+        return False
+    model_path = f"{path}_ImportedModel"
+    model = UsdGeom.Xform.Define(stage, model_path)
+    prim = model.GetPrim()
+    prim.GetReferences().ClearReferences()
+    prim.GetReferences().AddReference(_container_asset_reference_path(stage))
+
+    xform = UsdGeom.Xformable(prim)
+    xform.ClearXformOpOrder()
+    # The source is centred on X/Z but starts at Y=0.  Translate after the
+    # axis conversion so the imported model sits on the requested box centre.
+    xform.AddTranslateOp().Set(
+        Gf.Vec3d(center[0], center[1], center[2] - float(scale[2]) * 0.5)
+    )
+    xform.AddRotateXOp().Set(CONTAINER_ASSET_ROTATE_X_DEG)
+    xform.AddScaleOp().Set(
+        Gf.Vec3f(
+            float(scale[0]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[0]),
+            float(scale[2]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[1]),
+            float(scale[1]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[2]),
+        )
+    )
+    resolved = any(model.GetPrim().GetChildren())
+    if resolved:
+        # Hundreds of yard boxes share one mesh/material prototype while each
+        # container keeps its own root transform and live metadata.
+        prim.SetInstanceable(True)
+    return resolved
 
 
 def set_cube_transform(cube: UsdGeom.Cube, center: Gf.Vec3d, scale: Gf.Vec3f) -> None:
@@ -194,6 +278,13 @@ def create_container_box(
     set_cube_transform(cube, center, scale)
     prim = cube.GetPrim()
     UsdShade.MaterialBindingAPI.Apply(prim).Bind(mat)
+    if imported_container_model_available():
+        # Keep the established root prim and metadata for task logic, while
+        # the referenced USDZ supplies the visible, textured container.
+        if create_imported_container_model(stage, path, center, scale):
+            UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(
+                UsdGeom.Tokens.invisible
+            )
     prim.CreateAttribute("live:bayId", Sdf.ValueTypeNames.String).Set(bay_id)
     prim.CreateAttribute("live:row", Sdf.ValueTypeNames.Int).Set(row)
     prim.CreateAttribute("live:tier", Sdf.ValueTypeNames.Int).Set(tier)
@@ -222,42 +313,285 @@ def create_colored_cube(
     cube.CreateDisplayColorAttr([color])
 
 
+def _mix_color(color: Gf.Vec3f, target: Gf.Vec3f, amount: float) -> Gf.Vec3f:
+    return Gf.Vec3f(
+        color[0] * (1.0 - amount) + target[0] * amount,
+        color[1] * (1.0 - amount) + target[1] * amount,
+        color[2] * (1.0 - amount) + target[2] * amount,
+    )
+
+
+def _material_color(mat: UsdShade.Material | None) -> Gf.Vec3f:
+    if mat:
+        shader = UsdShade.Shader.Get(
+            mat.GetPrim().GetStage(),
+            mat.GetPath().AppendChild("PreviewSurface"),
+        )
+        value = shader.GetInput("diffuseColor").Get() if shader else None
+        if value:
+            return Gf.Vec3f(value[0], value[1], value[2])
+    return Gf.Vec3f(0.18, 0.31, 0.38)
+
+
+def _append_box_mesh(
+    points: list[Gf.Vec3f],
+    face_counts: list[int],
+    face_indices: list[int],
+    center: tuple[float, float, float],
+    size: tuple[float, float, float],
+) -> None:
+    cx, cy, cz = center
+    hx, hy, hz = (dimension * 0.5 for dimension in size)
+    start = len(points)
+    points.extend(
+        Gf.Vec3f(*point)
+        for point in (
+            (cx - hx, cy - hy, cz - hz),
+            (cx + hx, cy - hy, cz - hz),
+            (cx + hx, cy + hy, cz - hz),
+            (cx - hx, cy + hy, cz - hz),
+            (cx - hx, cy - hy, cz + hz),
+            (cx + hx, cy - hy, cz + hz),
+            (cx + hx, cy + hy, cz + hz),
+            (cx - hx, cy + hy, cz + hz),
+        )
+    )
+    faces = (
+        (0, 1, 2, 3),
+        (4, 7, 6, 5),
+        (0, 4, 5, 1),
+        (1, 5, 6, 2),
+        (2, 6, 7, 3),
+        (4, 0, 3, 7),
+    )
+    for face in faces:
+        face_counts.append(4)
+        face_indices.extend(start + index for index in face)
+
+
+def create_colored_box_cluster(
+    stage: Usd.Stage,
+    path: str,
+    origin: Gf.Vec3d,
+    boxes: list[tuple[tuple[float, float, float], tuple[float, float, float]]],
+    color: Gf.Vec3f,
+) -> None:
+    if not boxes:
+        return
+    points: list[Gf.Vec3f] = []
+    face_counts: list[int] = []
+    face_indices: list[int] = []
+    for box_center, box_size in boxes:
+        _append_box_mesh(points, face_counts, face_indices, box_center, box_size)
+    mesh = UsdGeom.Mesh.Define(stage, path)
+    mesh.CreatePointsAttr(points)
+    mesh.CreateFaceVertexCountsAttr(face_counts)
+    mesh.CreateFaceVertexIndicesAttr(face_indices)
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    mesh.CreateDisplayColorAttr([color])
+    xform = UsdGeom.Xformable(mesh.GetPrim())
+    xform.AddTranslateOp().Set(origin)
+
+
 def create_container_details(
     stage: Usd.Stage,
     path: str,
     center: Gf.Vec3d,
     scale: Gf.Vec3f,
+    mat: UsdShade.Material | None = None,
 ) -> None:
-    dark = Gf.Vec3f(0.018, 0.018, 0.016)
-    weather = Gf.Vec3f(0.70, 0.68, 0.60)
+    imported_model = stage.GetPrimAtPath(f"{path}_ImportedModel")
+    if imported_model and any(imported_model.GetChildren()):
+        return
+    base = _material_color(mat)
+    dark = _mix_color(base, Gf.Vec3f(0.012, 0.014, 0.016), 0.72)
+    frame = _mix_color(base, Gf.Vec3f(0.035, 0.030, 0.026), 0.35)
+    faded = _mix_color(base, Gf.Vec3f(0.76, 0.76, 0.70), 0.20)
+    silver = Gf.Vec3f(0.58, 0.62, 0.62)
+    hinge = Gf.Vec3f(0.30, 0.33, 0.33)
+    corner = _mix_color(base, Gf.Vec3f(0.18, 0.12, 0.08), 0.25)
+    hole = Gf.Vec3f(0.018, 0.020, 0.020)
+    rust = Gf.Vec3f(0.42, 0.13, 0.035)
+    half_x = float(scale[0]) * 0.5
+    half_y = float(scale[1]) * 0.5
+    half_z = float(scale[2]) * 0.5
+    origin = Gf.Vec3d(center[0], center[1], center[2])
+
     top_z = center[2] + scale[2] * 0.5 + 0.012
     create_colored_cube(
         stage,
         f"{path}_WeatheredTop",
         Gf.Vec3d(center[0], center[1], top_z),
-        Gf.Vec3f(scale[0] * 0.88, scale[1] * 0.82, 0.018),
-        weather,
+        Gf.Vec3f(scale[0] * 0.92, scale[1] * 0.94, 0.018),
+        faded,
     )
+
+    corrugation_boxes = []
+    corrugation_count = 8 if float(scale[1]) < 3.8 else 16
+    corrugation_spacing = float(scale[1]) * 0.88 / corrugation_count
+    first_rib_y = -float(scale[1]) * 0.44 + corrugation_spacing * 0.5
+    for rib_index in range(corrugation_count):
+        rib_y = first_rib_y + rib_index * corrugation_spacing
+        for side_sign in (-1.0, 1.0):
+            corrugation_boxes.append(
+                (
+                    (side_sign * (half_x + 0.014), rib_y, 0.0),
+                    (0.028, corrugation_spacing * 0.34, float(scale[2]) * 0.76),
+                )
+            )
+    for side_sign in (-1.0, 1.0):
+        for rail_z in (-half_z + 0.048, half_z - 0.048):
+            corrugation_boxes.append(
+                (
+                    (side_sign * (half_x + 0.014), 0.0, rail_z),
+                    (0.035, float(scale[1]) * 0.94, 0.055),
+                )
+            )
+    create_colored_box_cluster(
+        stage,
+        f"{path}_SideCorrugation",
+        origin,
+        corrugation_boxes,
+        frame,
+    )
+
+    roof_ridges = []
+    roof_ridge_count = 6 if corrugation_count == 8 else 12
+    roof_spacing = float(scale[1]) * 0.86 / roof_ridge_count
+    first_roof_y = -float(scale[1]) * 0.43 + roof_spacing * 0.5
+    for ridge_index in range(roof_ridge_count):
+        roof_ridges.append(
+            (
+                (0.0, first_roof_y + ridge_index * roof_spacing, half_z + 0.025),
+                (float(scale[0]) * 0.84, 0.025, 0.026),
+            )
+        )
+    create_colored_box_cluster(
+        stage,
+        f"{path}_RoofRidges",
+        origin,
+        roof_ridges,
+        frame,
+    )
+
     for side_name, side_y in (
         ("Front", center[1] - scale[1] * 0.5 - 0.012),
         ("Back", center[1] + scale[1] * 0.5 + 0.012),
     ):
+        side_sign = -1.0 if side_name == "Front" else 1.0
         for rib_index in range(1, 5):
             rib_x = center[0] - scale[0] * 0.5 + rib_index * scale[0] / 5.0
             create_colored_cube(
                 stage,
                 f"{path}_{side_name}_Rib_{rib_index:02d}",
                 Gf.Vec3d(rib_x, side_y, center[2]),
-                Gf.Vec3f(0.018, 0.018, scale[2] * 0.82),
+                Gf.Vec3f(0.018, 0.025, scale[2] * 0.72),
                 dark,
             )
         create_colored_cube(
             stage,
             f"{path}_{side_name}_BottomLine",
             Gf.Vec3d(center[0], side_y, center[2] - scale[2] * 0.5 + 0.06),
-            Gf.Vec3f(scale[0] * 0.92, 0.020, 0.035),
+            Gf.Vec3f(scale[0] * 0.94, 0.025, 0.050),
             dark,
         )
+
+        if side_name == "Back":
+            end_wall_frame = [
+                ((-half_x + 0.055, side_sign * (half_y + 0.024), 0.0), (0.085, 0.045, float(scale[2]) * 0.92)),
+                ((half_x - 0.055, side_sign * (half_y + 0.024), 0.0), (0.085, 0.045, float(scale[2]) * 0.92)),
+                ((0.0, side_sign * (half_y + 0.024), half_z - 0.045), (float(scale[0]) * 0.94, 0.045, 0.070)),
+                ((0.0, side_sign * (half_y + 0.024), -half_z + 0.045), (float(scale[0]) * 0.94, 0.045, 0.070)),
+            ]
+            create_colored_box_cluster(
+                stage,
+                f"{path}_{side_name}_EndWallFrame",
+                origin,
+                end_wall_frame,
+                frame,
+            )
+            continue
+
+        door_frame_boxes = [
+            ((-half_x + 0.055, side_sign * (half_y + 0.024), 0.0), (0.085, 0.045, float(scale[2]) * 0.92)),
+            ((half_x - 0.055, side_sign * (half_y + 0.024), 0.0), (0.085, 0.045, float(scale[2]) * 0.92)),
+            ((0.0, side_sign * (half_y + 0.024), half_z - 0.045), (float(scale[0]) * 0.94, 0.045, 0.070)),
+            ((0.0, side_sign * (half_y + 0.024), -half_z + 0.045), (float(scale[0]) * 0.94, 0.045, 0.070)),
+            ((0.0, side_sign * (half_y + 0.030), 0.0), (0.032, 0.032, float(scale[2]) * 0.82)),
+        ]
+        for cross_z in (-0.19 * float(scale[2]), 0.12 * float(scale[2])):
+            door_frame_boxes.append(
+                ((0.0, side_sign * (half_y + 0.020), cross_z), (float(scale[0]) * 0.78, 0.030, 0.045))
+            )
+        create_colored_box_cluster(
+            stage,
+            f"{path}_{side_name}_DoorFrame",
+            origin,
+            door_frame_boxes,
+            frame,
+        )
+
+        lock_boxes = []
+        for lock_x in (-0.37, -0.13, 0.13, 0.37):
+            scaled_x = lock_x * float(scale[0])
+            lock_boxes.append(
+                ((scaled_x, side_sign * (half_y + 0.052), 0.0), (0.025, 0.026, float(scale[2]) * 0.78))
+            )
+            lock_boxes.append(
+                ((scaled_x, side_sign * (half_y + 0.058), -half_z * 0.25), (0.10, 0.030, 0.026))
+            )
+        create_colored_box_cluster(
+            stage,
+            f"{path}_{side_name}_LockingBars",
+            origin,
+            lock_boxes,
+            silver,
+        )
+        create_colored_cube(
+            stage,
+            f"{path}_{side_name}_DataPlate",
+            Gf.Vec3d(
+                center[0] - float(scale[0]) * 0.28,
+                center[1] + side_sign * (half_y + 0.060),
+                center[2] - float(scale[2]) * 0.22,
+            ),
+            Gf.Vec3f(float(scale[0]) * 0.13, 0.018, float(scale[2]) * 0.17),
+            silver,
+        )
+
+        hinge_boxes = []
+        for hinge_x in (-half_x + 0.085, half_x - 0.085):
+            for hinge_z in (-half_z * 0.55, 0.0, half_z * 0.55):
+                hinge_boxes.append(
+                    ((hinge_x, side_sign * (half_y + 0.058), hinge_z), (0.095, 0.035, 0.055))
+                )
+        create_colored_box_cluster(
+            stage,
+            f"{path}_{side_name}_DoorHinges",
+            origin,
+            hinge_boxes,
+            hinge,
+        )
+
+    corner_boxes = []
+    corner_holes = []
+    for corner_x in (-half_x + 0.045, half_x - 0.045):
+        for corner_y in (-half_y + 0.045, half_y - 0.045):
+            for corner_z in (-half_z + 0.045, half_z - 0.045):
+                corner_boxes.append(
+                    ((corner_x, corner_y, corner_z), (0.115, 0.115, 0.105))
+                )
+                corner_holes.append(
+                    ((corner_x, corner_y + (0.060 if corner_y > 0 else -0.060), corner_z), (0.040, 0.018, 0.042))
+                )
+    create_colored_box_cluster(stage, f"{path}_CornerCastings", origin, corner_boxes, corner)
+    create_colored_box_cluster(stage, f"{path}_CornerCastingHoles", origin, corner_holes, hole)
+
+    wear_boxes = [
+        ((-half_x - 0.018, -half_y * 0.18, -half_z * 0.28), (0.018, float(scale[1]) * 0.08, float(scale[2]) * 0.09)),
+        ((half_x + 0.018, half_y * 0.27, half_z * 0.22), (0.018, float(scale[1]) * 0.06, float(scale[2]) * 0.07)),
+    ]
+    create_colored_box_cluster(stage, f"{path}_SurfaceWear", origin, wear_boxes, rust)
 
 
 def create_layout_outline(
@@ -767,6 +1101,7 @@ def build_live_container_layer(
                 container_path,
                 Gf.Vec3d(x, bay_center_y, z),
                 Gf.Vec3f(container_width, container_length_y, CONTAINER_VISUAL_HEIGHT_Z_M),
+                mat,
             )
 
     outline_pad = 0.35

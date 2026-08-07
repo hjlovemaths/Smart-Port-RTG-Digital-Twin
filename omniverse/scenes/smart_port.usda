@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (9.063749040202238, -35.05384807188496, 13.136569738315039)
-                double3 target = (5.2904337277975815, -7.33576508009126, 4.667678640239712)
+                double3 position = (-14.578271789045452, 161.7376316813399, 160.43181266793164)
+                double3 target = (49.890949619647365, 575.072104553743, 0.7251463181457609)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -18,7 +18,7 @@
                 double3 position = (0, 0, 500)
                 double radius = 73.860400390625
             }
-            string boundCamera = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/REMOTE_MANUAL_GLOBAL_CAMERA"
+            string boundCamera = "/OmniverseKit_Persp"
         }
         dictionary omni_layer = {
             string authoring_layer = "./smart_port.usda"
@@ -33,7 +33,8 @@
     startTimeCode = 1
     subLayers = [
         @./rtg_virtual_cameras.usda@,
-        @./rtg_simready.usda@
+        @./rtg_simready.usda@,
+        @./4c_ship_replacements.usda@
     ]
     timeCodesPerSecond = 24
     upAxis = "Z"
@@ -51,6 +52,88 @@ def Xform "World"
         prepend payload = @../assets/rtg/RTG_Model.usdc@</World>
     )
     {
+        over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_ROOT" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_LOCAL_SHIP_4c40_near_sea_mid_ROOT" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_LOCAL_SHIP_4c40_near_sea_east_ROOT" (
+            active = false
+        )
+        {
+        }
+
+        def Xform "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED" (
+            instanceable = true
+            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        )
+        {
+            float xformOp:rotateX = 90
+            float3 xformOp:scale = (0.03644555, 0.02116672, 0.04201426)
+            double3 xformOp:translate = (45.16904068, 502.07313273, 2.16827647)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+        }
+
+        over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_ROOT" (
+            active = false
+        )
+        {
+        }
+
+        def Xform "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED" (
+            instanceable = true
+            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        )
+        {
+            float xformOp:rotateX = 90
+            float3 xformOp:scale = (0.03644555, 0.02116672, 0.04201426)
+            double3 xformOp:translate = (-52.82743325, 501.57297159, 2.16828665)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+        }
+
+        def Xform "SMART_PORT_REMOTE_CARGO_SHIP_01" (
+            instanceable = true
+            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        )
+        {
+            float xformOp:rotateX = 90
+            float xformOp:rotateZ = 12
+            float3 xformOp:scale = (0.020045053, 0.011641696, 0.023107843)
+            double3 xformOp:translate = (-13.3015632, 550.40204489, 0.70359933)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+        }
+
+        def Xform "SMART_PORT_REMOTE_CARGO_SHIP_02" (
+            instanceable = true
+            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        )
+        {
+            float xformOp:rotateX = 90
+            float xformOp:rotateZ = -18
+            float3 xformOp:scale = (0.013849309, 0.008043354, 0.015965419)
+            double3 xformOp:translate = (51.1551391, 574.65382876, 0.42975954)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+        }
+
+        def Xform "SMART_PORT_REMOTE_CARGO_SHIP_03" (
+            instanceable = true
+            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        )
+        {
+            float xformOp:rotateX = 90
+            float xformOp:rotateZ = 25
+            float3 xformOp:scale = (0.009840299, 0.005715014, 0.01134385)
+            double3 xformOp:translate = (-61.23198964, 615.37986823, 0.27903967)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+        }
+
         over "CODEx_showcase_inside_circular_sea_surface"
         {
             over "CODEx_showcase_inside_circular_sea_surface_mesh_001" (
@@ -77,7 +160,7 @@ def Xform "World"
                 float3 xformOp:rotateXYZ = (77.26887, 0, -169.70116)
                 float3 xformOp:scale = (1, 1, 1)
                 double3 xformOp:translate = (-9.754778037830361, 53.68323517349836, 12.327299017269466)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
             }
         }
 
@@ -3082,6 +3165,43 @@ def Xform "World"
                     custom bool live:manualToppled = 0
                 }
             }
+
+            over "Bay_4C_004"
+            {
+                token visibility = "inherited"
+            }
+
+            over "Bay_4C_018"
+            {
+                token visibility = "inherited"
+            }
+        }
+    }
+
+    over "LiveHUD"
+    {
+        over "RTG_RUNINFO_FLOATING_BILLBOARD"
+        {
+            float3 xformOp:rotateXYZ = (3.02947, 0, 1.2168103)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+
+        over "RTG_CONTAINER_INFO_PANEL"
+        {
+            float3 xformOp:rotateXYZ = (60.947536, 0, 130.2944)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+
+        over "RTG_TASK_INFO_PANEL"
+        {
+            float3 xformOp:rotateXYZ = (4.3645144, 0, 354.9574)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+
+        over "RTG_DEVICE_LOCATION_PANEL"
+        {
+            float3 xformOp:rotateXYZ = (60.947536, 0, 130.2944)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
         }
     }
 }
@@ -3103,7 +3223,7 @@ def "Render" (
                 no_delete = true
             )
             {
-                rel camera = </World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/REMOTE_MANUAL_GLOBAL_CAMERA>
+                rel camera = </OmniverseKit_Persp>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
                 token omni:rtx:background:source:type = "domeLight"
@@ -3177,10 +3297,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -29.227592265149898)
-    float3 xformOp:rotateXYZ = (73.15661, 2.842171e-14, 7.7521305)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -447.7810695533166)
+    float3 xformOp:rotateXYZ = (69.10464, 5.684342e-14, -8.865193)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (9.063749040202238, -35.05384807188496, 13.136569738315039)
+    double3 xformOp:translate = (-14.578271789045452, 161.7376316813399, 160.43181266793164)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

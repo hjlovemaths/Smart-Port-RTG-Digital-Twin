@@ -338,6 +338,7 @@ def create_sequence_stack(
                 container_path,
                 center,
                 Gf.Vec3f(CONTAINER_WIDTH_X_M, 5.194, CONTAINER_VISUAL_HEIGHT_Z_M),
+                mat,
             )
     return row_tier_centers
 
@@ -366,6 +367,7 @@ def create_task_truck_box(
         path,
         center,
         Gf.Vec3f(CONTAINER_WIDTH_X_M, 5.194, CONTAINER_VISUAL_HEIGHT_Z_M),
+        mat,
     )
 
 

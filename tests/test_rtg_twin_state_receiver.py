@@ -147,6 +147,22 @@ class TaskPositionTests(unittest.TestCase):
             "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container",
         )
 
+    def test_container_selection_normalizes_imported_model_to_box_root(self) -> None:
+        self.assertEqual(
+            receiver._container_root_path_from_selection(
+                "/World/LiveContainers/YardInventory/Bay_4C_018/"
+                "R02_T03_Container_ImportedModel/scene/Mesh"
+            ),
+            "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container",
+        )
+        self.assertEqual(
+            receiver._container_root_path_from_selection(
+                "/World/LiveContainers/LiveTwinHoistedContainer_ImportedModel/"
+                "scene/Mesh"
+            ),
+            "/World/LiveContainers/LiveTwinHoistedContainer",
+        )
+
     def test_rtg_selection_is_not_treated_as_container_selection(self) -> None:
         self.assertIsNone(
             receiver._container_root_path_from_selection(

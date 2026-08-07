@@ -86,24 +86,24 @@ def billboard_x_rotation_degrees(
 def active_viewport_camera_position(stage: Any) -> Optional[Any]:
     """Best-effort active viewport camera world position."""
 
-    position = _active_viewport_transform_camera_position()
-    if position is not None:
-        return position
-
+    # In current Kit builds ``viewport.transform`` can expose the view matrix
+    # rather than a camera-to-world transform.  Its translation then points
+    # billboards at a phantom position and makes them appear edge-on.  The
+    # authored Camera prim is the authoritative world-space source.
     camera_path = _active_viewport_camera_path()
-    if not camera_path:
-        return None
-    try:
-        from pxr import Gf, Usd, UsdGeom
+    if camera_path:
+        try:
+            from pxr import Gf, Usd, UsdGeom
 
-        prim = stage.GetPrimAtPath(str(camera_path))
-        if not prim:
-            return None
-        cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-        matrix = cache.GetLocalToWorldTransform(prim)
-        return matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
-    except Exception:
-        return None
+            prim = stage.GetPrimAtPath(str(camera_path))
+            if prim:
+                cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+                matrix = cache.GetLocalToWorldTransform(prim)
+                return matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+        except Exception:
+            pass
+
+    return _active_viewport_transform_camera_position()
 
 
 def camera_facing_rotate_xyz(
