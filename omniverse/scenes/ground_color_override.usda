@@ -1,0 +1,32 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "SMART_PORT_GROUND_COLOR_OVERRIDE"
+    {
+        custom string colorReference = "sample median RGB 48,78,110; cool dark blue-grey"
+        custom string coverage = "main yard X=-101.75..108.75; Y=-10.25..493.075"
+        custom string performanceRule = "single flat mesh below rails and markings"
+
+        def Mesh "SMART_PORT_GROUND_COLOR_OVERRIDE_MAIN_YARD"
+        {
+            bool doubleSided = 1
+            uniform token subdivisionScheme = "none"
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            color3f[] primvars:displayColor = [(0.035, 0.08, 0.15)]
+            uniform token primvars:displayColor:interpolation = "constant"
+            point3f[] points = [
+                (-101.75, -10.25, 0.106),
+                (108.75, -10.25, 0.106),
+                (108.75, 493.075, 0.106),
+                (-101.75, 493.075, 0.106)
+            ]
+        }
+    }
+}

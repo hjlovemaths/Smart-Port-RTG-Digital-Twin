@@ -34,6 +34,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import types
 from dataclasses import dataclass
 from datetime import datetime
@@ -136,13 +137,14 @@ FOUR_C_LEGACY_SHIP_ROOT_NAMES = (
 )
 FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED": (
-        (-46.61905930853182, -14.315740402231246, 1.3012471449582028),
+        (-246.2, 50.0, 1.3012471449582028),
     ),
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED": (
-        (49.38094069146818, -14.315740402231246, 1.3012471449582028),
+        (-246.2, 120.0, 1.3012471449582028),
     ),
 }
 FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (0.03883929, 0.027641999, 0.043764994)
+LIVE_DRIVER_BUILD_ID = "2026-08-11-inline-xform-attrs-v4"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
@@ -201,10 +203,25 @@ def ensure_4c_feeder_ship_replacements(stage: Any) -> tuple[bool, int, int]:
                 references.AddReference(asset_path)
             prim.SetInstanceable(True)
             xform = UsdGeom.Xformable(prim)
-            xform.ClearXformOpOrder()
-            xform.AddTranslateOp().Set(translate)
-            xform.AddRotateXOp().Set(90.0)
-            xform.AddScaleOp().Set(FOUR_C_FEEDER_SHIP_RUNTIME_SCALE)
+            translate_op = _billboard_utils.get_or_add_xform_op(
+                xform,
+                "xformOp:translate",
+                xform.AddTranslateOp,
+            )
+            translate_op.Set(translate)
+            rotate_op = _billboard_utils.get_or_add_xform_op(
+                xform,
+                "xformOp:rotateXYZ",
+                xform.AddRotateXYZOp,
+            )
+            rotate_op.Set((90.0, 0.0, -90.0))
+            scale_op = _billboard_utils.get_or_add_xform_op(
+                xform,
+                "xformOp:scale",
+                xform.AddScaleOp,
+            )
+            scale_op.Set(FOUR_C_FEEDER_SHIP_RUNTIME_SCALE)
+            xform.SetXformOpOrder([translate_op, rotate_op, scale_op])
             mounted += 1
     return old_found, hidden, mounted
 
@@ -3069,26 +3086,42 @@ class OmniverseRtgTwinDriver:
     def start(self) -> None:
         if self._subscription is not None:
             return
+        startup_step = "initializing"
+        self._log(f"loading live driver build={LIVE_DRIVER_BUILD_ID} scripts={SCRIPT_DIR}")
         try:
             import omni.kit.app  # type: ignore
 
+            startup_step = "dismiss legacy runinfo"
             _dismiss_legacy_runinfo_window()
+            startup_step = "pause timeline"
             pause_timeline_for_live_control(self._log)
             stage = self._current_stage()
             if stage is not None:
+                startup_step = "disable demo artifacts"
                 self._disable_demo_artifacts_for_stage(stage)
+                startup_step = "ensure 4C feeder ship replacements"
                 self._ensure_4c_feeder_ship_replacements(stage)
+                startup_step = "sync user side view camera"
                 self._sync_user_side_view_camera(stage)
+                startup_step = "remove runinfo billboards"
                 _remove_runinfo_billboards(stage, keep_current=False)
+                startup_step = "hide floating device panel"
                 self._hide_floating_device_panel(stage)
+                startup_step = "hide container info panel"
                 self._hide_container_info_panel(stage)
                 self._device_panel_selected = _selected_rtg_path() is not None
+                startup_step = "sync floating runinfo billboard"
                 self._sync_floating_runinfo_billboard(stage, {})
+                startup_step = "sync floating device panel"
                 self._sync_floating_device_panel(stage, {})
+                startup_step = "sync floating task panel"
                 self._sync_floating_task_panel(stage, {})
+            startup_step = "subscribe device panel selection"
             self._subscribe_device_panel_selection()
             if self._status_overlay is None:
+                startup_step = "create status overlay"
                 self._status_overlay = RtgTwinStatusOverlay()
+            startup_step = "subscribe Omniverse update stream"
             stream = omni.kit.app.get_app().get_update_event_stream()
             self._subscription = stream.create_subscription_to_pop(
                 self._on_update, name="SmartPortRtgTwinDriver"
@@ -3096,7 +3129,10 @@ class OmniverseRtgTwinDriver:
             builtins._smart_port_rtg_panel_facing_driver = self
             self._log("Omniverse main-thread driver started")
         except Exception as exc:  # noqa: BLE001 - Kit may not be loaded in tests
-            self._log(f"unable to start Omniverse update driver: {exc}")
+            self._log(
+                f"unable to start Omniverse update driver at {startup_step}: {exc}"
+            )
+            self._log(traceback.format_exc().rstrip())
 
     def stop(self) -> None:
         selection_sub = self._device_panel_selection_sub
@@ -4250,7 +4286,11 @@ class OmniverseRtgTwinDriver:
         sphere.CreateRadiusAttr(float(radius))
         sphere.CreateDisplayColorAttr([color])
         xform = UsdGeom.Xformable(sphere.GetPrim())
-        xform.AddTranslateOp().Set(center)
+        OmniverseRtgTwinDriver._get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            xform.AddTranslateOp,
+        ).Set(center)
 
     def _create_route_truck_marker(self, stage: Any, center: Any) -> None:
         from pxr import Gf
@@ -5887,62 +5927,81 @@ class OmniverseRtgTwinDriver:
         cube.CreateDisplayColorAttr([color])
 
     @staticmethod
-    def _set_xform_translate(prim: Any, value: Any) -> None:
-        from pxr import UsdGeom
+    def _set_xform_op_attr_value(
+        prim: Any,
+        op_name: str,
+        type_name: Any,
+        value: Any,
+    ) -> Any:
+        """Set a transform attribute without relying on AddXformOp."""
 
-        xform = UsdGeom.Xformable(prim)
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                op.Set(value)
-                return
-        OmniverseRtgTwinDriver._get_or_add_xform_op(
-            xform,
+        attr = prim.GetAttribute(op_name)
+        try:
+            attr_valid = bool(attr and attr.IsValid())
+        except Exception:
+            attr_valid = bool(attr)
+        if not attr_valid:
+            attr = prim.CreateAttribute(op_name, type_name)
+        attr.Set(value)
+
+        order_attr = prim.GetAttribute("xformOpOrder")
+        try:
+            order_valid = bool(order_attr and order_attr.IsValid())
+        except Exception:
+            order_valid = bool(order_attr)
+        if not order_valid:
+            from pxr import Sdf
+
+            order_attr = prim.CreateAttribute(
+                "xformOpOrder",
+                Sdf.ValueTypeNames.TokenArray,
+            )
+        order = list(order_attr.Get() or [])
+        if op_name not in order:
+            order_attr.Set([*order, op_name])
+        return attr
+
+    @staticmethod
+    def _set_xform_translate(prim: Any, value: Any) -> None:
+        from pxr import Sdf
+
+        OmniverseRtgTwinDriver._set_xform_op_attr_value(
+            prim,
             "xformOp:translate",
-            xform.AddTranslateOp,
-        ).Set(value)
+            Sdf.ValueTypeNames.Double3,
+            value,
+        )
 
     @staticmethod
     def _set_xform_rotate_xyz(prim: Any, value: Any) -> None:
-        from pxr import UsdGeom
+        from pxr import Sdf
 
-        xform = UsdGeom.Xformable(prim)
-        _billboard_utils.get_or_add_xform_op(
-            xform,
+        OmniverseRtgTwinDriver._set_xform_op_attr_value(
+            prim,
             "xformOp:rotateXYZ",
-            xform.AddRotateXYZOp,
-        ).Set(value)
+            Sdf.ValueTypeNames.Float3,
+            value,
+        )
 
     @staticmethod
     def _normalize_panel_xform_op_order(prim: Any) -> None:
         """Keep a billboard anchored while rotating around its own center."""
 
         try:
-            from pxr import UsdGeom
-
-            xform = UsdGeom.Xformable(prim)
-            ordered_ops = list(xform.GetOrderedXformOps())
+            order_attr = prim.GetAttribute("xformOpOrder")
+            ordered_names = list(order_attr.Get() or [])
         except Exception:
             return
-        translate_op = next(
-            (
-                op
-                for op in ordered_ops
-                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate
-            ),
-            None,
-        )
-        rotate_op = next(
-            (op for op in ordered_ops if op.GetOpName() == "xformOp:rotateXYZ"),
-            None,
-        )
-        if translate_op is None or rotate_op is None:
+        translate_name = "xformOp:translate"
+        rotate_name = "xformOp:rotateXYZ"
+        if translate_name not in ordered_names or rotate_name not in ordered_names:
             return
         extras = [
-            op
-            for op in ordered_ops
-            if op is not translate_op and op is not rotate_op
+            name
+            for name in ordered_names
+            if name not in (translate_name, rotate_name)
         ]
-        xform.SetXformOpOrder([translate_op, rotate_op, *extras])
+        order_attr.Set([translate_name, rotate_name, *extras])
 
     @staticmethod
     def _get_xform_translate(prim: Any) -> Any:
@@ -5950,11 +6009,11 @@ class OmniverseRtgTwinDriver:
 
         if not prim:
             return None
-        from pxr import UsdGeom
-
-        xform = UsdGeom.Xformable(prim)
-        op = _billboard_utils.existing_xform_op(xform, "xformOp:translate")
-        return op.Get() if op is not None else None
+        try:
+            attr = prim.GetAttribute("xformOp:translate")
+            return attr.Get() if attr and attr.IsValid() else None
+        except Exception:
+            return None
 
     def _get_xform_world_translate(self, stage: Any, prim: Any) -> Any:
         """Return an info panel origin in world space for camera-facing math."""
@@ -5989,18 +6048,14 @@ class OmniverseRtgTwinDriver:
 
     @staticmethod
     def _set_xform_scale(prim: Any, value: Any) -> None:
-        from pxr import UsdGeom
+        from pxr import Sdf
 
-        xform = UsdGeom.Xformable(prim)
-        for op in xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeScale:
-                op.Set(value)
-                return
-        OmniverseRtgTwinDriver._get_or_add_xform_op(
-            xform,
+        OmniverseRtgTwinDriver._set_xform_op_attr_value(
+            prim,
             "xformOp:scale",
-            xform.AddScaleOp,
-        ).Set(value)
+            Sdf.ValueTypeNames.Float3,
+            value,
+        )
 
     @staticmethod
     def _get_or_add_xform_op(
@@ -6008,18 +6063,7 @@ class OmniverseRtgTwinDriver:
         op_name: str,
         add_op: Any,
     ) -> Any:
-        from pxr import UsdGeom
-
-        ordered_ops = list(xform.GetOrderedXformOps())
-        for op in ordered_ops:
-            if op.GetOpName() == op_name:
-                return op
-        attr = xform.GetPrim().GetAttribute(op_name)
-        if attr:
-            op = UsdGeom.XformOp(attr)
-            xform.SetXformOpOrder(ordered_ops + [op])
-            return op
-        return add_op()
+        return _billboard_utils.get_or_add_xform_op(xform, op_name, add_op)
 
     @staticmethod
     def _set_visibility(prim: Any, visible: bool) -> None:

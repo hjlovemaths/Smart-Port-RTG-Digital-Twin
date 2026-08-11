@@ -52,6 +52,101 @@ class BillboardUtilsTests(unittest.TestCase):
         self.assertIs(result, op)
         self.assertEqual(add_calls, [])
 
+    def test_get_or_add_xform_op_does_not_reorder_existing_ordered_attr(self) -> None:
+        class Op:
+            @staticmethod
+            def GetOpName() -> str:
+                return "xformOp:translate"
+
+        op = Op()
+        calls = []
+        xform = type(
+            "Xform",
+            (),
+            {
+                "GetOrderedXformOps": lambda self: [op],
+                "SetXformOpOrder": lambda self, order: calls.append(order),
+            },
+        )()
+
+        result = billboard.get_or_add_xform_op(
+            xform,
+            "xformOp:translate",
+            lambda: calls.append("add"),
+        )
+
+        self.assertIs(result, op)
+        self.assertEqual(calls, [])
+
+    def test_get_or_add_xform_op_recovers_when_add_reports_existing_attr(self) -> None:
+        op = object()
+        lookups = iter((None, op))
+        original = billboard.existing_xform_op
+        billboard.existing_xform_op = lambda _xform, _name: next(lookups)
+        try:
+            xform = type(
+                "Xform",
+                (),
+                {
+                    "GetOrderedXformOps": lambda self: [],
+                    "SetXformOpOrder": lambda self, order: setattr(self, "order", order),
+                },
+            )()
+
+            def add_op():
+                raise RuntimeError("xformOp already exists")
+
+            result = billboard.get_or_add_xform_op(
+                xform,
+                "xformOp:translate",
+                add_op,
+            )
+        finally:
+            billboard.existing_xform_op = original
+
+        self.assertIs(result, op)
+        self.assertEqual(xform.order, [op])
+
+    def test_set_xform_op_attr_value_reuses_existing_attr_and_order(self) -> None:
+        class Attr:
+            def __init__(self, value=None):
+                self.value = value
+
+            @staticmethod
+            def IsValid() -> bool:
+                return True
+
+            def Get(self):
+                return self.value
+
+            def Set(self, value) -> None:
+                self.value = value
+
+        translate = Attr((1.0, 2.0, 3.0))
+        order = Attr(["xformOp:translate", "xformOp:rotateXYZ"])
+
+        class Prim:
+            def GetAttribute(self, name):
+                return {
+                    "xformOp:translate": translate,
+                    "xformOpOrder": order,
+                }.get(name)
+
+            @staticmethod
+            def CreateAttribute(name, _type):
+                raise AssertionError(f"unexpected attribute creation: {name}")
+
+        result = billboard.set_xform_op_attr_value(
+            Prim(),
+            "xformOp:translate",
+            object(),
+            (4.0, 5.0, 6.0),
+        )
+
+        self.assertIs(result, translate)
+        self.assertEqual(translate.Get(), (4.0, 5.0, 6.0))
+        self.assertEqual(order.Get(), ["xformOp:translate", "xformOp:rotateXYZ"])
+
     def test_z_rotation_faces_camera_from_y_axis_sides(self) -> None:
         self.assertAlmostEqual(
             billboard.billboard_z_rotation_degrees((0.0, 0.0, 0.0), (0.0, 10.0, 3.0)),

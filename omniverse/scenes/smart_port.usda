@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (-14.578271789045452, 161.7376316813399, 160.43181266793164)
-                double3 target = (49.890949619647365, 575.072104553743, 0.7251463181457609)
+                double3 position = (115.61792621701042, 404.7747004288243, 240.58483399687742)
+                double3 target = (-155.99527460889587, 375.30862485121656, -188.76755053731478)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -32,9 +32,14 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./ship_traffic_animation.usda@,
+        @./yard_expansion_prep.usda@,
+        @./static_rtg_yard_population.usda@,
         @./rtg_virtual_cameras.usda@,
         @./rtg_simready.usda@,
+        @./ground_color_override.usda@,
         @./quay_yard_traffic_layout.usda@,
+        @./offshore_quay_layout.usda@,
         @./4c_ship_replacements.usda@
     ]
     timeCodesPerSecond = 24
@@ -77,9 +82,10 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
-            float3 xformOp:scale = (0.03644555, 0.02116672, 0.04201426)
-            double3 xformOp:translate = (45.16904068, 502.07313273, 2.16827647)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+            double3 xformOp:translate = (-246.2, 190, 1.3012471449582028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
         over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_ROOT" (
@@ -94,9 +100,10 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
-            float3 xformOp:scale = (0.03644555, 0.02116672, 0.04201426)
-            double3 xformOp:translate = (-52.82743325, 501.57297159, 2.16828665)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+            double3 xformOp:translate = (-246.2, 260, 1.3012471449582028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
         def Xform "SMART_PORT_REMOTE_CARGO_SHIP_01" (
@@ -105,9 +112,9 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
-            float xformOp:rotateZ = 12
-            float3 xformOp:scale = (0.020045053, 0.011641696, 0.023107843)
-            double3 xformOp:translate = (-13.3015632, 550.40204489, 0.70359933)
+            float xformOp:rotateZ = -78
+            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+            double3 xformOp:translate = (-260, 330, 1.3012471449582028)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
@@ -117,9 +124,9 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
-            float xformOp:rotateZ = -18
-            float3 xformOp:scale = (0.013849309, 0.008043354, 0.015965419)
-            double3 xformOp:translate = (51.1551391, 574.65382876, 0.42975954)
+            float xformOp:rotateZ = -105
+            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+            double3 xformOp:translate = (-275, 400, 1.3012471449582028)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
@@ -129,9 +136,9 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
-            float xformOp:rotateZ = 25
-            float3 xformOp:scale = (0.009840299, 0.005715014, 0.01134385)
-            double3 xformOp:translate = (-61.23198964, 615.37986823, 0.27903967)
+            float xformOp:rotateZ = -65
+            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+            double3 xformOp:translate = (-292, 460, 1.3012471449582028)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
@@ -2641,6 +2648,15 @@ def Xform "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
         }
+
+        over "YARD_LAYOUT_1C4C_INFILL_RIGHT_NARROW_BOUNDARIES"
+        {
+            over "YARD_LAYOUT_1C4C_INFILL_RIGHT_NARROW_BOUNDARIES_mesh_001" (
+                active = false
+            )
+            {
+            }
+        }
     }
 
     over "RTGPhysics"
@@ -3183,26 +3199,26 @@ def Xform "World"
     {
         over "RTG_RUNINFO_FLOATING_BILLBOARD"
         {
-            float3 xformOp:rotateXYZ = (3.02947, 0, 1.2168103)
-            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+            float3 xformOp:rotateXYZ = (14.430107, 0, 156.27028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_CONTAINER_INFO_PANEL"
         {
-            float3 xformOp:rotateXYZ = (60.947536, 0, 130.2944)
-            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+            float3 xformOp:rotateXYZ = (26.805672, 0, 136.1132)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_TASK_INFO_PANEL"
         {
-            float3 xformOp:rotateXYZ = (4.3645144, 0, 354.9574)
-            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+            float3 xformOp:rotateXYZ = (14.542495, 0, 141.29283)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_DEVICE_LOCATION_PANEL"
         {
-            float3 xformOp:rotateXYZ = (60.947536, 0, 130.2944)
-            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+            float3 xformOp:rotateXYZ = (16.829983, 0, 170.68486)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
     }
 }
@@ -3298,10 +3314,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -447.7810695533166)
-    float3 xformOp:rotateXYZ = (69.10464, 5.684342e-14, -8.865193)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -508.90613140149554)
+    float3 xformOp:rotateXYZ = (32.46954, 2.1884716e-12, 96.19154)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (-14.578271789045452, 161.7376316813399, 160.43181266793164)
+    double3 xformOp:translate = (115.61792621701042, 404.7747004288243, 240.58483399687742)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -3382,4 +3398,3 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
-

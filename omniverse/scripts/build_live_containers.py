@@ -208,11 +208,23 @@ def create_imported_container_model(
     xform.ClearXformOpOrder()
     # The source is centred on X/Z but starts at Y=0.  Translate after the
     # axis conversion so the imported model sits on the requested box centre.
-    xform.AddTranslateOp().Set(
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:translate",
+        xform.AddTranslateOp,
+    ).Set(
         Gf.Vec3d(center[0], center[1], center[2] - float(scale[2]) * 0.5)
     )
-    xform.AddRotateXOp().Set(CONTAINER_ASSET_ROTATE_X_DEG)
-    xform.AddScaleOp().Set(
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:rotateX",
+        xform.AddRotateXOp,
+    ).Set(CONTAINER_ASSET_ROTATE_X_DEG)
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:scale",
+        xform.AddScaleOp,
+    ).Set(
         Gf.Vec3f(
             float(scale[0]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[0]),
             float(scale[2]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[1]),
@@ -257,7 +269,9 @@ def _get_or_add_xform_op(
     attr = xform.GetPrim().GetAttribute(op_name)
     if attr:
         op = UsdGeom.XformOp(attr)
-        xform.SetXformOpOrder(ordered_ops + [op])
+        ordered_names = {ordered_op.GetOpName() for ordered_op in ordered_ops}
+        if op_name not in ordered_names:
+            xform.SetXformOpOrder(ordered_ops + [op])
         return op
     return add_op()
 
@@ -390,7 +404,11 @@ def create_colored_box_cluster(
     mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
     mesh.CreateDisplayColorAttr([color])
     xform = UsdGeom.Xformable(mesh.GetPrim())
-    xform.AddTranslateOp().Set(origin)
+    _get_or_add_xform_op(
+        xform,
+        "xformOp:translate",
+        xform.AddTranslateOp,
+    ).Set(origin)
 
 
 def create_container_details(
