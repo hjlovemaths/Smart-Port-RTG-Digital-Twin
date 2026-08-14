@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (115.61792621701042, 404.7747004288243, 240.58483399687742)
-                double3 target = (-155.99527460889587, 375.30862485121656, -188.76755053731478)
+                double3 position = (24.23444688175598, 325.7350069445011, 4.451490494492121)
+                double3 target = (20.000076986541348, 341.15561916211635, 2.801852597189076)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -24,6 +24,15 @@
             string authoring_layer = "./smart_port.usda"
         }
         dictionary renderSettings = {
+            float3 "rtx:background:source:color" = (0.018, 0.045, 0.12)
+            token "rtx:background:source:texture:path" = "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png"
+            int "rtx:background:source:type" = 2
+            double "rtx:fog:fogDistanceDensity" = 0.34
+            double "rtx:fog:fogEndDist" = 5750
+            double "rtx:fog:fogHeightDensity" = 0
+            double "rtx:fog:fogHeightFalloff" = 0.12
+            double "rtx:fog:fogStartHeight" = 3
+            bool "rtx:fog:fogZup:enabled" = 1
         }
     }
     defaultPrim = "World"
@@ -32,6 +41,8 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./weather_effects.usda@,
+        @./rtg_led_floodlights.usda@,
         @./ship_traffic_animation.usda@,
         @./yard_expansion_prep.usda@,
         @./static_rtg_yard_population.usda@,
@@ -3199,25 +3210,25 @@ def Xform "World"
     {
         over "RTG_RUNINFO_FLOATING_BILLBOARD"
         {
-            float3 xformOp:rotateXYZ = (14.430107, 0, 156.27028)
+            float3 xformOp:rotateXYZ = (-6.697464, 0, 196.72354)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_CONTAINER_INFO_PANEL"
         {
-            float3 xformOp:rotateXYZ = (26.805672, 0, 136.1132)
+            float3 xformOp:rotateXYZ = (0.78079695, 0, 355.7451)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_TASK_INFO_PANEL"
         {
-            float3 xformOp:rotateXYZ = (14.542495, 0, 141.29283)
+            float3 xformOp:rotateXYZ = (0.78079695, 0, 355.7451)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
 
         over "RTG_DEVICE_LOCATION_PANEL"
         {
-            float3 xformOp:rotateXYZ = (16.829983, 0, 170.68486)
+            float3 xformOp:rotateXYZ = (-5.3702908, 0, 202.7259)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
     }
@@ -3242,12 +3253,20 @@ def "Render" (
             {
                 rel camera = </OmniverseKit_Persp>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
+                color3f omni:rtx:background:source:color = (0.018, 0.045, 0.12)
+                asset omni:rtx:background:source:texture:path = @D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png@
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
-                token omni:rtx:background:source:type = "domeLight"
+                token omni:rtx:background:source:type = "color"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
                 string omni:rtx:debug:view:target = ""
                 token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
                 bool omni:rtx:dlss:frameGeneration = 1
+                float omni:rtx:fog:distanceDensity = 0.34
+                float omni:rtx:fog:endDist = 5750
+                float omni:rtx:fog:height:density = 0
+                float omni:rtx:fog:height:falloff = 0.12
+                float omni:rtx:fog:start:height = 3
+                bool omni:rtx:fog:zUp:enabled = 1
                 bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
                 bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
                 bool omni:rtx:post:registeredCompositing:invertToneMap = 1
@@ -3314,10 +3333,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -508.90613140149554)
-    float3 xformOp:rotateXYZ = (32.46954, 2.1884716e-12, 96.19154)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -16.076270549097615)
+    float3 xformOp:rotateXYZ = (84.11033, 3.0695446e-12, 375.3545)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (115.61792621701042, 404.7747004288243, 240.58483399687742)
+    double3 xformOp:translate = (24.23444688175598, 325.7350069445011, 4.451490494492121)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -3398,3 +3417,4 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
+

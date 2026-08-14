@@ -1,0 +1,54 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "root" (
+    prepend references = @./Intersection_Street_Light.usdc@
+)
+{
+    over "IntersectionStreetLight"
+    {
+        over "Lamp_240"
+        {
+            token visibility = "invisible"
+        }
+        over "Lamp_000"
+        {
+            token visibility = "invisible"
+        }
+        over "Lamp_120"
+        {
+            token visibility = "invisible"
+        }
+            def Xform "LED_Floodlight_240" (
+                prepend references = @../led/LED_Floodlight.usdz@
+            )
+            {
+                double3 xformOp:translate = (-0.00223, -0.91511, 11.35883)
+                float3 xformOp:rotateXYZ = (0, 0, 0)
+                float3 xformOp:scale = (0.004, 0.004, 0.004)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+            }
+            def Xform "LED_Floodlight_120" (
+                prepend references = @../led/LED_Floodlight.usdz@
+            )
+            {
+                double3 xformOp:translate = (0.79362, 0.45562, 11.35883)
+                float3 xformOp:rotateXYZ = (0, 0, 120)
+                float3 xformOp:scale = (0.004, 0.004, 0.004)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+            }
+            def Xform "LED_Floodlight_000" (
+                prepend references = @../led/LED_Floodlight.usdz@
+            )
+            {
+                double3 xformOp:translate = (-0.7914, 0.45949, 11.35883)
+                float3 xformOp:rotateXYZ = (0, 0, 240)
+                float3 xformOp:scale = (0.004, 0.004, 0.004)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+            }
+    }
+}

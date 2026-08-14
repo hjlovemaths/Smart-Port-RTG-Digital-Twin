@@ -1,0 +1,1019 @@
+#usda 1.0
+(
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over Xform "World"
+{
+    over Xform "PortAndRTG"
+    {
+        over Xform "RTG_PRIMARY_DYNAMIC"
+        {
+            over Xform "ANIM_CTRL_RTG_GANTRY_TRAVEL"
+            {
+            over "under_beam_floodlight_glass_0" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_glass_1" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_glass_2" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_glass_3" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_glass_4" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_housing_0" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_housing_1" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_housing_2" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_housing_3" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_housing_4" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_bracket_0" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_bracket_1" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_bracket_2" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_bracket_3" (
+                active = false
+            )
+            {
+            }
+
+            over "under_beam_floodlight_bracket_4" (
+                active = false
+            )
+            {
+            }
+
+            def Xform "SMART_PORT_RTG_LED_MODELS"
+            {
+                custom int lampsPerBeam = 4
+                custom int totalLampCount = 8
+                custom double girderContactHeight = 7.73
+                custom string attachment = "Source U bracket and screw bar fixed to both upper long girders"
+                custom string mountHardware = "The LED_Floodlight source asset supplies the visible bracket and screws"
+                def Xform "Near_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-4.382953, -7.65, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-1.992383, -7.65, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (0.398197, -7.65, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (2.788767, -7.65, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-4.382953, -2.35, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-1.992383, -2.35, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (0.398197, -2.35, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (2.788767, -2.35, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+            }
+
+            def Xform "SMART_PORT_RTG_LED_NIGHT_LIGHTS"
+            {
+                token visibility = "invisible"
+                custom int effectiveLightCount = 8
+                custom string aimDirection = "Near and far rows converge on the ground beneath the RTG center"
+                custom string performanceRule = "Each mounted LED owns one shadow-free DiskLight; all eight are night-only"
+
+                def DiskLight "Near_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-4.382953, -7.408, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-1.992383, -7.408, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (0.398197, -7.408, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (2.788767, -7.408, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-4.382953, -2.592, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-1.992383, -2.592, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (0.398197, -2.592, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (2.788767, -2.592, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+            }
+            }
+        }
+
+        over Xform "RTG_STATIC_LEFT"
+        {
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_glass_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_glass_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_glass_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_glass_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_glass_4" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_housing_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_housing_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_housing_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_housing_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_housing_4" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_bracket_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_bracket_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_bracket_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_bracket_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_left_under_beam_floodlight_bracket_4" (
+                active = false
+            )
+            {
+            }
+
+            def Xform "SMART_PORT_RTG_LED_MODELS"
+            {
+                custom int lampsPerBeam = 4
+                custom int totalLampCount = 8
+                custom double girderContactHeight = 7.73
+                custom string attachment = "Source U bracket and screw bar fixed to both upper long girders"
+                custom string mountHardware = "The LED_Floodlight source asset supplies the visible bracket and screws"
+                def Xform "Near_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-43.562882, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-41.190367, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-38.817841, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-36.445326, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-43.562882, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-41.190367, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-38.817841, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-36.445326, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+            }
+
+            def Xform "SMART_PORT_RTG_LED_NIGHT_LIGHTS"
+            {
+                token visibility = "invisible"
+                custom int effectiveLightCount = 8
+                custom string aimDirection = "Near and far rows converge on the ground beneath the RTG center"
+                custom string performanceRule = "Each mounted LED owns one shadow-free DiskLight; all eight are night-only"
+
+                def DiskLight "Near_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-43.562882, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-41.190367, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-38.817841, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-36.445326, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-43.562882, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-41.190367, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-38.817841, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (-36.445326, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+            }
+        }
+
+        over Xform "RTG_STATIC_RIGHT"
+        {
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_glass_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_glass_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_glass_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_glass_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_glass_4" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_housing_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_housing_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_housing_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_housing_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_housing_4" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_bracket_0" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_bracket_1" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_bracket_2" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_bracket_3" (
+                active = false
+            )
+            {
+            }
+
+            over "RTG_STATIC_PRIMARY_STYLE_right_under_beam_floodlight_bracket_4" (
+                active = false
+            )
+            {
+            }
+
+            def Xform "SMART_PORT_RTG_LED_MODELS"
+            {
+                custom int lampsPerBeam = 4
+                custom int totalLampCount = 8
+                custom double girderContactHeight = 7.73
+                custom string attachment = "Source U bracket and screw bar fixed to both upper long girders"
+                custom string mountHardware = "The LED_Floodlight source asset supplies the visible bracket and screws"
+                def Xform "Near_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (49.437117, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (51.809631, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (54.182158, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Near_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (56.554672, 6.641, 7.33)
+                    float3 xformOp:rotateXYZ = (55, 0, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_01" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (49.437117, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_02" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (51.809631, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_03" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (54.182158, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+                def Xform "Far_04" (
+                    prepend references = @../assets/resource/led/RTG_LED_Floodlight.usdc@
+                )
+                {
+                    double3 xformOp:translate = (56.554672, 11.941, 7.33)
+                    float3 xformOp:rotateXYZ = (-125, 180, 0)
+                    float3 xformOp:scale = (0.0048, 0.006, 0.006)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+                }
+            }
+
+            def Xform "SMART_PORT_RTG_LED_NIGHT_LIGHTS"
+            {
+                token visibility = "invisible"
+                custom int effectiveLightCount = 8
+                custom string aimDirection = "Near and far rows converge on the ground beneath the RTG center"
+                custom string performanceRule = "Each mounted LED owns one shadow-free DiskLight; all eight are night-only"
+
+                def DiskLight "Near_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (49.437117, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (51.809631, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (54.182158, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Near_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (56.554672, 6.883, 7.53)
+                    float3 xformOp:rotateXYZ = (20, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_01_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (49.437117, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_02_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (51.809631, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_03_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (54.182158, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+                def DiskLight "Far_04_Downlight" (
+                    prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]
+                )
+                {
+                    bool inputs:enableColorTemperature = true
+                    float inputs:colorTemperature = 4200
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 60000
+                    float inputs:exposure = 2
+                    bool inputs:normalize = true
+                    float inputs:radius = 0.24
+                    float inputs:shaping:cone:angle = 70
+                    float inputs:shaping:cone:softness = 0.65
+                    float inputs:shaping:focus = 0.1
+                    bool inputs:shadow:enable = false
+                    double3 xformOp:translate = (56.554672, 11.699, 7.53)
+                    float3 xformOp:rotateXYZ = (-160, 180, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+                }
+            }
+        }
+    }
+}

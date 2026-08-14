@@ -371,6 +371,17 @@ class TaskPositionTests(unittest.TestCase):
             self.assertIsNotNone(route)
             self.assertEqual(route[2], work_type)
 
+    def test_task_panel_bay_map_keeps_right_margin_after_left_shift(self) -> None:
+        cell_w = 54
+        gap = 16
+        lane_left = receiver.TASK_PANEL_BAY_MAP_LEFT_PX + 6
+        lane_w = 42
+        stack_left = lane_left + lane_w + gap
+        right_edge = stack_left + 5 * (cell_w + gap) + cell_w
+
+        self.assertEqual(receiver.TASK_PANEL_BAY_MAP_LEFT_PX, 500)
+        self.assertLessEqual(right_edge, receiver.TASK_PANEL_IMAGE_WIDTH - 24)
+
     def test_task_panel_load_route_can_target_empty_bay_slot(self) -> None:
         route = receiver._task_panel_route_map_points(
             {
@@ -389,6 +400,63 @@ class TaskPositionTests(unittest.TestCase):
         )
         self.assertIsNotNone(route)
         self.assertEqual(route[2], receiver.WORK_TYPE_LOAD)
+
+    def test_task_panel_uses_dashed_load_target_and_solid_unload_source(self) -> None:
+        load_source, load_target = receiver._task_panel_slot_markers(
+            {
+                "workType": receiver.WORK_TYPE_LOAD,
+                "endPos": "4C3054",
+                "bayMap": "144332",
+            }
+        )
+        unload_source, unload_target = receiver._task_panel_slot_markers(
+            {
+                "workType": receiver.WORK_TYPE_UNLOAD,
+                "startPos": "4C3052",
+                "bayMap": "144332",
+            }
+        )
+
+        self.assertIsNone(load_source)
+        self.assertEqual(load_target, ("slot", 5, 4))
+        self.assertEqual(unload_source, ("slot", 5, 3))
+        self.assertIsNone(unload_target)
+
+    def test_task_panel_truck_route_anchor_is_above_cab_icon_for_both_directions(self) -> None:
+        bottom = 692
+        expected_y = bottom - receiver.TASK_PANEL_TRUCK_ROUTE_ANCHOR_FROM_BOTTOM_PX
+        common = {
+            "bayMap": "144332",
+            "map_left": 568,
+            "bottom": bottom,
+            "cell_w": 54,
+            "cell_h": 24,
+            "gap": 16,
+            "lane_left": 574,
+            "lane_w": 42,
+        }
+        load_route = receiver._task_panel_route_map_points(
+            {
+                "workType": receiver.WORK_TYPE_LOAD,
+                "endPos": "4C3051",
+                "bayMap": common["bayMap"],
+            },
+            **{key: value for key, value in common.items() if key != "bayMap"},
+        )
+        unload_route = receiver._task_panel_route_map_points(
+            {
+                "workType": receiver.WORK_TYPE_UNLOAD,
+                "startPos": "4C3051",
+                "bayMap": common["bayMap"],
+            },
+            **{key: value for key, value in common.items() if key != "bayMap"},
+        )
+
+        self.assertIsNotNone(load_route)
+        self.assertIsNotNone(unload_route)
+        self.assertEqual(load_route[0][1], expected_y)
+        self.assertEqual(unload_route[1][1], expected_y)
+        self.assertLess(expected_y, bottom - 39.0)
 
     def test_task_panel_route_polyline_uses_horizontal_and_vertical_segments(self) -> None:
         route = ((100.0, 640.0), (940.0, 520.0), receiver.WORK_TYPE_SWITCH)
@@ -486,9 +554,9 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_WIDTH_M, 12.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_PANEL_HEIGHT_M, 3.5)
         self.assertEqual(receiver.RUNINFO_FLOATING_IMAGE_HEIGHT, 448)
-        self.assertGreater(receiver.RUNINFO_FLOATING_RIGHT_X_OFFSET_M, 0.0)
-        self.assertGreater(receiver.RUNINFO_FLOATING_BACK_Y_OFFSET_M, 0.0)
-        self.assertGreater(receiver.RUNINFO_FLOATING_UP_Z_OFFSET_M, 0.0)
+        self.assertEqual(receiver.RUNINFO_FLOATING_RIGHT_X_OFFSET_M, 1.2)
+        self.assertEqual(receiver.RUNINFO_FLOATING_BACK_Y_OFFSET_M, 7.0)
+        self.assertEqual(receiver.RUNINFO_FLOATING_UP_Z_OFFSET_M, 1.0)
         self.assertEqual(receiver.RUNINFO_FLOATING_TEXT_FONT_SIZE, 60)
         self.assertEqual(receiver.RUNINFO_FLOATING_CLOCK_FONT_SIZE, 44)
         self.assertEqual(receiver.RUNINFO_FLOATING_TIME_OFFSET_HOURS, 0)
@@ -530,6 +598,98 @@ class TaskPositionTests(unittest.TestCase):
             self.driver._effective_runinfo_payload({"message": ""}),
             {},
         )
+
+    def test_runinfo_is_visible_only_for_active_unfinished_task(self) -> None:
+        active = {"taskId": "active-1", "operationState": "WORKING"}
+        self.assertTrue(receiver._runinfo_should_be_visible(active, {"message": "吊具下降"}))
+        self.assertFalse(receiver._runinfo_should_be_visible({}, {"message": "等待任务"}))
+        self.assertFalse(
+            receiver._runinfo_should_be_visible(
+                {"taskId": "done-1", "operationState": "COMPLETED"},
+                {"message": "任务完成"},
+            )
+        )
+        self.assertFalse(
+            receiver._runinfo_should_be_visible(
+                active,
+                {"message": "本关作业完成"},
+            )
+        )
+
+    def test_runinfo_cache_is_cleared_after_completion_or_no_task(self) -> None:
+        active = {"taskId": "active-2", "operationState": "WORKING"}
+        self.assertEqual(
+            self.driver._runinfo_payload_for_task(
+                {"message": "正在执行"},
+                active,
+            ),
+            {"message": "正在执行"},
+        )
+        self.assertEqual(
+            self.driver._runinfo_payload_for_task(
+                {"message": "任务完成"},
+                active,
+            ),
+            {},
+        )
+        self.assertEqual(self.driver._last_runinfo_payload, {})
+        self.assertEqual(
+            self.driver._runinfo_payload_for_task(None, {}),
+            {},
+        )
+
+    def test_runinfo_panel_root_is_hidden_when_visibility_is_disabled(self) -> None:
+        class Prim:
+            def __init__(self, path: str) -> None:
+                self.path = path
+
+            def GetPath(self) -> str:
+                return self.path
+
+        class EditContext:
+            def __init__(self, *_args) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args) -> bool:
+                return False
+
+        current = Prim(receiver.RUNINFO_FLOATING_ROOT_PATH)
+        legacy = Prim(receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH)
+        hidden: list[str] = []
+        removed: list[str] = []
+        stage = types.SimpleNamespace(
+            GetSessionLayer=lambda: object(),
+            GetPrimAtPath=lambda path: {
+                receiver.RUNINFO_FLOATING_ROOT_PATH: current,
+                receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH: legacy,
+            }.get(path),
+            RemovePrim=lambda path: removed.append(str(path)),
+        )
+        fake_pxr = types.ModuleType("pxr")
+        fake_pxr.Gf = types.SimpleNamespace()
+        fake_pxr.Sdf = types.SimpleNamespace()
+        fake_pxr.Usd = types.SimpleNamespace(EditContext=EditContext)
+        fake_pxr.UsdGeom = types.SimpleNamespace(
+            Imageable=lambda prim: types.SimpleNamespace(
+                MakeInvisible=lambda: hidden.append(prim.GetPath())
+            )
+        )
+        fake_pxr.UsdShade = types.SimpleNamespace()
+        self.driver._floating_runinfo_text = "旧提示"
+
+        with patch.dict(sys.modules, {"pxr": fake_pxr}):
+            self.driver._sync_floating_runinfo_billboard(
+                stage,
+                {},
+                visible=False,
+            )
+
+        self.assertEqual(hidden, [receiver.RUNINFO_FLOATING_ROOT_PATH])
+        self.assertEqual(removed, [receiver.LEGACY_RUNINFO_FLOATING_ROOT_PATH])
+        self.assertIsNone(self.driver._floating_runinfo_text)
 
     def test_floating_runinfo_panel_is_rotated_180_degrees(self) -> None:
         self.assertEqual(receiver.RUNINFO_FLOATING_ROTATE_XYZ, (0.0, 0.0, 180.0))
@@ -764,13 +924,20 @@ class TaskPositionTests(unittest.TestCase):
         self.assertAlmostEqual(
             receiver.CONTAINER_INFO_PANEL_WORLD_X,
             receiver.TASK_PANEL_WORLD_X
-            - receiver.CONTAINER_INFO_PANEL_WIDTH_M * 0.2,
+            + (
+                receiver.CONTAINER_INFO_PANEL_WIDTH_M
+                - receiver.TASK_PANEL_WIDTH_M
+            )
+            * 0.5,
         )
         self.assertAlmostEqual(
             receiver.CONTAINER_INFO_PANEL_WORLD_Z,
             receiver.TASK_PANEL_BASE_WORLD_Z - 0.8,
         )
-        self.assertEqual(receiver.TASK_PANEL_WORLD_Z, receiver.DEVICE_LOCATION_PANEL_WORLD_Z)
+        self.assertAlmostEqual(
+            receiver.DEVICE_LOCATION_PANEL_WORLD_Z - receiver.TASK_PANEL_WORLD_Z,
+            receiver.TASK_PANEL_WIDTH_M / 4.0,
+        )
         self.assertEqual(
             receiver.DEVICE_LOCATION_PANEL_Y_OFFSET_M,
             receiver.TASK_PANEL_Y_OFFSET_M,
@@ -950,7 +1117,7 @@ class LivePoseValidationTests(unittest.TestCase):
         driver._controller_for_stage = lambda _stage: Controller()
         driver._sync_spreader_size_for_task = lambda _controller, _task: (40.0, None)
         driver._sync_task_stack = lambda _stage, _task: False
-        driver._sync_task_route_indicator = lambda _stage, _task: None
+        driver._remove_task_route_indicator_once = lambda _stage: None
         driver._sync_task_vehicle = lambda *_args: None
         driver._sync_task_switch = lambda *_args: None
         driver._write_status = lambda *_args: None
@@ -989,11 +1156,38 @@ class GantryCrossbeamAlignmentTests(unittest.TestCase):
 
 
 class TaskVisualPolicyTests(unittest.TestCase):
-    def test_live_task_truck_uses_white_cab_visual_parts(self) -> None:
-        self.assertIn("CabBody", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
-        self.assertIn("CabWindshield", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
-        self.assertIn("TrailerMainFrame", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
-        self.assertNotIn("Cab", receiver.LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES)
+    def test_removed_3d_route_indicator_is_cleaned_once_per_stage(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+        removed = []
+        driver._remove_task_route_indicator = lambda stage: removed.append(stage)
+        first_stage = object()
+        second_stage = object()
+
+        driver._remove_task_route_indicator_once(first_stage)
+        driver._remove_task_route_indicator_once(first_stage)
+        driver._remove_task_route_indicator_once(second_stage)
+
+        self.assertEqual(removed, [first_stage, second_stage])
+
+    def test_live_task_truck_uses_blender_lane_truck_asset(self) -> None:
+        self.assertTrue(receiver.LIVE_TASK_TRUCK_VISUAL_ASSET_PATH.is_file())
+        self.assertEqual(
+            receiver.LIVE_TASK_TRUCK_VISUAL_ASSET_PATH.name,
+            "RTG_Model_Lane_Truck.usdc",
+        )
+        self.assertEqual(
+            receiver.LIVE_TASK_TRUCK_VISUAL_SCALE,
+            (1.0, 1.22, 1.0),
+        )
+        self.assertEqual(receiver.LIVE_TASK_TRUCK_ASSET_GROUND_Z_M, 0.14)
+
+    def test_imported_truck_cab_aligns_with_task_layout(self) -> None:
+        target_cab_y = -7.30
+        translated_asset_cab_y = (
+            receiver.LIVE_TASK_TRUCK_ASSET_CAB_CENTER_Y_M
+            + receiver._task_truck_imported_visual_translate_y(target_cab_y)
+        )
+        self.assertAlmostEqual(translated_asset_cab_y, target_cab_y)
 
     def test_demo_sequence_artifacts_are_disabled_without_touching_live_task_truck(self) -> None:
         class Prim:
@@ -1360,6 +1554,14 @@ class TaskVisualPolicyTests(unittest.TestCase):
                 }
             )
         )
+
+    def test_task_stack_lifecycle_has_no_task_scoped_weather_effects(self) -> None:
+        source = (
+            PROJECT_ROOT / "omniverse" / "scripts" / "rtg_twin_state_receiver.py"
+        ).read_text(encoding="utf-8")
+        assert "_refresh_task_bay_weather_effects" not in source
+        assert "refresh_task_bay_roof_rain" not in source
+        assert "update_rain_fps_quality" not in source
 
     def test_task_stack_render_key_changes_for_each_task_identity(self) -> None:
         driver = receiver.OmniverseRtgTwinDriver()
@@ -2263,6 +2465,74 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
                 ("task", stage, camera_position),
                 ("live", stage, camera_position),
             ],
+        )
+
+
+class LiveWeatherControlTests(unittest.TestCase):
+    def test_live_update_applies_rtg_control_weather_and_keeps_rain_moving(self) -> None:
+        class FakeAttribute:
+            def __init__(self, value):
+                self.value = value
+
+            def Get(self):
+                return self.value
+
+        class FakeEnvironment:
+            def __init__(self):
+                self.values = {
+                    "mode": "rain",
+                    "rain": "light",
+                    "fog": "medium",
+                    "wind": 3.0,
+                }
+
+            def IsValid(self):
+                return True
+
+            def GetAttribute(self, name):
+                return FakeAttribute(self.values[name])
+
+        environment = FakeEnvironment()
+        stage = types.SimpleNamespace(
+            GetPrimAtPath=lambda path: environment if path == "/Environment" else None
+        )
+        applied = []
+        animated = []
+        weather = types.ModuleType("smart_port_environment")
+        weather.ENVIRONMENT_ROOT_PATH = "/Environment"
+        weather.RAIN_AMOUNT_ATTRIBUTE = "rain"
+        weather.FOG_AMOUNT_ATTRIBUTE = "fog"
+        weather.WIND_SPEED_ATTRIBUTE = "wind"
+        weather.DEFAULT_RAIN_AMOUNT = "medium"
+        weather.DEFAULT_FOG_AMOUNT = "medium"
+        weather.DEFAULT_WIND_SPEED_MPS = 4.5
+        weather.current_environment_mode = lambda _stage: environment.values["mode"]
+        weather.normalize_rain_amount = lambda value: value
+        weather.normalize_fog_amount = lambda value: value
+        weather.apply_environment_mode = lambda _stage, mode: applied.append(mode)
+        weather.update_weather_animation = (
+            lambda _stage, elapsed: animated.append(elapsed) or True
+        )
+
+        driver = receiver.OmniverseRtgTwinDriver.__new__(
+            receiver.OmniverseRtgTwinDriver
+        )
+        driver._weather_signature = None
+        driver._weather_stage_id = None
+        driver._last_error_at = 0.0
+        driver._log = lambda _message: None
+
+        with patch.dict(sys.modules, {"smart_port_environment": weather}):
+            driver._sync_weather_environment(stage)
+            environment.values.update(rain="torrential", fog="heavy", wind=15.0)
+            driver._last_weather_attribute_sync_at = 0.0
+            driver._sync_weather_environment(stage)
+
+        self.assertEqual(applied, ["rain", "rain"])
+        self.assertEqual(len(animated), 2)
+        self.assertEqual(
+            driver._weather_signature,
+            (id(stage), "rain", "torrential", "heavy", 15.0),
         )
 
 

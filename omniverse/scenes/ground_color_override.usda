@@ -9,18 +9,40 @@ def Xform "World"
 {
     def Xform "SMART_PORT_GROUND_COLOR_OVERRIDE"
     {
-        custom string colorReference = "sample median RGB 48,78,110; cool dark blue-grey"
+        custom string colorReference = "same low-reflection asphalt palette as the traffic road surface"
         custom string coverage = "main yard X=-101.75..108.75; Y=-10.25..493.075"
-        custom string performanceRule = "single flat mesh below rails and markings"
+        custom string performanceRule = "single flat rough asphalt mesh below rails and markings; no mirror-like road reflections"
 
-        def Mesh "SMART_PORT_GROUND_COLOR_OVERRIDE_MAIN_YARD"
+        def Scope "Looks"
+        {
+            def Material "RoadSurface"
+            {
+                token outputs:surface.connect = </World/SMART_PORT_GROUND_COLOR_OVERRIDE/Looks/RoadSurface/PreviewSurface.outputs:surface>
+
+                def Shader "PreviewSurface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.018, 0.035, 0.06)
+                    color3f inputs:specularColor = (0, 0, 0)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 1
+                    float inputs:opacity = 1
+                    token outputs:surface
+                }
+            }
+        }
+
+        def Mesh "SMART_PORT_GROUND_COLOR_OVERRIDE_MAIN_YARD" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
         {
             bool doubleSided = 1
             uniform token subdivisionScheme = "none"
             int[] faceVertexCounts = [4]
             int[] faceVertexIndices = [0, 1, 2, 3]
-            color3f[] primvars:displayColor = [(0.035, 0.08, 0.15)]
+            color3f[] primvars:displayColor = [(0.018, 0.035, 0.06)]
             uniform token primvars:displayColor:interpolation = "constant"
+            rel material:binding = </World/SMART_PORT_GROUND_COLOR_OVERRIDE/Looks/RoadSurface>
             point3f[] points = [
                 (-101.75, -10.25, 0.106),
                 (108.75, -10.25, 0.106),

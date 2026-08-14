@@ -365,6 +365,7 @@ class RtgDeviceLocationPanelService:
             reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
             texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(reader.ConnectableAPI(), "result")
             shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(texture.ConnectableAPI(), "rgb")
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(texture.ConnectableAPI(), "rgb")
             shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(texture.ConnectableAPI(), "a")
             material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
 

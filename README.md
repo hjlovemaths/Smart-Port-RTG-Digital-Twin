@@ -40,7 +40,7 @@ Omniverse / Isaac Sim     WPF 客户端
 1. **安装 Omniverse 开发环境**：准备 Omniverse/Kit、OpenUSD 和 RTX 运行环境。当前已完成。
 2. **创建第一个 USD 场景**：建立可组合的场景入口、环境层和资产层。当前入口为 `omniverse/scenes/smart_port.usda`，已完成基础搭建。
 3. **导入 RTG 模型**：从 Blender 导出 USD，确定中间 RTG 为正式动态设备，左右两台作为静态背景；大车、小车、吊具、绳索和大车附件的基础动画校验已经完成，碰撞代理和正式物理关节仍待完善。
-4. **实现白天、夜晚、雨雾环境**：建立天空、太阳、海面、材质和天气切换。白天环境、天空和海面已有基础版本，夜晚、雨雾和性能分级仍需补充。
+4. **实现白天、夜晚、雨雾环境**：建立天空、太阳、海面、材质和天气切换。白天与夜晚模式、道路灯和 RTG 横梁灯已经接入 RTG Control 移动控制面板；雨雾和性能分级仍需补充。
 5. **接入 ROS2 控制**：把大车、小车、吊具、集装箱和传感器状态映射到 ROS2 Topic/Service/Action，并建立 WPF 到控制网关的命令与状态闭环。
 6. **添加 AI Agent 智能调度**：在稳定的数据、控制和仿真基础上加入任务调度、故障预测、异常诊断和自动优化。
 
@@ -314,7 +314,7 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 |---|---|---|
 | 1. RTG 模型转 USD | 已完成 | 整理生产级模型层级 |
 | 2. SimReady RTG | 未完成 | 碰撞体、质量、关节、驱动、限位 |
-| 3. 港区环境 | 部分完成 | 已有白天天空和海面；缺夜晚、雨、雾 |
+| 3. 港区环境 | 部分完成 | 已有白天/夜晚切换、道路灯和 RTG 横梁灯；缺雨、雾 |
 | 4. Isaac Sim + ROS2 | 未开始 | 控制、状态回传、传感器仿真 |
 | 5. AI Agent | 未开始 | 调度、故障诊断、预测维护 |
 | 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
@@ -386,7 +386,7 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 
 ## 第五步：环境与性能
 
-目前已有白天天空、太阳光和较真实的海面：
+目前已有白天天空、太阳光、夜间照明和较真实的海面：
 
 - [environment.usda](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scenes/environment.usda>)
 - [天空纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png>)
@@ -394,9 +394,8 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 
 仍需补充：
 
-- 夜晚照明和港机工作灯。
 - 雨天、雾天、湿地反射。
-- 白天/夜晚/雨雾预设切换。
+- 在现有白天/夜晚预设上扩展雨天和雾天按钮。
 - Payload 按区域加载。
 - 重复 RTG、车辆、集装箱使用实例。
 - 为远处港区建立 LOD 或代理模型。

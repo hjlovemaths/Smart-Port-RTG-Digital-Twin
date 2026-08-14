@@ -16,8 +16,12 @@ def test_ground_override_is_referenced_once():
 def test_ground_override_matches_reference_palette_and_stays_lightweight():
     text = GROUND.read_text(encoding="utf-8")
     assert text.startswith("#usda 1.0")
-    assert 'colorReference = "sample median RGB 48,78,110; cool dark blue-grey"' in text
-    assert "primvars:displayColor = [(0.035, 0.08, 0.15)]" in text
+    assert 'colorReference = "same low-reflection asphalt palette as the traffic road surface"' in text
+    assert "primvars:displayColor = [(0.018, 0.035, 0.06)]" in text
+    assert 'prepend apiSchemas = ["MaterialBindingAPI"]' in text
+    assert 'def Material "RoadSurface"' in text
+    assert "color3f inputs:specularColor = (0, 0, 0)" in text
+    assert "float inputs:roughness = 1" in text
     assert len(re.findall(r'^\s*def Mesh "', text, flags=re.MULTILINE)) == 1
     assert 'subdivisionScheme = "none"' in text
 
