@@ -24,9 +24,9 @@
             string authoring_layer = "./smart_port.usda"
         }
         dictionary renderSettings = {
-            float3 "rtx:background:source:color" = (0.018, 0.045, 0.12)
+            float3 "rtx:background:source:color" = (0.34, 0.55, 0.84)
             token "rtx:background:source:texture:path" = "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png"
-            int "rtx:background:source:type" = 2
+            int "rtx:background:source:type" = 0
             double "rtx:fog:fogDistanceDensity" = 0.34
             double "rtx:fog:fogEndDist" = 5750
             double "rtx:fog:fogHeightDensity" = 0
@@ -63,6 +63,7 @@ def Xform "World"
         prepend references = @./environment.usda@
     )
     {
+        custom token smartPort:environmentMode = "day"
     }
 
     def Xform "PortAndRTG" (
@@ -3253,10 +3254,9 @@ def "Render" (
             {
                 rel camera = </OmniverseKit_Persp>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
-                color3f omni:rtx:background:source:color = (0.018, 0.045, 0.12)
+                color3f omni:rtx:background:source:color = (0.34, 0.55, 0.84)
                 asset omni:rtx:background:source:texture:path = @D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png@
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
-                token omni:rtx:background:source:type = "color"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
                 string omni:rtx:debug:view:target = ""
                 token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
@@ -3417,4 +3417,3 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
-

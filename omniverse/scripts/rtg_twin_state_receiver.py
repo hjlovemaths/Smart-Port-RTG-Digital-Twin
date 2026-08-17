@@ -143,7 +143,7 @@ FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     ),
 }
 FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (0.03883929, 0.027641999, 0.043764994)
-LIVE_DRIVER_BUILD_ID = "2026-08-13-live-rtg-control-weather-v9"
+LIVE_DRIVER_BUILD_ID = "2026-08-17-remote-mode-signal-link-v4"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
@@ -278,6 +278,29 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 48700
 RECEIVER_STATE_LOG_ENABLED = False
 STATUS_PRIM_PATH = "/World/LiveTwinState"
+AUTOMATIC_SIGNAL_ROOT_PATH = "/World/LiveHUD/RTG_AUTOMATIC_SIGNAL_LINK"
+AUTOMATIC_SIGNAL_OUTER_CURVE_PATH = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/OuterGlow"
+AUTOMATIC_SIGNAL_CORE_CURVE_PATH = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/CoreBeam"
+AUTOMATIC_SIGNAL_LEFT_CURVE_PATH = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/LeftDataRail"
+AUTOMATIC_SIGNAL_RIGHT_CURVE_PATH = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RightDataRail"
+AUTOMATIC_SIGNAL_PULSE_ROOT_PATH = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/DataPulses"
+AUTOMATIC_SIGNAL_ANTENNA_PATH = (
+    "/World/PortAndRTG/SMART_PORT_tower_main_antenna_mast"
+)
+AUTOMATIC_SIGNAL_RTG_ATTACH_PATH = (
+    "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL"
+)
+# Anchor above the RTG portal centerline.  X/Z come from the upper-girder LED
+# measurements; Y follows the calibrated portal crossbeam centerline.
+AUTOMATIC_SIGNAL_RTG_TARGET_LOCAL_POINT = (-0.797093, 5.0, 9.2)
+AUTOMATIC_SIGNAL_MATERIAL_ROOT_PATH = "/World/Looks/RTG_Automatic_Signal_Link"
+AUTOMATIC_SIGNAL_POINT_COUNT = 41
+AUTOMATIC_SIGNAL_PULSE_COUNT = 9
+AUTOMATIC_SIGNAL_UPDATE_INTERVAL_SECONDS = 1.0 / 30.0
+AUTOMATIC_SIGNAL_PACKET_SPEED = 0.16
+AUTOMATIC_SIGNAL_MIN_ARC_LIFT_M = 16.0
+AUTOMATIC_SIGNAL_MAX_ARC_LIFT_M = 52.0
+AUTOMATIC_SIGNAL_RAIL_OFFSET_M = 0.24
 RUNINFO_FLOATING_ATTACH_PATH = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/"
 )
@@ -427,6 +450,7 @@ DEVICE_LOCATION_PANEL_VALUE_Y = {
     "Device": 132,
     "Field": 196,
     "Bay": 260,
+    "WorkMode": 324,
 }
 LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
@@ -472,17 +496,34 @@ CONTAINER_INFO_PANEL_LABELS = {
     "Task ID": "关联任务",
     "Locked": "锁闭",
 }
+TRUCK_INFO_PANEL_ROOT_PATH = "/World/LiveHUD/RTG_TRUCK_INFO_PANEL"
+TRUCK_INFO_PANEL_MESH_PATH = f"{TRUCK_INFO_PANEL_ROOT_PATH}/Panel"
+TRUCK_INFO_PANEL_MATERIAL_PATH = "/World/Looks/RTG_Truck_Info_Panel_Live"
+TRUCK_INFO_PANEL_IMAGE_WIDTH = 820
+TRUCK_INFO_PANEL_IMAGE_HEIGHT = 420
+TRUCK_INFO_PANEL_WIDTH_M = 6.8
+TRUCK_INFO_PANEL_HEIGHT_M = 3.5
+TRUCK_INFO_PANEL_Y_OFFSET_M = -3.2
+TRUCK_INFO_PANEL_Z_OFFSET_M = 2.5
+TRUCK_INFO_PANEL_ROTATE_XYZ = LIVE_INFO_PANEL_ROTATE_XYZ
+TRUCK_INFO_PANEL_UV_COORDS = TASK_PANEL_UV_COORDS
+TRUCK_INFO_PANEL_LABELS = {
+    "Type": "车类型",
+    "Number": "车号",
+}
 LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS = (
     RUNINFO_FLOATING_ROOT_PATH,
     DEVICE_LOCATION_PANEL_ROOT_PATH,
     DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH,
     CONTAINER_INFO_PANEL_ROOT_PATH,
+    TRUCK_INFO_PANEL_ROOT_PATH,
 )
 LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ = {
     RUNINFO_FLOATING_ROOT_PATH: RUNINFO_FLOATING_ROTATE_XYZ,
     DEVICE_LOCATION_PANEL_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
     DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
     CONTAINER_INFO_PANEL_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
+    TRUCK_INFO_PANEL_ROOT_PATH: LIVE_INFO_PANEL_ROTATE_XYZ,
 }
 LIVE_INFO_CAMERA_FACING_UPDATE_INTERVAL_SECONDS = 1.0 / 30.0
 DEVICE_PANEL_SELECTION_POLL_INTERVAL_SECONDS = 1.0 / 30.0
@@ -1053,6 +1094,117 @@ def _fmt_int(value: Any, default: str = "--") -> str:
         return default
 
 
+WORK_MODE_LABELS = {
+    0: "未知",
+    1: "自动模式",
+    2: "辅助模式",
+    3: "远程手动",
+    4: "本地模式",
+    5: "维修模式",
+}
+
+
+def _work_mode_text(value: Any) -> str:
+    """Return the Chinese work-mode label from the RCMS heartbeat code."""
+
+    try:
+        mode = int(value)
+    except (TypeError, ValueError):
+        return "未知"
+    return WORK_MODE_LABELS.get(mode, "未知")
+
+
+def _state_work_mode(state: Any) -> int:
+    """Read the RCMS work mode from either the pose or top-level snapshot."""
+
+    if not isinstance(state, dict):
+        return 0
+    pose = state.get("pose")
+    sources = (pose, state) if isinstance(pose, dict) else (state,)
+    for source in sources:
+        for key in ("workMode", "work_mode"):
+            value = source.get(key)
+            if value is None:
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+    return 0
+
+
+def _quadratic_signal_point(
+    start: tuple[float, float, float],
+    control: tuple[float, float, float],
+    end: tuple[float, float, float],
+    progress: float,
+) -> tuple[float, float, float]:
+    """Sample one point on the antenna-to-RTG quadratic signal arc."""
+
+    t = max(0.0, min(1.0, float(progress)))
+    inverse = 1.0 - t
+    return tuple(
+        inverse * inverse * start[index]
+        + 2.0 * inverse * t * control[index]
+        + t * t * end[index]
+        for index in range(3)
+    )
+
+
+def _automatic_signal_arc(
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+    point_count: int = AUTOMATIC_SIGNAL_POINT_COUNT,
+) -> tuple[
+    list[tuple[float, float, float]],
+    tuple[float, float, float],
+]:
+    """Build a smooth, raised communication arc and return its control point."""
+
+    horizontal_distance = math.hypot(end[0] - start[0], end[1] - start[1])
+    lift = max(
+        AUTOMATIC_SIGNAL_MIN_ARC_LIFT_M,
+        min(AUTOMATIC_SIGNAL_MAX_ARC_LIFT_M, horizontal_distance * 0.18),
+    )
+    control = (
+        (start[0] + end[0]) * 0.5,
+        (start[1] + end[1]) * 0.5,
+        max(start[2], end[2]) + lift,
+    )
+    count = max(2, int(point_count))
+    points = [
+        _quadratic_signal_point(start, control, end, index / (count - 1))
+        for index in range(count)
+    ]
+    return points, control
+
+
+def _automatic_signal_rail_points(
+    points: list[tuple[float, float, float]],
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+    signed_offset: float,
+) -> list[tuple[float, float, float]]:
+    """Offset an arc sideways while converging both data rails at its ends."""
+
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    length = math.hypot(dx, dy)
+    if length <= 1e-6:
+        return list(points)
+    side_x = -dy / length
+    side_y = dx / length
+    last_index = max(1, len(points) - 1)
+    return [
+        (
+            point[0] + side_x * signed_offset * math.sin(math.pi * index / last_index),
+            point[1] + side_y * signed_offset * math.sin(math.pi * index / last_index),
+            point[2],
+        )
+        for index, point in enumerate(points)
+    ]
+
+
 def _find_cjk_font_path() -> Optional[Path]:
     for path in CJK_FONT_PATHS:
         candidate = Path(path)
@@ -1237,6 +1389,24 @@ def _container_root_path_from_selection(path: Any) -> Optional[str]:
     return "/" + "/".join(parts[: index + 1])
 
 
+def _truck_root_path_from_selection(path: Any) -> Optional[str]:
+    """Normalize a clicked truck/detail prim to the live task truck root."""
+
+    text = str(path or "").strip()
+    loaded_container_path = f"{LIVE_TASK_TRUCK_PATH}/LoadedContainer"
+    if _is_descendant_path(text, loaded_container_path):
+        return None
+    if _is_descendant_path(text, LIVE_TASK_TRUCK_PATH):
+        return LIVE_TASK_TRUCK_PATH
+    parts = tuple(part for part in text.split("/") if part)
+    for index, part in enumerate(parts):
+        if part.startswith("LIVE_internal_yard_truck"):
+            return "/" + "/".join(parts[: index + 1])
+        if part.startswith("LIVE_internal_lane_truck") and index > 0:
+            return "/" + "/".join(parts[:index])
+    return None
+
+
 def _selected_rtg_path() -> Optional[str]:
     """Return the selected RTG prim, or None when the click is elsewhere."""
 
@@ -1397,6 +1567,91 @@ def _runinfo_level_key(runinfo: Optional[Dict[str, Any]]) -> str:
         2: RUNINFO_LEVEL_ALERT,
         3: RUNINFO_LEVEL_EXCEPTION,
     }.get(run_state, RUNINFO_LEVEL_PROMPT)
+
+
+@dataclass(frozen=True)
+class TruckRunInfo:
+    car_type: str
+    car_no: str
+
+
+def _runinfo_message_text(runinfo: Any) -> str:
+    if isinstance(runinfo, dict):
+        return str(runinfo.get("message") or "").strip()
+    return str(runinfo or "").strip()
+
+
+def _runinfo_truck_type_from_message(message: str) -> str:
+    if re.search(r"(?:校验|检验)外集卡车号(?:通过|成功)", message):
+        return "外集卡"
+    if re.search(r"(?:校验|检验)内集卡车号(?:通过|成功)", message):
+        return "内集卡"
+    if re.search(r"(?:校验|检验)AIV车号(?:通过|成功)", message):
+        return "AIV"
+    if re.search(r"(?:校验|检验)ITK车号(?:通过|成功)", message):
+        return "ITK"
+    if "进箱集卡" in message:
+        return "进箱集卡"
+    if "外集卡" in message:
+        return "外集卡"
+    if "内集卡" in message:
+        return "内集卡"
+    if "集卡" in message:
+        return "集卡"
+    if "AIV" in message:
+        return "AIV"
+    if "ITK" in message:
+        return "ITK"
+    return "--"
+
+
+def _runinfo_field_value(message: str, label_pattern: str) -> Optional[str]:
+    labels = (
+        r"算法检测车号",
+        r"侧面车号",
+        r"任务车号",
+        r"排队车号",
+        r"引导识别到(?:ITK/AIV|AIV|ITK)?车号",
+        r"车号",
+        r"箱号",
+        r"时间[:：]",
+    )
+    pattern = (
+        rf"{label_pattern}\s*[:：]?\s*"
+        rf"(.+?)(?=(?:{'|'.join(labels)})|[,，;；\s]|$)"
+    )
+    match = re.search(pattern, message)
+    if not match:
+        return None
+    value = re.sub(r"[\s,，;；:：]+", "", match.group(1))
+    if value.startswith("时间"):
+        return None
+    return value or None
+
+
+def _truck_runinfo_from_payload(runinfo: Any) -> Optional[TruckRunInfo]:
+    """Parse validated truck type and number from the latest RunInfo message."""
+
+    message = _runinfo_message_text(runinfo)
+    if not message:
+        return None
+    if not re.search(r"(?:校验|检验).*(?:通过|成功)", message):
+        return None
+    car_type = _runinfo_truck_type_from_message(message)
+    car_no = None
+    for label_pattern in (
+        r"任务车号",
+        r"侧面车号",
+        r"算法检测车号",
+        r"引导识别到(?:ITK/AIV|AIV|ITK)?车号",
+        r"车号",
+    ):
+        car_no = _runinfo_field_value(message, label_pattern)
+        if car_no:
+            break
+    if not car_no:
+        return None
+    return TruckRunInfo(car_type=car_type, car_no=car_no)
 
 
 def _render_floating_runinfo_bitmap(
@@ -1612,6 +1867,25 @@ def _task_panel_value_rows(task: Dict[str, Any]) -> list[tuple[str, str]]:
         ("车辆类型", _fmt_text(task.get("carType"))),
         ("车号", _fmt_text(task.get("carNo"))),
     ]
+
+
+def _task_panel_content_key(task: Dict[str, Any]) -> tuple[str, ...]:
+    """Return only the task fields that are rendered into the task panel bitmap."""
+
+    return (
+        str(task.get("taskId") or ""),
+        str(task.get("taskState") or task.get("state") or ""),
+        str(task.get("workType") or task.get("taskType") or ""),
+        str(task.get("startPos") or task.get("sourcePos") or ""),
+        str(task.get("endPos") or task.get("targetPos") or ""),
+        str(task.get("containerNo") or ""),
+        str(task.get("containerType") or ""),
+        str(task.get("containerHeight") or ""),
+        str(task.get("spreaderPos") or ""),
+        str(task.get("carType") or ""),
+        str(task.get("carNo") or ""),
+        str(task.get("bayMap") or ""),
+    )
 
 
 def _task_route_endpoints(
@@ -1905,6 +2179,7 @@ def _device_location_panel_values(stage: Any) -> dict[str, str]:
         "Device": _fmt_text(_read_status_value(stage, "rtg:rtgName")),
         "Field": _fmt_text(_read_status_value(stage, "rtg:currentField")),
         "Bay": _fmt_int(_read_status_value(stage, "rtg:currentBay")),
+        "WorkMode": _work_mode_text(_read_status_value(stage, "rtg:workMode")),
         "Gantry": _fmt_number(
             _read_status_value(stage, "rtg:gantryMeter"),
             2,
@@ -2007,6 +2282,7 @@ def _render_device_location_panel_bitmap(
             "Device": "设备编号",
             "Field": "当前堆场",
             "Bay": "当前贝位",
+            "WorkMode": "工作模式",
             "Gantry": "大车位置",
             "Trolley": "小车位置",
             "Hoist": "吊具高度",
@@ -2259,6 +2535,91 @@ def _render_container_info_panel_bitmap(
             if key == "Locked" and value == "未锁闭":
                 color = (255, 86, 86, 255)
             draw.text((width - 44 - (bbox[2] - bbox[0]), y - 28), value, fill=color, font=font)
+        _save_bitmap_atomically(image, output_path)
+        return True
+    except Exception:
+        return False
+
+
+def _render_truck_info_panel_bitmap(
+    info: TruckRunInfo,
+    output_path: Path,
+) -> bool:
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        width = TRUCK_INFO_PANEL_IMAGE_WIDTH
+        height = TRUCK_INFO_PANEL_IMAGE_HEIGHT
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        box = (1, 1, width - 2, height - 2)
+        glow_draw.rounded_rectangle(
+            box,
+            radius=14,
+            fill=(38, 190, 230, 46),
+            outline=(124, 235, 255, 230),
+            width=4,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(5)))
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle(
+            box,
+            radius=12,
+            fill=(7, 28, 46, 248),
+            outline=(138, 231, 255, 240),
+            width=2,
+        )
+        draw.rectangle((0, 0, width, 88), fill=(14, 66, 94, 252))
+        draw.line((20, 100, width - 20, 100), fill=(61, 220, 255, 155), width=2)
+        draw.rectangle((16, 16, width - 17, height - 17), outline=(126, 220, 244, 105))
+
+        title_font = ImageFont.truetype(str(font_path), 42)
+        label_font = ImageFont.truetype(str(font_path), 30)
+        value_font = ImageFont.truetype(str(font_path), 46)
+        badge_font = ImageFont.truetype(str(font_path), 25)
+        draw.text((24, 18), "集卡信息", fill=(245, 252, 255, 255), font=title_font)
+        badge = "校验通过"
+        badge_bbox = draw.textbbox((0, 0), badge, font=badge_font)
+        badge_w = badge_bbox[2] - badge_bbox[0] + 38
+        badge_x2 = width - 30
+        badge_x1 = badge_x2 - badge_w
+        draw.rounded_rectangle(
+            (badge_x1, 28, badge_x2, 68),
+            radius=18,
+            fill=(20, 114, 89, 225),
+            outline=(88, 255, 205, 230),
+            width=2,
+        )
+        draw.text((badge_x1 + 19, 31), badge, fill=(204, 255, 235, 255), font=badge_font)
+
+        rows = (
+            ("Type", info.car_type),
+            ("Number", info.car_no),
+        )
+        for index, (key, value) in enumerate(rows):
+            y = 170 + index * 105
+            draw.text(
+                (44, y - 23),
+                TRUCK_INFO_PANEL_LABELS[key],
+                fill=(192, 221, 235, 255),
+                font=label_font,
+            )
+            text = str(value or "--")
+            while len(text) > 2 and draw.textbbox((0, 0), text, font=value_font)[2] > 410:
+                text = text[:-2] + "..."
+            bbox = draw.textbbox((0, 0), text, font=value_font)
+            color = (92, 232, 255, 255) if key == "Number" else (246, 252, 255, 255)
+            draw.text(
+                (width - 52 - (bbox[2] - bbox[0]), y - 34),
+                text,
+                fill=color,
+                font=value_font,
+            )
+
         _save_bitmap_atomically(image, output_path)
         return True
     except Exception:
@@ -3202,10 +3563,23 @@ class OmniverseRtgTwinDriver:
         self._container_info_panel_bitmap_seq = 0
         self._last_container_info_data_refresh_at = 0.0
         self._container_info_panel_position_key: Optional[tuple[Any, ...]] = None
+        self._truck_info_selected_root_path: Optional[str] = None
+        self._truck_info_panel_visible = False
+        self._truck_info_panel_key: Optional[tuple[Any, ...]] = None
+        self._truck_info_panel_bitmap_seq = 0
+        self._truck_info_panel_position_key: Optional[tuple[Any, ...]] = None
+        self._truck_info_panel_diag_key: Optional[tuple[Any, ...]] = None
         self._last_panel_facing_update_at = 0.0
         self._last_error_at = 0.0
         self._weather_stage_id: Optional[int] = None
         self._weather_signature: Optional[tuple[Any, ...]] = None
+        self._automatic_signal_work_mode = 0
+        self._automatic_signal_stage_id: Optional[int] = None
+        self._automatic_signal_antenna_world: Optional[
+            tuple[float, float, float]
+        ] = None
+        self._automatic_signal_last_update_at = 0.0
+        self._automatic_signal_visible: Optional[bool] = None
 
     def start(self) -> None:
         if self._subscription is not None:
@@ -3233,6 +3607,8 @@ class OmniverseRtgTwinDriver:
                 self._hide_floating_device_panel(stage)
                 startup_step = "hide container info panel"
                 self._hide_container_info_panel(stage)
+                startup_step = "hide truck info panel"
+                self._hide_truck_info_panel(stage)
                 self._device_panel_selected = _selected_rtg_path() is not None
                 startup_step = "sync floating runinfo billboard"
                 self._sync_floating_runinfo_billboard(stage, {}, visible=False)
@@ -3277,6 +3653,10 @@ class OmniverseRtgTwinDriver:
         if stage is not None:
             try:
                 _remove_runinfo_billboards(stage, keep_current=False)
+            except Exception:
+                pass
+            try:
+                self._set_automatic_signal_visible(stage, False, force=True)
             except Exception:
                 pass
         if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is self:
@@ -3324,13 +3704,26 @@ class OmniverseRtgTwinDriver:
         self._container_info_panel_bitmap_seq = 0
         self._last_container_info_data_refresh_at = 0.0
         self._container_info_panel_position_key = None
+        self._truck_info_selected_root_path = None
+        self._truck_info_panel_visible = False
+        self._truck_info_panel_key = None
+        self._truck_info_panel_bitmap_seq = 0
+        self._truck_info_panel_position_key = None
+        self._truck_info_panel_diag_key = None
         self._weather_stage_id = None
         self._weather_signature = None
+        self._automatic_signal_work_mode = 0
+        self._automatic_signal_stage_id = None
+        self._automatic_signal_antenna_world = None
+        self._automatic_signal_last_update_at = 0.0
+        self._automatic_signal_visible = None
         self._last_weather_attribute_sync_at = 0.0
         self._weather_mode = "day"
         if stage is not None:
             self._hide_floating_device_panel(stage)
             self._hide_container_info_panel(stage)
+            self._hide_truck_info_panel(stage)
+            self._set_automatic_signal_visible(stage, False, force=True)
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -3356,6 +3749,13 @@ class OmniverseRtgTwinDriver:
                     )
                 elif self._container_info_panel_visible:
                     self._hide_container_info_panel(stage)
+                if self._truck_info_selected_root_path:
+                    self._show_truck_info_panel(
+                        stage,
+                        self._truck_info_selected_root_path,
+                    )
+                elif self._truck_info_panel_visible:
+                    self._hide_truck_info_panel(stage)
                 self._sync_floating_device_panel(
                     stage,
                     dict(pending_state.get("task") or {}),
@@ -3372,9 +3772,25 @@ class OmniverseRtgTwinDriver:
                     stage,
                     self._container_info_selected_root_path,
                 )
+        elif (
+            self._truck_info_selected_root_path
+            and time.monotonic() - self._last_container_info_data_refresh_at
+            >= CONTAINER_INFO_DATA_REFRESH_INTERVAL_SECONDS
+        ):
+            stage = self._current_stage()
+            if stage is not None:
+                self._last_container_info_data_refresh_at = time.monotonic()
+                self._show_truck_info_panel(
+                    stage,
+                    self._truck_info_selected_root_path,
+                )
         with self._latest_lock:
             state = self._latest_state
             self._latest_state = None
+        if isinstance(state, dict):
+            self._automatic_signal_work_mode = _state_work_mode(state)
+        if stage is not None:
+            self._sync_automatic_mode_signal(stage, time.monotonic())
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -3482,6 +3898,348 @@ class OmniverseRtgTwinDriver:
             if now - self._last_error_at > 1.0:
                 self._last_error_at = now
                 self._log(f"weather sync failed: {exc}")
+
+    def _sync_automatic_mode_signal(self, stage: Any, now: float) -> None:
+        """Animate the RCMS antenna link while heartbeat work_mode is remote manual."""
+
+        try:
+            stage_id = id(stage)
+            if self._automatic_signal_stage_id != stage_id:
+                self._automatic_signal_stage_id = stage_id
+                self._automatic_signal_antenna_world = None
+                self._automatic_signal_last_update_at = 0.0
+                self._automatic_signal_visible = None
+
+            if self._automatic_signal_work_mode != 3:
+                self._set_automatic_signal_visible(stage, False)
+                return
+            if (
+                now - self._automatic_signal_last_update_at
+                < AUTOMATIC_SIGNAL_UPDATE_INTERVAL_SECONDS
+            ):
+                return
+
+            endpoints = self._automatic_signal_endpoints(stage)
+            if endpoints is None:
+                self._set_automatic_signal_visible(stage, False)
+                return
+            start, end = endpoints
+            points, control = _automatic_signal_arc(start, end)
+            left_points = _automatic_signal_rail_points(
+                points,
+                start,
+                end,
+                AUTOMATIC_SIGNAL_RAIL_OFFSET_M,
+            )
+            right_points = _automatic_signal_rail_points(
+                points,
+                start,
+                end,
+                -AUTOMATIC_SIGNAL_RAIL_OFFSET_M,
+            )
+
+            from pxr import Gf, Sdf, Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                self._ensure_automatic_signal_geometry(stage)
+
+                def set_curve_points(path: str, values: list[tuple[float, float, float]]) -> None:
+                    curve = UsdGeom.BasisCurves.Get(stage, path)
+                    curve.GetPointsAttr().Set([Gf.Vec3f(*value) for value in values])
+
+                set_curve_points(AUTOMATIC_SIGNAL_OUTER_CURVE_PATH, points)
+                set_curve_points(AUTOMATIC_SIGNAL_CORE_CURVE_PATH, points)
+                set_curve_points(AUTOMATIC_SIGNAL_LEFT_CURVE_PATH, left_points)
+                set_curve_points(AUTOMATIC_SIGNAL_RIGHT_CURVE_PATH, right_points)
+
+                breath = 0.5 + 0.5 * math.sin(now * 3.2)
+                UsdGeom.BasisCurves.Get(
+                    stage, AUTOMATIC_SIGNAL_OUTER_CURVE_PATH
+                ).GetWidthsAttr().Set([0.34 + breath * 0.12])
+                UsdGeom.BasisCurves.Get(
+                    stage, AUTOMATIC_SIGNAL_CORE_CURVE_PATH
+                ).GetWidthsAttr().Set([0.075 + breath * 0.025])
+
+                for index in range(AUTOMATIC_SIGNAL_PULSE_COUNT):
+                    progress = (
+                        now * AUTOMATIC_SIGNAL_PACKET_SPEED
+                        + index / AUTOMATIC_SIGNAL_PULSE_COUNT
+                    ) % 1.0
+                    point = _quadratic_signal_point(start, control, end, progress)
+                    prim = stage.GetPrimAtPath(
+                        f"{AUTOMATIC_SIGNAL_PULSE_ROOT_PATH}/Packet_{index:02d}"
+                    )
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:translate",
+                        Sdf.ValueTypeNames.Double3,
+                        Gf.Vec3d(*point),
+                    )
+                    packet_scale = 0.72 + 0.32 * math.sin(
+                        math.pi * max(0.0, min(1.0, progress))
+                    )
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:scale",
+                        Sdf.ValueTypeNames.Float3,
+                        Gf.Vec3f(packet_scale, packet_scale, packet_scale),
+                    )
+
+                for name, point, phase in (
+                    ("AntennaBeacon", start, 0.0),
+                    ("RtgBeacon", end, math.pi),
+                ):
+                    prim = stage.GetPrimAtPath(f"{AUTOMATIC_SIGNAL_ROOT_PATH}/{name}")
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:translate",
+                        Sdf.ValueTypeNames.Double3,
+                        Gf.Vec3d(*point),
+                    )
+                    scale = 0.82 + 0.22 * math.sin(now * 4.0 + phase)
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:scale",
+                        Sdf.ValueTypeNames.Float3,
+                        Gf.Vec3f(scale, scale, scale),
+                    )
+
+                for index in range(3):
+                    prim = stage.GetPrimAtPath(
+                        f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}"
+                    )
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:translate",
+                        Sdf.ValueTypeNames.Double3,
+                        Gf.Vec3d(end[0], end[1], end[2] + 0.05),
+                    )
+                    ring_phase = (now * 0.9 + index / 3.0) % 1.0
+                    ring_scale = 0.7 + ring_phase * 1.15
+                    self._set_xform_op_attr_value(
+                        prim,
+                        "xformOp:scale",
+                        Sdf.ValueTypeNames.Float3,
+                        Gf.Vec3f(ring_scale, ring_scale, 1.0),
+                    )
+
+                root = stage.GetPrimAtPath(AUTOMATIC_SIGNAL_ROOT_PATH)
+                self._set_attr(
+                    root,
+                    "rtg:workMode",
+                    Sdf.ValueTypeNames.Int,
+                    self._automatic_signal_work_mode,
+                )
+                self._set_automatic_signal_visible(stage, True)
+            self._automatic_signal_last_update_at = now
+        except Exception as exc:  # noqa: BLE001 - visual effect must not stop live control
+            error_time = time.time()
+            if error_time - self._last_error_at > 1.0:
+                self._last_error_at = error_time
+                self._log(f"remote-mode signal link update failed: {exc}")
+
+    def _automatic_signal_endpoints(
+        self,
+        stage: Any,
+    ) -> Optional[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float, float],
+        ]
+    ]:
+        """Resolve a fixed antenna tip and a gantry-local moving RTG roof point."""
+
+        from pxr import Gf, Usd, UsdGeom
+
+        antenna = stage.GetPrimAtPath(AUTOMATIC_SIGNAL_ANTENNA_PATH)
+        rtg_attach = stage.GetPrimAtPath(AUTOMATIC_SIGNAL_RTG_ATTACH_PATH)
+        if not antenna or not rtg_attach:
+            return None
+
+        if self._automatic_signal_antenna_world is None:
+            antenna_top = self._automatic_signal_world_top(antenna, extra_z=0.35)
+            if antenna_top is None:
+                return None
+            self._automatic_signal_antenna_world = antenna_top
+
+        xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+        rtg_world = xform_cache.GetLocalToWorldTransform(rtg_attach)
+        rtg_target = rtg_world.Transform(
+            Gf.Vec3d(*AUTOMATIC_SIGNAL_RTG_TARGET_LOCAL_POINT)
+        )
+        return (
+            self._automatic_signal_antenna_world,
+            tuple(float(rtg_target[index]) for index in range(3)),
+        )
+
+    @staticmethod
+    def _automatic_signal_world_top(
+        prim: Any,
+        *,
+        extra_z: float,
+    ) -> Optional[tuple[float, float, float]]:
+        """Return the top-centre of a prim's rendered world bound."""
+
+        from pxr import Gf, Usd, UsdGeom
+
+        try:
+            cache = UsdGeom.BBoxCache(
+                Usd.TimeCode.Default(),
+                [UsdGeom.Tokens.default_, UsdGeom.Tokens.render, UsdGeom.Tokens.proxy],
+            )
+            world_range = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+            if not world_range.IsEmpty():
+                minimum = world_range.GetMin()
+                maximum = world_range.GetMax()
+                return (
+                    float((minimum[0] + maximum[0]) * 0.5),
+                    float((minimum[1] + maximum[1]) * 0.5),
+                    float(maximum[2] + extra_z),
+                )
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            pass
+
+        try:
+            matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(prim)
+            origin = matrix.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+            return (float(origin[0]), float(origin[1]), float(origin[2] + extra_z))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return None
+
+    def _ensure_automatic_signal_geometry(self, stage: Any) -> None:
+        """Create the layered beam, packets, beacons, and target reticle once."""
+
+        from pxr import Gf, Sdf, UsdGeom, UsdShade
+
+        existing = stage.GetPrimAtPath(
+            f"{AUTOMATIC_SIGNAL_PULSE_ROOT_PATH}/Packet_00"
+        )
+        if existing and stage.GetPrimAtPath(AUTOMATIC_SIGNAL_CORE_CURVE_PATH):
+            return
+
+        root = UsdGeom.Xform.Define(stage, AUTOMATIC_SIGNAL_ROOT_PATH).GetPrim()
+        self._set_attr(
+            root,
+            "rtg:effect",
+            Sdf.ValueTypeNames.String,
+            "RCMS remote-mode antenna communication link",
+        )
+
+        def material(
+            name: str,
+            color: tuple[float, float, float],
+            emissive: tuple[float, float, float],
+            opacity: float,
+        ) -> Any:
+            path = f"{AUTOMATIC_SIGNAL_MATERIAL_ROOT_PATH}/{name}"
+            result = UsdShade.Material.Define(stage, path)
+            shader = UsdShade.Shader.Define(stage, f"{path}/PreviewSurface")
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+                Gf.Vec3f(*color)
+            )
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(
+                Gf.Vec3f(*emissive)
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(opacity)
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.12)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.18)
+            result.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+            return result
+
+        glow_material = material(
+            "OuterGlow",
+            (0.0, 0.20, 0.36),
+            (0.0, 3.5, 8.0),
+            0.24,
+        )
+        core_material = material(
+            "CoreCyan",
+            (0.10, 0.92, 1.0),
+            (2.0, 18.0, 28.0),
+            0.96,
+        )
+        pulse_material = material(
+            "DataPacket",
+            (0.72, 1.0, 1.0),
+            (12.0, 35.0, 42.0),
+            1.0,
+        )
+
+        def curve(path: str, width: float, bound_material: Any) -> None:
+            value = UsdGeom.BasisCurves.Define(stage, path)
+            value.CreateTypeAttr(UsdGeom.Tokens.linear)
+            value.CreateWrapAttr(UsdGeom.Tokens.nonperiodic)
+            value.CreateCurveVertexCountsAttr([AUTOMATIC_SIGNAL_POINT_COUNT])
+            value.CreatePointsAttr(
+                [Gf.Vec3f(0.0, 0.0, 0.0)] * AUTOMATIC_SIGNAL_POINT_COUNT
+            )
+            value.CreateWidthsAttr([width])
+            value.SetWidthsInterpolation(UsdGeom.Tokens.constant)
+            UsdShade.MaterialBindingAPI.Apply(value.GetPrim()).Bind(bound_material)
+
+        curve(AUTOMATIC_SIGNAL_OUTER_CURVE_PATH, 0.42, glow_material)
+        curve(AUTOMATIC_SIGNAL_CORE_CURVE_PATH, 0.09, core_material)
+        curve(AUTOMATIC_SIGNAL_LEFT_CURVE_PATH, 0.035, core_material)
+        curve(AUTOMATIC_SIGNAL_RIGHT_CURVE_PATH, 0.035, core_material)
+
+        UsdGeom.Xform.Define(stage, AUTOMATIC_SIGNAL_PULSE_ROOT_PATH)
+        for index in range(AUTOMATIC_SIGNAL_PULSE_COUNT):
+            sphere = UsdGeom.Sphere.Define(
+                stage,
+                f"{AUTOMATIC_SIGNAL_PULSE_ROOT_PATH}/Packet_{index:02d}",
+            )
+            sphere.CreateRadiusAttr(0.32)
+            UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(pulse_material)
+
+        for name in ("AntennaBeacon", "RtgBeacon"):
+            sphere = UsdGeom.Sphere.Define(
+                stage, f"{AUTOMATIC_SIGNAL_ROOT_PATH}/{name}"
+            )
+            sphere.CreateRadiusAttr(0.52)
+            UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(pulse_material)
+
+        for index in range(3):
+            torus = UsdGeom.Torus.Define(
+                stage,
+                f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}",
+            )
+            torus.CreateMajorRadiusAttr(0.72 + index * 0.18)
+            torus.CreateMinorRadiusAttr(0.045)
+            torus.CreateAxisAttr(UsdGeom.Tokens.z)
+            UsdShade.MaterialBindingAPI.Apply(torus.GetPrim()).Bind(core_material)
+
+    def _set_automatic_signal_visible(
+        self,
+        stage: Any,
+        visible: bool,
+        *,
+        force: bool = False,
+    ) -> None:
+        """Toggle the whole link without deleting its cached USD geometry."""
+
+        root = stage.GetPrimAtPath(AUTOMATIC_SIGNAL_ROOT_PATH)
+        if not root:
+            self._automatic_signal_visible = False
+            return
+        if (
+            not force
+            and
+            self._automatic_signal_visible is not None
+            and self._automatic_signal_visible == bool(visible)
+        ):
+            return
+        from pxr import Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            imageable = UsdGeom.Imageable(root)
+            if visible:
+                imageable.MakeVisible()
+            else:
+                imageable.MakeInvisible()
+        self._automatic_signal_visible = bool(visible)
 
     def _disable_demo_artifacts_for_stage(self, stage: Any) -> None:
         stage_id = id(stage)
@@ -6679,11 +7437,22 @@ class OmniverseRtgTwinDriver:
             ),
             None,
         )
+        truck_root = None
+        if container_root is None:
+            truck_root = next(
+                (
+                    root
+                    for root in (_truck_root_path_from_selection(path) for path in paths)
+                    if root is not None
+                ),
+                None,
+            )
         # Selecting a box opens its own info panel but must not close the
         # device panel that was opened by the preceding RTG selection.
-        if not container_root or not self._device_panel_selected:
+        if (not container_root and not truck_root) or not self._device_panel_selected:
             self._device_panel_selected = matched_rtg
         self._container_info_selected_root_path = container_root
+        self._truck_info_selected_root_path = truck_root
         return True
 
     def _on_device_panel_selection_changed(self, *_args: Any) -> None:
@@ -6703,6 +7472,13 @@ class OmniverseRtgTwinDriver:
             )
         elif self._container_info_panel_visible:
             self._hide_container_info_panel(stage)
+        if self._truck_info_selected_root_path:
+            self._show_truck_info_panel(
+                stage,
+                self._truck_info_selected_root_path,
+            )
+        elif self._truck_info_panel_visible:
+            self._hide_truck_info_panel(stage)
         if not self._device_panel_selected:
             if self._device_panel_visible:
                 self._hide_floating_device_panel(stage)
@@ -6897,6 +7673,221 @@ class OmniverseRtgTwinDriver:
             "container info panel shown "
             f"root={root_path} path={CONTAINER_INFO_PANEL_ROOT_PATH}"
         )
+
+    @staticmethod
+    def _hide_truck_info_panel(stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(TRUCK_INFO_PANEL_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+        except Exception:
+            return
+
+    @staticmethod
+    def _truck_info_panel_world_translate(stage: Any, root_path: str) -> Any:
+        from pxr import Gf, Usd, UsdGeom
+
+        selected = stage.GetPrimAtPath(root_path)
+        if not selected:
+            return Gf.Vec3d(0.0, 0.0, TRUCK_INFO_PANEL_Z_OFFSET_M)
+        try:
+            cache = UsdGeom.BBoxCache(
+                Usd.TimeCode.Default(),
+                [UsdGeom.Tokens.default_, UsdGeom.Tokens.render, UsdGeom.Tokens.proxy],
+            )
+            bounds = cache.ComputeWorldBound(selected).ComputeAlignedBox()
+            minimum = bounds.GetMin()
+            maximum = bounds.GetMax()
+            return Gf.Vec3d(
+                (float(minimum[0]) + float(maximum[0])) * 0.5,
+                (float(minimum[1]) + float(maximum[1])) * 0.5
+                + TRUCK_INFO_PANEL_Y_OFFSET_M,
+                float(maximum[2]) + TRUCK_INFO_PANEL_Z_OFFSET_M,
+            )
+        except Exception:
+            return Gf.Vec3d(0.0, 0.0, TRUCK_INFO_PANEL_Z_OFFSET_M)
+
+    def _sync_truck_info_panel_pose(self, stage: Any, root: Any, root_path: str) -> None:
+        from pxr import Gf
+
+        translate = self._sync_truck_info_panel_position(stage, root, root_path)
+        rotate = camera_facing_rotate_xyz(
+            stage,
+            translate,
+            TRUCK_INFO_PANEL_ROTATE_XYZ,
+        )
+        self._set_xform_rotate_xyz(root, Gf.Vec3f(*rotate))
+        self._normalize_panel_xform_op_order(root)
+
+    def _sync_truck_info_panel_position(
+        self,
+        stage: Any,
+        root: Any,
+        root_path: str,
+    ) -> Any:
+        translate = self._truck_info_panel_world_translate(stage, root_path)
+        position_key = (
+            root_path,
+            round(float(translate[0]), 4),
+            round(float(translate[1]), 4),
+            round(float(translate[2]), 4),
+        )
+        if position_key != self._truck_info_panel_position_key:
+            self._set_xform_translate(root, translate)
+            self._truck_info_panel_position_key = position_key
+        return translate
+
+    def _show_truck_info_panel(self, stage: Any, root_path: str) -> None:
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        info = self._current_truck_runinfo(stage)
+        if info is None:
+            self._hide_truck_info_panel(stage)
+            self._truck_info_panel_visible = False
+            self._log_truck_info_status(
+                "hidden_no_valid_runinfo",
+                "truck info panel hidden: selected truck but no validated truck runinfo",
+            )
+            return
+
+        panel_key = (root_path, info.car_type, info.car_no)
+        mesh = stage.GetPrimAtPath(TRUCK_INFO_PANEL_MESH_PATH)
+        if (
+            mesh
+            and panel_key == self._truck_info_panel_key
+            and stage.GetPrimAtPath(TRUCK_INFO_PANEL_ROOT_PATH)
+        ):
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(TRUCK_INFO_PANEL_ROOT_PATH)
+                UsdGeom.Imageable(root).MakeVisible()
+                self._sync_truck_info_panel_pose(stage, root, root_path)
+            self._truck_info_panel_visible = True
+            return
+
+        self._truck_info_panel_bitmap_seq += 1
+        texture_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_truck_info_{os.getpid()}_{self._truck_info_panel_bitmap_seq}.png"
+        )
+        if not _render_truck_info_panel_bitmap(info, texture_path):
+            self._log("truck info panel bitmap render failed")
+            return
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = UsdGeom.Xform.Define(stage, TRUCK_INFO_PANEL_ROOT_PATH)
+            root_prim = root.GetPrim()
+            UsdGeom.Imageable(root_prim).MakeVisible()
+            self._sync_truck_info_panel_pose(stage, root_prim, root_path)
+
+            panel = UsdGeom.Mesh.Define(stage, TRUCK_INFO_PANEL_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = TRUCK_INFO_PANEL_WIDTH_M * 0.5
+            half_h = TRUCK_INFO_PANEL_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [Gf.Vec3f(-half_w, 0.0, -half_h), Gf.Vec3f(half_w, 0.0, half_h)]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(u, v) for u, v in TRUCK_INFO_PANEL_UV_COORDS])
+            panel_prim.CreateAttribute(
+                "rtg:truckInfoTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+            panel_prim.CreateAttribute(
+                "rtg:truckType",
+                Sdf.ValueTypeNames.String,
+            ).Set(info.car_type)
+            panel_prim.CreateAttribute(
+                "rtg:truckNo",
+                Sdf.ValueTypeNames.String,
+            ).Set(info.car_no)
+
+            material = UsdShade.Material.Define(stage, TRUCK_INFO_PANEL_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage,
+                f"{TRUCK_INFO_PANEL_MATERIAL_PATH}/PreviewSurface",
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.42)
+            texture = UsdShade.Shader.Define(
+                stage,
+                f"{TRUCK_INFO_PANEL_MATERIAL_PATH}/Texture",
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(str(texture_path))
+            )
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage,
+                f"{TRUCK_INFO_PANEL_MATERIAL_PATH}/Primvar_st",
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(), "result"
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(), "a"
+            )
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+
+        self._truck_info_panel_key = panel_key
+        self._truck_info_panel_visible = True
+        self._log(
+            "truck info panel shown "
+            f"root={root_path} type={info.car_type} no={info.car_no}"
+        )
+
+    def _current_truck_runinfo(self, stage: Any) -> Optional[TruckRunInfo]:
+        """Read validated truck info from cached, pending, or authored status runinfo."""
+
+        candidates: list[Any] = [self._last_runinfo_payload]
+        with self._latest_lock:
+            latest = self._latest_state
+            if isinstance(latest, dict):
+                candidates.append(latest.get("runinfo"))
+        status_runinfo = _read_status_value(stage, "rtg:runinfo", "")
+        if status_runinfo:
+            candidates.append({"message": status_runinfo})
+        for candidate in candidates:
+            info = _truck_runinfo_from_payload(candidate)
+            if info is not None:
+                return info
+        return None
+
+    def _log_truck_info_status(self, status: str, message: str) -> None:
+        key = (status, message)
+        if key == self._truck_info_panel_diag_key:
+            return
+        self._truck_info_panel_diag_key = key
+        self._log(message)
 
     def _sync_device_location_values_overlay(
         self,
@@ -7225,21 +8216,7 @@ class OmniverseRtgTwinDriver:
                     f"bayMap={task.get('bayMap') or '--'}",
                 )
 
-        panel_key = (
-            str(task.get("taskId") or ""),
-            str(task.get("taskState") or task.get("state") or ""),
-            str(task.get("workType") or task.get("taskType") or ""),
-            str(task.get("startPos") or task.get("sourcePos") or ""),
-            str(task.get("endPos") or task.get("targetPos") or ""),
-            str(task.get("containerNo") or ""),
-            str(task.get("containerType") or ""),
-            str(task.get("containerHeight") or ""),
-            str(task.get("spreaderPos") or ""),
-            str(task.get("carType") or ""),
-            str(task.get("carNo") or ""),
-            str(task.get("bayMap") or ""),
-            str(task.get("operationState") or task.get("visualPhase") or ""),
-        )
+        panel_key = _task_panel_content_key(task)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             if (
                 panel_key == self._floating_task_panel_key
@@ -7532,6 +8509,16 @@ class OmniverseRtgTwinDriver:
             )
             self._set_attr(
                 prim, "rtg:currentBay", Sdf.ValueTypeNames.Int, _as_int(pose.get("currentBay"), 0)
+            )
+            work_mode = pose.get("workMode")
+            if work_mode is None:
+                work_mode = pose.get("work_mode")
+            if work_mode is None:
+                work_mode = state.get("workMode")
+            if work_mode is None:
+                work_mode = state.get("work_mode")
+            self._set_attr(
+                prim, "rtg:workMode", Sdf.ValueTypeNames.Int, _as_int(work_mode, 0)
             )
             current_field = str(pose.get("currentField") or "").strip()
             current_bay = _as_int(pose.get("currentBay"), 0)

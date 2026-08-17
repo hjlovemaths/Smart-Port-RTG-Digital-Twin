@@ -15,10 +15,10 @@ RAIN_DROP_COUNT = sum(RAIN_LAYER_DROP_COUNTS)
 # longer streaks in the dense layers make heavy/torrential rain immediately
 # distinguishable in a wide yard camera.
 RAIN_LAYER_STREAK_PROFILES = (
-    ((0.35, 0.65), (0.008, 0.014), 0.055),
-    ((0.75, 1.25), (0.012, 0.022), 0.100),
-    ((1.40, 2.30), (0.018, 0.032), 0.165),
-    ((2.50, 4.20), (0.030, 0.055), 0.260),
+    ((0.25, 0.55), (0.006, 0.010), 0.055),
+    ((0.45, 0.90), (0.009, 0.014), 0.090),
+    ((0.70, 1.35), (0.013, 0.022), 0.140),
+    ((1.05, 2.00), (0.018, 0.032), 0.210),
 )
 SPLASH_LAYER_COUNTS = ()
 SPLASH_LAYER_SIZE_PROFILES = (
@@ -33,11 +33,16 @@ MIST_LAYER_SIZE_PROFILES = (
     ((0.65, 1.50), (0.20, 0.55)),
 )
 RAIN_SEED = 20260813
-AIR_RAIN_X_RANGE = (-40.0, 40.0)
-AIR_RAIN_Y_RANGE = (-40.0, 40.0)
+# Keep the emitter close to the active RTG camera. The old 80 x 80 m square
+# spread most drops outside the visible frame, making all four amounts look
+# equally sparse. This 48 x 36 m footprint converts cumulative drop count into
+# a clear on-screen density difference without adding any geometry.
+AIR_RAIN_X_RANGE = (-24.0, 24.0)
+AIR_RAIN_Y_RANGE = (-18.0, 18.0)
 GROUND_EFFECT_X_RANGE = (-35.0, 35.0)
 GROUND_EFFECT_Y_RANGE = (-35.0, 35.0)
 RAIN_Z_RANGE = (20.0, 28.0)
+RAIN_SURFACE_CLIP_Z_M = 0.55
 RAIN_PHASE_COUNT = 3
 RAIN_CYCLE_FRAMES = 12
 STAGE_END_TIME_CODE = 925
@@ -340,7 +345,7 @@ over Xform "World"
     {{
         custom string smartPort:description = "Four strongly separated rain densities with wet-road sheen and torrential near-screen streaks"
         custom string smartPort:rainAmountScale = "Light <10 mm/24h; Moderate 10-25 mm/24h; Heavy 25-50 mm/24h; Torrential 50-100 mm/24h plus short burst >16 mm/h"
-        custom string smartPort:rainAmountBehavior = "Light: sparse visible drops and slow wetting; Moderate: continuous streaks and visible puddling; Heavy: dense blurred streaks and fast wetting; Torrential: near-screen-filling rain, reduced visibility, and strong wet sheen"
+        custom string smartPort:rainAmountBehavior = "Each rain amount combines cumulative drop count, streak length, streak width, fall speed, opacity, and emission; ground splashes and puddles are disabled"
 
         def Scope "Looks"
         {{
@@ -373,6 +378,21 @@ over Xform "World"
                 }}
             }}
 
+            def Material "AtmosphereOverlayMaterial"
+            {{
+                token outputs:surface.connect = </World/SMART_PORT_WEATHER/Looks/AtmosphereOverlayMaterial/PreviewSurface.outputs:surface>
+                def Shader "PreviewSurface"
+                {{
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.52, 0.58, 0.61)
+                    color3f inputs:emissiveColor = (0.10, 0.12, 0.13)
+                    float inputs:metallic = 0
+                    float inputs:opacity = 0
+                    float inputs:roughness = 1
+                    token outputs:surface
+                }}
+            }}
+
         }}
 
         def Xform "Rain"
@@ -382,7 +402,7 @@ over Xform "World"
             custom string smartPort:rainLayerDropCounts = "{rain_layer_description}"
             custom string smartPort:performance = "Camera-local air rain only; puddles, splashes, and impact mist are disabled"
             custom string smartPort:animationDriver = "smartport.rtg_bridge update loop"
-            custom string smartPort:groundClampRule = "Each grade uses three phase-shifted emitter batches that reset before their longest streak crosses Z=0.15 m"
+            custom string smartPort:groundClampRule = "Each grade uses three phase-shifted emitter batches that reset before their longest streak crosses Z=0.55 m, leaving a visible gap above the road"
 
             def Xform "AirRain"
             {{
@@ -398,6 +418,25 @@ over Xform "World"
                 {wet_mesh}
                 uniform token subdivisionScheme = "none"
             }}
+        }}
+
+        def Mesh "AtmosphereOverlay"
+        {{
+            token visibility = "invisible"
+            custom string smartPort:description = "Single camera-facing low-cost visibility veil for rain and fog grades"
+            custom string smartPort:performance = "One double-sided quad; no particles, splashes, puddles, or per-object effects"
+            uniform bool doubleSided = true
+            rel material:binding = </World/SMART_PORT_WEATHER/Looks/AtmosphereOverlayMaterial>
+            uniform token orientation = "rightHanded"
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            point3f[] points = [
+                (-1, -1, 0),
+                (1, -1, 0),
+                (1, 1, 0),
+                (-1, 1, 0)
+            ]
+            uniform token subdivisionScheme = "none"
         }}
     }}
 }}

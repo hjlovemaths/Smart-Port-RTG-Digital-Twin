@@ -24,6 +24,10 @@ NIGHT_STREET_LIGHTS_PATH = (
 WEATHER_ROOT_PATH = "/World/SMART_PORT_WEATHER"
 RAIN_EFFECT_PATH = f"{WEATHER_ROOT_PATH}/Rain"
 AIR_RAIN_EFFECT_PATH = f"{RAIN_EFFECT_PATH}/AirRain"
+ATMOSPHERE_OVERLAY_PATH = f"{WEATHER_ROOT_PATH}/AtmosphereOverlay"
+ATMOSPHERE_OVERLAY_SHADER_PATH = (
+    f"{WEATHER_ROOT_PATH}/Looks/AtmosphereOverlayMaterial/PreviewSurface"
+)
 RAIN_LAYER_PATHS = tuple(
     f"{AIR_RAIN_EFFECT_PATH}/RainLayer{index:02d}" for index in range(1, 5)
 )
@@ -36,8 +40,12 @@ RAIN_MIST_LAYER_PATHS: tuple[str, ...] = ()
 RAIN_ANIMATION_INTERVAL_SECONDS = 1.0 / 24.0
 RAIN_CAMERA_FOLLOW_GRID_M = 10.0
 RAIN_EMITTER_MIN_Z_M = 20.0
-RAIN_SURFACE_CLIP_Z_M = 0.15
-RAIN_STREAK_MAX_LENGTHS_M = (0.65, 1.25, 2.30, 4.20)
+# Stop visibly above the road surface. With splashes disabled, ending exactly
+# at Z=0.15 m makes the last frame of a streak look like a rod planted in the
+# ground. The extra clearance is only a visual cap; it still never penetrates
+# the yard or water surface.
+RAIN_SURFACE_CLIP_Z_M = 0.55
+RAIN_STREAK_MAX_LENGTHS_M = (0.55, 0.90, 1.35, 2.00)
 RAIN_ANIMATION_PATH = RAIN_LAYER_PATHS[0]
 ENVIRONMENT_MODE_ATTRIBUTE = "smartPort:environmentMode"
 WIND_SPEED_ATTRIBUTE = "smartPort:windSpeedMps"
@@ -46,7 +54,7 @@ FOG_AMOUNT_ATTRIBUTE = "smartPort:fogAmount"
 DEFAULT_WIND_SPEED_MPS = 4.5
 DEFAULT_RAIN_AMOUNT = "medium"
 DEFAULT_FOG_AMOUNT = "medium"
-WEATHER_BUILD_ID = "2026-08-14-base-camera-rain"
+WEATHER_BUILD_ID = "2026-08-14-rtg-weather-contrast-v9"
 RAIN_AMOUNT_LABELS = {
     "light": "Light Rain",
     "medium": "Moderate Rain",
@@ -58,34 +66,55 @@ RAIN_AMOUNT_LABELS = {
 # different while keeping the same batched geometry and performance budget.
 RAIN_AMOUNT_PROFILES = {
     "light": {
-        "visible_layers": 1, "opacity": 0.20, "emission": 0.045,
-        "speed_mps": 5.0, "rate_mm_24h": "<10", "wetness": 0.05,
+        "visible_layers": 1, "opacity": 0.28, "emission": 0.03,
+        "speed_mps": 6.0, "rate_mm_24h": "<10", "wetness": 0.05,
+        "drop_count": 100,
+        "streak_length_m": (0.25, 0.55), "streak_width_m": (0.006, 0.010),
     },
     "medium": {
-        "visible_layers": 2, "opacity": 0.40, "emission": 0.10,
+        "visible_layers": 2, "opacity": 0.46, "emission": 0.06,
         "speed_mps": 9.0, "rate_mm_24h": "10-25", "wetness": 0.22,
+        "drop_count": 350,
+        "streak_length_m": (0.45, 0.90), "streak_width_m": (0.009, 0.014),
     },
     "heavy": {
-        "visible_layers": 3, "opacity": 0.68, "emission": 0.19,
-        "speed_mps": 15.0, "rate_mm_24h": "25-50", "wetness": 0.48,
+        "visible_layers": 3, "opacity": 0.64, "emission": 0.12,
+        "speed_mps": 14.0, "rate_mm_24h": "25-50", "wetness": 0.48,
+        "drop_count": 850,
+        "streak_length_m": (0.70, 1.35), "streak_width_m": (0.013, 0.022),
     },
     "torrential": {
-        "visible_layers": 4, "opacity": 0.92, "emission": 0.34,
-        "speed_mps": 24.0, "rate_mm_24h": "50-100; short burst >16 mm/h", "wetness": 0.82,
+        "visible_layers": 4, "opacity": 0.84, "emission": 0.20,
+        "speed_mps": 20.0, "rate_mm_24h": "50-100; short burst >16 mm/h", "wetness": 0.82,
+        "drop_count": 2000,
+        "streak_length_m": (1.05, 2.00), "streak_width_m": (0.018, 0.032),
     },
+}
+RAIN_BACKGROUND_TEXTURE_LUMINANCE = {
+    "light": 0.88,
+    "medium": 0.70,
+    "heavy": 0.52,
+    "torrential": 0.34,
+}
+RAIN_COVERAGE_SCALES = {
+    "light": 1.0,
+    "medium": 1.0,
+    "heavy": 1.0,
+    "torrential": 1.0,
 }
 # Rainfall itself now drives a separate atmospheric veil.  This makes every
 # grade legible even in a wide overview where individual streaks are small.
 RAIN_ATMOSPHERE_PROFILES = {
     # sky scale, sun scale, background, visibility m, distance density,
     # height density
-    "light": (1.05, 0.90, (0.34, 0.41, 0.46), 650.0, 0.035, 0.010),
-    "medium": (0.82, 0.58, (0.24, 0.31, 0.36), 360.0, 0.16, 0.035),
-    "heavy": (0.58, 0.30, (0.15, 0.21, 0.25), 180.0, 0.48, 0.090),
-    "torrential": (0.34, 0.10, (0.075, 0.11, 0.14), 78.0, 1.20, 0.18),
+    "light": (1.05, 0.90, (0.34, 0.41, 0.46), 420.0, 0.08, 0.015),
+    "medium": (0.82, 0.58, (0.24, 0.31, 0.36), 240.0, 0.30, 0.060),
+    "heavy": (0.58, 0.30, (0.15, 0.21, 0.25), 110.0, 0.85, 0.16),
+    "torrential": (0.34, 0.10, (0.075, 0.11, 0.14), 45.0, 1.80, 0.30),
 }
 _RAIN_LAST_ANIMATION_UPDATE: dict[int, float] = {}
 _RAIN_CAMERA_ANCHORS: dict[int, tuple[float, float]] = {}
+_ATMOSPHERE_OVERLAY_LAST_UPDATE: dict[int, float] = {}
 FOG_AMOUNT_LABELS = {
     "light": "Light Fog",
     "medium": "Moderate Fog",
@@ -94,21 +123,47 @@ FOG_AMOUNT_LABELS = {
 FOG_AMOUNT_PROFILES = {
     # distance scale, density scale, height scale; intentionally separated
     # enough to remain visible in a large yard camera.
-    "light": (2.50, 0.08, 0.08),
-    "medium": (1.15, 0.34, 0.30),
-    "heavy": (0.48, 1.45, 1.25),
+    "light": (1.20, 0.18, 0.12),
+    "medium": (0.65, 0.65, 0.45),
+    "heavy": (0.28, 2.00, 1.80),
 }
 FOG_AMOUNT_BACKGROUND_COLORS = {
     "light": (0.40, 0.48, 0.53),
     "medium": (0.52, 0.58, 0.61),
     "heavy": (0.70, 0.73, 0.73),
 }
+# RTX Simple Fog is not consistently evaluated on every live viewport
+# RenderProduct. This single camera-facing quad is a deliberately cheap
+# visual fallback. Its opacity is kept low so it communicates visibility
+# without turning the yard into a solid translucent wall.
+ATMOSPHERE_OVERLAY_OPACITIES = {
+    "rain": {
+        "light": 0.025,
+        "medium": 0.080,
+        "heavy": 0.180,
+        "torrential": 0.320,
+    },
+    "fog": {
+        "light": 0.080,
+        "medium": 0.250,
+        "heavy": 0.480,
+    },
+}
+ATMOSPHERE_OVERLAY_DISTANCE_M = 10.0
+# The weather zone follows the modeled quay/yard footprint rather than the
+# whole USD stage.  It covers the RTG work area shown in the control view and
+# avoids applying a full-scene atmosphere to the surrounding water/background.
+WEATHER_ZONE_BOUNDS = (-105.0, 155.0, -15.0, 505.0)
+ATMOSPHERE_OVERLAY_SCALE = 90.0
 DAY_BACKGROUND_TEXTURE = (
     Path(__file__).resolve().parents[1]
     / "materials"
     / "textures"
     / "day_harbor_sky_360.png"
 )
+WEATHER_TEXTURE_BACKGROUND_MODES = frozenset(("rain", "fog"))
+DAY_BACKGROUND_FALLBACK_COLOR = (0.34, 0.55, 0.84)
+FOG_BACKGROUND_TEXTURE_LUMINANCE = 0.48
 RTG_LED_NIGHT_ROOT_PATHS = (
     "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL/SMART_PORT_RTG_LED_NIGHT_LIGHTS",
     "/World/PortAndRTG/RTG_STATIC_RIGHT/SMART_PORT_RTG_LED_NIGHT_LIGHTS",
@@ -339,6 +394,23 @@ def _set_attribute_if_changed(
     return True
 
 
+def _range_text(value: tuple[float, float]) -> str:
+    return f"{value[0]:.3f}-{value[1]:.3f}"
+
+
+def _clear_attribute(prim: Any, name: str) -> None:
+    """Remove a session-layer override so authored/default RTX behavior wins."""
+
+    try:
+        attribute = prim.GetAttribute(name)
+        if attribute and attribute.IsValid():
+            clear = getattr(attribute, "Clear", None)
+            if clear is not None:
+                clear()
+    except (AttributeError, RuntimeError, TypeError):
+        pass
+
+
 def _session_edit_context(stage: Any) -> Any:
     try:
         from pxr import Usd  # type: ignore
@@ -371,12 +443,23 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
     except (AttributeError, TypeError):
         pass
 
+    use_weather_texture = (
+        preset.key in WEATHER_TEXTURE_BACKGROUND_MODES
+        and DAY_BACKGROUND_TEXTURE.is_file()
+    )
+    texture_luminance_scale = {
+        "day": 1.0,
+        "rain": 0.70,
+        # A darker, desaturated sky texture makes the fog layer read as
+        # overcast instead of looking like a clear blue day.
+        "fog": FOG_BACKGROUND_TEXTURE_LUMINANCE,
+    }.get(preset.key, 1.0)
     for render_product in render_products:
-        if preset.key == "day":
+        if use_weather_texture:
             _set_attribute(
                 render_product,
                 "omni:rtx:background:source:type",
-                "domeLight",
+                "texture",
                 "Token",
             )
             _set_attribute(
@@ -388,9 +471,14 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
             _set_attribute(
                 render_product,
                 "omni:rtx:background:source:texture:luminanceScale",
-                1.0,
+                texture_luminance_scale,
                 "Float",
             )
+        elif preset.key == "day":
+            # Let RTX use the rendered DomeLight. This is what displays the
+            # authored harbor sky texture and avoids the black texture override
+            # seen with this Kit version.
+            _clear_attribute(render_product, "omni:rtx:background:source:type")
         else:
             color = preset.background_color or (0.018, 0.045, 0.12)
             _set_attribute(
@@ -412,19 +500,32 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
         import carb.settings  # type: ignore
 
         settings = carb.settings.get_settings()
-        if preset.key == "day":
-            # This Kit template renders the visible environment through the
-            # DomeLight.  Source type 1 (standalone texture) leaves the
-            # background black even though its texture path is valid.
-            settings.set_int("/rtx/background/source/type", 0)
+        if use_weather_texture:
+            # RTX background override: 1 forces the assigned texture. This
+            # keeps rain and fog on a textured overcast sky instead of a flat
+            # color while the separate RTX fog layer controls visibility.
+            settings.set_int("/rtx/background/source/type", 1)
             settings.set_string(
                 "/rtx/background/source/texture/path",
                 DAY_BACKGROUND_TEXTURE.as_posix(),
             )
             settings.set_float(
                 "/rtx/background/source/texture/luminanceScale",
-                1.0,
+                texture_luminance_scale,
             )
+        elif preset.key == "day":
+            settings.set_int("/rtx/background/source/type", 0)
+            if DAY_BACKGROUND_TEXTURE.is_file():
+                settings.set_string(
+                    "/rtx/background/source/texture/path",
+                    DAY_BACKGROUND_TEXTURE.as_posix(),
+                )
+            else:
+                settings.set_int("/rtx/background/source/type", 2)
+                settings.set_float_array(
+                    "/rtx/background/source/color",
+                    list(DAY_BACKGROUND_FALLBACK_COLOR),
+                )
         else:
             color = preset.background_color or (0.018, 0.045, 0.12)
             settings.set_int("/rtx/background/source/type", 2)
@@ -459,6 +560,7 @@ def _configure_fog_background(stage: Any, preset: EnvironmentPreset, fog_amount:
         )
         _set_attribute(environment, "smartPort:fogDensityScale", density_scale, "Float")
         _set_attribute(environment, "smartPort:fogHeightScale", height_scale, "Float")
+        _set_attribute(environment, "smartPort:fogTint", color, "Color3f")
         _set_attribute(
             _valid_prim(stage, DAY_SKY_PATH),
             "inputs:intensity",
@@ -471,21 +573,7 @@ def _configure_fog_background(stage: Any, preset: EnvironmentPreset, fog_amount:
             preset.sun_intensity * sun_scale,
             "Float",
         )
-        render_products = [
-            prim for prim in stage.Traverse() if prim.GetTypeName() == "RenderProduct"
-        ]
-        for render_product in render_products:
-            _set_attribute(render_product, "omni:rtx:background:source:type", "color", "Token")
-            _set_attribute(render_product, "omni:rtx:background:source:color", color, "Color3f")
     except (AttributeError, RuntimeError, TypeError):
-        pass
-    try:
-        import carb.settings  # type: ignore
-
-        carb.settings.get_settings().set_float_array(
-            "/rtx/background/source/color", list(color)
-        )
-    except (AttributeError, ImportError, RuntimeError):
         pass
 
 
@@ -533,21 +621,23 @@ def _configure_rain_atmosphere(
             preset.sun_intensity * sun_scale,
             "Float",
         )
-        for render_product in (
-            prim for prim in stage.Traverse() if prim.GetTypeName() == "RenderProduct"
-        ):
-            _set_attribute(
-                render_product,
-                "omni:rtx:background:source:type",
-                "color",
-                "Token",
-            )
-            _set_attribute(
-                render_product,
-                "omni:rtx:background:source:color",
-                background_color,
-                "Color3f",
-            )
+        if DAY_BACKGROUND_TEXTURE.is_file():
+            background_luminance = RAIN_BACKGROUND_TEXTURE_LUMINANCE[amount]
+            for render_product in (
+                prim for prim in stage.Traverse() if prim.GetTypeName() == "RenderProduct"
+            ):
+                _set_attribute(
+                    render_product,
+                    "omni:rtx:background:source:type",
+                    "texture",
+                    "Token",
+                )
+                _set_attribute(
+                    render_product,
+                    "omni:rtx:background:source:texture:luminanceScale",
+                    background_luminance,
+                    "Float",
+                )
     except (AttributeError, RuntimeError, TypeError):
         pass
 
@@ -555,18 +645,268 @@ def _configure_rain_atmosphere(
         import carb.settings  # type: ignore
 
         settings = carb.settings.get_settings()
-        settings.set_float_array(
-            "/rtx/background/source/color",
-            list(background_color),
-        )
         settings.set_bool("/rtx/fog/enabled", True)
         settings.set_float_array("/rtx/fog/fogColor", list(background_color))
         settings.set_float("/rtx/fog/fogStartDist", 4.0 if amount == "torrential" else 12.0)
         settings.set_float("/rtx/fog/fogEndDist", visibility_m)
         settings.set_float("/rtx/fog/fogDistanceDensity", distance_density)
         settings.set_float("/rtx/fog/fogHeightDensity", height_density)
+        if DAY_BACKGROUND_TEXTURE.is_file():
+            settings.set_int("/rtx/background/source/type", 1)
+            settings.set_string(
+                "/rtx/background/source/texture/path",
+                DAY_BACKGROUND_TEXTURE.as_posix(),
+            )
+            settings.set_float(
+                "/rtx/background/source/texture/luminanceScale",
+                RAIN_BACKGROUND_TEXTURE_LUMINANCE[amount],
+            )
     except (AttributeError, ImportError, RuntimeError):
         pass
+
+
+def _configure_render_product_fog(
+    stage: Any,
+    preset: EnvironmentPreset,
+    fog_amount: str,
+    rain_amount: str,
+) -> None:
+    """Mirror the active fog profile onto the viewport RenderProduct.
+
+    Kit can keep RenderProduct fog attributes authored in the USDA layer even
+    after the global ``/rtx/fog/*`` settings change.  Updating both paths is
+    important for a large yard: the bay visibility band must follow the
+    selected light/medium/heavy profile in the actual viewport.
+    """
+
+    if not preset.fog_enabled:
+        return
+    fog_amount = normalize_fog_amount(fog_amount)
+    if preset.rain_visible:
+        amount = normalize_rain_amount(rain_amount)
+        _, _, _, end_dist, distance_density, height_density = RAIN_ATMOSPHERE_PROFILES[
+            amount
+        ]
+        start_dist = 4.0 if amount == "torrential" else 12.0
+    else:
+        distance_scale, density_scale, height_scale = FOG_AMOUNT_PROFILES[fog_amount]
+        start_dist = preset.fog_start_dist * distance_scale
+        end_dist = preset.fog_end_dist * distance_scale
+        distance_density = preset.fog_distance_density * density_scale
+        height_density = preset.fog_height_density * height_scale
+
+    try:
+        render_products = [
+            prim for prim in stage.Traverse() if prim.GetTypeName() == "RenderProduct"
+        ]
+        fog_color = (
+            RAIN_ATMOSPHERE_PROFILES[normalize_rain_amount(rain_amount)][2]
+            if preset.rain_visible
+            else FOG_AMOUNT_BACKGROUND_COLORS[fog_amount]
+        )
+        for render_product in render_products:
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:enabled",
+                True,
+                "Bool",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:color",
+                fog_color,
+                "Color3f",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:colorIntensity",
+                1.0,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:distanceDensity",
+                distance_density,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:endDist",
+                end_dist,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:height:density",
+                height_density,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:start:height",
+                3.0,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:zUp:enabled",
+                True,
+                "Bool",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:startDist",
+                start_dist,
+                "Float",
+            )
+            _set_attribute(
+                render_product,
+                "omni:rtx:fog:height:falloff",
+                0.12,
+                "Float",
+            )
+    except (AttributeError, RuntimeError, TypeError):
+        pass
+
+
+def _configure_atmosphere_overlay(
+    stage: Any,
+    preset: EnvironmentPreset,
+    rain_amount: str,
+    fog_amount: str,
+) -> None:
+    """Configure the one-quad visibility veil used by rain and fog grades."""
+
+    try:
+        overlay = _valid_prim(stage, ATMOSPHERE_OVERLAY_PATH)
+        shader = _valid_prim(stage, ATMOSPHERE_OVERLAY_SHADER_PATH)
+    except (AttributeError, RuntimeError, TypeError):
+        # Older sessions may still have the previous weather layer loaded.
+        # The RTX fog path remains available in that case.
+        return
+
+    mode = preset.key
+    enabled = mode in ATMOSPHERE_OVERLAY_OPACITIES
+    if mode == "rain":
+        amount = normalize_rain_amount(rain_amount)
+        opacity = ATMOSPHERE_OVERLAY_OPACITIES[mode][amount]
+        color = RAIN_ATMOSPHERE_PROFILES[amount][2]
+        visibility_m = RAIN_ATMOSPHERE_PROFILES[amount][3]
+    elif mode == "fog":
+        amount = normalize_fog_amount(fog_amount)
+        opacity = ATMOSPHERE_OVERLAY_OPACITIES[mode][amount]
+        color = FOG_AMOUNT_BACKGROUND_COLORS[amount]
+        distance_scale = FOG_AMOUNT_PROFILES[amount][0]
+        visibility_m = preset.fog_end_dist * distance_scale
+    else:
+        amount = "none"
+        opacity = 0.0
+        color = preset.background_color or DAY_BACKGROUND_FALLBACK_COLOR
+        visibility_m = 0.0
+
+    _set_attribute(
+        overlay,
+        "visibility",
+        "inherited" if enabled else "invisible",
+        "Token",
+    )
+    _set_attribute(overlay, "smartPort:mode", mode, "Token")
+    _set_attribute(overlay, "smartPort:amount", amount, "Token")
+    _set_attribute(overlay, "smartPort:opacity", opacity, "Float")
+    _set_attribute(overlay, "smartPort:visibilityMeters", visibility_m, "Float")
+    _set_attribute(shader, "inputs:diffuseColor", color, "Color3f")
+    _set_attribute(
+        shader,
+        "inputs:emissiveColor",
+        tuple(min(1.0, channel * 0.40) for channel in color),
+        "Color3f",
+    )
+    _set_attribute(shader, "inputs:opacity", opacity, "Float")
+
+
+def _camera_is_inside_weather_zone(camera_x: float, camera_y: float) -> bool:
+    min_x, max_x, min_y, max_y = WEATHER_ZONE_BOUNDS
+    return min_x <= camera_x <= max_x and min_y <= camera_y <= max_y
+
+
+def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> bool:
+    """Keep the single visibility veil in front of the active viewport camera."""
+
+    stage_id = id(stage)
+    elapsed = float(elapsed_seconds)
+    last_update = _ATMOSPHERE_OVERLAY_LAST_UPDATE.get(stage_id)
+    if (
+        last_update is not None
+        and elapsed >= last_update
+        and elapsed - last_update < 0.05
+    ):
+        return True
+    try:
+        from omni.kit.viewport.utility import get_active_viewport  # type: ignore
+        from pxr import Gf, Usd, UsdGeom  # type: ignore
+
+        viewport = get_active_viewport()
+        camera_path = getattr(viewport, "camera_path", None) if viewport else None
+        camera_prim = stage.GetPrimAtPath(str(camera_path)) if camera_path else None
+        if not camera_prim or not camera_prim.IsValid():
+            return False
+        camera_matrix = UsdGeom.Xformable(camera_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
+        )
+        camera_translation = camera_matrix.ExtractTranslation()
+        inside_weather_zone = _camera_is_inside_weather_zone(
+            float(camera_translation[0]),
+            float(camera_translation[1]),
+        )
+        local_matrix = Gf.Matrix4d(1.0)
+        local_matrix.SetScale(
+            Gf.Vec3d(
+                ATMOSPHERE_OVERLAY_SCALE,
+                ATMOSPHERE_OVERLAY_SCALE,
+                ATMOSPHERE_OVERLAY_SCALE,
+            )
+        )
+        local_matrix.SetTranslate(
+            Gf.Vec3d(0.0, 0.0, -ATMOSPHERE_OVERLAY_DISTANCE_M)
+        )
+        world_matrix = camera_matrix * local_matrix
+        with _session_edit_context(stage):
+            overlay = _valid_prim(stage, ATMOSPHERE_OVERLAY_PATH)
+            mode = current_environment_mode(stage)
+            _set_attribute(
+                overlay,
+                "visibility",
+                "inherited"
+                if inside_weather_zone and mode in ATMOSPHERE_OVERLAY_OPACITIES
+                else "invisible",
+                "Token",
+            )
+            rain_root = stage.GetPrimAtPath(RAIN_EFFECT_PATH)
+            if rain_root and rain_root.IsValid():
+                _set_attribute(
+                    rain_root,
+                    "visibility",
+                    "inherited"
+                    if inside_weather_zone and mode == "rain"
+                    else "invisible",
+                    "Token",
+                )
+            _set_attribute(
+                overlay,
+                "xformOp:transform",
+                world_matrix,
+                "Matrix4d",
+            )
+            _set_attribute(
+                overlay,
+                "xformOpOrder",
+                ["xformOp:transform"],
+                "TokenArray",
+            )
+        _ATMOSPHERE_OVERLAY_LAST_UPDATE[stage_id] = elapsed
+        return True
+    except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
+        return False
 
 
 def _configure_rtx_fog(preset: EnvironmentPreset, fog_amount: str = DEFAULT_FOG_AMOUNT) -> None:
@@ -622,11 +962,15 @@ def _active_camera_ground_xy(stage: Any) -> tuple[float, float]:
 
 
 def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
-    """Advance visible rain independently of the paused RTG simulation timeline."""
+    """Advance weather visuals independently of the paused RTG timeline."""
 
     try:
-        if current_environment_mode(stage) != "rain":
+        mode = current_environment_mode(stage)
+        if mode not in ("rain", "fog"):
             return False
+        overlay_updated = _update_atmosphere_overlay_transform(stage, elapsed_seconds)
+        if mode == "fog":
+            return overlay_updated
         environment = _valid_prim(stage, ENVIRONMENT_ROOT_PATH)
         wind_speed = float(
             _get_attribute_value(environment, WIND_SPEED_ATTRIBUTE, DEFAULT_WIND_SPEED_MPS)
@@ -800,14 +1144,35 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
     amount = normalize_rain_amount(amount)
     profile = RAIN_AMOUNT_PROFILES[amount]
     visible_count = int(profile["visible_layers"])
+    coverage_scale = RAIN_COVERAGE_SCALES[amount]
     splash_count = 0
     mist_count = 0
     try:
         rain_root = _valid_prim(stage, RAIN_EFFECT_PATH)
         _set_attribute(rain_root, "smartPort:visibleLayerCount", visible_count, "Int")
+        _set_attribute(rain_root, "smartPort:coverageScale", coverage_scale, "Float")
         _set_attribute(rain_root, "smartPort:rainIntensity", float(profile["opacity"]), "Float")
+        _set_attribute(rain_root, "smartPort:rainDropCount", int(profile["drop_count"]), "Int")
         _set_attribute(rain_root, "smartPort:rainRate24h", str(profile["rate_mm_24h"]), "String")
         _set_attribute(rain_root, "smartPort:groundWetness", float(profile["wetness"]), "Float")
+        _set_attribute(
+            rain_root,
+            "smartPort:rainDropLengthMeters",
+            _range_text(profile["streak_length_m"]),
+            "String",
+        )
+        _set_attribute(
+            rain_root,
+            "smartPort:rainDropWidthMeters",
+            _range_text(profile["streak_width_m"]),
+            "String",
+        )
+        _set_attribute(
+            rain_root,
+            "smartPort:rainFallSpeedMps",
+            float(profile["speed_mps"]),
+            "Float",
+        )
         _set_attribute(rain_root, "smartPort:visibleSplashLayerCount", splash_count, "Int")
         _set_attribute(rain_root, "smartPort:visibleMistLayerCount", mist_count, "Int")
         shader = _valid_prim(
@@ -836,10 +1201,23 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
         # material yet; layer visibility still provides the intended fallback.
         pass
     for layer_index, layer_path in enumerate(RAIN_LAYER_PATHS):
+        layer = _valid_prim(stage, layer_path)
+        _set_attribute_if_changed(
+            layer,
+            "xformOp:scale",
+            (coverage_scale, coverage_scale, 1.0),
+            "Float3",
+        )
+        _set_attribute_if_changed(
+            layer,
+            "xformOpOrder",
+            ["xformOp:scale"],
+            "TokenArray",
+        )
         layer_enabled = bool(enabled and layer_index < visible_count)
         visibility = "inherited" if layer_enabled else "invisible"
         _set_attribute_if_changed(
-            _valid_prim(stage, layer_path),
+            layer,
             "visibility",
             visibility,
             "Token",
@@ -889,11 +1267,17 @@ def apply_weather_controls(
     _configure_rtx_fog(ENVIRONMENT_PRESETS[mode], fog)
     _configure_fog_background(stage, ENVIRONMENT_PRESETS[mode], fog)
     _configure_rain_atmosphere(stage, ENVIRONMENT_PRESETS[mode], rain)
+    _configure_render_product_fog(stage, ENVIRONMENT_PRESETS[mode], fog, rain)
+    _configure_atmosphere_overlay(stage, ENVIRONMENT_PRESETS[mode], rain, fog)
     return {
         "wind_speed_mps": wind,
         "rain_amount": rain,
         "rain_label": RAIN_AMOUNT_LABELS[rain],
         "rain_rate_24h": RAIN_AMOUNT_PROFILES[rain]["rate_mm_24h"],
+        "rain_drop_count": RAIN_AMOUNT_PROFILES[rain]["drop_count"],
+        "rain_drop_length_m": RAIN_AMOUNT_PROFILES[rain]["streak_length_m"],
+        "rain_drop_width_m": RAIN_AMOUNT_PROFILES[rain]["streak_width_m"],
+        "rain_fall_speed_mps": RAIN_AMOUNT_PROFILES[rain]["speed_mps"],
         "rain_wetness": RAIN_AMOUNT_PROFILES[rain]["wetness"],
         "fog_amount": fog,
         "fog_label": FOG_AMOUNT_LABELS[fog],
@@ -977,5 +1361,7 @@ def apply_environment_mode(stage: Any, mode: Any) -> str:
     _configure_rtx_fog(preset, fog_amount)
     _configure_fog_background(stage, preset, fog_amount)
     _configure_rain_atmosphere(stage, preset, rain_amount)
+    _configure_render_product_fog(stage, preset, fog_amount, rain_amount)
+    _configure_atmosphere_overlay(stage, preset, rain_amount, fog_amount)
     _hide_viewport_light_icons()
     return normalized

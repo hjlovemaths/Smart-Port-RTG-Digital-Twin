@@ -27,6 +27,9 @@ class FakeAttribute:
     def Set(self, value):
         self.value = value
 
+    def Clear(self):
+        self.value = None
+
 
 class FakePrim:
     def __init__(self, type_name=""):
@@ -57,6 +60,8 @@ class FakeStage:
             environment.NIGHT_STREET_LIGHTS_PATH: FakePrim(),
             environment.RAIN_EFFECT_PATH: FakePrim(),
             environment.AIR_RAIN_EFFECT_PATH: FakePrim(),
+            environment.ATMOSPHERE_OVERLAY_PATH: FakePrim(),
+            environment.ATMOSPHERE_OVERLAY_SHADER_PATH: FakePrim(),
             **{path: FakePrim() for path in environment.RAIN_LAYER_PATHS},
             **{
                 path: FakePrim()
@@ -161,13 +166,8 @@ def test_day_mode_restores_authored_light_levels_and_hides_street_lights():
     assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") == 650.0
     assert value(stage, environment.DAY_SKY_PATH, "inputs:exposure") == 0.0
     assert value(stage, environment.DAY_SUN_PATH, "inputs:intensity") == 2200.0
-    assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") == "domeLight"
+    assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") is None
     assert value(stage, environment.DAY_SKY_PATH, "visibility") == "inherited"
-    assert value(
-        stage,
-        "/Render/Viewport",
-        "omni:rtx:background:source:texture:luminanceScale",
-    ) == 1.0
     assert value(stage, environment.NIGHT_STREET_LIGHTS_PATH, "visibility") == "invisible"
     assert all(
         value(stage, path, "visibility") == "invisible"
@@ -252,6 +252,11 @@ def test_weather_controls_change_wind_rain_layers_and_fog_amount():
     assert result["fog_amount"] == "heavy"
     assert result["rain_label"] == "Torrential Rain"
     assert result["fog_label"] == "Heavy Fog"
+    assert result["rain_drop_count"] == 2000
+    assert result["rain_drop_length_m"] == (1.05, 2.00)
+    assert result["rain_drop_width_m"] == (0.018, 0.032)
+    assert result["rain_fall_speed_mps"] == 20.0
+    assert value(stage, environment.RAIN_EFFECT_PATH, "smartPort:rainDropCount") == 2000
     assert all(
         value(stage, path, "visibility") == "inherited"
         for path in environment.RAIN_LAYER_PATHS
@@ -275,20 +280,102 @@ def test_weather_controls_change_wind_rain_layers_and_fog_amount():
 
 def test_fog_profiles_are_separated_for_light_medium_and_heavy_visibility():
     source = (SCRIPT_DIR / "smart_port_environment.py").read_text(encoding="utf-8")
-    assert '"light": (2.50, 0.08, 0.08)' in source
-    assert '"medium": (1.15, 0.34, 0.30)' in source
-    assert '"heavy": (0.48, 1.45, 1.25)' in source
+    assert '"light": (1.20, 0.18, 0.12)' in source
+    assert '"medium": (0.65, 0.65, 0.45)' in source
+    assert '"heavy": (0.28, 2.00, 1.80)' in source
     assert "FOG_AMOUNT_BACKGROUND_COLORS" in source
+
+
+def test_fog_profiles_are_written_to_the_active_render_product():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "fog")
+    expected = {
+        "light": (150.0, 0.1656, 0.0216),
+        "medium": (81.25, 0.598, 0.081),
+        "heavy": (35.0, 1.84, 0.324),
+    }
+    for amount, (end_dist, distance_density, height_density) in expected.items():
+        environment.apply_weather_controls(stage, fog_amount=amount)
+        assert value(
+            stage,
+            "/Render/Viewport",
+            "omni:rtx:fog:endDist",
+        ) == pytest.approx(end_dist)
+        assert value(
+            stage,
+            "/Render/Viewport",
+            "omni:rtx:fog:distanceDensity",
+        ) == pytest.approx(distance_density)
+        assert value(
+            stage,
+            "/Render/Viewport",
+            "omni:rtx:fog:height:density",
+        ) == pytest.approx(height_density)
+        assert value(stage, "/Render/Viewport", "omni:rtx:fog:enabled") is True
+
+
+def test_fog_and_rain_grades_drive_the_low_cost_visibility_overlay():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "fog")
+    environment.apply_weather_controls(stage, fog_amount="light")
+    light_opacity = value(
+        stage,
+        environment.ATMOSPHERE_OVERLAY_SHADER_PATH,
+        "inputs:opacity",
+    )
+    environment.apply_weather_controls(stage, fog_amount="heavy")
+    heavy_opacity = value(
+        stage,
+        environment.ATMOSPHERE_OVERLAY_SHADER_PATH,
+        "inputs:opacity",
+    )
+    assert value(stage, environment.ATMOSPHERE_OVERLAY_PATH, "visibility") == "inherited"
+    assert heavy_opacity > light_opacity
+
+    environment.apply_environment_mode(stage, "rain")
+    rain_opacities = []
+    for amount in ("light", "medium", "heavy", "torrential"):
+        environment.apply_weather_controls(stage, rain_amount=amount)
+        rain_opacities.append(
+            value(
+                stage,
+                environment.ATMOSPHERE_OVERLAY_SHADER_PATH,
+                "inputs:opacity",
+            )
+        )
+    assert rain_opacities == sorted(rain_opacities)
+
+
+def test_weather_zone_is_limited_to_the_modeled_quay_yard_footprint():
+    assert environment.WEATHER_ZONE_BOUNDS == (-105.0, 155.0, -15.0, 505.0)
+    assert environment._camera_is_inside_weather_zone(0.0, 100.0)
+    assert not environment._camera_is_inside_weather_zone(300.0, 100.0)
 
 
 def test_rain_profiles_change_both_layer_count_and_streak_visibility():
     source = (SCRIPT_DIR / "smart_port_environment.py").read_text(encoding="utf-8")
-    assert '"visible_layers": 1, "opacity": 0.20' in source
-    assert '"visible_layers": 2, "opacity": 0.40' in source
-    assert '"visible_layers": 3, "opacity": 0.68' in source
-    assert '"visible_layers": 4, "opacity": 0.92' in source
+    assert '"visible_layers": 1, "opacity": 0.28' in source
+    assert '"visible_layers": 2, "opacity": 0.46' in source
+    assert '"visible_layers": 3, "opacity": 0.64' in source
+    assert '"visible_layers": 4, "opacity": 0.84' in source
     assert 'smartPort:visibleLayerCount' in source
+    assert 'smartPort:coverageScale' in source
     assert 'inputs:opacity' in source
+
+
+def test_rain_amount_is_a_combined_count_length_width_and_speed_profile():
+    expected = {
+        "light": (100, (0.25, 0.55), (0.006, 0.010), 6.0),
+        "medium": (350, (0.45, 0.90), (0.009, 0.014), 9.0),
+        "heavy": (850, (0.70, 1.35), (0.013, 0.022), 14.0),
+        "torrential": (2000, (1.05, 2.00), (0.018, 0.032), 20.0),
+    }
+    for amount, (count, length, width, speed) in expected.items():
+        profile = environment.RAIN_AMOUNT_PROFILES[amount]
+        assert profile["drop_count"] == count
+        assert profile["streak_length_m"] == length
+        assert profile["streak_width_m"] == width
+        assert profile["speed_mps"] == speed
 
 
 def test_rain_grades_also_change_sky_visibility_and_background():
@@ -296,12 +383,12 @@ def test_rain_grades_also_change_sky_visibility_and_background():
     environment.apply_environment_mode(stage, "rain")
 
     expected = {
-        "light": (409.5, 650.0, (0.34, 0.41, 0.46)),
-        "medium": (319.8, 360.0, (0.24, 0.31, 0.36)),
-        "heavy": (226.2, 180.0, (0.15, 0.21, 0.25)),
-        "torrential": (132.6, 78.0, (0.075, 0.11, 0.14)),
+        "light": (409.5, 420.0),
+        "medium": (319.8, 240.0),
+        "heavy": (226.2, 110.0),
+        "torrential": (132.6, 45.0),
     }
-    for amount, (sky_intensity, visibility_m, background) in expected.items():
+    for amount, (sky_intensity, visibility_m) in expected.items():
         environment.apply_weather_controls(stage, rain_amount=amount)
         assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") == pytest.approx(
             sky_intensity
@@ -311,11 +398,7 @@ def test_rain_grades_also_change_sky_visibility_and_background():
             environment.ENVIRONMENT_ROOT_PATH,
             "smartPort:rainVisibilityMeters",
         ) == visibility_m
-        assert value(
-            stage,
-            "/Render/Viewport",
-            "omni:rtx:background:source:color",
-        ) == background
+        assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") == "texture"
 
 
 def test_puddles_splashes_and_mist_are_disabled():
@@ -341,19 +424,20 @@ def test_fog_mode_hides_rain_geometry_and_uses_overcast_background():
     assert environment.apply_environment_mode(stage, "fog") == "fog"
     assert value(stage, environment.RAIN_EFFECT_PATH, "visibility") == "invisible"
     assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") == pytest.approx(405.6)
-    assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") == "color"
-    assert value(stage, "/Render/Viewport", "omni:rtx:background:source:color") == (
-        0.52,
-        0.58,
-        0.61,
-    )
+    assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") == "texture"
+    assert value(
+        stage,
+        "/Render/Viewport",
+        "omni:rtx:background:source:texture:luminanceScale",
+    ) == environment.FOG_BACKGROUND_TEXTURE_LUMINANCE
 
 
 def test_rtg_twin_hud_does_not_duplicate_environment_buttons():
     source = (SCRIPT_DIR / "rtg_twin_state_receiver.py").read_text(encoding="utf-8")
     assert 'self._apply_environment_mode("day")' not in source
     assert 'self._apply_environment_mode("night")' not in source
-    assert source.count('CreateInput("emissiveColor"') == 5
+    # Five HUD/panel materials plus the remote-mode signal-link and truck panel helpers.
+    assert source.count('CreateInput("emissiveColor"') == 7
 
 
 def test_standalone_3d_panel_materials_are_self_illuminated():

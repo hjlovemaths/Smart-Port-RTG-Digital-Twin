@@ -170,6 +170,107 @@ class TaskPositionTests(unittest.TestCase):
             )
         )
 
+    def test_truck_selection_normalizes_visual_child_to_live_truck_root(self) -> None:
+        self.assertEqual(
+            receiver._truck_root_path_from_selection(
+                f"{receiver.LIVE_TASK_TRUCK_VISUAL_PATH}/scene/Meshes/Cab"
+            ),
+            receiver.LIVE_TASK_TRUCK_PATH,
+        )
+        self.assertEqual(
+            receiver._truck_root_path_from_selection(
+                f"{receiver.LIVE_TASK_TRUCK_PATH}/TaskTruckCabWhite"
+            ),
+            receiver.LIVE_TASK_TRUCK_PATH,
+        )
+        self.assertEqual(
+            receiver._truck_root_path_from_selection(
+                "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft/"
+                "LIVE_internal_lane_truck_white_cab_body"
+            ),
+            "/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft",
+        )
+        self.assertEqual(
+            receiver._truck_root_path_from_selection(receiver.LIVE_TASK_TRUCK_PATH),
+            receiver.LIVE_TASK_TRUCK_PATH,
+        )
+        self.assertIsNone(
+            receiver._truck_root_path_from_selection(
+                f"{receiver.LIVE_TASK_TRUCK_PATH}/LoadedContainer"
+            )
+        )
+
+    def test_truck_runinfo_requires_successful_validation(self) -> None:
+        self.assertIsNone(
+            receiver._truck_runinfo_from_payload(
+                "引导识别到ITK/AIV车号:H822,侧面车号: 时间:2026-08-14 07:58:46.999"
+            )
+        )
+
+    def test_truck_runinfo_parses_external_truck_plate_from_task_number(self) -> None:
+        info = receiver._truck_runinfo_from_payload(
+            "校验外集卡车号通过，算法检测车号:,侧面车号:沪EG8905"
+            "任务车号:沪EG8905,排队车号: 时间:2026-08-14 10:14:03.565"
+        )
+
+        self.assertEqual(info, receiver.TruckRunInfo("外集卡", "沪EG8905"))
+
+    def test_truck_runinfo_parses_internal_truck_side_number_without_colon(self) -> None:
+        info = receiver._truck_runinfo_from_payload(
+            "校验内集卡车号通过，算法检测车号:H360侧面车号H360 "
+            "时间:2026-08-14 09:19:36.862"
+        )
+
+        self.assertEqual(info, receiver.TruckRunInfo("内集卡", "H360"))
+
+    def test_truck_runinfo_parses_aiv_after_guidance_and_validation(self) -> None:
+        info = receiver._truck_runinfo_from_payload(
+            "引导识别到ITK/AIV车号:H822,侧面车号: 时间:2026-08-14 07:58:46.999，"
+            "校验AIV车号通过，且有粗停，开始进入精停引导流程 "
+            "时间:2026-08-14 07:58:47.000"
+        )
+
+        self.assertEqual(info, receiver.TruckRunInfo("AIV", "H822"))
+
+    def test_truck_runinfo_parses_inbound_container_truck_validation(self) -> None:
+        info = receiver._truck_runinfo_from_payload(
+            "进箱集卡检测箱号和任务箱号一致,认为集卡校验通过车号:H370,"
+            "箱号:SZLU2048135 时间:2026-08-14 16:41:04.741"
+        )
+
+        self.assertEqual(info, receiver.TruckRunInfo("进箱集卡", "H370"))
+
+    def test_current_truck_runinfo_falls_back_to_status_prim(self) -> None:
+        class Attr:
+            def __init__(self, value):
+                self.value = value
+
+            def Get(self):
+                return self.value
+
+        class Prim:
+            def GetAttribute(self, name):
+                if name == "rtg:runinfo":
+                    return Attr(
+                        "进箱集卡检测箱号和任务箱号一致,"
+                        "认为集卡校验通过车号:H370,箱号:SZLU2048135 "
+                        "时间:2026-08-14 16:41:04.741"
+                    )
+                return None
+
+        stage = types.SimpleNamespace(
+            GetPrimAtPath=lambda path: Prim()
+            if path == receiver.STATUS_PRIM_PATH
+            else None
+        )
+        self.driver._last_runinfo_payload = {}
+        self.driver._latest_state = None
+
+        self.assertEqual(
+            self.driver._current_truck_runinfo(stage),
+            receiver.TruckRunInfo("进箱集卡", "H370"),
+        )
+
     def test_container_selection_preserves_visible_device_panel(self) -> None:
         self.driver._device_panel_selected = True
         with patch.object(
@@ -187,10 +288,55 @@ class TaskPositionTests(unittest.TestCase):
             "/World/LiveContainers/YardInventory/Bay_4C_018/R02_T03_Container",
         )
 
+    def test_truck_selection_preserves_visible_device_panel(self) -> None:
+        self.driver._device_panel_selected = True
+        with patch.object(
+            receiver.OmniverseRtgTwinDriver,
+            "_viewport_selection_paths",
+            return_value=[
+                f"{receiver.LIVE_TASK_TRUCK_VISUAL_PATH}/scene/Meshes/Cab"
+            ],
+        ):
+            self.assertTrue(self.driver._refresh_device_panel_selection("test"))
+        self.assertTrue(self.driver._device_panel_selected)
+        self.assertEqual(
+            self.driver._truck_info_selected_root_path,
+            receiver.LIVE_TASK_TRUCK_PATH,
+        )
+        self.assertIsNone(self.driver._container_info_selected_root_path)
+
     def test_task_panel_bay_map_draws_r6_to_r1_left_to_right(self) -> None:
         self.assertEqual(
             receiver.TASK_PANEL_BAY_MAP_ROWS_LEFT_TO_RIGHT,
             (6, 5, 4, 3, 2, 1),
+        )
+
+    def test_task_panel_content_key_ignores_live_operation_phase(self) -> None:
+        task = {
+            "taskId": "27255556",
+            "taskState": "WORKING",
+            "workType": "UNLOAD",
+            "startPos": "4C2752",
+            "endPos": "",
+            "containerNo": "TGBU3831240",
+            "containerType": "GP",
+            "containerHeight": "2.6",
+            "spreaderPos": "H301",
+            "carType": "ITK",
+            "carNo": "H301",
+            "bayMap": "033122",
+            "operationState": "TROLLEY_TO_SOURCE",
+            "visualPhase": "APPROACH",
+        }
+        changed_phase = dict(
+            task,
+            operationState="HOIST_TO_PICK",
+            visualPhase="PICKING",
+        )
+
+        self.assertEqual(
+            receiver._task_panel_content_key(task),
+            receiver._task_panel_content_key(changed_phase),
         )
 
     def test_operation_state_machine_receives_current_bay_heights(self) -> None:
@@ -957,6 +1103,7 @@ class TaskPositionTests(unittest.TestCase):
                 "Device": "RTG_220",
                 "Field": "4C",
                 "Bay": "031",
+                "WorkMode": "远程手动",
                 "Gantry": "165.23 m",
                 "Trolley": "12.35 m",
                 "Hoist": "8.00 m",
@@ -986,6 +1133,7 @@ class TaskPositionTests(unittest.TestCase):
                 "Device": "RTG_220",
                 "Field": "4C",
                 "Bay": "021",
+                "WorkMode": "自动模式",
                 "Gantry": "76.04 m",
                 "Trolley": "3.00 m",
                 "Hoist": "14.14 m",
@@ -1028,7 +1176,7 @@ class TaskPositionTests(unittest.TestCase):
         )
         self.assertEqual(
             set(receiver.DEVICE_LOCATION_PANEL_VALUE_Y),
-            {"Device", "Field", "Bay"},
+            {"Device", "Field", "Bay", "WorkMode"},
         )
 
     def test_device_location_panel_values_read_live_status(self) -> None:
@@ -1051,6 +1199,7 @@ class TaskPositionTests(unittest.TestCase):
                 "rtg:rtgName": "RTG_220",
                 "rtg:currentField": "4C",
                 "rtg:currentBay": 31,
+                "rtg:workMode": 3,
                 "rtg:gantryMeter": 165.234,
                 "rtg:trolleyMeter": 12.35,
                 "rtg:hoistMeter": 8.0,
@@ -1067,11 +1216,25 @@ class TaskPositionTests(unittest.TestCase):
                 "Device": "RTG_220",
                 "Field": "4C",
                 "Bay": "31",
+                "WorkMode": "远程手动",
                 "Gantry": "165.23 m",
                 "Trolley": "12.35 m",
                 "Hoist": "8.00 m",
             },
         )
+
+    def test_work_mode_labels_cover_heartbeat_codes(self) -> None:
+        expected = {
+            0: "未知",
+            1: "自动模式",
+            2: "辅助模式",
+            3: "远程手动",
+            4: "本地模式",
+            5: "维修模式",
+        }
+        for code, label in expected.items():
+            self.assertEqual(receiver._work_mode_text(code), label)
+        self.assertEqual(receiver._work_mode_text(99), "未知")
 
     def test_user_view_camera_is_rtg_side_view_entry(self) -> None:
         self.assertEqual(
@@ -1083,6 +1246,76 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(
             receiver.USER_SIDE_VIEW_CAMERA_ROTATE_YXZ,
             (-181.93245, 520.10876, -543.2226),
+        )
+
+
+class RemoteModeSignalLinkTests(unittest.TestCase):
+    def test_non_remote_mode_hides_signal_without_building_geometry(self) -> None:
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._automatic_signal_work_mode = 1
+        visibility = []
+        driver._set_automatic_signal_visible = (
+            lambda _stage, visible: visibility.append(visible)
+        )
+
+        driver._sync_automatic_mode_signal(object(), 10.0)
+
+        self.assertEqual(visibility, [False])
+
+    def test_work_mode_prefers_pose_and_accepts_top_level_fallback(self) -> None:
+        self.assertEqual(
+            receiver._state_work_mode(
+                {"workMode": 3, "pose": {"workMode": 1}}
+            ),
+            1,
+        )
+        self.assertEqual(receiver._state_work_mode({"work_mode": "4"}), 4)
+        self.assertEqual(receiver._state_work_mode({"pose": {}}), 0)
+
+    def test_signal_arc_starts_at_antenna_and_ends_at_rtg(self) -> None:
+        start = (135.6, 470.0, 20.0)
+        end = (12.0, 95.0, 15.0)
+
+        points, control = receiver._automatic_signal_arc(start, end, 21)
+
+        self.assertEqual(points[0], start)
+        self.assertEqual(points[-1], end)
+        self.assertEqual(len(points), 21)
+        self.assertGreater(control[2], max(start[2], end[2]))
+        self.assertGreater(points[len(points) // 2][2], max(start[2], end[2]))
+
+    def test_signal_target_uses_portal_centerline_above_rtg(self) -> None:
+        target = receiver.AUTOMATIC_SIGNAL_RTG_TARGET_LOCAL_POINT
+
+        self.assertAlmostEqual(target[0], (-6.399999 + 4.805813) * 0.5)
+        self.assertAlmostEqual(target[1], 5.0)
+        self.assertGreater(target[2], 8.36)
+
+    def test_signal_data_rails_converge_at_both_endpoints(self) -> None:
+        start = (0.0, 0.0, 5.0)
+        end = (20.0, 40.0, 12.0)
+        points, _control = receiver._automatic_signal_arc(start, end, 9)
+
+        left = receiver._automatic_signal_rail_points(points, start, end, 0.24)
+        right = receiver._automatic_signal_rail_points(points, start, end, -0.24)
+
+        self.assertEqual(left[0], points[0])
+        self.assertEqual(left[-1], points[-1])
+        self.assertEqual(right[0], points[0])
+        self.assertAlmostEqual(right[-1][0], points[-1][0])
+        self.assertAlmostEqual(right[-1][1], points[-1][1])
+        self.assertNotEqual(left[len(left) // 2], right[len(right) // 2])
+
+    def test_packet_sampling_clamps_progress_to_arc(self) -> None:
+        start = (0.0, 0.0, 0.0)
+        control = (5.0, 5.0, 10.0)
+        end = (10.0, 0.0, 0.0)
+
+        self.assertEqual(
+            receiver._quadratic_signal_point(start, control, end, -1.0), start
+        )
+        self.assertEqual(
+            receiver._quadratic_signal_point(start, control, end, 2.0), end
         )
 
 
@@ -2391,39 +2624,15 @@ class LiveInfoPopupFacingSyncTests(unittest.TestCase):
         self.assertEqual(
             [call[2] for call in facing_calls],
             [
-                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    receiver.RUNINFO_FLOATING_ROOT_PATH
-                ],
-                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    receiver.DEVICE_LOCATION_PANEL_ROOT_PATH
-                ],
-                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    receiver.DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH
-                ],
-                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[
-                    receiver.CONTAINER_INFO_PANEL_ROOT_PATH
-                ],
+                receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROTATE_XYZ[path]
+                for path in receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS
             ],
         )
         self.assertEqual(
             rotations,
             [
-                (
-                    "/World/LiveHUD/RTG_RUNINFO_FLOATING_BILLBOARD",
-                    (0.0, 0.0, 123.0),
-                ),
-                (
-                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL",
-                    (0.0, 0.0, 123.0),
-                ),
-                (
-                    "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT",
-                    (0.0, 0.0, 123.0),
-                ),
-                (
-                    "/World/LiveHUD/RTG_CONTAINER_INFO_PANEL",
-                    (0.0, 0.0, 123.0),
-                ),
+                (path, (0.0, 0.0, 123.0))
+                for path in receiver.LIVE_INFO_CAMERA_FACING_PANEL_ROOT_PATHS
             ],
         )
 
