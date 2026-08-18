@@ -40,7 +40,7 @@ Omniverse / Isaac Sim     WPF 客户端
 1. **安装 Omniverse 开发环境**：准备 Omniverse/Kit、OpenUSD 和 RTX 运行环境。当前已完成。
 2. **创建第一个 USD 场景**：建立可组合的场景入口、环境层和资产层。当前入口为 `omniverse/scenes/smart_port.usda`，已完成基础搭建。
 3. **导入 RTG 模型**：从 Blender 导出 USD，确定中间 RTG 为正式动态设备，左右两台作为静态背景；大车、小车、吊具、绳索和大车附件的基础动画校验已经完成，碰撞代理和正式物理关节仍待完善。
-4. **实现白天、夜晚、雨雾环境**：建立天空、太阳、海面、材质和天气切换。白天环境、天空和海面已有基础版本，夜晚、雨雾和性能分级仍需补充。
+4. **实现白天、夜晚、雨雾环境**：建立天空、太阳、海面、材质和天气切换。白天与夜晚模式、道路灯和 RTG 横梁灯已经接入 RTG Control 移动控制面板；雨雾和性能分级仍需补充。
 5. **接入 ROS2 控制**：把大车、小车、吊具、集装箱和传感器状态映射到 ROS2 Topic/Service/Action，并建立 WPF 到控制网关的命令与状态闭环。
 6. **添加 AI Agent 智能调度**：在稳定的数据、控制和仿真基础上加入任务调度、故障预测、异常诊断和自动优化。
 
@@ -71,11 +71,92 @@ RTG 会话层变换，二者不要同时运行。
 |---|---|---|---|
 | `omniverse/scripts/rtg_simulation_driver.py` | Omniverse Kit Script Editor | 启动虚拟任务、随机仿真库存和 RTG 动画 | 是，用 `exec(open(...).read())` |
 | `omniverse/scripts/rtg_twin_state_receiver.py` | Omniverse Kit Script Editor | 接收真实 TwinState、驱动场景并维护真实库存 | 是，用 `exec(open(...).read())` |
+| `omniverse/scripts/rtg_viewport_only_livestream.py` | Omniverse Kit Script Editor | 启动跟随 RTG 的 viewport-only WebRTC 画面 | 是，加载与启动命令必须一次执行 |
 | `services/rtg_twin_service.py` | 项目根目录 PowerShell | 订阅 PLC/RCMS，向 Omniverse 发布 TwinState | 是，用系统 Python |
 | `omniverse/scripts/generate_yard_inventory.py` | 项目根目录 PowerShell | 生成仿真随机库存或空的真实库存缓存 | 是，用系统 Python |
 | `omniverse/scripts/yard_inventory.py` | 由上述脚本自动导入 | 库存模型、原子保存、任务结算 | 否 |
 | `omniverse/scripts/rtg_task_state_machine.py` | 由仿真器和接收器自动导入 | LOAD/UNLOAD/SWITCH 状态机 | 否 |
 | `omniverse/scripts/rtg_live_control.py` | 由接收器自动导入 | RTG 大车、小车、吊具和伸缩吊具控制 | 否 |
+
+### 常用运行模块 Python 命令速查
+
+下面每个 Python 代码块都应在 Kit Script Editor 中**整块一次执行**。不要先单独
+执行 `exec(...)`，再在下一次执行中调用启动函数；不同执行可能使用不同临时作用域。
+除特别说明外，都应先打开 `omniverse/scenes/smart_port.usda`。
+
+| 模块 | 是否需要手工启动 | 启动后常用命令 |
+|---|---|---|
+| 无 PLC 仿真任务 | 是 | `publish_simulated_task(...)`、`get_simulation_status()`、`stop_simulation()` |
+| PLC/TwinState 实时接收 | 加载脚本后自动启动 | `get_latest_state()`、`get_yard_inventory_status()`、`stop_live_driver()` |
+| 手柄/键盘远程手动 | 是 | `get_gamepad_manual_status()`、`stop_gamepad_manual_mode()` |
+| viewport-only WebRTC | 是 | `restore_kit_ui()`；浏览器打开 `http://localhost:8011` |
+| C01-C33 虚拟相机 | 创建后再选择相机 | `open_rtg_virtual_camera(n)`、`save_rtg_virtual_camera_layer()` |
+| 真实 RTSP 相机弹窗 | 仅独立调试时启动 | `stop_rtg_camera_popup()` |
+| 吊具四宫格模型相机 | 手动模式会自动管理 | `stop_rtg_model_camera_grid()` |
+| RTG/集装箱/车辆信息面板 | 实时接收器内部自动管理 | 无需加载旧 popup 脚本 |
+| 库存、状态机、实时运动控制 | 仿真器或实时接收器自动导入 | 不应直接执行模块文件 |
+
+无 PLC 仿真任务：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_simulation_driver.py", encoding="utf-8").read())
+start_simulation()
+```
+
+PLC/TwinState 实时模式先在项目根目录 PowerShell 启动桥接服务：
+
+```powershell
+python services\rtg_twin_service.py --config services\rtg_twin_service.config.json
+```
+
+然后在 Kit Script Editor 加载实时接收器；该脚本会自动调用
+`start_live_driver("127.0.0.1", 48700)`：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_twin_state_receiver.py", encoding="utf-8").read())
+```
+
+手柄或键盘远程手动模式：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_gamepad_manual_control.py", encoding="utf-8").read())
+start_gamepad_manual_mode()
+```
+
+viewport-only WebRTC（默认 1920x1080、60 FPS）：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream()
+```
+
+C01-C33 虚拟场景相机：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_virtual_cameras.py", encoding="utf-8").read())
+create_rtg_virtual_cameras()
+open_rtg_virtual_camera(1)
+```
+
+真实 RTSP 相机弹窗仅在脱离实时接收器独立调试时启动：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_camera_popup.py", encoding="utf-8").read())
+start_rtg_camera_popup()
+```
+
+吊具四宫格模型相机通常由远程手动模式自动打开。独立调试命令为：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_model_camera_grid.py", encoding="utf-8").read())
+import omni.usd
+start_rtg_model_camera_grid(omni.usd.get_context().get_stage())
+```
+
+`rtg_live_control.py`、`rtg_task_state_machine.py`、`yard_inventory.py` 以及当前
+RTG/集装箱/车辆点击信息面板都由上层运行模块负责加载。正常运行时不要再手工执行
+`rtg_device_info_popup.py`、`rtg_container_info_popup.py` 等旧的独立 popup 服务，
+否则可能产生重复选择监听或重复窗口。
 
 推荐按以下二选一流程运行：
 
@@ -303,6 +384,43 @@ save_rtg_virtual_camera_layer()
 C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_cameras()`；
 清理当前会话生成的相机使用 `cleanup_rtg_virtual_cameras()`。
 
+### 5. 启动 viewport-only WebRTC 画面
+
+打开 `smart_port.usda` 后，在 Kit Script Editor 中将下面两行一起选中并一次执行：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream()
+```
+
+Script Editor 的不同执行可能使用独立临时作用域，因此不能只在一次执行中加载脚本，
+再在下一次执行中单独调用 `start_viewport_only_livestream()`；否则会出现
+`NameError`。启动成功后，在浏览器或 WPF WebView2 中打开
+`http://localhost:8011`。
+
+默认流规格为 `1920x1080 @ 60 FPS`。viewport-only 模式会隐藏 Kit 面板和
+Viewport 页签栏，固定完整 1080p 捕获区域，并保留原生鼠标视角操作、滚轮缩放、
+RTG 跟随以及点击 RTG、集装箱和车辆打开信息面板的功能。鼠标调整后的相对视角
+会在 RTG 移动时继续保持。
+
+按 `Ctrl+Shift+F12` 可退出 viewport-only 模式并恢复 Script Editor、Stage、
+Property 等 Kit 窗口，也可以在仍可执行 Python 时调用：
+
+```python
+restore_kit_ui()
+```
+
+如需测试 120 FPS，可在启动时显式覆盖：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream(target_fps=120)
+```
+
+120 FPS 会增加 WebRTC 编码压力；任务面板文字或堆场细线发糊时，应优先使用默认
+60 FPS。修改分辨率或帧率后建议完整退出并重新启动 Kit，避免旧的 primary stream
+占用端口或返回 `NVST_R_BUSY`。
+
 ## 目录
 
 - `blender/`：Blender 源模型。
@@ -314,7 +432,7 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 |---|---|---|
 | 1. RTG 模型转 USD | 已完成 | 整理生产级模型层级 |
 | 2. SimReady RTG | 未完成 | 碰撞体、质量、关节、驱动、限位 |
-| 3. 港区环境 | 部分完成 | 已有白天天空和海面；缺夜晚、雨、雾 |
+| 3. 港区环境 | 部分完成 | 已有白天/夜晚切换、道路灯和 RTG 横梁灯；缺雨、雾 |
 | 4. Isaac Sim + ROS2 | 未开始 | 控制、状态回传、传感器仿真 |
 | 5. AI Agent | 未开始 | 调度、故障诊断、预测维护 |
 | 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
@@ -386,7 +504,7 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 
 ## 第五步：环境与性能
 
-目前已有白天天空、太阳光和较真实的海面：
+目前已有白天天空、太阳光、夜间照明和较真实的海面：
 
 - [environment.usda](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scenes/environment.usda>)
 - [天空纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png>)
@@ -394,9 +512,8 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 
 仍需补充：
 
-- 夜晚照明和港机工作灯。
 - 雨天、雾天、湿地反射。
-- 白天/夜晚/雨雾预设切换。
+- 在现有白天/夜晚预设上扩展雨天和雾天按钮。
 - Payload 按区域加载。
 - 重复 RTG、车辆、集装箱使用实例。
 - 为远处港区建立 LOD 或代理模型。

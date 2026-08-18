@@ -161,6 +161,7 @@ class ForwardedMessageServer:
 class LocalCollector:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
+        self.print_core_heartbeat = bool(getattr(args, "print_core_heartbeat", False))
         self.stop_event = threading.Event()
         self.cache = TwinStateCache(
             args.rtg_name,
@@ -247,6 +248,14 @@ class LocalCollector:
             self.cache.update_runinfo(parsed)
             if is_task_complete_runinfo(str(record.get("cmdId") or ""), parsed):
                 self.cache.complete_task()
+        elif stream == "core_other" and str(record.get("cmdId") or "") == "cmd_rcms_heartbeat":
+            if isinstance(parsed, dict):
+                if self.print_core_heartbeat:
+                    logging.info(
+                        "RCMS heartbeat forwarded parsed: %s",
+                        compact_json(parsed),
+                    )
+                self.cache.update_heartbeat(parsed)
 
         if self.args.echo:
             print(compact_json(record), flush=True)
@@ -261,12 +270,13 @@ class LocalCollector:
         pose = state.get("pose") or {}
         task = state.get("task") or {}
         logging.info(
-            "counts=%s twin field=%s bay=%s trolley=%s hoist=%s task=%s/%s bayMap=%s",
+            "counts=%s twin field=%s bay=%s trolley=%s hoist=%s workMode=%s task=%s/%s bayMap=%s",
             self.counts,
             pose.get("currentField"),
             pose.get("currentBay"),
             pose.get("trolleyMeter"),
             pose.get("hoistMeter"),
+            pose.get("workMode", state.get("workMode")),
             task.get("taskId"),
             task.get("workType"),
             task.get("bayMap"),
@@ -286,6 +296,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Directory for plc.jsonl/task.jsonl/runinfo.jsonl. Empty disables logging.",
     )
     parser.add_argument("--echo", action="store_true", help="Print every forwarded record.")
+    parser.add_argument(
+        "--print-core-heartbeat",
+        action="store_true",
+        help="Print each forwarded parsed RCMS heartbeat JSON from core_other/cmd_rcms_heartbeat (diagnostic; can be noisy).",
+    )
     parser.add_argument(
         "--publish-twin-state",
         action="store_true",

@@ -39,12 +39,61 @@ def get_or_add_xform_op(xform: Any, op_name: str, add_op: Any) -> Any:
             pass
     op = existing_xform_op(xform, op_name)
     if op is None:
-        return add_op()
+        try:
+            return add_op()
+        except Exception:
+            # USD can report an empty ordered-op list while the backing
+            # xformOp attribute already exists in another layer.  AddXformOp
+            # then raises "already exists"; recover by reading that attribute.
+            op = existing_xform_op(xform, op_name)
+            if op is None:
+                raise
     try:
-        xform.SetXformOpOrder(ordered_ops + [op])
+        ordered_names = {
+            ordered_op.GetOpName()
+            for ordered_op in ordered_ops
+            if hasattr(ordered_op, "GetOpName")
+        }
+        if op_name not in ordered_names:
+            xform.SetXformOpOrder(ordered_ops + [op])
     except Exception:
         pass
     return op
+
+
+def set_xform_op_attr_value(
+    prim: Any,
+    op_name: str,
+    type_name: Any,
+    value: Any,
+) -> Any:
+    """Set a standard xform op through USD attributes, without AddXformOp."""
+
+    attr = prim.GetAttribute(op_name)
+    try:
+        attr_valid = bool(attr and attr.IsValid())
+    except Exception:
+        attr_valid = bool(attr)
+    if not attr_valid:
+        attr = prim.CreateAttribute(op_name, type_name)
+    attr.Set(value)
+
+    order_attr = prim.GetAttribute("xformOpOrder")
+    try:
+        order_valid = bool(order_attr and order_attr.IsValid())
+    except Exception:
+        order_valid = bool(order_attr)
+    if not order_valid:
+        from pxr import Sdf
+
+        order_attr = prim.CreateAttribute(
+            "xformOpOrder",
+            Sdf.ValueTypeNames.TokenArray,
+        )
+    order = list(order_attr.Get() or [])
+    if op_name not in order:
+        order_attr.Set([*order, op_name])
+    return attr
 
 
 def billboard_z_rotation_degrees(

@@ -129,7 +129,13 @@ def unwrap_plc_message(message: Any) -> Optional[Dict[str, Any]]:
         return content if isinstance(content, dict) else None
 
     # Raw PLC model.
-    if "current_bay_num" in data or "smallcar_pos" in data or "lifting_pos" in data:
+    if (
+        "current_bay_num" in data
+        or "smallcar_pos" in data
+        or "lifting_pos" in data
+        or "work_mode" in data
+        or "workMode" in data
+    ):
         return data
     return None
 
@@ -222,6 +228,8 @@ class TwinStateCache:
         self._plc_at: Optional[float] = None
         self._task: Optional[Dict[str, Any]] = None
         self._task_at: Optional[float] = None
+        self._heartbeat: Optional[Dict[str, Any]] = None
+        self._heartbeat_at: Optional[float] = None
         self._last_runinfo: Optional[str] = None
         self._last_runinfo_at: Optional[float] = None
         self._last_runinfo_timespan: Optional[str] = None
@@ -229,8 +237,20 @@ class TwinStateCache:
 
     def update_plc(self, plc_model: Dict[str, Any]) -> None:
         with self._lock:
-            self._plc = dict(plc_model)
+            # PLC pose and heartbeat fields may arrive as separate messages.
+            # Merge them so a heartbeat-only frame does not erase the latest
+            # position, and a pose-only frame does not erase work_mode.
+            merged = dict(self._plc or {})
+            merged.update(plc_model)
+            self._plc = merged
             self._plc_at = time.time()
+
+    def update_heartbeat(self, heartbeat_model: Optional[Dict[str, Any]]) -> None:
+        if not heartbeat_model:
+            return
+        with self._lock:
+            self._heartbeat = dict(heartbeat_model)
+            self._heartbeat_at = time.time()
 
     def update_task(self, task_model: Optional[Dict[str, Any]]) -> bool:
         invalid_map = invalid_task_bay_map(task_model)
@@ -297,6 +317,7 @@ class TwinStateCache:
         with self._lock:
             plc = dict(self._plc) if self._plc else None
             task = dict(self._task) if self._task else None
+            heartbeat = dict(self._heartbeat) if self._heartbeat else None
             plc_at = self._plc_at
             task_at = self._task_at
 
@@ -318,14 +339,38 @@ class TwinStateCache:
             "timestampUtc": utc_now_iso(),
             "source": "RTG.Twin.Service",
             "rtgName": self.rtg_name,
-            "pose": self._build_pose(plc, plc_age, plc_stale),
+            "workMode": self._heartbeat_work_mode(heartbeat, plc),
+            "heartbeat": self._build_heartbeat(heartbeat, plc),
+            "pose": self._build_pose(plc, heartbeat, plc_age, plc_stale),
             "task": self._build_task(task, task_age),
             "runinfo": self._build_runinfo(),
+        }
+
+    def _build_heartbeat(
+        self,
+        heartbeat: Optional[Dict[str, Any]],
+        plc: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Expose the RCMS service flags to consumers such as the WPF client."""
+        source = heartbeat or plc or {}
+        return {
+            "rtgState": int_value(source.get("rtg_state", source.get("rtgState")), 0),
+            "ctrlOn": int_value(source.get("ctrl_on", source.get("ctrlOn")), 0),
+            "workMode": self._heartbeat_work_mode(heartbeat, plc),
+            "commState": int_value(source.get("comm_state", source.get("commState")), 0),
+            "taskState": int_value(source.get("task_state", source.get("taskState")), 0),
+            "iecsServer": int_value(source.get("iecs_server", source.get("iecsServer")), 0),
+            "ctrlServer": int_value(source.get("ctrl_server", source.get("ctrlServer")), 0),
+            "plcServer": int_value(source.get("plc_server", source.get("plcServer")), 0),
+            "gdServer": int_value(source.get("gd_server", source.get("gdServer")), 0),
+            "viServer": int_value(source.get("vi_server", source.get("viServer")), 0),
+            "sfServer": int_value(source.get("sf_server", source.get("sfServer")), 0),
         }
 
     def _build_pose(
         self,
         plc: Optional[Dict[str, Any]],
+        heartbeat: Optional[Dict[str, Any]],
         plc_age: Optional[float],
         plc_stale: bool,
     ) -> Optional[Dict[str, Any]]:
@@ -343,9 +388,25 @@ class TwinStateCache:
             "spreaderRow": int_value(plc.get("spreader_row"), 0),
             "tool20f": int_value(plc.get("tool_20f"), 0),
             "tool40f": int_value(plc.get("tool_40f"), 0),
+            "workMode": self._heartbeat_work_mode(heartbeat, plc),
             "plcAgeSeconds": round(plc_age, 3) if plc_age is not None else None,
             "plcStale": plc_stale,
         }
+
+    @staticmethod
+    def _heartbeat_work_mode(
+        heartbeat: Optional[Dict[str, Any]],
+        plc: Optional[Dict[str, Any]],
+    ) -> int:
+        # RCMS heartbeat work mode: 0 unknown, 1 automatic, 2 assisted,
+        # 3 remote manual, 4 local, 5 maintenance.
+        for source in (heartbeat, plc):
+            if not source:
+                continue
+            for key in ("work_mode", "workMode"):
+                if source.get(key) is not None:
+                    return int_value(source.get(key), 0)
+        return 0
 
     def _build_task(
         self,
@@ -532,8 +593,16 @@ class ZmqSubscriber:
 
 
 class RtgTwinService:
-    def __init__(self, config: ServiceConfig):
+    def __init__(
+        self,
+        config: ServiceConfig,
+        *,
+        print_plc_heartbeat: bool = False,
+        print_core_heartbeat: bool = False,
+    ):
         self.config = config
+        self.print_plc_heartbeat = print_plc_heartbeat
+        self.print_core_heartbeat = print_core_heartbeat
         self.cache = TwinStateCache(
             config.rtg_name,
             config.plc_stale_seconds,
@@ -580,7 +649,17 @@ class RtgTwinService:
     def _handle_plc_message(self, raw: bytes) -> None:
         plc = unwrap_plc_message(raw)
         if plc:
+            if self.print_plc_heartbeat:
+                logging.info(
+                    "PLC heartbeat parsed: %s",
+                    json.dumps(plc, ensure_ascii=False, separators=(",", ":")),
+                )
             self.cache.update_plc(plc)
+        elif self.print_plc_heartbeat:
+            logging.warning(
+                "PLC message received but could not parse: %s",
+                raw.decode("utf-8", errors="replace")[:2000],
+            )
 
     def _handle_core_message(self, raw: bytes) -> None:
         cmd_id, content = unwrap_core_message(raw)
@@ -590,6 +669,13 @@ class RtgTwinService:
             self.cache.update_runinfo(content)
             if is_task_complete_runinfo(cmd_id, content):
                 self.cache.complete_task()
+        elif cmd_id == "cmd_rcms_heartbeat":
+            if self.print_core_heartbeat:
+                logging.info(
+                    "RCMS heartbeat parsed: %s",
+                    json.dumps(content, ensure_ascii=False, separators=(",", ":")),
+                )
+            self.cache.update_heartbeat(content)
 
     def _log_state_summary(self, state: Dict[str, Any]) -> None:
         now = time.time()
@@ -599,13 +685,14 @@ class RtgTwinService:
         pose = state.get("pose") or {}
         task = state.get("task") or {}
         logging.info(
-            "publish rtg=%s field=%s bay=%s trolley=%s hoist=%s lock=%s task=%s/%s bayMap=%s stale=%s",
+            "publish rtg=%s field=%s bay=%s trolley=%s hoist=%s lock=%s workMode=%s task=%s/%s bayMap=%s stale=%s",
             state.get("rtgName"),
             pose.get("currentField"),
             pose.get("currentBay"),
             pose.get("trolleyMeter"),
             pose.get("hoistMeter"),
             pose.get("lockState"),
+            pose.get("workMode", state.get("workMode")),
             task.get("taskId"),
             task.get("workType"),
             task.get("bayMap"),
@@ -627,6 +714,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--task-json", help="Optional task wrapper/raw JSON file for offline testing")
     parser.add_argument("--once", action="store_true", help="Print one TwinState JSON and exit")
     parser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR"))
+    parser.add_argument(
+        "--print-plc-heartbeat",
+        action="store_true",
+        help="Print every parsed PLC heartbeat JSON (diagnostic; can be noisy).",
+    )
+    parser.add_argument(
+        "--print-core-heartbeat",
+        action="store_true",
+        help="Print every parsed RCMS heartbeat JSON from the core/task endpoint (diagnostic; can be noisy).",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -635,7 +732,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     )
 
     config = ServiceConfig.load(Path(args.config))
-    service = RtgTwinService(config)
+    service = RtgTwinService(
+        config,
+        print_plc_heartbeat=args.print_plc_heartbeat,
+        print_core_heartbeat=args.print_core_heartbeat,
+    )
 
     plc_raw = load_test_json(args.plc_json)
     if plc_raw:

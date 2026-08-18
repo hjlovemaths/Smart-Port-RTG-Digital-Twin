@@ -134,6 +134,8 @@ class JumpPullClient:
 class LocalPullCollector:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
+        self.print_plc_heartbeat = bool(getattr(args, "print_plc_heartbeat", False))
+        self.print_core_heartbeat = bool(getattr(args, "print_core_heartbeat", False))
         self.stop_event = threading.Event()
         self.cache = TwinStateCache(args.rtg_name, args.plc_stale_seconds, args.task_stale_seconds)
         self.writer = JsonlWriter(Path(args.log_dir) if args.log_dir else None)
@@ -199,6 +201,11 @@ class LocalPullCollector:
             parsed = parse_json_maybe(record.get("raw"))
 
         if stream == "plc" and isinstance(parsed, dict):
+            if self.print_plc_heartbeat:
+                logging.info(
+                    "PLC heartbeat forwarded parsed: %s",
+                    compact_json(parsed),
+                )
             self.cache.update_plc(parsed)
         elif stream == "task" and isinstance(parsed, dict):
             self.cache.update_task(parsed)
@@ -206,6 +213,14 @@ class LocalPullCollector:
             self.cache.update_runinfo(parsed)
             if is_task_complete_runinfo(str(record.get("cmdId") or ""), parsed):
                 self.cache.complete_task()
+        elif stream == "core_other" and str(record.get("cmdId") or "") == "cmd_rcms_heartbeat":
+            if isinstance(parsed, dict):
+                if self.print_core_heartbeat:
+                    logging.info(
+                        "RCMS heartbeat forwarded parsed: %s",
+                        compact_json(parsed),
+                    )
+                self.cache.update_heartbeat(parsed)
 
         if self.args.echo or stream in ("task", "runinfo"):
             print(compact_json(record), flush=True)
@@ -218,12 +233,13 @@ class LocalPullCollector:
         pose = state.get("pose") or {}
         task = state.get("task") or {}
         logging.info(
-            "counts=%s twin field=%s bay=%s trolley=%s hoist=%s task=%s/%s bayMap=%s",
+            "counts=%s twin field=%s bay=%s trolley=%s hoist=%s workMode=%s task=%s/%s bayMap=%s",
             self.counts,
             pose.get("currentField"),
             pose.get("currentBay"),
             pose.get("trolleyMeter"),
             pose.get("hoistMeter"),
+            pose.get("workMode", state.get("workMode")),
             task.get("taskId"),
             task.get("workType"),
             task.get("bayMap"),
@@ -241,6 +257,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Directory for plc.jsonl/task.jsonl/runinfo.jsonl. Empty disables logging.",
     )
     parser.add_argument("--echo", action="store_true", help="Print every forwarded record.")
+    parser.add_argument(
+        "--print-plc-heartbeat",
+        action="store_true",
+        help="Print each forwarded parsed PLC heartbeat JSON (diagnostic; can be noisy).",
+    )
+    parser.add_argument(
+        "--print-core-heartbeat",
+        action="store_true",
+        help="Print each forwarded parsed RCMS heartbeat JSON from core_other/cmd_rcms_heartbeat (diagnostic; can be noisy).",
+    )
     parser.add_argument("--publish-twin-state", action="store_true")
     parser.add_argument("--twin-host", default=DEFAULT_TWIN_HOST)
     parser.add_argument("--twin-port", type=int, default=DEFAULT_TWIN_PORT)

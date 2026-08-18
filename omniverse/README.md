@@ -195,6 +195,21 @@ position_gamepad_manual_for_pick()
 然后按住 RB 并短按 A 验证锁箱。正常使用时无需运行该辅助命令：直接将 RTG 驶到任意
 可触达箱体上方即可。
 
+### Day and night environment presets
+
+`smartport.rtg_bridge` 扩展创建的 `RTG Control` 移动控制面板提供 `Day` 和 `Night`
+按钮。
+夜晚模式会在 USD session layer 中降低天空与太阳亮度、显示 288 个路灯发光灯头，并
+为 96 根三头路灯的每个灯头启用一个向下、无阴影的真实照明光源，三个方向相差
+120°，共 288 个夜间路灯光源。RTG 原有横梁灯已由
+`assets/resource/led/LED_Floodlight.usdz` 替换：模型自带 U 形支架和螺丝，每台 RTG 的
+两根顶部大车长横梁各安装 4 盏，三台共 24 盏。两侧灯头分别朝 RTG 内侧斜下方照射；
+夜晚时每盏灯启用一个同方向柔光灯，在地面形成相互衔接的照明光斑。24 个 RTG 光源均
+关闭阴影且只在夜晚启用，物理灯具模型在白天和夜晚均保持可见。
+
+环境逻辑集中在 `scripts/smart_port_environment.py` 的预设表中；后续雨天和雾天模式可
+沿用同一入口扩展，不需要改动 RTG 状态接收与任务逻辑。
+
 ### PLC-free task simulation
 
 When no PLC publisher is available, use `scripts/rtg_simulation_driver.py` in

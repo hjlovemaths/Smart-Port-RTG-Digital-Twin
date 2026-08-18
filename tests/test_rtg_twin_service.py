@@ -14,6 +14,43 @@ from rtg_twin_service import TwinStateCache  # noqa: E402
 
 
 class TwinStateCacheTests(unittest.TestCase):
+    def test_work_mode_from_rcms_heartbeat_is_forwarded_to_twin_state(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        cache.update_plc(
+            {
+                "current_field_num": "3C",
+                "current_bay_num": 12,
+            }
+        )
+        cache.update_heartbeat({"work_mode": 3})
+
+        state = cache.build_state()
+        self.assertEqual(state["workMode"], 3)
+        self.assertEqual(state["pose"]["workMode"], 3)
+
+    def test_heartbeat_only_frame_keeps_latest_pose(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        cache.update_plc(
+            {
+                "current_field_num": "4C",
+                "current_bay_num": 7,
+                "smallcar_pos": 15.0,
+            }
+        )
+        cache.update_heartbeat({"work_mode": 4})
+
+        pose = cache.build_state()["pose"]
+        self.assertEqual(pose["currentField"], "4C")
+        self.assertEqual(pose["currentBay"], 7)
+        self.assertEqual(pose["workMode"], 4)
+
+    def test_rcms_heartbeat_work_mode_overrides_plc_default(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        cache.update_plc({"current_field_num": "4C", "current_bay_num": 27, "work_mode": 0})
+        cache.update_heartbeat({"work_mode": 1})
+
+        self.assertEqual(cache.build_state()["pose"]["workMode"], 1)
+
     def test_malformed_seven_digit_bay_map_is_rejected(self) -> None:
         cache = TwinStateCache("RTG_220", 3.0, 1800.0)
         accepted = cache.update_task(

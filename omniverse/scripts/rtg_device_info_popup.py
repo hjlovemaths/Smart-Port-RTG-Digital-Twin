@@ -896,6 +896,10 @@ class RtgDeviceInfoPopupService:
                 texture.ConnectableAPI(),
                 "rgb",
             )
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(),
+                "rgb",
+            )
             shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
                 texture.ConnectableAPI(),
                 "a",

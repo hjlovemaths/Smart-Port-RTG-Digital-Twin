@@ -8390,9 +8390,10 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
+            float xformOp:rotateZ = -90
             float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-46.61905930853182, -14.315740402231246, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+            double3 xformOp:translate = (-246.2, 50, 1.3012471449582028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
 
         def Xform "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED" (
@@ -8401,9 +8402,10 @@ def Xform "World"
         )
         {
             float xformOp:rotateX = 90
+            float xformOp:rotateZ = -90
             float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (49.38094069146818, -14.315740402231246, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX", "xformOp:scale"]
+            double3 xformOp:translate = (-246.2, 120, 1.3012471449582028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
         }
     }
 }

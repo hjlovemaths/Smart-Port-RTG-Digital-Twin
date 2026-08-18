@@ -17,18 +17,28 @@ Restore the normal Kit UI:
 from __future__ import annotations
 
 import builtins
+import math
 from typing import Any
 
 
 DEFAULT_HTTP_PORT = 8011
 DEFAULT_SIGNAL_PORT = 49100
 DEFAULT_STREAM_PORT = 47998
-DEFAULT_TARGET_FPS = 30
+DEFAULT_TARGET_FPS = 60
 DEFAULT_STREAM_WIDTH = 1920
 DEFAULT_STREAM_HEIGHT = 1080
-QHD_2K_WIDTH = 2560
-QHD_2K_HEIGHT = 1440
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+RTG_FOLLOW_TARGET_PATH = (
+    f"{PRIMARY_RTG_PATH}/ANIM_CTRL_RTG_GANTRY_TRAVEL"
+)
+RTG_FOLLOW_CAMERA_PATH = "/World/RTGViewportFollowCamera"
+RTG_FOLLOW_TARGET_LOCAL = (0.0, 5.0, 4.8)
+DEFAULT_FOLLOW_DISTANCE = 52.0
+DEFAULT_FOLLOW_AZIMUTH_DEGREES = 60.0
+DEFAULT_FOLLOW_PITCH_DEGREES = 15.0
+VIEWPORT_RESTORE_HOTKEY_EXT_ID = "smartport.rtg_viewport_only_livestream"
+VIEWPORT_RESTORE_HOTKEY = "CTRL + SHIFT + F12"
+VIEWPORT_RESTORE_ACTION_ID = "restore_kit_ui"
 
 
 def _clear_viewport_selection() -> None:
@@ -45,20 +55,24 @@ def _clear_viewport_selection() -> None:
 
 
 def _set_viewport_read_only(enabled: bool = True) -> None:
-    """Best-effort Kit-side read-only mode for WebRTC display clients."""
+    """Prevent editing while retaining camera navigation and click inspection."""
 
     import carb.settings  # type: ignore
 
     settings = carb.settings.get_settings()
     read_only = bool(enabled)
-    settings.set("/app/window/drawMouse", not read_only)
-    settings.set("/persistent/app/viewport/coiDoubleClick", not read_only)
+    # Viewport-only is read-only for scene edits, not input-disabled.  Kit's
+    # appwindow guard is separate from viewport selection/camera settings and
+    # can otherwise discard all WebRTC mouse/keyboard events.
+    settings.set("/app/window/blockAllInput", False)
+    settings.set("/app/window/drawMouse", True)
+    settings.set("/persistent/app/viewport/coiDoubleClick", True)
     settings.set("/persistent/app/viewport/coiDoubleClickObjectOnly", True)
-    settings.set("/persistent/app/viewport/pickingMode", "type:None" if read_only else "type:ALL")
+    settings.set("/persistent/app/viewport/pickingMode", "type:ALL")
     settings.set("/persistent/app/viewport/pickingModeNoKinds", True)
     settings.set("/persistent/app/viewport/pickingModeIncludeRef", True)
-    settings.set("/exts/omni.kit.viewport.window/startup/cameraManipulator/enabled", not read_only)
-    settings.set("/exts/omni.kit.viewport.window/startup/selectionManipulator/enabled", not read_only)
+    settings.set("/exts/omni.kit.viewport.window/startup/cameraManipulator/enabled", True)
+    settings.set("/exts/omni.kit.viewport.window/startup/selectionManipulator/enabled", True)
 
     previous = getattr(builtins, "_rtg_viewport_read_only_sub", None)
     if previous is not None:
@@ -68,19 +82,9 @@ def _set_viewport_read_only(enabled: bool = True) -> None:
             pass
         builtins._rtg_viewport_read_only_sub = None
 
-    if not read_only:
-        _enable_existing_viewport_interaction()
-        return
-
-    try:
-        import omni.kit.app  # type: ignore
-
-        stream = omni.kit.app.get_app().get_update_event_stream()
-        builtins._rtg_viewport_read_only_sub = stream.create_subscription_to_pop(
-            lambda *_args: _clear_viewport_selection()
-        )
-    except Exception as exc:
-        print(f"[RTG Viewport Stream] read-only selection guard unavailable: {exc}")
+    # Selection changes are consumed by rtg_twin_state_receiver to open the
+    # RTG/container/truck information panels.  Never clear them here.
+    _enable_existing_viewport_interaction()
 
 
 def _enable_existing_viewport_interaction() -> None:
@@ -103,6 +107,7 @@ def _enable_existing_viewport_interaction() -> None:
                     pass
     except Exception:
         pass
+
 
     try:
         import omni.kit.viewport_legacy as vp  # type: ignore
@@ -129,6 +134,134 @@ def _enable_existing_viewport_interaction() -> None:
         pass
 
 
+def _capture_viewport_window_state() -> None:
+    """Remember the normal viewport geometry before filling the stream frame."""
+
+    if hasattr(builtins, "_rtg_viewport_window_state_before_stream"):
+        return
+    try:
+        import omni.ui as ui  # type: ignore
+
+        window = ui.Workspace.get_window("Viewport")
+        if window is None:
+            return
+        state = {}
+        for attr in (
+            "position_x",
+            "position_y",
+            "width",
+            "height",
+            "flags",
+            "noTabBar",
+            "dock_tab_bar_visible",
+            "padding_x",
+            "padding_y",
+        ):
+            try:
+                state[attr] = getattr(window, attr)
+            except Exception:
+                pass
+        builtins._rtg_viewport_window_state_before_stream = state
+    except Exception:
+        pass
+
+
+def _restore_viewport_window_state() -> None:
+    """Put the Viewport back so other Kit windows are visible again."""
+
+    try:
+        import omni.ui as ui  # type: ignore
+
+        window = ui.Workspace.get_window("Viewport")
+        if window is None:
+            return
+        state = getattr(builtins, "_rtg_viewport_window_state_before_stream", {})
+        for attr, value in state.items():
+            try:
+                setattr(window, attr, value)
+            except Exception:
+                pass
+        if not state:
+            # A state-less restore can happen after re-running this script in the
+            # Script Editor.  Fall back to Kit's normal titled/docked viewport.
+            try:
+                window.noTabBar = False
+                window.dock_tab_bar_visible = True
+                window.flags = int(window.flags) & ~int(ui.WINDOW_FLAGS_NO_TITLE_BAR)
+            except Exception:
+                pass
+        try:
+            window.visible = True
+        except Exception:
+            pass
+    except Exception:
+        pass
+    if hasattr(builtins, "_rtg_viewport_window_state_before_stream"):
+        del builtins._rtg_viewport_window_state_before_stream
+
+
+def _remove_viewport_restore_hotkey() -> None:
+    hotkey = getattr(builtins, "_rtg_viewport_restore_hotkey", None)
+    try:
+        import omni.kit.actions.core  # type: ignore
+        import omni.kit.hotkeys.core  # type: ignore
+
+        hotkeys = omni.kit.hotkeys.core.get_hotkey_registry()
+        if hotkey is not None:
+            hotkeys.deregister_hotkey(hotkey)
+        else:
+            hotkeys.deregister_hotkey(
+                VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+                VIEWPORT_RESTORE_HOTKEY,
+            )
+        actions = omni.kit.actions.core.get_action_registry()
+        actions.deregister_action(
+            VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+            VIEWPORT_RESTORE_ACTION_ID,
+        )
+    except Exception:
+        pass
+    builtins._rtg_viewport_restore_hotkey = None
+
+
+def _install_viewport_restore_hotkey() -> None:
+    """Register a global escape shortcut while viewport-only mode is active."""
+
+    if getattr(builtins, "_rtg_viewport_restore_hotkey", None) is not None:
+        return
+    try:
+        import omni.kit.actions.core  # type: ignore
+        import omni.kit.hotkeys.core  # type: ignore
+
+        actions = omni.kit.actions.core.get_action_registry()
+        if actions.get_action(
+            VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+            VIEWPORT_RESTORE_ACTION_ID,
+        ) is None:
+            actions.register_action(
+                VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+                VIEWPORT_RESTORE_ACTION_ID,
+                restore_kit_ui,
+                "Restore Kit UI",
+                "Exit viewport-only mode and restore Kit windows",
+            )
+        hotkeys = omni.kit.hotkeys.core.get_hotkey_registry()
+        existing = hotkeys.get_hotkey(
+            VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+            VIEWPORT_RESTORE_HOTKEY,
+        )
+        builtins._rtg_viewport_restore_hotkey = existing or hotkeys.register_hotkey(
+            VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+            VIEWPORT_RESTORE_HOTKEY,
+            VIEWPORT_RESTORE_HOTKEY_EXT_ID,
+            VIEWPORT_RESTORE_ACTION_ID,
+        )
+        print(
+            f"[RTG Viewport Stream] restore Kit UI hotkey: {VIEWPORT_RESTORE_HOTKEY}"
+        )
+    except Exception as exc:
+        print(f"[RTG Viewport Stream] restore hotkey unavailable: {exc}")
+
 def _viewport_window_titles() -> tuple[str, ...]:
     try:
         import omni.ui as ui  # type: ignore
@@ -144,7 +277,7 @@ def _viewport_window_titles() -> tuple[str, ...]:
 
 
 def _fit_viewport_to_main_window(width: int | None = None, height: int | None = None) -> None:
-    """Move the Viewport window to fill the Kit framebuffer."""
+    """Make the Viewport content fill the Kit framebuffer without a tab bar."""
 
     try:
         import omni.ui as ui  # type: ignore
@@ -167,13 +300,28 @@ def _fit_viewport_to_main_window(width: int | None = None, height: int | None = 
             pass
         if window is None:
             continue
+
+        # noTabBar alone is insufficient for an already-created/docked viewport
+        # in Kit 110.  Keep both the native window title and the dock tab hidden;
+        # otherwise their ~24 px height turns a 1920x1080 stream into 1920x1056
+        # and the livestream extension continuously retries the resize.
+        try:
+            window.flags = int(window.flags) | int(
+                ui.WINDOW_FLAGS_NO_COLLAPSE
+                | ui.WINDOW_FLAGS_NO_RESIZE
+                | ui.WINDOW_FLAGS_NO_MOVE
+                | ui.WINDOW_FLAGS_NO_TITLE_BAR
+            )
+        except Exception:
+            pass
         for attr, value in (
             ("visible", True),
+            ("dock_tab_bar_visible", False),
+            ("noTabBar", True),
             ("position_x", 0),
             ("position_y", 0),
             ("width", target_width),
             ("height", target_height),
-            ("noTabBar", True),
             ("padding_x", 0),
             ("padding_y", 0),
         ):
@@ -183,7 +331,7 @@ def _fit_viewport_to_main_window(width: int | None = None, height: int | None = 
                 pass
 
 
-def _schedule_viewport_fit(width: int, height: int, frames: int = 30) -> None:
+def _schedule_viewport_fit(width: int, height: int, frames: int = 8) -> None:
     """Repeat viewport fitting while Kit finishes applying hideUi/layout changes."""
 
     previous = getattr(builtins, "_rtg_viewport_fit_sub", None)
@@ -240,7 +388,10 @@ def _configure_livestream(
     settings.set("/exts/omni.kit.livestream.app/primaryStream/signalPort", int(signal_port))
     settings.set("/exts/omni.kit.livestream.app/primaryStream/streamPort", int(stream_port))
     settings.set("/exts/omni.kit.livestream.app/primaryStream/targetFps", int(target_fps))
-    settings.set("/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize", True)
+    # Keep the configured stream size. Dynamic resize can negotiate 2048x1132
+    # on a 125% DPI desktop and then upscale the frame in the browser, making
+    # the in-scene HUD text look soft.
+    settings.set("/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize", False)
     settings.set("/app/window/width", int(width))
     settings.set("/app/window/height", int(height))
     settings.set("/exts/omni.services.transport.server.http/port", int(http_port))
@@ -268,6 +419,206 @@ def _hide_non_viewport_windows() -> None:
                 ui.Workspace.show_window(title, should_keep)
             except Exception:
                 pass
+
+
+def _rtg_follow_target_world(stage: Any) -> Any:
+    """Return the moving RTG portal center in world coordinates."""
+
+    from pxr import Gf, Usd, UsdGeom  # type: ignore
+
+    target_prim = stage.GetPrimAtPath(RTG_FOLLOW_TARGET_PATH)
+    if not target_prim:
+        return None
+    matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(
+        target_prim
+    )
+    return matrix.Transform(Gf.Vec3d(*RTG_FOLLOW_TARGET_LOCAL))
+
+
+def _default_follow_eye(target: Any) -> Any:
+    """Return a 60-degree oblique side-view eye position around the RTG."""
+
+    from pxr import Gf  # type: ignore
+
+    azimuth = math.radians(DEFAULT_FOLLOW_AZIMUTH_DEGREES)
+    pitch = math.radians(DEFAULT_FOLLOW_PITCH_DEGREES)
+    horizontal = DEFAULT_FOLLOW_DISTANCE * math.cos(pitch)
+    return Gf.Vec3d(
+        float(target[0]) + horizontal * math.sin(azimuth),
+        float(target[1]) - horizontal * math.cos(azimuth),
+        float(target[2]) + DEFAULT_FOLLOW_DISTANCE * math.sin(pitch),
+    )
+
+
+def _look_at_camera_matrix(eye: Any, target: Any) -> Any:
+    from pxr import Gf  # type: ignore
+
+    matrix = Gf.Matrix4d(1.0)
+    matrix.SetLookAt(eye, target, Gf.Vec3d(0.0, 0.0, 1.0))
+    return matrix.GetInverse()
+
+
+def _matrix_close(left: Any, right: Any, tolerance: float = 1e-7) -> bool:
+    if left is None or right is None:
+        return left is right
+    try:
+        return all(
+            abs(float(left[row][column]) - float(right[row][column])) <= tolerance
+            for row in range(4)
+            for column in range(4)
+        )
+    except Exception:
+        return False
+
+
+def _vector_close(left: Any, right: Any, tolerance: float = 1e-7) -> bool:
+    if left is None or right is None:
+        return left is right
+    try:
+        return all(
+            abs(float(left[index]) - float(right[index])) <= tolerance
+            for index in range(3)
+        )
+    except Exception:
+        return False
+
+
+def _ensure_rtg_follow_camera(stage: Any) -> tuple[str, Any, Any] | None:
+    """Create the session camera once without resetting a saved user view."""
+
+    from pxr import Gf, Sdf, Usd, UsdGeom  # type: ignore
+
+    target = _rtg_follow_target_world(stage)
+    if target is None:
+        print(
+            f"[RTG Viewport Stream] RTG follow target missing: {RTG_FOLLOW_TARGET_PATH}"
+        )
+        return None
+
+    existing = stage.GetPrimAtPath(RTG_FOLLOW_CAMERA_PATH)
+    had_camera = bool(existing and existing.IsValid())
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        camera = UsdGeom.Camera.Define(stage, RTG_FOLLOW_CAMERA_PATH)
+        camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
+        camera.CreateFocalLengthAttr(18.0)
+        camera.CreateHorizontalApertureAttr(36.0)
+        camera.CreateVerticalApertureAttr(20.25)
+        camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
+        prim = camera.GetPrim()
+        prim.CreateAttribute("omni:kit:cameraLock", Sdf.ValueTypeNames.Bool).Set(
+            False
+        )
+        center_attr = prim.CreateAttribute(
+            "omni:kit:centerOfInterest",
+            Sdf.ValueTypeNames.Vector3d,
+            custom=True,
+        )
+        transform_attr = prim.GetAttribute("xformOp:transform")
+        if not transform_attr:
+            transform_attr = UsdGeom.Xformable(prim).AddTransformOp().GetAttr()
+        if not had_camera or transform_attr.Get() is None:
+            center_attr.Set(target)
+            transform_attr.Set(_look_at_camera_matrix(_default_follow_eye(target), target))
+        prim.CreateAttribute("xformOpOrder", Sdf.ValueTypeNames.TokenArray).Set(
+            ["xformOp:transform"]
+        )
+    return RTG_FOLLOW_CAMERA_PATH, transform_attr, center_attr
+
+
+def _stop_rtg_camera_follow() -> None:
+    previous = getattr(builtins, "_rtg_viewport_follow_sub", None)
+    if previous is not None:
+        try:
+            previous.unsubscribe()
+        except Exception:
+            pass
+    builtins._rtg_viewport_follow_sub = None
+    builtins._rtg_viewport_follow_state = None
+
+
+def _start_rtg_camera_follow() -> str | None:
+    """Follow RTG translation while retaining mouse-adjusted relative view."""
+
+    try:
+        import omni.kit.app  # type: ignore
+        import omni.usd  # type: ignore
+        from pxr import Gf, Usd  # type: ignore
+
+        stage = omni.usd.get_context().get_stage()
+        if stage is None:
+            return None
+        camera_info = _ensure_rtg_follow_camera(stage)
+        if camera_info is None:
+            return None
+        camera_path, transform_attr, center_attr = camera_info
+        target = _rtg_follow_target_world(stage)
+        current_matrix = transform_attr.Get()
+        current_center = center_attr.Get()
+        state = {
+            "stage": stage,
+            "target": target,
+            "matrix": current_matrix,
+            "center": current_center,
+        }
+        _stop_rtg_camera_follow()
+        builtins._rtg_viewport_follow_state = state
+
+        def _on_update(*_args: Any) -> None:
+            follow_state = getattr(builtins, "_rtg_viewport_follow_state", None)
+            if not follow_state or follow_state.get("stage") is not stage:
+                return
+            new_target = _rtg_follow_target_world(stage)
+            if new_target is None:
+                return
+            matrix_now = transform_attr.Get()
+            center_now = center_attr.Get()
+
+            # A gesture changed the camera since our previous update.  Save
+            # that new orbit/zoom as the relative follow view and do not snap
+            # it back to the default camera.
+            if not _matrix_close(matrix_now, follow_state["matrix"]) or not _vector_close(
+                center_now,
+                follow_state["center"],
+            ):
+                follow_state["matrix"] = matrix_now
+                follow_state["center"] = center_now
+                follow_state["target"] = new_target
+                return
+
+            old_target = follow_state["target"]
+            delta = Gf.Vec3d(
+                float(new_target[0]) - float(old_target[0]),
+                float(new_target[1]) - float(old_target[1]),
+                float(new_target[2]) - float(old_target[2]),
+            )
+            if _vector_close(delta, Gf.Vec3d(0.0, 0.0, 0.0)):
+                return
+
+            moved_matrix = Gf.Matrix4d(matrix_now)
+            moved_matrix.SetTranslateOnly(matrix_now.ExtractTranslation() + delta)
+            moved_center = (
+                Gf.Vec3d(center_now) + delta if center_now is not None else new_target
+            )
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                transform_attr.Set(moved_matrix)
+                center_attr.Set(moved_center)
+            follow_state["target"] = new_target
+            follow_state["matrix"] = moved_matrix
+            follow_state["center"] = moved_center
+
+        stream = omni.kit.app.get_app().get_update_event_stream()
+        builtins._rtg_viewport_follow_sub = stream.create_subscription_to_pop(
+            _on_update,
+            name="RTGViewportCameraFollow",
+        )
+        print(
+            "[RTG Viewport Stream] camera follows RTG; mouse-adjusted view is retained"
+        )
+        return camera_path
+    except Exception as exc:
+        print(f"[RTG Viewport Stream] RTG camera follow unavailable: {exc}")
+        _stop_rtg_camera_follow()
+        return None
 
 
 def _set_viewport_camera(camera_path: str | None = None) -> None:
@@ -300,6 +651,21 @@ def start_viewport_only_livestream(
 
     _configure_livestream(http_port, signal_port, stream_port, target_fps, width, height)
 
+    settings = carb.settings.get_settings()
+    if hide_kit_ui:
+        # Capture before hideUi mutates the existing viewport flags so the
+        # normal docked layout can be restored accurately later.
+        _capture_viewport_window_state()
+    settings.set("/app/window/hideUi", bool(hide_kit_ui))
+    settings.set("/app/docks/disabled", bool(hide_kit_ui))
+    settings.set("/app/viewport/defaults/noTitleBar", bool(hide_kit_ui))
+    _set_viewport_read_only(read_only)
+    if hide_kit_ui:
+        _install_viewport_restore_hotkey()
+        _hide_non_viewport_windows()
+        # Establish the exact capture geometry before the primary stream starts.
+        _fit_viewport_to_main_window(int(width), int(height))
+
     for ext_id in (
         "omni.kit.livestream.webrtc",
         "omni.kit.livestream.app",
@@ -308,21 +674,25 @@ def start_viewport_only_livestream(
     ):
         _enable_extension(ext_id)
 
+    if camera_path is None:
+        camera_path = _start_rtg_camera_follow()
+    else:
+        _stop_rtg_camera_follow()
     _set_viewport_camera(camera_path)
 
-    settings = carb.settings.get_settings()
-    settings.set("/app/window/hideUi", bool(hide_kit_ui))
-    settings.set("/app/docks/disabled", bool(hide_kit_ui))
-    settings.set("/app/viewport/defaults/noTitleBar", bool(hide_kit_ui))
-    _set_viewport_read_only(read_only)
     if hide_kit_ui:
-        _hide_non_viewport_windows()
         _schedule_viewport_fit(int(width), int(height))
 
     url = f"http://localhost:{int(http_port)}"
     print(f"[RTG Viewport Stream] viewport-only WebRTC page: {url}")
+    print(
+        f"[RTG Viewport Stream] stream profile: {int(width)}x{int(height)} "
+        f"@ {int(target_fps)} FPS"
+    )
     if read_only:
-        print("[RTG Viewport Stream] Kit-side read-only guard enabled")
+        print(
+            "[RTG Viewport Stream] click inspection enabled; native camera controls preserved"
+        )
     print("[RTG Viewport Stream] restore Kit UI with restore_kit_ui()")
     return url
 
@@ -336,6 +706,8 @@ def restore_kit_ui() -> None:
     settings.set("/app/window/hideUi", False)
     settings.set("/app/docks/disabled", False)
     settings.set("/app/viewport/defaults/noTitleBar", False)
+    _remove_viewport_restore_hotkey()
+    _stop_rtg_camera_follow()
     _set_viewport_read_only(False)
     previous = getattr(builtins, "_rtg_viewport_fit_sub", None)
     if previous is not None:
@@ -344,6 +716,7 @@ def restore_kit_ui() -> None:
         except Exception:
             pass
         builtins._rtg_viewport_fit_sub = None
+    _restore_viewport_window_state()
     try:
         import omni.ui as ui  # type: ignore
 
@@ -479,9 +852,20 @@ def start_stream_for_wpf(**kwargs: Any) -> str:
     return start_viewport_only_livestream(**kwargs)
 
 
-def start_viewport_only_livestream_2k(**kwargs: Any) -> str:
-    """Start viewport-only streaming at 2560x1440."""
+def start_viewport_only_livestream_1080p(**kwargs: Any) -> str:
+    """Start viewport-only streaming at a sharp, stable 1920x1080 and 60 FPS."""
 
-    kwargs.setdefault("width", QHD_2K_WIDTH)
-    kwargs.setdefault("height", QHD_2K_HEIGHT)
+    kwargs.setdefault("width", DEFAULT_STREAM_WIDTH)
+    kwargs.setdefault("height", DEFAULT_STREAM_HEIGHT)
+    kwargs.setdefault("target_fps", DEFAULT_TARGET_FPS)
     return start_viewport_only_livestream(**kwargs)
+
+
+def start_viewport_only_livestream_2k(**kwargs: Any) -> str:
+    """Deprecated compatibility alias; use the 1080p preset."""
+
+    print(
+        "[RTG Viewport Stream] start_viewport_only_livestream_2k() now uses "
+        "the 1080p/60 FPS preset"
+    )
+    return start_viewport_only_livestream_1080p(**kwargs)

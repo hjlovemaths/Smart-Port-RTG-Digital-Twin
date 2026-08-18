@@ -13,7 +13,7 @@ from dataclasses import dataclass
 BAY_LENGTH_M = 2.475
 BAY_WIDTH_M = 20.0
 BAY_GAP_M = 0.20
-BLOCK_GAP_M = 5.0
+BLOCK_GAP_M = 7.4
 YARD_LAYOUT_START_Y_M = -0.50
 
 
