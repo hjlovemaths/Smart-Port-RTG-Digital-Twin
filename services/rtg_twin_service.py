@@ -340,9 +340,31 @@ class TwinStateCache:
             "source": "RTG.Twin.Service",
             "rtgName": self.rtg_name,
             "workMode": self._heartbeat_work_mode(heartbeat, plc),
+            "heartbeat": self._build_heartbeat(heartbeat, plc),
             "pose": self._build_pose(plc, heartbeat, plc_age, plc_stale),
             "task": self._build_task(task, task_age),
             "runinfo": self._build_runinfo(),
+        }
+
+    def _build_heartbeat(
+        self,
+        heartbeat: Optional[Dict[str, Any]],
+        plc: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Expose the RCMS service flags to consumers such as the WPF client."""
+        source = heartbeat or plc or {}
+        return {
+            "rtgState": int_value(source.get("rtg_state", source.get("rtgState")), 0),
+            "ctrlOn": int_value(source.get("ctrl_on", source.get("ctrlOn")), 0),
+            "workMode": self._heartbeat_work_mode(heartbeat, plc),
+            "commState": int_value(source.get("comm_state", source.get("commState")), 0),
+            "taskState": int_value(source.get("task_state", source.get("taskState")), 0),
+            "iecsServer": int_value(source.get("iecs_server", source.get("iecsServer")), 0),
+            "ctrlServer": int_value(source.get("ctrl_server", source.get("ctrlServer")), 0),
+            "plcServer": int_value(source.get("plc_server", source.get("plcServer")), 0),
+            "gdServer": int_value(source.get("gd_server", source.get("gdServer")), 0),
+            "viServer": int_value(source.get("vi_server", source.get("viServer")), 0),
+            "sfServer": int_value(source.get("sf_server", source.get("sfServer")), 0),
         }
 
     def _build_pose(
