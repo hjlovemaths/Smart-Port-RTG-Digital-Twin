@@ -71,11 +71,92 @@ RTG 会话层变换，二者不要同时运行。
 |---|---|---|---|
 | `omniverse/scripts/rtg_simulation_driver.py` | Omniverse Kit Script Editor | 启动虚拟任务、随机仿真库存和 RTG 动画 | 是，用 `exec(open(...).read())` |
 | `omniverse/scripts/rtg_twin_state_receiver.py` | Omniverse Kit Script Editor | 接收真实 TwinState、驱动场景并维护真实库存 | 是，用 `exec(open(...).read())` |
+| `omniverse/scripts/rtg_viewport_only_livestream.py` | Omniverse Kit Script Editor | 启动跟随 RTG 的 viewport-only WebRTC 画面 | 是，加载与启动命令必须一次执行 |
 | `services/rtg_twin_service.py` | 项目根目录 PowerShell | 订阅 PLC/RCMS，向 Omniverse 发布 TwinState | 是，用系统 Python |
 | `omniverse/scripts/generate_yard_inventory.py` | 项目根目录 PowerShell | 生成仿真随机库存或空的真实库存缓存 | 是，用系统 Python |
 | `omniverse/scripts/yard_inventory.py` | 由上述脚本自动导入 | 库存模型、原子保存、任务结算 | 否 |
 | `omniverse/scripts/rtg_task_state_machine.py` | 由仿真器和接收器自动导入 | LOAD/UNLOAD/SWITCH 状态机 | 否 |
 | `omniverse/scripts/rtg_live_control.py` | 由接收器自动导入 | RTG 大车、小车、吊具和伸缩吊具控制 | 否 |
+
+### 常用运行模块 Python 命令速查
+
+下面每个 Python 代码块都应在 Kit Script Editor 中**整块一次执行**。不要先单独
+执行 `exec(...)`，再在下一次执行中调用启动函数；不同执行可能使用不同临时作用域。
+除特别说明外，都应先打开 `omniverse/scenes/smart_port.usda`。
+
+| 模块 | 是否需要手工启动 | 启动后常用命令 |
+|---|---|---|
+| 无 PLC 仿真任务 | 是 | `publish_simulated_task(...)`、`get_simulation_status()`、`stop_simulation()` |
+| PLC/TwinState 实时接收 | 加载脚本后自动启动 | `get_latest_state()`、`get_yard_inventory_status()`、`stop_live_driver()` |
+| 手柄/键盘远程手动 | 是 | `get_gamepad_manual_status()`、`stop_gamepad_manual_mode()` |
+| viewport-only WebRTC | 是 | `restore_kit_ui()`；浏览器打开 `http://localhost:8011` |
+| C01-C33 虚拟相机 | 创建后再选择相机 | `open_rtg_virtual_camera(n)`、`save_rtg_virtual_camera_layer()` |
+| 真实 RTSP 相机弹窗 | 仅独立调试时启动 | `stop_rtg_camera_popup()` |
+| 吊具四宫格模型相机 | 手动模式会自动管理 | `stop_rtg_model_camera_grid()` |
+| RTG/集装箱/车辆信息面板 | 实时接收器内部自动管理 | 无需加载旧 popup 脚本 |
+| 库存、状态机、实时运动控制 | 仿真器或实时接收器自动导入 | 不应直接执行模块文件 |
+
+无 PLC 仿真任务：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_simulation_driver.py", encoding="utf-8").read())
+start_simulation()
+```
+
+PLC/TwinState 实时模式先在项目根目录 PowerShell 启动桥接服务：
+
+```powershell
+python services\rtg_twin_service.py --config services\rtg_twin_service.config.json
+```
+
+然后在 Kit Script Editor 加载实时接收器；该脚本会自动调用
+`start_live_driver("127.0.0.1", 48700)`：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_twin_state_receiver.py", encoding="utf-8").read())
+```
+
+手柄或键盘远程手动模式：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_gamepad_manual_control.py", encoding="utf-8").read())
+start_gamepad_manual_mode()
+```
+
+viewport-only WebRTC（默认 1920x1080、60 FPS）：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream()
+```
+
+C01-C33 虚拟场景相机：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_virtual_cameras.py", encoding="utf-8").read())
+create_rtg_virtual_cameras()
+open_rtg_virtual_camera(1)
+```
+
+真实 RTSP 相机弹窗仅在脱离实时接收器独立调试时启动：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_camera_popup.py", encoding="utf-8").read())
+start_rtg_camera_popup()
+```
+
+吊具四宫格模型相机通常由远程手动模式自动打开。独立调试命令为：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_model_camera_grid.py", encoding="utf-8").read())
+import omni.usd
+start_rtg_model_camera_grid(omni.usd.get_context().get_stage())
+```
+
+`rtg_live_control.py`、`rtg_task_state_machine.py`、`yard_inventory.py` 以及当前
+RTG/集装箱/车辆点击信息面板都由上层运行模块负责加载。正常运行时不要再手工执行
+`rtg_device_info_popup.py`、`rtg_container_info_popup.py` 等旧的独立 popup 服务，
+否则可能产生重复选择监听或重复窗口。
 
 推荐按以下二选一流程运行：
 
@@ -302,6 +383,43 @@ save_rtg_virtual_camera_layer()
 该层已经由 `smart_port.usda` 组合，保存后重新打开或重新加载场景即可自动得到
 C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_cameras()`；
 清理当前会话生成的相机使用 `cleanup_rtg_virtual_cameras()`。
+
+### 5. 启动 viewport-only WebRTC 画面
+
+打开 `smart_port.usda` 后，在 Kit Script Editor 中将下面两行一起选中并一次执行：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream()
+```
+
+Script Editor 的不同执行可能使用独立临时作用域，因此不能只在一次执行中加载脚本，
+再在下一次执行中单独调用 `start_viewport_only_livestream()`；否则会出现
+`NameError`。启动成功后，在浏览器或 WPF WebView2 中打开
+`http://localhost:8011`。
+
+默认流规格为 `1920x1080 @ 60 FPS`。viewport-only 模式会隐藏 Kit 面板和
+Viewport 页签栏，固定完整 1080p 捕获区域，并保留原生鼠标视角操作、滚轮缩放、
+RTG 跟随以及点击 RTG、集装箱和车辆打开信息面板的功能。鼠标调整后的相对视角
+会在 RTG 移动时继续保持。
+
+按 `Ctrl+Shift+F12` 可退出 viewport-only 模式并恢复 Script Editor、Stage、
+Property 等 Kit 窗口，也可以在仍可执行 Python 时调用：
+
+```python
+restore_kit_ui()
+```
+
+如需测试 120 FPS，可在启动时显式覆盖：
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_viewport_only_livestream.py", encoding="utf-8").read())
+start_viewport_only_livestream(target_fps=120)
+```
+
+120 FPS 会增加 WebRTC 编码压力；任务面板文字或堆场细线发糊时，应优先使用默认
+60 FPS。修改分辨率或帧率后建议完整退出并重新启动 Kit，避免旧的 primary stream
+占用端口或返回 `NVST_R_BUSY`。
 
 ## 目录
 
