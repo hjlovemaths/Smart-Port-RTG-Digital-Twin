@@ -51,6 +51,29 @@ class TwinStateCacheTests(unittest.TestCase):
 
         self.assertEqual(cache.build_state()["pose"]["workMode"], 1)
 
+    def test_rcms_heartbeat_service_flags_are_forwarded(self) -> None:
+        cache = TwinStateCache("RTG_220", 3.0, 1800.0)
+        cache.update_heartbeat(
+            {
+                "rtg_state": 1,
+                "comm_state": 1,
+                "iecs_server": 1,
+                "ctrl_server": 1,
+                "plc_server": 1,
+                "gd_server": 1,
+                "vi_server": 1,
+                "sf_server": 1,
+            }
+        )
+
+        heartbeat = cache.build_state()["heartbeat"]
+        self.assertEqual(heartbeat["iecsServer"], 1)
+        self.assertEqual(heartbeat["ctrlServer"], 1)
+        self.assertEqual(heartbeat["plcServer"], 1)
+        self.assertEqual(heartbeat["gdServer"], 1)
+        self.assertEqual(heartbeat["viServer"], 1)
+        self.assertEqual(heartbeat["sfServer"], 1)
+
     def test_malformed_seven_digit_bay_map_is_rejected(self) -> None:
         cache = TwinStateCache("RTG_220", 3.0, 1800.0)
         accepted = cache.update_task(

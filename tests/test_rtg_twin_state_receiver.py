@@ -271,6 +271,41 @@ class TaskPositionTests(unittest.TestCase):
             receiver.TruckRunInfo("进箱集卡", "H370"),
         )
 
+    def test_validated_truck_runinfo_survives_later_guidance_message(self) -> None:
+        task = {
+            "taskId": "task-load-001",
+            "workType": "LOAD",
+        }
+        self.driver._update_validated_truck_runinfo_cache(
+            "校验内集卡车号通过，算法检测车号:H421侧面车号H421 "
+            "时间:2026-08-17 15:18:37.494",
+            task,
+        )
+        self.driver._update_validated_truck_runinfo_cache(
+            "内集卡到位，开始精停引导",
+            task,
+        )
+
+        stage = types.SimpleNamespace(GetPrimAtPath=lambda _path: None)
+        self.assertEqual(
+            self.driver._current_truck_runinfo(stage),
+            receiver.TruckRunInfo("内集卡", "H421"),
+        )
+
+    def test_validated_truck_runinfo_is_cleared_when_task_ends(self) -> None:
+        task = {"taskId": "task-unload-001", "workType": "UNLOAD"}
+        self.driver._update_validated_truck_runinfo_cache(
+            "校验外集卡车号通过，算法检测车号:沪A12345",
+            task,
+        )
+        self.driver._update_validated_truck_runinfo_cache(
+            None,
+            {"taskId": "task-unload-001", "workType": "UNLOAD", "operationState": "COMPLETED"},
+        )
+
+        self.assertIsNone(self.driver._validated_truck_runinfo)
+        self.assertIsNone(self.driver._validated_truck_task_id)
+
     def test_container_selection_preserves_visible_device_panel(self) -> None:
         self.driver._device_panel_selected = True
         with patch.object(
@@ -1371,6 +1406,59 @@ class LivePoseValidationTests(unittest.TestCase):
 
         self.assertEqual(applied["gantryMeter"], 12.5)
         self.assertEqual(applied["gantrySource"], "bigcarElecDistance")
+
+    def test_valid_field_and_bay_override_continuous_gantry_distance(self) -> None:
+        class Controller:
+            @staticmethod
+            def current_spreader_size_ft():
+                return 40.0
+
+            @staticmethod
+            def set_gantry_bay(field, bay, **_kwargs):
+                assert field == "3C"
+                assert bay == 90
+                return 225.0
+
+            @staticmethod
+            def set_gantry_safe(value):
+                return value
+
+            @staticmethod
+            def set_trolley_safe(value):
+                return value
+
+            @staticmethod
+            def set_hoist_safe(value, carried_load=False):
+                return value
+
+        driver = receiver.OmniverseRtgTwinDriver()
+        driver._current_stage = lambda: object()
+        driver._disable_demo_artifacts_for_stage = lambda _stage: None
+        driver._sync_inventory_scene = lambda _stage: None
+        driver._controller_for_stage = lambda _stage: Controller()
+        driver._sync_spreader_size_for_task = lambda _controller, _task: (40.0, None)
+        driver._sync_task_stack = lambda _stage, _task: False
+        driver._remove_task_route_indicator_once = lambda _stage: None
+        driver._sync_task_vehicle = lambda *_args: None
+        driver._sync_task_switch = lambda *_args: None
+        driver._write_status = lambda *_args: None
+        driver._sync_status_overlay = lambda *_args: None
+
+        applied = driver.apply_state(
+            {
+                "pose": {
+                    "currentField": "3C",
+                    "currentBay": 90,
+                    "bigcarElecDistance": 298.68,
+                    "trolleyMeter": 1.0,
+                    "hoistMeter": 2.0,
+                },
+                "task": {},
+            }
+        )
+
+        self.assertEqual(applied["gantryMeter"], 225.0)
+        self.assertEqual(applied["gantrySource"], "3C/090")
 
     def test_baychange_is_not_a_container_work_task(self) -> None:
         self.assertFalse(
@@ -2727,7 +2815,9 @@ class LiveWeatherControlTests(unittest.TestCase):
             receiver.OmniverseRtgTwinDriver
         )
         driver._weather_signature = None
-        driver._weather_stage_id = None
+        # This test represents an already initialized live stage.  Startup
+        # itself intentionally resets a stale session-layer night mode to day.
+        driver._weather_stage_id = id(stage)
         driver._last_error_at = 0.0
         driver._log = lambda _message: None
 
