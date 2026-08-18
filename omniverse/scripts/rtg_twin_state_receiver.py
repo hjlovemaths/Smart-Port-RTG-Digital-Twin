@@ -443,6 +443,8 @@ DEVICE_LOCATION_PANEL_WORLD_Z = (
     + 0.35
     + TASK_PANEL_WIDTH_M / 5.0
 )
+# Keep the device-location panel and work-mode badge on the same Y plane as
+# the task/message panel.  Their X positions remain independently laid out.
 DEVICE_LOCATION_PANEL_Y_OFFSET_M = TASK_PANEL_Y_OFFSET_M
 DEVICE_LOCATION_PANEL_ROTATE_XYZ = TASK_PANEL_ROTATE_XYZ
 DEVICE_LOCATION_PANEL_UV_COORDS = TASK_PANEL_UV_COORDS
@@ -452,6 +454,18 @@ DEVICE_LOCATION_PANEL_VALUE_Y = {
     "Bay": 260,
     "WorkMode": 324,
 }
+# Independent always-on work-mode badge. It is not governed by RTG selection;
+# only its bay-relative position follows the current RTG.
+WORK_MODE_INDICATOR_ROOT_PATH = "/World/LiveHUD/RTG_WORK_MODE_INDICATOR"
+WORK_MODE_INDICATOR_SPINNER_PATH = f"{WORK_MODE_INDICATOR_ROOT_PATH}/Spinner"
+WORK_MODE_INDICATOR_MESH_PATH = f"{WORK_MODE_INDICATOR_SPINNER_PATH}/Panel"
+WORK_MODE_INDICATOR_MATERIAL_PATH = "/World/Looks/RTG_Work_Mode_Indicator"
+WORK_MODE_INDICATOR_IMAGE_WIDTH = 420
+WORK_MODE_INDICATOR_IMAGE_HEIGHT = 420
+WORK_MODE_INDICATOR_WIDTH_M = 2.35
+WORK_MODE_INDICATOR_HEIGHT_M = 2.35
+WORK_MODE_INDICATOR_GAP_M = 0.30
+WORK_MODE_INDICATOR_RENDER_INTERVAL_SECONDS = 0.20
 LIVE_INFO_PANEL_ROTATE_XYZ = (0.0, 0.0, 180.0)
 DEVICE_LOCATION_PANEL_RIGHT_ROOT_PATH = (
     "/World/LiveHUD/RTG_DEVICE_LOCATION_PANEL_RIGHT"
@@ -942,6 +956,31 @@ def _task_is_complete(task: Dict[str, Any]) -> bool:
     return _task_state_text(task, True) == "DONE"
 
 
+def _task_is_cancelled(task: Dict[str, Any]) -> bool:
+    """Return whether an upstream task snapshot represents cancellation."""
+
+    for key in (
+        "operationState",
+        "taskState",
+        "state",
+        "status",
+        "taskStatus",
+    ):
+        value = str(task.get(key) or "").strip().upper()
+        if value in {
+            "CANCEL",
+            "CANCELLED",
+            "CANCELED",
+            "ABORT",
+            "ABORTED",
+            "取消",
+            "撤销",
+            "中止",
+        }:
+            return True
+    return False
+
+
 def _runinfo_is_task_completion(raw_runinfo: Any) -> bool:
     """Recognize terminal messages even if the task snapshot lags one frame."""
 
@@ -961,6 +1000,30 @@ def _runinfo_is_task_completion(raw_runinfo: Any) -> bool:
     )
 
 
+def _runinfo_is_task_cancellation(raw_runinfo: Any) -> bool:
+    """Recognize terminal cancellation messages from the upstream system."""
+
+    if isinstance(raw_runinfo, dict):
+        message = str(raw_runinfo.get("message") or "").strip()
+    else:
+        message = str(raw_runinfo or "").strip()
+    normalized = message.upper().replace(" ", "")
+    return any(
+        marker in normalized
+        for marker in (
+            "任务取消",
+            "作业取消",
+            "任务撤销",
+            "作业撤销",
+            "TASKCANCEL",
+            "TASKCANCELLED",
+            "TASKCANCELED",
+            "TASKABORT",
+            "TASKABORTED",
+        )
+    )
+
+
 def _runinfo_should_be_visible(
     task: Dict[str, Any],
     raw_runinfo: Any = None,
@@ -968,7 +1031,10 @@ def _runinfo_should_be_visible(
     """Show RunInfo only while a named task is actively executing."""
 
     return bool(str(task.get("taskId") or "").strip()) and not (
-        _task_is_complete(task) or _runinfo_is_task_completion(raw_runinfo)
+        _task_is_complete(task)
+        or _task_is_cancelled(task)
+        or _runinfo_is_task_completion(raw_runinfo)
+        or _runinfo_is_task_cancellation(raw_runinfo)
     )
 
 
@@ -1112,6 +1178,16 @@ def _work_mode_text(value: Any) -> str:
     except (TypeError, ValueError):
         return "未知"
     return WORK_MODE_LABELS.get(mode, "未知")
+
+
+def _work_mode_code(value: Any) -> int:
+    """Normalize a heartbeat work_mode for the always-on mode badge."""
+
+    try:
+        mode = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return mode if mode in WORK_MODE_LABELS else 0
 
 
 def _state_work_mode(state: Any) -> int:
@@ -2372,6 +2448,120 @@ def _render_device_location_values_bitmap(
         return False
 
 
+def _render_work_mode_indicator_bitmap(mode: int, output_path: Path) -> bool:
+    """Render one circular work-mode badge for the independent HUD indicator."""
+
+    font_path = _find_cjk_font_path()
+    if font_path is None:
+        return False
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+
+        size = WORK_MODE_INDICATOR_IMAGE_WIDTH
+        image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        center = size // 2
+        outer = int(size * 0.43)
+        glow_draw.ellipse(
+            (center - outer, center - outer, center + outer, center + outer),
+            fill=(54, 214, 245, 88),
+            outline=(78, 229, 249, 180),
+            width=10,
+        )
+        image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(18)))
+
+        draw = ImageDraw.Draw(image)
+        # Match the RCMS 3D display control-mode icons: a dark concentric
+        # circular frame, saturated mode color, and the same six symbols.
+        mode_colors = {
+            0: ((55, 71, 80, 235), (119, 137, 153, 255)),
+            1: ((34, 190, 112, 255), (67, 245, 130, 255)),
+            2: ((24, 166, 202, 255), (56, 213, 255, 255)),
+            3: ((38, 104, 202, 255), (96, 165, 250, 255)),
+            4: ((190, 146, 12, 255), (250, 204, 21, 255)),
+            5: ((178, 42, 66, 255), (255, 77, 90, 255)),
+        }
+        fill, edge = mode_colors.get(mode, mode_colors[0])
+        draw.ellipse(
+            (center - outer, center - outer, center + outer, center + outer),
+            fill=(3, 18, 30, 250),
+            outline=(16, 41, 55, 255),
+            width=18,
+        )
+        ring = outer - 19
+        draw.ellipse(
+            (center - ring, center - ring, center + ring, center + ring),
+            fill=(4, 23, 34, 255),
+            outline=edge,
+            width=8,
+        )
+        inner = outer - 42
+        draw.ellipse(
+            (center - inner, center - inner, center + inner, center + inner),
+            fill=(5, 27, 39, 255),
+            outline=edge,
+            width=5,
+        )
+        # Small broken arcs reproduce the RCMS neon ring without making the
+        # center wash out the mode glyph.
+        arc_box = (center - outer + 9, center - outer + 9, center + outer - 9, center + outer - 9)
+        for start in (18, 138, 258):
+            draw.arc(arc_box, start, start + 62, fill=edge, width=7)
+
+        title_font = ImageFont.truetype(str(font_path), 42)
+        code_font = ImageFont.truetype(str(font_path), 20)
+        title = WORK_MODE_LABELS.get(mode, "未知")
+        icon_stroke = max(5, size // 58)
+        icon_fill = (234, 250, 255, 245)
+        icon_color = edge
+        icon_box = (center - 76, center - 82, center + 76, center + 70)
+        if mode == 0:
+            draw.ellipse((center - 53, center - 53, center + 53, center + 53), outline=icon_color, width=8)
+            draw.text((center, center - 5), "?", font=title_font, fill=icon_fill, anchor="mm")
+        elif mode == 1:
+            draw.arc(icon_box, 35, 315, fill=icon_color, width=icon_stroke)
+            draw.polygon(
+                [(center + 62, center + 36), (center + 76, center + 36), (center + 69, center + 51)],
+                fill=icon_color,
+            )
+            draw.ellipse((center - 16, center - 16, center + 16, center + 16), fill=icon_color)
+            draw.line((center, center - 63, center, center - 78), fill=icon_color, width=icon_stroke // 2)
+        elif mode == 2:
+            draw.ellipse((center - 57, center - 57, center + 57, center + 57), outline=icon_color, width=icon_stroke)
+            draw.line((center - 38, center, center + 38, center), fill=icon_color, width=icon_stroke)
+            draw.line((center, center - 38, center, center + 38), fill=icon_color, width=icon_stroke)
+            draw.ellipse((center - 72, center - 14, center - 44, center + 14), fill=icon_fill)
+            draw.ellipse((center + 44, center - 14, center + 72, center + 14), fill=icon_fill)
+        elif mode == 3:
+            draw.rounded_rectangle((center - 63, center - 50, center + 63, center + 24), radius=12, outline=icon_color, width=icon_stroke, fill=(23, 68, 126, 120))
+            draw.line((center - 23, center + 47, center + 23, center + 47), fill=icon_color, width=icon_stroke)
+            draw.line((center, center + 24, center, center + 47), fill=icon_color, width=icon_stroke)
+            draw.arc((center - 47, center - 38, center + 47, center + 28), 205, 335, fill=icon_fill, width=icon_stroke // 2)
+            draw.arc((center - 30, center - 25, center + 30, center + 18), 205, 335, fill=icon_fill, width=icon_stroke // 2)
+        elif mode == 4:
+            draw.polygon([(center - 70, center - 8), (center, center - 70), (center + 70, center - 8)], outline=icon_color, fill=(112, 94, 20, 100))
+            draw.rounded_rectangle((center - 52, center - 8, center + 52, center + 55), radius=8, outline=icon_color, width=icon_stroke, fill=(113, 94, 20, 90))
+            draw.ellipse((center - 12, center + 13, center + 12, center + 37), fill=icon_fill)
+        else:
+            draw.line((center + 40, center - 58, center + 69, center - 29), fill=icon_color, width=icon_stroke + 5)
+            draw.line((center - 54, center + 58, center + 42, center - 36), fill=icon_color, width=icon_stroke + 13)
+            draw.line((center - 69, center + 51, center - 45, center + 75), fill=icon_color, width=icon_stroke + 8)
+            draw.ellipse((center - 68, center + 42, center - 38, center + 72), fill=icon_color)
+            draw.arc((center + 28, center - 78, center + 78, center - 28), 270, 90, fill=icon_fill, width=icon_stroke)
+        draw.text(
+            (center, center + outer - 8),
+            title,
+            font=code_font,
+            fill=(236, 251, 255, 255),
+            anchor="mm",
+        )
+        _save_bitmap_atomically(image, output_path)
+        return True
+    except Exception:
+        return False
+
+
 @dataclass(frozen=True)
 class ContainerInfoRow:
     label: str
@@ -3543,6 +3733,11 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_level_key: Optional[str] = None
         self._floating_runinfo_bitmap_seq = 0
         self._last_runinfo_payload: Dict[str, Any] = {}
+        # Keep the last successfully validated truck for the active LOAD /
+        # UNLOAD task.  Ordinary RunInfo messages continue to update the HUD,
+        # but must not erase the truck data used by the click-to-inspect panel.
+        self._validated_truck_runinfo: Optional[TruckRunInfo] = None
+        self._validated_truck_task_id: Optional[str] = None
         self._floating_task_panel_key: Optional[tuple[Any, ...]] = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key: Optional[tuple[Any, ...]] = None
@@ -3580,6 +3775,13 @@ class OmniverseRtgTwinDriver:
         ] = None
         self._automatic_signal_last_update_at = 0.0
         self._automatic_signal_visible: Optional[bool] = None
+        self._work_mode_indicator_mode = 0
+        self._work_mode_indicator_rendered_mode: Optional[int] = None
+        self._work_mode_indicator_bitmap_seq = 0
+        self._work_mode_indicator_last_render_at = 0.0
+        self._work_mode_indicator_stage_id: Optional[int] = None
+        self._work_mode_indicator_transform_key: Optional[tuple[Any, ...]] = None
+        self._work_mode_indicator_task: Dict[str, Any] = {}
 
     def start(self) -> None:
         if self._subscription is not None:
@@ -3609,6 +3811,17 @@ class OmniverseRtgTwinDriver:
                 self._hide_container_info_panel(stage)
                 startup_step = "hide truck info panel"
                 self._hide_truck_info_panel(stage)
+                startup_step = "show work mode indicator"
+                # Reuse the last applied heartbeat mode immediately after a
+                # hot reload; the next TCP snapshot will still replace it.
+                self._automatic_signal_work_mode = _work_mode_code(
+                    _read_status_value(stage, "rtg:workMode", 0)
+                )
+                self._sync_work_mode_indicator(
+                    stage,
+                    self._automatic_signal_work_mode,
+                    {},
+                )
                 self._device_panel_selected = _selected_rtg_path() is not None
                 startup_step = "sync floating runinfo billboard"
                 self._sync_floating_runinfo_billboard(stage, {}, visible=False)
@@ -3659,6 +3872,10 @@ class OmniverseRtgTwinDriver:
                 self._set_automatic_signal_visible(stage, False, force=True)
             except Exception:
                 pass
+            try:
+                self._hide_work_mode_indicator(stage)
+            except Exception:
+                pass
         if getattr(builtins, "_smart_port_rtg_panel_facing_driver", None) is self:
             builtins._smart_port_rtg_panel_facing_driver = None
         _dismiss_legacy_runinfo_window()
@@ -3685,6 +3902,8 @@ class OmniverseRtgTwinDriver:
         self._floating_runinfo_level_key = None
         self._floating_runinfo_bitmap_seq = 0
         self._last_runinfo_payload = {}
+        self._validated_truck_runinfo = None
+        self._validated_truck_task_id = None
         self._floating_task_panel_key = None
         self._floating_task_panel_bitmap_seq = 0
         self._floating_task_panel_diag_key = None
@@ -3717,6 +3936,13 @@ class OmniverseRtgTwinDriver:
         self._automatic_signal_antenna_world = None
         self._automatic_signal_last_update_at = 0.0
         self._automatic_signal_visible = None
+        self._work_mode_indicator_mode = 0
+        self._work_mode_indicator_rendered_mode = None
+        self._work_mode_indicator_bitmap_seq = 0
+        self._work_mode_indicator_last_render_at = 0.0
+        self._work_mode_indicator_stage_id = None
+        self._work_mode_indicator_transform_key = None
+        self._work_mode_indicator_task = {}
         self._last_weather_attribute_sync_at = 0.0
         self._weather_mode = "day"
         if stage is not None:
@@ -3724,6 +3950,7 @@ class OmniverseRtgTwinDriver:
             self._hide_container_info_panel(stage)
             self._hide_truck_info_panel(stage)
             self._set_automatic_signal_visible(stage, False, force=True)
+            self._hide_work_mode_indicator(stage)
         if self._status_overlay is not None:
             self._status_overlay.destroy()
             self._status_overlay = None
@@ -3789,8 +4016,23 @@ class OmniverseRtgTwinDriver:
             self._latest_state = None
         if isinstance(state, dict):
             self._automatic_signal_work_mode = _state_work_mode(state)
+            self._work_mode_indicator_task = dict(state.get("task") or {})
         if stage is not None:
             self._sync_automatic_mode_signal(stage, time.monotonic())
+            # A render update can arrive between TCP snapshots.  Keep the
+            # last task anchor during that gap; switching to an empty task
+            # would make the badge alternate between task-bay Y and gantry Y.
+            indicator_task = (
+                dict(state.get("task") or {})
+                if isinstance(state, dict)
+                else dict(self._work_mode_indicator_task)
+            )
+            indicator_mode = (
+                self._automatic_signal_work_mode
+                if isinstance(state, dict)
+                else _read_status_value(stage, "rtg:workMode", self._work_mode_indicator_mode)
+            )
+            self._sync_work_mode_indicator(stage, indicator_mode, indicator_task)
         if remote_manual_mode_active():
             # Keep accepting TCP snapshots, but never let a delayed PLC frame
             # overwrite an operator command while remote manual mode owns the
@@ -3808,6 +4050,10 @@ class OmniverseRtgTwinDriver:
                     try:
                         raw_task = dict(state.get("task") or {})
                         raw_runinfo = state.get("runinfo")
+                        self._update_validated_truck_runinfo_cache(
+                            raw_runinfo,
+                            raw_task,
+                        )
                         runinfo_visible = _runinfo_should_be_visible(
                             raw_task,
                             raw_runinfo,
@@ -3840,7 +4086,6 @@ class OmniverseRtgTwinDriver:
             if now - self._last_error_at > 1.0:
                 self._last_error_at = now
             self._log(f"apply failed: {exc}")
-
     def _sync_weather_environment(
         self,
         stage: Any,
@@ -3875,7 +4120,15 @@ class OmniverseRtgTwinDriver:
                 return default if value is None else value
 
             if attributes_due:
-                mode = weather.current_environment_mode(stage)
+                # A previous Kit session can leave a night preset in the
+                # anonymous session layer.  Live RTG startup should always
+                # begin in the authored daytime view; the environment
+                # controls can still switch to night/rain/fog afterwards.
+                mode = (
+                    "day"
+                    if stage_changed
+                    else weather.current_environment_mode(stage)
+                )
                 rain = weather.normalize_rain_amount(
                     attr(weather.RAIN_AMOUNT_ATTRIBUTE, weather.DEFAULT_RAIN_AMOUNT)
                 )
@@ -4008,6 +4261,25 @@ class OmniverseRtgTwinDriver:
                     prim = stage.GetPrimAtPath(
                         f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}"
                     )
+                    try:
+                        prim_valid = bool(prim and prim.IsValid())
+                    except Exception:
+                        prim_valid = False
+                    if not prim_valid:
+                        # A stale session layer may have removed a ring while
+                        # the live update callback still holds the old path.
+                        # Rebuild the compatible BasisCurves reticle once and
+                        # skip this frame if Kit still cannot author it.
+                        self._ensure_automatic_signal_geometry(stage)
+                        prim = stage.GetPrimAtPath(
+                            f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}"
+                        )
+                        try:
+                            prim_valid = bool(prim and prim.IsValid())
+                        except Exception:
+                            prim_valid = False
+                    if not prim_valid:
+                        continue
                     self._set_xform_op_attr_value(
                         prim,
                         "xformOp:translate",
@@ -4114,7 +4386,21 @@ class OmniverseRtgTwinDriver:
         existing = stage.GetPrimAtPath(
             f"{AUTOMATIC_SIGNAL_PULSE_ROOT_PATH}/Packet_00"
         )
-        if existing and stage.GetPrimAtPath(AUTOMATIC_SIGNAL_CORE_CURVE_PATH):
+        required_paths = (
+            AUTOMATIC_SIGNAL_CORE_CURVE_PATH,
+            *(f"{AUTOMATIC_SIGNAL_PULSE_ROOT_PATH}/Packet_{index:02d}" for index in range(AUTOMATIC_SIGNAL_PULSE_COUNT)),
+            *(f"{AUTOMATIC_SIGNAL_ROOT_PATH}/{name}" for name in ("AntennaBeacon", "RtgBeacon")),
+        )
+        ring_paths = tuple(
+            f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}"
+            for index in range(3)
+        )
+        rings_ready = all(
+            stage.GetPrimAtPath(path)
+            and stage.GetPrimAtPath(path).GetTypeName() == "BasisCurves"
+            for path in ring_paths
+        )
+        if existing and all(stage.GetPrimAtPath(path) for path in required_paths) and rings_ready:
             return
 
         root = UsdGeom.Xform.Define(stage, AUTOMATIC_SIGNAL_ROOT_PATH).GetPrim()
@@ -4201,15 +4487,34 @@ class OmniverseRtgTwinDriver:
             sphere.CreateRadiusAttr(0.52)
             UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(pulse_material)
 
+        # USD's Python bindings in Kit do not expose UsdGeom.Torus.  Build
+        # the target reticle as periodic BasisCurves instead; the ring paths
+        # remain Xformable, so the update loop can keep translating them to
+        # the moving RTG endpoint exactly as before.
+        ring_point_count = 48
         for index in range(3):
-            torus = UsdGeom.Torus.Define(
-                stage,
-                f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}",
+            ring_path = f"{AUTOMATIC_SIGNAL_ROOT_PATH}/RtgTargetRing_{index + 1:02d}"
+            existing_ring = stage.GetPrimAtPath(ring_path)
+            if existing_ring and existing_ring.GetTypeName() not in ("", "BasisCurves"):
+                stage.RemovePrim(ring_path)
+            ring = UsdGeom.BasisCurves.Define(stage, ring_path)
+            radius = 0.72 + index * 0.18
+            ring.CreateTypeAttr(UsdGeom.Tokens.linear)
+            ring.CreateWrapAttr(UsdGeom.Tokens.periodic)
+            ring.CreateCurveVertexCountsAttr([ring_point_count])
+            ring.CreatePointsAttr(
+                [
+                    Gf.Vec3f(
+                        math.cos(math.tau * point / ring_point_count) * radius,
+                        math.sin(math.tau * point / ring_point_count) * radius,
+                        0.0,
+                    )
+                    for point in range(ring_point_count)
+                ]
             )
-            torus.CreateMajorRadiusAttr(0.72 + index * 0.18)
-            torus.CreateMinorRadiusAttr(0.045)
-            torus.CreateAxisAttr(UsdGeom.Tokens.z)
-            UsdShade.MaterialBindingAPI.Apply(torus.GetPrim()).Bind(core_material)
+            ring.CreateWidthsAttr([0.045])
+            ring.SetWidthsInterpolation(UsdGeom.Tokens.constant)
+            UsdShade.MaterialBindingAPI.Apply(ring.GetPrim()).Bind(core_material)
 
     def _set_automatic_signal_visible(
         self,
@@ -4286,6 +4591,7 @@ class OmniverseRtgTwinDriver:
         # operator-facing RunInfo and task panels.
         raw_task = dict(state.get("task") or {})
         raw_runinfo = state.get("runinfo")
+        self._update_validated_truck_runinfo_cache(raw_runinfo, raw_task)
         try:
             self._sync_floating_runinfo_billboard(
                 stage,
@@ -4349,8 +4655,6 @@ class OmniverseRtgTwinDriver:
             if self._sync_task_stack(stage, task):
                 self._hide_inventory_bay_for_task(stage, task)
 
-        # Prefer PLC field/bay because it matches yard occupation.  If PLC has
-        # not published a bay yet, fall back to continuous gantry metres.
         if (
             field
             and bay > 0
@@ -7357,6 +7661,7 @@ class OmniverseRtgTwinDriver:
         bay_number = _as_int(_read_status_value(stage, "rtg:currentBay"), 0)
         if not _is_supported_yard_bay(field, bay_number):
             field = ""
+        stack_key = self._task_stack_key(task) if task else None
         try:
             from build_live_containers import container_center_y_for_bay
 
@@ -7366,7 +7671,6 @@ class OmniverseRtgTwinDriver:
         except Exception:
             pass
 
-        stack_key = self._task_stack_key(task) if task else None
         if stack_key is not None:
             block, bay_number, _pattern, container_size_ft = stack_key
             try:
@@ -7865,8 +8169,53 @@ class OmniverseRtgTwinDriver:
             f"root={root_path} type={info.car_type} no={info.car_no}"
         )
 
+    def _update_validated_truck_runinfo_cache(
+        self,
+        raw_runinfo: Any,
+        task: Dict[str, Any],
+    ) -> None:
+        """Cache validated LOAD/UNLOAD truck data for the active task.
+
+        RunInfo is a single latest-message stream, so a later guidance or
+        arrival message must not replace the truck number that the operator
+        expects to inspect.  The cache is scoped to taskId and is cleared at
+        task boundaries or terminal task states.
+        """
+
+        task_id = str(task.get("taskId") or "").strip()
+        cache_task_id = self._validated_truck_task_id
+        task_ended = (
+            not task_id
+            or _task_is_complete(task)
+            or _task_is_cancelled(task)
+            or _runinfo_is_task_completion(raw_runinfo)
+            or _runinfo_is_task_cancellation(raw_runinfo)
+        )
+        if task_ended or (
+            cache_task_id is not None and cache_task_id != task_id
+        ):
+            self._validated_truck_runinfo = None
+            self._validated_truck_task_id = None if task_ended else task_id
+
+        if task_ended or _task_work_type(task) not in (
+            WORK_TYPE_LOAD,
+            WORK_TYPE_UNLOAD,
+        ):
+            return
+
+        if self._validated_truck_task_id != task_id:
+            self._validated_truck_runinfo = None
+            self._validated_truck_task_id = task_id
+
+        info = _truck_runinfo_from_payload(raw_runinfo)
+        if info is not None:
+            self._validated_truck_runinfo = info
+
     def _current_truck_runinfo(self, stage: Any) -> Optional[TruckRunInfo]:
         """Read validated truck info from cached, pending, or authored status runinfo."""
+
+        if self._validated_truck_runinfo is not None:
+            return self._validated_truck_runinfo
 
         candidates: list[Any] = [self._last_runinfo_payload]
         with self._latest_lock:
@@ -7985,6 +8334,162 @@ class OmniverseRtgTwinDriver:
             UsdGeom.Imageable(panel_prim).MakeVisible()
         self._floating_device_panel_value_key = _device_location_panel_value_key(values)
         return True
+
+    def _sync_work_mode_indicator(
+        self,
+        stage: Any,
+        mode: Any,
+        task: Dict[str, Any],
+    ) -> None:
+        """Keep one independent, rotating current-work-mode badge visible."""
+
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+        mode_code = _work_mode_code(mode)
+        self._work_mode_indicator_mode = mode_code
+        bay_center_y = self._device_panel_bay_center_y(stage, task)
+        stage_changed = self._work_mode_indicator_stage_id != id(stage)
+        root_prim = stage.GetPrimAtPath(WORK_MODE_INDICATOR_ROOT_PATH)
+        if not root_prim:
+            root_prim = UsdGeom.Xform.Define(
+                stage,
+                WORK_MODE_INDICATOR_ROOT_PATH,
+            ).GetPrim()
+        if stage_changed:
+            UsdGeom.Imageable(root_prim).MakeVisible()
+        translate = Gf.Vec3d(
+            DEVICE_LOCATION_PANEL_WORLD_X,
+            bay_center_y + DEVICE_LOCATION_PANEL_Y_OFFSET_M,
+            DEVICE_LOCATION_PANEL_WORLD_Z
+            + DEVICE_LOCATION_PANEL_UP_OFFSET_M
+            - DEVICE_LOCATION_PANEL_HEIGHT_M * 0.5
+            - WORK_MODE_INDICATOR_GAP_M
+            - WORK_MODE_INDICATOR_HEIGHT_M * 0.5,
+        )
+        rotate = camera_facing_rotate_xyz(
+            stage,
+            translate,
+            DEVICE_LOCATION_PANEL_ROTATE_XYZ,
+        )
+        transform_key = (
+            id(stage),
+            round(float(translate[0]), 4),
+            round(float(translate[1]), 4),
+            round(float(translate[2]), 4),
+            *(round(float(value), 3) for value in rotate),
+        )
+        if transform_key != self._work_mode_indicator_transform_key:
+            self._set_xform_translate(root_prim, translate)
+            self._set_xform_rotate_xyz(root_prim, Gf.Vec3f(*rotate))
+            self._normalize_panel_xform_op_order(root_prim)
+            self._work_mode_indicator_transform_key = transform_key
+
+        spinner_prim = stage.GetPrimAtPath(WORK_MODE_INDICATOR_SPINNER_PATH)
+        if not spinner_prim:
+            spinner_prim = UsdGeom.Xform.Define(
+                stage,
+                WORK_MODE_INDICATOR_SPINNER_PATH,
+            ).GetPrim()
+            # Keep the current-mode badge static for now.  The spinner Xform
+            # is retained as a stable parent for a future animation.
+            self._set_xform_rotate_xyz(spinner_prim, Gf.Vec3f(0.0, 0.0, 0.0))
+
+        now = time.monotonic()
+        mode_changed = (
+            stage_changed
+            or self._work_mode_indicator_rendered_mode != mode_code
+        )
+        mesh_exists = stage.GetPrimAtPath(WORK_MODE_INDICATOR_MESH_PATH)
+        if mesh_exists and not mode_changed:
+            return
+
+        self._work_mode_indicator_bitmap_seq += 1
+        texture_path = (
+            Path(tempfile.gettempdir())
+            / f"smart_port_rtg_work_mode_{os.getpid()}_{self._work_mode_indicator_bitmap_seq}.png"
+        )
+        if not _render_work_mode_indicator_bitmap(mode_code, texture_path):
+            self._log("work mode indicator render failed")
+            return
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            panel = UsdGeom.Mesh.Define(stage, WORK_MODE_INDICATOR_MESH_PATH)
+            panel_prim = panel.GetPrim()
+            half_w = WORK_MODE_INDICATOR_WIDTH_M * 0.5
+            half_h = WORK_MODE_INDICATOR_HEIGHT_M * 0.5
+            panel.CreatePointsAttr(
+                [
+                    Gf.Vec3f(half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, -half_h),
+                    Gf.Vec3f(-half_w, 0.0, half_h),
+                    Gf.Vec3f(half_w, 0.0, half_h),
+                ]
+            )
+            panel.CreateFaceVertexCountsAttr([4])
+            panel.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            panel.CreateDoubleSidedAttr(True)
+            panel.CreateExtentAttr(
+                [Gf.Vec3f(-half_w, 0.0, -half_h), Gf.Vec3f(half_w, 0.0, half_h)]
+            )
+            st = UsdGeom.PrimvarsAPI(panel_prim).CreatePrimvar(
+                "st",
+                Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying,
+            )
+            st.Set([Gf.Vec2f(0.0, 0.0), Gf.Vec2f(1.0, 0.0), Gf.Vec2f(1.0, 1.0), Gf.Vec2f(0.0, 1.0)])
+            panel_prim.CreateAttribute(
+                "rtg:workModeIndicatorTexture",
+                Sdf.ValueTypeNames.Asset,
+            ).Set(Sdf.AssetPath(str(texture_path)))
+
+            material = UsdShade.Material.Define(stage, WORK_MODE_INDICATOR_MATERIAL_PATH)
+            shader = UsdShade.Shader.Define(
+                stage, f"{WORK_MODE_INDICATOR_MATERIAL_PATH}/PreviewSurface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.32)
+            shader.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.02)
+            texture = UsdShade.Shader.Define(
+                stage, f"{WORK_MODE_INDICATOR_MATERIAL_PATH}/Texture"
+            )
+            texture.CreateIdAttr("UsdUVTexture")
+            texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(str(texture_path)))
+            texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            reader = UsdShade.Shader.Define(
+                stage, f"{WORK_MODE_INDICATOR_MATERIAL_PATH}/Primvar_st"
+            )
+            reader.CreateIdAttr("UsdPrimvarReader_float2")
+            reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+            texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+                reader.ConnectableAPI(), "result"
+            )
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                texture.ConnectableAPI(), "rgb"
+            )
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(
+                texture.ConnectableAPI(), "a"
+            )
+            material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+            UsdGeom.Imageable(panel_prim).MakeVisible()
+        self._work_mode_indicator_stage_id = id(stage)
+        self._work_mode_indicator_rendered_mode = mode_code
+        self._work_mode_indicator_last_render_at = now
+
+    @staticmethod
+    def _hide_work_mode_indicator(stage: Any) -> None:
+        try:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                root = stage.GetPrimAtPath(WORK_MODE_INDICATOR_ROOT_PATH)
+                if root:
+                    UsdGeom.Imageable(root).MakeInvisible()
+        except Exception:
+            return
 
     def _sync_floating_device_panel(
         self,
