@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import importlib
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,10 @@ DEVICE_PANEL_FACING_DIAG_ENABLED = False
 
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
+CAMERA_MARKER_NAME_RE = re.compile(
+    r"^(?:(?:CAMERA|CAM|MARKER)[_-]?C?|C)[_-]?([0-9]{1,2})(?:[_-].*)?$",
+    re.IGNORECASE,
+)
 LIVE_HUD_ROOT_PATH = "/World/LiveHUD"
 CJK_FONT_PATHS = (
     "C:/Windows/Fonts/msyh.ttc",
@@ -233,6 +238,19 @@ def _rtg_root_path_from_selection(path: str) -> Optional[str]:
     return None
 
 
+def _is_camera_marker_selection_path(path: str) -> bool:
+    """Keep Cxx camera markers out of the generic device-location panel."""
+
+    text = str(path or "").strip()
+    if not text.startswith(f"{PRIMARY_RTG_PATH}/"):
+        return False
+    for component in reversed([part for part in text.split("/") if part]):
+        match = CAMERA_MARKER_NAME_RE.match(component)
+        if match and 1 <= int(match.group(1)) <= 33:
+            return True
+    return False
+
+
 def _is_live_hud_selection_path(path: str) -> bool:
     text = str(path or "").strip()
     return text == LIVE_HUD_ROOT_PATH or text.startswith(f"{LIVE_HUD_ROOT_PATH}/")
@@ -326,6 +344,12 @@ class RtgDeviceLocationPanelService:
         if signature == self._last_selection_signature:
             return
         self._last_selection_signature = signature
+        if any(_is_camera_marker_selection_path(path) for path in paths):
+            # The RTSP popup owns camera-marker clicks. Hide this panel but do
+            # not clear selection, so the camera service can consume the same
+            # USD selection event.
+            self._hide()
+            return
         if paths and all(_is_live_hud_selection_path(path) for path in paths):
             root = next((_device_hud_root_from_selection(path) for path in paths), None)
             if root:

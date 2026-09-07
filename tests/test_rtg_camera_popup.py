@@ -27,6 +27,11 @@ class CameraPopupTests(unittest.TestCase):
         self.assertIsNone(popup._marker_number("/World/Yard/Container_C12"))
         self.assertIsNone(popup._marker_number("/World/RTG/Beam"))
         self.assertEqual(popup._selected_marker_number("/World/RTG/CameraMarker_C1/mesh"), 1)
+        self.assertIsNone(
+            popup._selected_marker_number(
+                "/World/PortAndRTG/RTG_STATIC_PRIMARY_STYLE_left_C2"
+            )
+        )
 
     def test_config_builds_axis_rtsp_url(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

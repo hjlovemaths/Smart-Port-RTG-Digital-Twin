@@ -68,7 +68,7 @@ LEGACY_MARKER_ROOT = "/World/RTGCameraMarkers"
 # Only a marker-like leaf is accepted.  Matching the complete USD path caused
 # unrelated container/yard names containing "C<number>" to become red dots.
 MARKER_NAME_RE = re.compile(
-    r"^(?:(?:CAMERA|CAM)[_-]?C?|C)[_-]?(\d+)(?:[_-].*)?$", re.IGNORECASE
+    r"^(?:(?:CAMERA[_-]?MARKER|CAMERA|CAM)[_-]?C?|C)[_-]?(\d+)(?:[_-].*)?$", re.IGNORECASE
 )
 SELECTED_MARKER_RE = re.compile(
     r"(?:^|[_-])(?:CAMERA|CAM|MARKER)?[_-]?C?([0-9]{1,2})(?:$|[_-])",
@@ -199,14 +199,22 @@ def _marker_number(path: str) -> Optional[int]:
 
 
 def _selected_marker_number(path: str) -> Optional[int]:
-    """Resolve a clicked marker, allowing descriptive mesh child names."""
+    """Resolve only an actual Cxx/camera-marker path component.
+
+    Do not search arbitrary component text here. Static RTG meshes are named
+    like ``RTG_STATIC_PRIMARY_STYLE_left_C2``; treating the ``_C2`` suffix as
+    a camera makes clicking an ordinary beam open the C2 popup.
+    """
 
     strict = _marker_number(path)
     if strict is not None:
         return strict
     for component in reversed([part for part in path.rstrip("/").split("/") if part]):
         match = SELECTED_MARKER_RE.search(component)
-        if match is None:
+        # A marker token must start the component. This still accepts names
+        # such as CameraMarker_C1, but rejects ordinary meshes such as
+        # RTG_STATIC_PRIMARY_STYLE_left_C2.
+        if match is None or match.start() != 0:
             continue
         try:
             return int(match.group(1))
@@ -504,6 +512,20 @@ class RtgCameraPopupService:
                 "[RTG Camera] selected prim not recognized as camera marker: "
                 + "; ".join(paths[:3])
             )
+            self._close_preview()
+
+    def _close_preview(self) -> None:
+        """Close the preview when the user selects a non-camera scene object."""
+
+        if self._reader:
+            self._reader.stop()
+            self._reader = None
+        self._selected_seq = None
+        if self._window is not None:
+            try:
+                self._window.visible = False
+            except Exception:
+                pass
 
     def _clear_selection_gizmo(self) -> None:
         """Clear the viewport selection after opening the camera popup."""

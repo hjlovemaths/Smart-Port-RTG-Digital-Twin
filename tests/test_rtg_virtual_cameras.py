@@ -26,6 +26,12 @@ class VirtualCameraMarkerTests(unittest.TestCase):
         self.assertIsNone(virtual_cameras._marker_number("RTG_VIRTUAL_CAMERAS"))
         self.assertIsNone(virtual_cameras._marker_number("Beam"))
 
+    def test_camera_labels_are_not_used_as_marker_anchors(self) -> None:
+        self.assertTrue(virtual_cameras._is_camera_label_name("C10_label__USD_MESH"))
+        self.assertTrue(virtual_cameras._is_camera_label_name("C3_label_curve"))
+        self.assertFalse(virtual_cameras._is_camera_label_name("C10_green_sphere_mesh"))
+        self.assertFalse(virtual_cameras._is_camera_label_name("yard_label_10"))
+
     def test_virtual_camera_path_uses_independent_root(self) -> None:
         self.assertEqual(
             virtual_cameras._virtual_camera_path(1),

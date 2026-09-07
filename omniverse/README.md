@@ -461,7 +461,8 @@ through `/World/RTGVirtualCameras/C33` aimed at the RTG work area. The two-digit
 names keep Omniverse camera menus sorted in numeric order.
 
 `create_rtg_virtual_cameras()` creates session-only cameras for immediate
-debugging. Use `open_rtg_virtual_camera(1)` through
+debugging, aligns each Cxx label with its green marker, and starts the
+click-to-open RTSP popup service. Use `open_rtg_virtual_camera(1)` through
 `open_rtg_virtual_camera(33)` to bind the active viewport. Persist the camera
 definitions with:
 

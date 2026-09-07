@@ -90,8 +90,8 @@ RTG 会话层变换，二者不要同时运行。
 | PLC/TwinState 实时接收 | 加载脚本后自动启动 | `get_latest_state()`、`get_yard_inventory_status()`、`stop_live_driver()` |
 | 手柄/键盘远程手动 | 是 | `get_gamepad_manual_status()`、`stop_gamepad_manual_mode()` |
 | viewport-only WebRTC | 是 | `restore_kit_ui()`；浏览器打开 `http://localhost:8011` |
-| C01-C33 虚拟相机 | 创建后再选择相机 | `open_rtg_virtual_camera(n)`、`save_rtg_virtual_camera_layer()` |
-| 真实 RTSP 相机弹窗 | 仅独立调试时启动 | `stop_rtg_camera_popup()` |
+| C01-C33 虚拟相机 | 创建后可点击绿色标记 | `open_rtg_virtual_camera(n)`、`save_rtg_virtual_camera_layer()` |
+| 真实 RTSP 相机弹窗 | 创建虚拟相机时自动启动 | `stop_rtg_camera_popup()` |
 | 吊具四宫格模型相机 | 手动模式会自动管理 | `stop_rtg_model_camera_grid()` |
 | RTG/集装箱/车辆信息面板 | 实时接收器内部自动管理 | 无需加载旧 popup 脚本 |
 | 库存、状态机、实时运动控制 | 仿真器或实时接收器自动导入 | 不应直接执行模块文件 |
@@ -138,7 +138,7 @@ create_rtg_virtual_cameras()
 open_rtg_virtual_camera(1)
 ```
 
-真实 RTSP 相机弹窗仅在脱离实时接收器独立调试时启动：
+真实 RTSP 相机弹窗也可单独启动（例如没有先创建虚拟相机时）：
 
 ```python
 exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_camera_popup.py", encoding="utf-8").read())
@@ -360,12 +360,17 @@ python omniverse\scripts\generate_yard_inventory.py --mode empty --output omnive
 exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_virtual_cameras.py", encoding="utf-8").read())
 ```
 
-只在当前会话创建 C01-C33，并立即切换到 C01：
+只在当前会话创建 C01-C33；创建时会把 Cxx 标签贴近绿色标记，并自动开启
+绿色标记点击后的真实 RTSP 摄像头弹窗：
 
 ```python
 create_rtg_virtual_cameras()
 open_rtg_virtual_camera(1)
 ```
+
+创建完成后直接点击任意绿色 Cxx 标记即可打开对应摄像头画面。无 UI 或需要
+单独管理弹窗时，可使用 `create_rtg_virtual_cameras(start_camera_popup=False)`；
+也可用 `align_labels=False` 跳过标签对齐。
 
 切换其他相机：
 

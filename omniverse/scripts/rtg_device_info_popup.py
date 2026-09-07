@@ -20,6 +20,7 @@ import builtins
 import importlib
 import importlib.util
 import os
+import re
 import sys
 import tempfile
 import time
@@ -53,6 +54,10 @@ get_or_add_xform_op = _billboard_utils.get_or_add_xform_op
 STATUS_PRIM_PATH = "/World/LiveTwinState"
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 PORT_AND_RTG_ROOT_NAME = "PortAndRTG"
+CAMERA_MARKER_NAME_RE = re.compile(
+    r"^(?:(?:CAMERA|CAM|MARKER)[_-]?C?|C)[_-]?([0-9]{1,2})(?:[_-].*)?$",
+    re.IGNORECASE,
+)
 UI_ASSET_DIR = Path(
     r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/assets/ui/rtg_device_panel"
 )
@@ -144,6 +149,19 @@ def _rtg_root_path_from_selection(path: str) -> Optional[str]:
         index = parts.index("RTG_PRIMARY_DYNAMIC")
         return "/" + "/".join(parts[: index + 1])
     return None
+
+
+def _is_camera_marker_selection_path(path: str) -> bool:
+    """Keep Cxx camera markers out of the generic device popup."""
+
+    text = str(path or "").strip()
+    if not text.startswith(f"{PRIMARY_RTG_PATH}/"):
+        return False
+    for component in reversed([part for part in text.split("/") if part]):
+        match = CAMERA_MARKER_NAME_RE.match(component)
+        if match and 1 <= int(match.group(1)) <= 33:
+            return True
+    return False
 
 
 def _is_live_hud_selection_path(path: str) -> bool:
@@ -752,6 +770,12 @@ class RtgDeviceInfoPopupService:
             return
         self._last_selection_signature = signature
         self._log(f"selection changed source={source} paths={list(paths)}")
+
+        if any(_is_camera_marker_selection_path(path) for path in paths):
+            # rtg_camera_popup owns camera-marker clicks. Do not clear the
+            # selection here because the camera service consumes this event.
+            self._hide()
+            return
 
         actionable_paths = [
             path for path in paths if not _is_live_hud_selection_path(path)

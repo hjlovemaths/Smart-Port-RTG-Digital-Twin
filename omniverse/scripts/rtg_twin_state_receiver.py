@@ -313,6 +313,10 @@ RUNINFO_FLOATING_PANEL_PATH = f"{RUNINFO_FLOATING_ROOT_PATH}/Panel"
 RUNINFO_FLOATING_MATERIAL_PATH = "/World/Looks/RTG_RunInfo_Floating_Billboard"
 RUNINFO_FLOATING_ABOVE_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 PRIMARY_RTG_SELECTION_ROOT_PATH = RUNINFO_FLOATING_ABOVE_RTG_PATH
+RTG_CAMERA_MARKER_NAME_RE = re.compile(
+    r"^(?:(?:CAMERA|CAM|MARKER)[_-]?C?|C)[_-]?([0-9]{1,2})(?:[_-].*)?$",
+    re.IGNORECASE,
+)
 RUNINFO_FLOATING_ABOVE_GAP_M = 1.2
 RUNINFO_FLOATING_RIGHT_X_OFFSET_M = 1.2
 RUNINFO_FLOATING_BACK_Y_OFFSET_M = 7.0
@@ -1421,6 +1425,21 @@ def _is_descendant_path(path: str, root_path: str) -> bool:
     return path == root_path or path.startswith(f"{root_path}/")
 
 
+def _is_rtg_camera_marker_selection_path(path: str) -> bool:
+    """Return True for a selected C1-C33 marker or one of its mesh children."""
+
+    text = str(path or "").strip()
+    if not _is_descendant_path(text, PRIMARY_RTG_SELECTION_ROOT_PATH):
+        return False
+    if text == PRIMARY_RTG_SELECTION_ROOT_PATH:
+        return False
+    for component in reversed([part for part in text.split("/") if part]):
+        match = RTG_CAMERA_MARKER_NAME_RE.match(component)
+        if match and 1 <= int(match.group(1)) <= 33:
+            return True
+    return False
+
+
 def _container_component_index(parts: tuple[str, ...]) -> Optional[int]:
     for index, part in enumerate(parts):
         if part in {"LiveContainers", "YardInventory"}:
@@ -1714,17 +1733,24 @@ def _truck_runinfo_from_payload(runinfo: Any) -> Optional[TruckRunInfo]:
     if not re.search(r"(?:校验|检验).*(?:通过|成功)", message):
         return None
     car_type = _runinfo_truck_type_from_message(message)
-    car_no = None
-    for label_pattern in (
+    car_no_candidates: list[tuple[int, int, str]] = []
+    for priority, label_pattern in enumerate(
+        (
         r"任务车号",
         r"侧面车号",
         r"算法检测车号",
         r"引导识别到(?:ITK/AIV|AIV|ITK)?车号",
         r"车号",
+        )
     ):
-        car_no = _runinfo_field_value(message, label_pattern)
-        if car_no:
-            break
+        candidate = _runinfo_field_value(message, label_pattern)
+        if candidate:
+            # RCMS can publish a truncated side-camera value (for example
+            # ``侧面车号H``) while ``算法检测车号`` still contains ``H327``.
+            # Prefer the longest candidate, retaining the existing label
+            # priority when candidates have equal length.
+            car_no_candidates.append((len(candidate), -priority, candidate))
+    car_no = max(car_no_candidates)[2] if car_no_candidates else None
     if not car_no:
         return None
     return TruckRunInfo(car_type=car_type, car_no=car_no)
@@ -7729,6 +7755,13 @@ class OmniverseRtgTwinDriver:
             return False
         del source
         self._device_panel_last_selection_signature = signature
+        if any(_is_rtg_camera_marker_selection_path(path) for path in paths):
+            # Camera markers are handled by rtg_camera_popup. Do not let the
+            # generic RTG device-location panel consume the same click.
+            self._device_panel_selected = False
+            self._container_info_selected_root_path = None
+            self._truck_info_selected_root_path = None
+            return True
         matched_rtg = any(
             _is_descendant_path(path, PRIMARY_RTG_SELECTION_ROOT_PATH)
             for path in paths

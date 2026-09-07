@@ -207,6 +207,12 @@ class TaskPositionTests(unittest.TestCase):
             )
         )
 
+    def test_truck_runinfo_prefers_complete_candidate_over_truncated_side_number(self) -> None:
+        info = receiver._truck_runinfo_from_payload(
+            "校验内集卡车号通过，算法检测车号:H327侧面车号H"
+        )
+        self.assertEqual(info, receiver.TruckRunInfo("内集卡", "H327"))
+
     def test_truck_runinfo_parses_external_truck_plate_from_task_number(self) -> None:
         info = receiver._truck_runinfo_from_payload(
             "校验外集卡车号通过，算法检测车号:,侧面车号:沪EG8905"
@@ -339,6 +345,21 @@ class TaskPositionTests(unittest.TestCase):
             receiver.LIVE_TASK_TRUCK_PATH,
         )
         self.assertIsNone(self.driver._container_info_selected_root_path)
+
+    def test_camera_marker_selection_does_not_open_device_panel(self) -> None:
+        self.driver._device_panel_selected = True
+        with patch.object(
+            receiver.OmniverseRtgTwinDriver,
+            "_viewport_selection_paths",
+            return_value=[
+                f"{receiver.PRIMARY_RTG_SELECTION_ROOT_PATH}/"
+                "RTG_CAMERA_MARKERS_ROOT/C10/C10_green_sphere_mesh"
+            ],
+        ):
+            self.assertTrue(self.driver._refresh_device_panel_selection("test"))
+        self.assertFalse(self.driver._device_panel_selected)
+        self.assertIsNone(self.driver._container_info_selected_root_path)
+        self.assertIsNone(self.driver._truck_info_selected_root_path)
 
     def test_task_panel_bay_map_draws_r6_to_r1_left_to_right(self) -> None:
         self.assertEqual(

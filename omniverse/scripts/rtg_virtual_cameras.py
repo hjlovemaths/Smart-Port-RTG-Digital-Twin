@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import math
 import re
+import importlib
+import importlib.util
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -51,6 +54,11 @@ DEFAULT_FOCAL_LENGTH_MM = 18.0
 DEFAULT_HORIZONTAL_APERTURE_MM = 20.955
 DEFAULT_VERTICAL_APERTURE_MM = 15.2908
 DEFAULT_CLIPPING_RANGE_M = (0.05, 2500.0)
+# The imported asset keeps the Cxx label as a sibling of the green marker.  A
+# small, explicit gap reads better than the old asset offsets while keeping the
+# text clear of the marker mesh.
+DEFAULT_LABEL_OFFSET_M = (0.0, 0.0, 0.14)
+LABEL_ALIGNMENT_OP_SUFFIX = "rtgLabelAlignment"
 MARKER_NAME_RE = re.compile(
     r"^(?:(?:CAMERA[_-]?MARKER|CAMERA|CAM)[_-]?C?|C)[_-]?(\d+)(?:[_-].*)?$",
     re.IGNORECASE,
@@ -92,6 +100,12 @@ def _virtual_camera_path(seq: int) -> str:
     return f"{VIRTUAL_CAMERA_ROOT_PATH}/C{int(seq):02d}"
 
 
+def _is_camera_label_name(name: str) -> bool:
+    """Return whether a prim name is the authored label for a camera marker."""
+
+    return "label" in str(name).lower() and _marker_number(str(name)) is not None
+
+
 def _is_generated_virtual_camera_path(path: str) -> bool:
     text = str(path)
     return text.startswith(f"{VIRTUAL_CAMERA_ROOT_PATH}/") or f"/{VIRTUAL_CAMERA_NAME}" in text
@@ -130,13 +144,38 @@ def _candidate_marker_prims(stage: Any, expected_count: int) -> list[Any]:
             visited_paths.add(path)
 
             seq = _marker_number(prim.GetName())
-            if seq is None or seq < 1 or seq > expected_count:
+            if (
+                seq is None
+                or seq < 1
+                or seq > expected_count
+                or _is_camera_label_name(prim.GetName())
+            ):
                 continue
             previous = by_seq.get(seq)
             if previous is None or _marker_rank(prim) < _marker_rank(previous):
                 by_seq[seq] = prim
 
     return [by_seq[seq] for seq in sorted(by_seq)]
+
+
+def _camera_label_prims(stage: Any, expected_count: int) -> dict[int, Any]:
+    """Find the authored Cxx label parents, preferring Xform/Scope prims."""
+
+    primary = stage.GetPrimAtPath(PRIMARY_RTG_PATH)
+    if not primary:
+        return {}
+
+    by_seq: dict[int, Any] = {}
+    for prim in _iter_prim_tree(primary):
+        if not _is_camera_label_name(prim.GetName()):
+            continue
+        seq = _marker_number(prim.GetName())
+        if seq is None or seq < 1 or seq > expected_count:
+            continue
+        previous = by_seq.get(seq)
+        if previous is None or _marker_rank(prim) < _marker_rank(previous):
+            by_seq[seq] = prim
+    return by_seq
 
 
 def _marker_rank(prim: Any) -> tuple[int, int]:
@@ -327,6 +366,101 @@ def _author_virtual_cameras(
     return records
 
 
+def _align_camera_labels(
+    stage: Any,
+    specs: list[VirtualCameraSpec],
+    *,
+    expected_count: int,
+    offset_m: tuple[float, float, float] = DEFAULT_LABEL_OFFSET_M,
+) -> list[str]:
+    """Move each authored Cxx label close to its matching green marker.
+
+    The labels are siblings of the marker meshes in the imported asset, so
+    changing a label's local transform is the least invasive fix: it preserves
+    the original text geometry/material and keeps the correction in the USD
+    session layer.  A named additive op makes the correction idempotent when
+    ``create_rtg_virtual_cameras()`` is run repeatedly.
+    """
+
+    from pxr import Gf, UsdGeom
+
+    labels = _camera_label_prims(stage, expected_count)
+    cache = UsdGeom.XformCache()
+    aligned: list[str] = []
+    for spec in specs:
+        label = labels.get(spec.seq)
+        marker_position = _world_position(stage, spec.marker_path)
+        if label is None or marker_position is None:
+            continue
+        label_position = _world_position(stage, str(label.GetPath()))
+        if label_position is None:
+            continue
+
+        target = marker_position + Gf.Vec3d(*offset_m)
+        world_delta = target - label_position
+        parent = label.GetParent()
+        if parent:
+            parent_world = cache.GetLocalToWorldTransform(parent)
+            local_delta = parent_world.GetInverse().TransformDir(world_delta)
+        else:
+            local_delta = world_delta
+
+        xformable = UsdGeom.Xformable(label)
+        alignment_op = next(
+            (
+                op
+                for op in xformable.GetOrderedXformOps()
+                if op.GetOpName() == f"xformOp:translate:{LABEL_ALIGNMENT_OP_SUFFIX}"
+            ),
+            None,
+        )
+        if alignment_op is None:
+            alignment_op = xformable.AddTranslateOp(
+                opSuffix=LABEL_ALIGNMENT_OP_SUFFIX,
+                precision=UsdGeom.XformOp.PrecisionDouble,
+            )
+            previous_delta = Gf.Vec3d(0.0, 0.0, 0.0)
+        else:
+            previous_delta = alignment_op.Get() or Gf.Vec3d(0.0, 0.0, 0.0)
+
+        alignment_op.Set(
+            Gf.Vec3d(
+                float(previous_delta[0]) + float(local_delta[0]),
+                float(previous_delta[1]) + float(local_delta[1]),
+                float(previous_delta[2]) + float(local_delta[2]),
+            )
+        )
+        aligned.append(str(label.GetPath()))
+    if aligned:
+        print(f"[RTG Virtual Cameras] aligned {len(aligned)} Cxx labels to green markers")
+    return aligned
+
+
+def _start_camera_popup_service() -> None:
+    """Start the click-to-open RTSP popup, including Script Editor execution."""
+
+    try:
+        module = importlib.import_module("rtg_camera_popup")
+    except Exception:
+        script_path = OMNIVERSE_ROOT / "scripts" / "rtg_camera_popup.py"
+        try:
+            spec = importlib.util.spec_from_file_location("rtg_camera_popup", script_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"cannot load {script_path}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["rtg_camera_popup"] = module
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            print(f"[RTG Virtual Cameras] click popup unavailable: {exc}")
+            return
+
+    try:
+        module.start_rtg_camera_popup()
+        print("[RTG Virtual Cameras] click a green Cxx marker to open its RTSP camera")
+    except Exception as exc:
+        print(f"[RTG Virtual Cameras] click popup start skipped: {exc}")
+
+
 def _existing_virtual_camera_records(
     stage: Any,
     *,
@@ -385,8 +519,15 @@ def create_rtg_virtual_cameras(
     expected_count: int = DEFAULT_CAMERA_COUNT,
     look_target_path: str = DEFAULT_LOOK_TARGET_PATH,
     focal_length_mm: float = DEFAULT_FOCAL_LENGTH_MM,
+    align_labels: bool = True,
+    start_camera_popup: bool = True,
 ) -> list[VirtualCameraRecord]:
-    """Create or rebuild one virtual camera for each RTG green marker."""
+    """Create virtual cameras and enable click-to-open RTSP previews.
+
+    ``start_camera_popup`` is enabled by default so the same call used to
+    create C01-C33 also makes the green markers interactive.  Pass ``False``
+    when running headless or when the popup service is managed separately.
+    """
 
     from pxr import Usd
 
@@ -402,12 +543,21 @@ def create_rtg_virtual_cameras(
     )
 
     with Usd.EditContext(stage, stage.GetSessionLayer()):
+        if align_labels:
+            _align_camera_labels(
+                stage,
+                specs,
+                expected_count=expected_count,
+            )
         records = _author_virtual_cameras(
             stage,
             specs,
             look_target_path=look_target_path,
             focal_length_mm=focal_length_mm,
         )
+
+    if start_camera_popup:
+        _start_camera_popup_service()
 
     print(f"[RTG Virtual Cameras] created {len(records)} cameras")
     for record in records:

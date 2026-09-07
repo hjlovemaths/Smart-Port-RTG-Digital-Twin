@@ -81,6 +81,18 @@ class DeviceInfoPopupTests(unittest.TestCase):
             )
         )
 
+    def test_camera_marker_selection_is_not_a_device_selection(self) -> None:
+        marker_path = (
+            f"{popup.PRIMARY_RTG_PATH}/RTG_CAMERA_MARKERS_ROOT/"
+            "C10/C10_green_sphere_mesh"
+        )
+        self.assertTrue(popup._is_camera_marker_selection_path(marker_path))
+        self.assertFalse(
+            popup._is_camera_marker_selection_path(
+                f"{popup.PRIMARY_RTG_PATH}/ANIM_CTRL_RTG_GANTRY_TRAVEL/Beam"
+            )
+        )
+
     def test_device_panel_uses_scene_hud_without_omni_window_chrome(self) -> None:
         self.assertEqual(
             popup.DEVICE_SCENE_PANEL_ROOT_PATH,
