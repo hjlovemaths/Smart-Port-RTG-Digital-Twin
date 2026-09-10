@@ -37,7 +37,7 @@ RAIN_LAYER_PHASE_PATHS = tuple(
 )
 RAIN_SPLASH_LAYER_PATHS: tuple[str, ...] = ()
 RAIN_MIST_LAYER_PATHS: tuple[str, ...] = ()
-RAIN_ANIMATION_INTERVAL_SECONDS = 1.0 / 24.0
+RAIN_ANIMATION_INTERVAL_SECONDS = 1.0 / 60.0
 RAIN_CAMERA_FOLLOW_GRID_M = 10.0
 RAIN_EMITTER_MIN_Z_M = 20.0
 # Stop visibly above the road surface. With splashes disabled, ending exactly
@@ -45,7 +45,7 @@ RAIN_EMITTER_MIN_Z_M = 20.0
 # ground. The extra clearance is only a visual cap; it still never penetrates
 # the yard or water surface.
 RAIN_SURFACE_CLIP_Z_M = 0.55
-RAIN_STREAK_MAX_LENGTHS_M = (0.55, 0.90, 1.35, 2.00)
+RAIN_STREAK_MAX_LENGTHS_M = (0.38, 0.52, 0.70, 0.92)
 RAIN_ANIMATION_PATH = RAIN_LAYER_PATHS[0]
 ENVIRONMENT_MODE_ATTRIBUTE = "smartPort:environmentMode"
 WIND_SPEED_ATTRIBUTE = "smartPort:windSpeedMps"
@@ -55,6 +55,9 @@ DEFAULT_WIND_SPEED_MPS = 4.5
 DEFAULT_RAIN_AMOUNT = "medium"
 DEFAULT_FOG_AMOUNT = "medium"
 WEATHER_BUILD_ID = "2026-08-14-rtg-weather-contrast-v9"
+# Keep the legacy bridge ABI marker: older installed RTG Control extensions
+# compare it on every update and otherwise reload this module every frame.
+RAIN_EFFECT_REVISION = "2026-09-07-bright-overcast-v11"
 RAIN_AMOUNT_LABELS = {
     "light": "Light Rain",
     "medium": "Moderate Rain",
@@ -66,35 +69,35 @@ RAIN_AMOUNT_LABELS = {
 # different while keeping the same batched geometry and performance budget.
 RAIN_AMOUNT_PROFILES = {
     "light": {
-        "visible_layers": 1, "opacity": 0.28, "emission": 0.03,
-        "speed_mps": 6.0, "rate_mm_24h": "<10", "wetness": 0.05,
+        "visible_layers": 1, "opacity": 0.24, "emission": 0.005,
+        "speed_mps": 5.5, "rate_mm_24h": "<10", "wetness": 0.06,
         "drop_count": 100,
-        "streak_length_m": (0.25, 0.55), "streak_width_m": (0.006, 0.010),
+        "streak_length_m": (0.18, 0.38), "streak_width_m": (0.006, 0.010),
     },
     "medium": {
-        "visible_layers": 2, "opacity": 0.46, "emission": 0.06,
-        "speed_mps": 9.0, "rate_mm_24h": "10-25", "wetness": 0.22,
+        "visible_layers": 2, "opacity": 0.34, "emission": 0.008,
+        "speed_mps": 6.5, "rate_mm_24h": "10-25", "wetness": 0.16,
         "drop_count": 350,
-        "streak_length_m": (0.45, 0.90), "streak_width_m": (0.009, 0.014),
+        "streak_length_m": (0.24, 0.52), "streak_width_m": (0.007, 0.012),
     },
     "heavy": {
-        "visible_layers": 3, "opacity": 0.64, "emission": 0.12,
-        "speed_mps": 14.0, "rate_mm_24h": "25-50", "wetness": 0.48,
+        "visible_layers": 3, "opacity": 0.44, "emission": 0.012,
+        "speed_mps": 8.0, "rate_mm_24h": "25-50", "wetness": 0.28,
         "drop_count": 850,
-        "streak_length_m": (0.70, 1.35), "streak_width_m": (0.013, 0.022),
+        "streak_length_m": (0.32, 0.70), "streak_width_m": (0.009, 0.015),
     },
     "torrential": {
-        "visible_layers": 4, "opacity": 0.84, "emission": 0.20,
-        "speed_mps": 20.0, "rate_mm_24h": "50-100; short burst >16 mm/h", "wetness": 0.82,
+        "visible_layers": 4, "opacity": 0.54, "emission": 0.018,
+        "speed_mps": 9.5, "rate_mm_24h": "50-100; short burst >16 mm/h", "wetness": 0.42,
         "drop_count": 2000,
-        "streak_length_m": (1.05, 2.00), "streak_width_m": (0.018, 0.032),
+        "streak_length_m": (0.42, 0.92), "streak_width_m": (0.010, 0.018),
     },
 }
 RAIN_BACKGROUND_TEXTURE_LUMINANCE = {
-    "light": 0.88,
-    "medium": 0.70,
-    "heavy": 0.52,
-    "torrential": 0.34,
+    "light": 0.86,
+    "medium": 0.76,
+    "heavy": 0.66,
+    "torrential": 0.56,
 }
 RAIN_COVERAGE_SCALES = {
     "light": 1.0,
@@ -102,17 +105,18 @@ RAIN_COVERAGE_SCALES = {
     "heavy": 1.0,
     "torrential": 1.0,
 }
-# Rainfall itself now drives a separate atmospheric veil.  This makes every
-# grade legible even in a wide overview where individual streaks are small.
+# Keep diffuse daylight even in torrential rain. Density and visibility, not
+# near-night exposure, distinguish the four grades. No additional lights.
 RAIN_ATMOSPHERE_PROFILES = {
     # sky scale, sun scale, background, visibility m, distance density,
     # height density
-    "light": (1.05, 0.90, (0.34, 0.41, 0.46), 420.0, 0.08, 0.015),
-    "medium": (0.82, 0.58, (0.24, 0.31, 0.36), 240.0, 0.30, 0.060),
-    "heavy": (0.58, 0.30, (0.15, 0.21, 0.25), 110.0, 0.85, 0.16),
-    "torrential": (0.34, 0.10, (0.075, 0.11, 0.14), 45.0, 1.80, 0.30),
+    "light": (0.98, 0.86, (0.42, 0.48, 0.52), 420.0, 0.08, 0.015),
+    "medium": (0.90, 0.72, (0.36, 0.42, 0.46), 240.0, 0.30, 0.060),
+    "heavy": (0.82, 0.58, (0.30, 0.36, 0.40), 110.0, 0.85, 0.16),
+    "torrential": (0.74, 0.44, (0.25, 0.31, 0.35), 45.0, 1.80, 0.30),
 }
 _RAIN_LAST_ANIMATION_UPDATE: dict[int, float] = {}
+_RAIN_FALL_DISTANCES: dict[int, float] = {}
 _RAIN_CAMERA_ANCHORS: dict[int, tuple[float, float]] = {}
 _ATMOSPHERE_OVERLAY_LAST_UPDATE: dict[int, float] = {}
 FOG_AMOUNT_LABELS = {
@@ -140,8 +144,8 @@ ATMOSPHERE_OVERLAY_OPACITIES = {
     "rain": {
         "light": 0.025,
         "medium": 0.080,
-        "heavy": 0.180,
-        "torrential": 0.320,
+        "heavy": 0.120,
+        "torrential": 0.180,
     },
     "fog": {
         "light": 0.080,
@@ -230,11 +234,12 @@ ENVIRONMENT_PRESETS = {
     "rain": EnvironmentPreset(
         key="rain",
         label="雨天",
-        sky_intensity=390.0,
-        sky_exposure=-0.25,
-        sky_color=(0.58, 0.68, 0.76),
-        sun_intensity=720.0,
-        sun_color=(0.70, 0.76, 0.80),
+        sky_intensity=600.0,
+        sky_exposure=-0.08,
+        sky_color=(0.78, 0.82, 0.86),
+        sun_intensity=800.0,
+        sun_color=(0.80, 0.84, 0.87),
+        # Rain keeps road lighting and the working RTG on, not stationary RTGs.
         street_lights_visible=True,
         background_color=(0.20, 0.27, 0.32),
         rain_visible=True,
@@ -786,7 +791,9 @@ def _configure_atmosphere_overlay(
         return
 
     mode = preset.key
-    enabled = mode in ATMOSPHERE_OVERLAY_OPACITIES
+    # RTX Real-Time 2.0 can treat this PreviewSurface veil as opaque.
+    # Rain uses distance fog instead; never put a large mesh over the yard.
+    enabled = mode == "fog"
     if mode == "rain":
         amount = normalize_rain_amount(rain_amount)
         opacity = ATMOSPHERE_OVERLAY_OPACITIES[mode][amount]
@@ -841,6 +848,20 @@ def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> 
         and elapsed - last_update < 0.05
     ):
         return True
+    if current_environment_mode(stage) == "rain":
+        camera_x, camera_y = _active_camera_ground_xy(stage)
+        with _session_edit_context(stage):
+            _set_attribute_if_changed(
+                _valid_prim(stage, ATMOSPHERE_OVERLAY_PATH),
+                "visibility", "invisible", "Token",
+            )
+            _set_attribute_if_changed(
+                _valid_prim(stage, RAIN_EFFECT_PATH), "visibility",
+                "inherited" if _camera_is_inside_weather_zone(camera_x, camera_y) else "invisible",
+                "Token",
+            )
+        _ATMOSPHERE_OVERLAY_LAST_UPDATE[stage_id] = elapsed
+        return True
     try:
         from omni.kit.viewport.utility import get_active_viewport  # type: ignore
         from pxr import Gf, Usd, UsdGeom  # type: ignore
@@ -873,7 +894,7 @@ def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> 
         with _session_edit_context(stage):
             overlay = _valid_prim(stage, ATMOSPHERE_OVERLAY_PATH)
             mode = current_environment_mode(stage)
-            _set_attribute(
+            _set_attribute_if_changed(
                 overlay,
                 "visibility",
                 "inherited"
@@ -883,7 +904,7 @@ def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> 
             )
             rain_root = stage.GetPrimAtPath(RAIN_EFFECT_PATH)
             if rain_root and rain_root.IsValid():
-                _set_attribute(
+                _set_attribute_if_changed(
                     rain_root,
                     "visibility",
                     "inherited"
@@ -891,13 +912,13 @@ def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> 
                     else "invisible",
                     "Token",
                 )
-            _set_attribute(
+            _set_attribute_if_changed(
                 overlay,
                 "xformOp:transform",
                 world_matrix,
                 "Matrix4d",
             )
-            _set_attribute(
+            _set_attribute_if_changed(
                 overlay,
                 "xformOpOrder",
                 ["xformOp:transform"],
@@ -968,17 +989,8 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
         mode = current_environment_mode(stage)
         if mode not in ("rain", "fog"):
             return False
-        overlay_updated = _update_atmosphere_overlay_transform(stage, elapsed_seconds)
         if mode == "fog":
-            return overlay_updated
-        environment = _valid_prim(stage, ENVIRONMENT_ROOT_PATH)
-        wind_speed = float(
-            _get_attribute_value(environment, WIND_SPEED_ATTRIBUTE, DEFAULT_WIND_SPEED_MPS)
-        )
-        rain_amount = normalize_rain_amount(
-            _get_attribute_value(environment, RAIN_AMOUNT_ATTRIBUTE, DEFAULT_RAIN_AMOUNT)
-        )
-        vertical_speed = float(RAIN_AMOUNT_PROFILES[rain_amount]["speed_mps"])
+            return _update_atmosphere_overlay_transform(stage, elapsed_seconds)
         elapsed = float(elapsed_seconds)
         stage_id = id(stage)
         last_update = _RAIN_LAST_ANIMATION_UPDATE.get(stage_id)
@@ -987,7 +999,27 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
             and elapsed >= last_update
             and elapsed - last_update < RAIN_ANIMATION_INTERVAL_SECONDS
         ):
+            # Both the bridge and Live receiver can call this in one frame.
+            # Throttle before camera queries, overlay work and profile reads.
             return True
+        _update_atmosphere_overlay_transform(stage, elapsed)
+        rain_root = _valid_prim(stage, RAIN_EFFECT_PATH)
+        if _get_attribute_value(rain_root, "visibility", "inherited") == "invisible":
+            _RAIN_LAST_ANIMATION_UPDATE[stage_id] = elapsed
+            return True
+        environment = _valid_prim(stage, ENVIRONMENT_ROOT_PATH)
+        wind_speed = float(
+            _get_attribute_value(environment, WIND_SPEED_ATTRIBUTE, DEFAULT_WIND_SPEED_MPS)
+        )
+        rain_amount = normalize_rain_amount(
+            _get_attribute_value(environment, RAIN_AMOUNT_ATTRIBUTE, DEFAULT_RAIN_AMOUNT)
+        )
+        vertical_speed = float(RAIN_AMOUNT_PROFILES[rain_amount]["speed_mps"])
+        # Integrate speed instead of multiplying absolute application time by
+        # the selected speed (which teleports all batches when changing grade).
+        dt = max(0.0, elapsed - last_update) if last_update is not None else 0.0
+        fall_travel = _RAIN_FALL_DISTANCES.get(stage_id, 0.0) + dt * vertical_speed
+        _RAIN_FALL_DISTANCES[stage_id] = fall_travel
         _RAIN_LAST_ANIMATION_UPDATE[stage_id] = elapsed
         camera_x, camera_y = _active_camera_ground_xy(stage)
         camera_anchor = (
@@ -1004,7 +1036,7 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
                 "String",
             )
             air_rain = _valid_prim(stage, AIR_RAIN_EFFECT_PATH)
-            anchor_missing = air_rain.GetAttribute("xformOp:translate") is None
+            anchor_missing = not air_rain.GetAttribute("xformOp:translate")
             if _RAIN_CAMERA_ANCHORS.get(stage_id) != camera_anchor or anchor_missing:
                 _RAIN_CAMERA_ANCHORS[stage_id] = camera_anchor
                 _set_attribute(
@@ -1019,7 +1051,9 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
                     ["xformOp:translate"],
                     "TokenArray",
                 )
-            for layer_index, phase_paths in enumerate(RAIN_LAYER_PHASE_PATHS):
+            visible_count = int(RAIN_AMOUNT_PROFILES[rain_amount]["visible_layers"])
+            pending_transforms = []
+            for layer_index, phase_paths in enumerate(RAIN_LAYER_PHASE_PATHS[:visible_count]):
                 # Three height phases per grade provide continuous rainfall.
                 # The travel limit uses that grade's longest streak, so no
                 # vertex can cross the ground/water clipping height.
@@ -1031,7 +1065,8 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
                 for phase_index, path in enumerate(phase_paths):
                     phase_offset = phase_index / len(phase_paths) + layer_index * 0.071
                     cycle = (
-                        elapsed * vertical_speed / fall_distance + phase_offset
+                        fall_travel * (1.0 + layer_index * 0.025 + phase_index * 0.012)
+                        / fall_distance + phase_offset
                     ) % 1.0
                     gust = math.sin(
                         elapsed * (1.15 + layer_index * 0.21)
@@ -1056,12 +1091,21 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
                         -cycle * fall_distance,
                     )
                     rain_mesh = _valid_prim(stage, path)
-                    _set_attribute(
-                        rain_mesh,
-                        "xformOp:translate",
-                        translation,
-                        "Double3",
-                    )
+                    attribute = rain_mesh.GetAttribute("xformOp:translate")
+                    if attribute:
+                        pending_transforms.append((attribute, translation))
+                    else:
+                        _set_attribute(rain_mesh, "xformOp:translate", translation, "Double3")
+            # Resolve all USD objects before entering ChangeBlock. Coalesce
+            # notices so Hydra/Stage UI sees one batch instead of 12 changes.
+            try:
+                from pxr import Sdf  # type: ignore
+                change_block = Sdf.ChangeBlock()
+            except ImportError:
+                change_block = nullcontext()
+            with change_block:
+                for attribute, translation in pending_transforms:
+                    attribute.Set(translation)
         return True
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return False
@@ -1147,8 +1191,15 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
     coverage_scale = RAIN_COVERAGE_SCALES[amount]
     splash_count = 0
     mist_count = 0
+    if not enabled:
+        _RAIN_LAST_ANIMATION_UPDATE.pop(id(stage), None)
+        _RAIN_FALL_DISTANCES.pop(id(stage), None)
+        _RAIN_CAMERA_ANCHORS.pop(id(stage), None)
     try:
         rain_root = _valid_prim(stage, RAIN_EFFECT_PATH)
+        _set_attribute(rain_root, "smartPort:rainEffectRevision", RAIN_EFFECT_REVISION, "String")
+        _set_attribute(rain_root, "smartPort:animationHz", 60, "Int")
+        _set_attribute(rain_root, "smartPort:maxRainTriangles", 8000, "Int")
         _set_attribute(rain_root, "smartPort:visibleLayerCount", visible_count, "Int")
         _set_attribute(rain_root, "smartPort:coverageScale", coverage_scale, "Float")
         _set_attribute(rain_root, "smartPort:rainIntensity", float(profile["opacity"]), "Float")
@@ -1180,20 +1231,22 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
             f"{WEATHER_ROOT_PATH}/Looks/RainStreakMaterial/PreviewSurface",
         )
         _set_attribute(shader, "inputs:opacity", float(profile["opacity"]), "Float")
-        _set_attribute(shader, "inputs:emissiveColor", (float(profile["emission"]), float(profile["emission"] * 1.25), float(profile["emission"] * 1.5)), "Color3f")
+        _set_attribute(shader, "inputs:emissiveColor", (float(profile["emission"]),) * 3, "Color3f")
         wet_shader = _valid_prim(
             stage,
             f"{WEATHER_ROOT_PATH}/Looks/WetRoadMaterial/PreviewSurface",
         )
         wetness = float(profile["wetness"])
         _set_attribute(wet_shader, "inputs:opacity", wetness, "Float")
-        _set_attribute(wet_shader, "inputs:metallic", min(0.18, wetness * 0.4), "Float")
-        _set_attribute(wet_shader, "inputs:roughness", max(0.42, 0.72 - wetness * 0.45), "Float")
+        # Water is dielectric, not metal. Keep a broad highlight instead of
+        # turning the painted road into a blue mirror that obscures markings.
+        _set_attribute(wet_shader, "inputs:metallic", 0.0, "Float")
+        _set_attribute(wet_shader, "inputs:roughness", max(0.30, 0.58 - wetness * 0.55), "Float")
         wet_tone = max(0.018, 0.085 - wetness * 0.075)
         _set_attribute(
             wet_shader,
             "inputs:diffuseColor",
-            (wet_tone, wet_tone * 1.35, wet_tone * 1.65),
+            (wet_tone, wet_tone * 1.08, wet_tone * 1.14),
             "Color3f",
         )
     except (AttributeError, RuntimeError, TypeError):
@@ -1265,10 +1318,11 @@ def apply_weather_controls(
         mode = current_environment_mode(stage)
         _configure_rain_layers(stage, rain, mode == "rain")
     _configure_rtx_fog(ENVIRONMENT_PRESETS[mode], fog)
-    _configure_fog_background(stage, ENVIRONMENT_PRESETS[mode], fog)
-    _configure_rain_atmosphere(stage, ENVIRONMENT_PRESETS[mode], rain)
-    _configure_render_product_fog(stage, ENVIRONMENT_PRESETS[mode], fog, rain)
-    _configure_atmosphere_overlay(stage, ENVIRONMENT_PRESETS[mode], rain, fog)
+    with _session_edit_context(stage):
+        _configure_fog_background(stage, ENVIRONMENT_PRESETS[mode], fog)
+        _configure_rain_atmosphere(stage, ENVIRONMENT_PRESETS[mode], rain)
+        _configure_render_product_fog(stage, ENVIRONMENT_PRESETS[mode], fog, rain)
+        _configure_atmosphere_overlay(stage, ENVIRONMENT_PRESETS[mode], rain, fog)
     return {
         "wind_speed_mps": wind,
         "rain_amount": rain,
@@ -1284,7 +1338,7 @@ def apply_weather_controls(
     }
 
 
-def _configure_rtg_floodlights(stage: Any, enabled: bool) -> None:
+def _configure_rtg_floodlights(stage: Any, enabled: bool, work_rtg_only: bool = False) -> None:
     """Keep LED fixtures visible and switch their night downlights.
 
     The model roots are explicitly restored in every preset so an older
@@ -1300,8 +1354,8 @@ def _configure_rtg_floodlights(stage: Any, enabled: bool) -> None:
             "inherited",
             "Token",
         )
-    visibility = "inherited" if enabled else "invisible"
-    for root_path in RTG_LED_NIGHT_ROOT_PATHS:
+    for index, root_path in enumerate(RTG_LED_NIGHT_ROOT_PATHS):
+        visibility = "inherited" if enabled or (work_rtg_only and index == 0) else "invisible"
         _set_attribute(
             _valid_prim(stage, root_path),
             "visibility",
@@ -1355,13 +1409,18 @@ def apply_environment_mode(stage: Any, mode: Any) -> str:
             "inherited" if preset.street_lights_visible else "invisible",
             "Token",
         )
-        _configure_rtg_floodlights(stage, preset.street_lights_visible)
+        _configure_rtg_floodlights(
+            stage,
+            preset.street_lights_visible and normalized != "rain",
+            work_rtg_only=normalized == "rain",
+        )
         _set_attribute(_valid_prim(stage, RAIN_EFFECT_PATH), "visibility", "inherited" if preset.rain_visible else "invisible", "Token")
         _configure_rain_layers(stage, rain_amount, preset.rain_visible)
     _configure_rtx_fog(preset, fog_amount)
-    _configure_fog_background(stage, preset, fog_amount)
-    _configure_rain_atmosphere(stage, preset, rain_amount)
-    _configure_render_product_fog(stage, preset, fog_amount, rain_amount)
-    _configure_atmosphere_overlay(stage, preset, rain_amount, fog_amount)
+    with _session_edit_context(stage):
+        _configure_fog_background(stage, preset, fog_amount)
+        _configure_rain_atmosphere(stage, preset, rain_amount)
+        _configure_render_product_fog(stage, preset, fog_amount, rain_amount)
+        _configure_atmosphere_overlay(stage, preset, rain_amount, fog_amount)
     _hide_viewport_light_icons()
     return normalized

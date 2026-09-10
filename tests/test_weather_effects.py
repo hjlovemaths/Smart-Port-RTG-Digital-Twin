@@ -98,12 +98,12 @@ def test_ground_impacts_are_disabled_for_performance():
 
 
 def test_rain_grades_use_distinct_but_thin_streak_lengths():
-    assert weather.RAIN_LAYER_STREAK_PROFILES[0][0] == (0.25, 0.55)
-    assert weather.RAIN_LAYER_STREAK_PROFILES[-1][0] == (1.05, 2.00)
-    assert weather.RAIN_LAYER_STREAK_PROFILES[-1][1] == (0.018, 0.032)
+    assert weather.RAIN_LAYER_STREAK_PROFILES[0][0] == (0.18, 0.38)
+    assert weather.RAIN_LAYER_STREAK_PROFILES[-1][0] == (0.42, 0.92)
+    assert weather.RAIN_LAYER_STREAK_PROFILES[-1][1] == (0.010, 0.018)
     source = weather.build_usda()
-    assert 'smartPort:streakLengthMeters = "0.25-0.55"' in source
-    assert 'smartPort:streakLengthMeters = "1.05-2"' in source
+    assert 'smartPort:streakLengthMeters = "0.18-0.38"' in source
+    assert 'smartPort:streakLengthMeters = "0.42-0.92"' in source
 
 
 def test_rain_emitter_is_compact_enough_for_rtg_camera_density_to_read():
@@ -115,3 +115,40 @@ def test_wet_sheen_covers_longitudinal_and_cross_roads_only():
     assert len(weather.wet_road_quads()) == len(weather.ROAD_X_RANGES) + len(
         weather.CROSS_ROAD_CENTERS_Y
     )
+
+
+def test_tapered_ribbons_use_declared_full_width_and_fixed_triangle_budget():
+    quads = weather.rain_streak_quads()
+    assert len(quads) * 2 == 8000
+    cursor = 0
+    for count, (_, width_range, _) in zip(
+        weather.RAIN_LAYER_DROP_COUNTS, weather.RAIN_LAYER_STREAK_PROFILES
+    ):
+        for quad in quads[cursor:cursor + count * 2:2]:
+            tail = quad[1][0] - quad[0][0]
+            head = quad[2][0] - quad[3][0]
+            assert width_range[0] <= head <= width_range[1]
+            assert abs(tail / head - 0.18) < 1e-9
+        cursor += count * 2
+
+
+def test_runtime_profiles_match_generated_geometry():
+    import smart_port_environment as runtime
+
+    cumulative = 0
+    for (amount, profile), count, (length, width, _) in zip(
+        runtime.RAIN_AMOUNT_PROFILES.items(),
+        weather.RAIN_LAYER_DROP_COUNTS,
+        weather.RAIN_LAYER_STREAK_PROFILES,
+    ):
+        cumulative += count
+        assert profile["drop_count"] == cumulative, amount
+        assert profile["streak_length_m"] == length
+        assert profile["streak_width_m"] == width
+    assert runtime.RAIN_STREAK_MAX_LENGTHS_M == tuple(
+        profile[0][1] for profile in weather.RAIN_LAYER_STREAK_PROFILES
+    )
+
+
+def test_checked_in_weather_asset_matches_generator():
+    assert weather.OUTPUT.read_text(encoding="utf-8") == weather.build_usda()

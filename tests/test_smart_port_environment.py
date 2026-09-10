@@ -62,6 +62,8 @@ class FakeStage:
             environment.AIR_RAIN_EFFECT_PATH: FakePrim(),
             environment.ATMOSPHERE_OVERLAY_PATH: FakePrim(),
             environment.ATMOSPHERE_OVERLAY_SHADER_PATH: FakePrim(),
+            f"{environment.WEATHER_ROOT_PATH}/Looks/RainStreakMaterial/PreviewSurface": FakePrim(),
+            f"{environment.WEATHER_ROOT_PATH}/Looks/WetRoadMaterial/PreviewSurface": FakePrim(),
             **{path: FakePrim() for path in environment.RAIN_LAYER_PATHS},
             **{
                 path: FakePrim()
@@ -84,6 +86,14 @@ class FakeStage:
 
 def value(stage, path, name):
     return stage.prims[path].attributes[name].value
+
+
+@pytest.fixture(autouse=True)
+def reset_animation_caches():
+    environment._RAIN_LAST_ANIMATION_UPDATE.clear()
+    environment._RAIN_FALL_DISTANCES.clear()
+    environment._RAIN_CAMERA_ANCHORS.clear()
+    environment._ATMOSPHERE_OVERLAY_LAST_UPDATE.clear()
 
 
 def test_environment_mode_aliases_and_labels_are_ready_for_panel_buttons():
@@ -180,22 +190,26 @@ def test_day_mode_restores_authored_light_levels_and_hides_street_lights():
     assert value(stage, environment.RAIN_EFFECT_PATH, "visibility") == "invisible"
 
 
-def test_rain_mode_shows_single_batched_rain_effect_and_turns_on_all_yard_lights():
+def test_rain_mode_lights_roads_and_working_rtg_not_stationary_rtgs():
     stage = FakeStage()
 
     assert environment.apply_environment_mode(stage, "rain") == "rain"
     assert value(stage, environment.RAIN_EFFECT_PATH, "visibility") == "inherited"
-    assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") == pytest.approx(319.8)
+    assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") == pytest.approx(540.0)
     assert value(stage, environment.NIGHT_STREET_LIGHTS_PATH, "visibility") == "inherited"
+    assert value(stage, environment.RTG_LED_NIGHT_ROOT_PATHS[0], "visibility") == "inherited"
     assert all(
-        value(stage, path, "visibility") == "inherited"
-        for path in environment.RTG_LED_NIGHT_ROOT_PATHS
+        value(stage, path, "visibility") == "invisible"
+        for path in environment.RTG_LED_NIGHT_ROOT_PATHS[1:]
     )
 
 
 def test_rain_animation_can_advance_without_timeline_playback():
     stage = FakeStage()
     environment.apply_environment_mode(stage, "rain")
+    environment._RAIN_LAST_ANIMATION_UPDATE.pop(id(stage), None)
+    environment._RAIN_FALL_DISTANCES.pop(id(stage), None)
+    environment.update_weather_animation(stage, 0.0)
     assert environment.update_weather_animation(stage, 0.5) is True
     translation = value(stage, environment.RAIN_LAYER_PHASE_PATHS[0][0], "xformOp:translate")
     assert translation[0] >= 0.0
@@ -204,8 +218,8 @@ def test_rain_animation_can_advance_without_timeline_playback():
         0.0,
         0.0,
     )
-    assert translation[0] > 1.5
-    assert translation[1] > 0.4
+    assert translation[0] > 0.5
+    assert translation[1] > 0.2
     assert translation[2] > -(
         environment.RAIN_EMITTER_MIN_Z_M
         - environment.RAIN_STREAK_MAX_LENGTHS_M[0]
@@ -214,7 +228,7 @@ def test_rain_animation_can_advance_without_timeline_playback():
     assert value(stage, environment.RAIN_LAYER_PHASE_PATHS[0][1], "xformOp:translate") != translation
 
 
-def test_rain_animation_is_throttled_to_a_low_cost_24_hz_update_rate():
+def test_rain_animation_is_throttled_to_60_hz_before_camera_work(monkeypatch):
     stage = FakeStage()
     environment.apply_environment_mode(stage, "rain")
     environment._RAIN_LAST_ANIMATION_UPDATE.pop(id(stage), None)
@@ -224,13 +238,19 @@ def test_rain_animation_is_throttled_to_a_low_cost_24_hz_update_rate():
         environment.RAIN_LAYER_PHASE_PATHS[0][0],
         "xformOp:translate",
     )
-    assert environment.update_weather_animation(stage, 1.01) is True
+    def unexpected_camera_query(*args):
+        pytest.fail("Throttled calls must not query the camera")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(environment, "_active_camera_ground_xy", unexpected_camera_query)
+        patch.setattr(environment, "_update_atmosphere_overlay_transform", unexpected_camera_query)
+        assert environment.update_weather_animation(stage, 1.01) is True
     assert value(
         stage,
         environment.RAIN_LAYER_PHASE_PATHS[0][0],
         "xformOp:translate",
     ) == first
-    assert environment.update_weather_animation(stage, 1.05) is True
+    assert environment.update_weather_animation(stage, 1.02) is True
     assert value(
         stage,
         environment.RAIN_LAYER_PHASE_PATHS[0][0],
@@ -253,9 +273,9 @@ def test_weather_controls_change_wind_rain_layers_and_fog_amount():
     assert result["rain_label"] == "Torrential Rain"
     assert result["fog_label"] == "Heavy Fog"
     assert result["rain_drop_count"] == 2000
-    assert result["rain_drop_length_m"] == (1.05, 2.00)
-    assert result["rain_drop_width_m"] == (0.018, 0.032)
-    assert result["rain_fall_speed_mps"] == 20.0
+    assert result["rain_drop_length_m"] == (0.42, 0.92)
+    assert result["rain_drop_width_m"] == (0.010, 0.018)
+    assert result["rain_fall_speed_mps"] == 9.5
     assert value(stage, environment.RAIN_EFFECT_PATH, "smartPort:rainDropCount") == 2000
     assert all(
         value(stage, path, "visibility") == "inherited"
@@ -333,6 +353,7 @@ def test_fog_and_rain_grades_drive_the_low_cost_visibility_overlay():
     assert heavy_opacity > light_opacity
 
     environment.apply_environment_mode(stage, "rain")
+    assert value(stage, environment.ATMOSPHERE_OVERLAY_PATH, "visibility") == "invisible"
     rain_opacities = []
     for amount in ("light", "medium", "heavy", "torrential"):
         environment.apply_weather_controls(stage, rain_amount=amount)
@@ -354,10 +375,10 @@ def test_weather_zone_is_limited_to_the_modeled_quay_yard_footprint():
 
 def test_rain_profiles_change_both_layer_count_and_streak_visibility():
     source = (SCRIPT_DIR / "smart_port_environment.py").read_text(encoding="utf-8")
-    assert '"visible_layers": 1, "opacity": 0.28' in source
-    assert '"visible_layers": 2, "opacity": 0.46' in source
-    assert '"visible_layers": 3, "opacity": 0.64' in source
-    assert '"visible_layers": 4, "opacity": 0.84' in source
+    profiles = list(environment.RAIN_AMOUNT_PROFILES.values())
+    assert [p["visible_layers"] for p in profiles] == [1, 2, 3, 4]
+    assert [p["opacity"] for p in profiles] == [0.24, 0.34, 0.44, 0.54]
+    assert max(p["emission"] for p in profiles) < 0.02
     assert 'smartPort:visibleLayerCount' in source
     assert 'smartPort:coverageScale' in source
     assert 'inputs:opacity' in source
@@ -365,10 +386,10 @@ def test_rain_profiles_change_both_layer_count_and_streak_visibility():
 
 def test_rain_amount_is_a_combined_count_length_width_and_speed_profile():
     expected = {
-        "light": (100, (0.25, 0.55), (0.006, 0.010), 6.0),
-        "medium": (350, (0.45, 0.90), (0.009, 0.014), 9.0),
-        "heavy": (850, (0.70, 1.35), (0.013, 0.022), 14.0),
-        "torrential": (2000, (1.05, 2.00), (0.018, 0.032), 20.0),
+        "light": (100, (0.18, 0.38), (0.006, 0.010), 5.5),
+        "medium": (350, (0.24, 0.52), (0.007, 0.012), 6.5),
+        "heavy": (850, (0.32, 0.70), (0.009, 0.015), 8.0),
+        "torrential": (2000, (0.42, 0.92), (0.010, 0.018), 9.5),
     }
     for amount, (count, length, width, speed) in expected.items():
         profile = environment.RAIN_AMOUNT_PROFILES[amount]
@@ -378,15 +399,98 @@ def test_rain_amount_is_a_combined_count_length_width_and_speed_profile():
         assert profile["speed_mps"] == speed
 
 
+def test_hidden_rain_layers_are_not_animated_and_become_live_when_enabled():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    environment.apply_weather_controls(stage, rain_amount="light")
+    assert environment.update_weather_animation(stage, 10.0)
+    for paths in environment.RAIN_LAYER_PHASE_PATHS[1:]:
+        for path in paths:
+            assert stage.prims[path].GetAttribute("xformOp:translate") is None
+    environment.apply_weather_controls(stage, rain_amount="torrential")
+    assert environment.update_weather_animation(stage, 10.02)
+    for paths in environment.RAIN_LAYER_PHASE_PATHS:
+        for path in paths:
+            assert stage.prims[path].GetAttribute("xformOp:translate") is not None
+
+
+def test_grade_switch_integrates_speed_without_teleporting_existing_drops():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    environment.update_weather_animation(stage, 5000.0)
+    environment.update_weather_animation(stage, 5000.1)
+    path = environment.RAIN_LAYER_PHASE_PATHS[0][0]
+    before = value(stage, path, "xformOp:translate")[2]
+    environment.apply_weather_controls(stage, rain_amount="torrential")
+    environment.update_weather_animation(stage, 5000.12)
+    after = value(stage, path, "xformOp:translate")[2]
+    assert before - after == pytest.approx(.02 * 9.5)
+    environment.update_weather_animation(stage, 1.0)  # monotonic clock reset
+    assert value(stage, path, "xformOp:translate")[2] == pytest.approx(after)
+    environment.apply_environment_mode(stage, "day")
+    assert id(stage) not in environment._RAIN_FALL_DISTANCES
+
+
+def test_rain_outside_weather_zone_skips_batch_and_camera_work(monkeypatch):
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    stage.prims[environment.RAIN_EFFECT_PATH].attributes["visibility"].Set("invisible")
+    monkeypatch.setattr(environment, "_update_atmosphere_overlay_transform", lambda *_: True)
+    def fail(*_):
+        pytest.fail("Hidden rain should not query its camera")
+    monkeypatch.setattr(environment, "_active_camera_ground_xy", fail)
+    assert environment.update_weather_animation(stage, 2.0)
+    assert stage.prims[environment.RAIN_LAYER_PHASE_PATHS[0][0]].GetAttribute("xformOp:translate") is None
+
+
+def test_wet_road_is_dielectric_and_rain_emission_is_neutral():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    wet = f"{environment.WEATHER_ROOT_PATH}/Looks/WetRoadMaterial/PreviewSurface"
+    rain = f"{environment.WEATHER_ROOT_PATH}/Looks/RainStreakMaterial/PreviewSurface"
+    wetness = []
+    for amount in environment.RAIN_AMOUNT_PROFILES:
+        environment.apply_weather_controls(stage, rain_amount=amount)
+        assert value(stage, wet, "inputs:metallic") == 0
+        assert value(stage, wet, "inputs:roughness") >= .30
+        wetness.append(value(stage, wet, "inputs:opacity"))
+        emission = value(stage, rain, "inputs:emissiveColor")
+        assert emission[0] == emission[1] == emission[2]
+        assert emission[0] < .02
+    assert wetness == sorted(wetness)
+
+
+def test_weather_atmosphere_writes_stay_in_session_edit_context(monkeypatch):
+    from contextlib import contextmanager
+    depth = 0
+    @contextmanager
+    def edit_context(stage):
+        nonlocal depth
+        depth += 1
+        try:
+            yield
+        finally:
+            depth -= 1
+    def check(*args):
+        assert depth > 0, "Root-layer edits lose to existing session overrides"
+    monkeypatch.setattr(environment, "_session_edit_context", edit_context)
+    for name in ("_configure_fog_background", "_configure_rain_atmosphere",
+                 "_configure_render_product_fog", "_configure_atmosphere_overlay"):
+        monkeypatch.setattr(environment, name, check)
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    environment.apply_weather_controls(stage, rain_amount="heavy")
+
+
 def test_rain_grades_also_change_sky_visibility_and_background():
     stage = FakeStage()
     environment.apply_environment_mode(stage, "rain")
 
     expected = {
-        "light": (409.5, 420.0),
-        "medium": (319.8, 240.0),
-        "heavy": (226.2, 110.0),
-        "torrential": (132.6, 45.0),
+        "light": (588.0, 420.0),
+        "medium": (540.0, 240.0),
+        "heavy": (492.0, 110.0),
+        "torrential": (444.0, 45.0),
     }
     for amount, (sky_intensity, visibility_m) in expected.items():
         environment.apply_weather_controls(stage, rain_amount=amount)
@@ -399,6 +503,22 @@ def test_rain_grades_also_change_sky_visibility_and_background():
             "smartPort:rainVisibilityMeters",
         ) == visibility_m
         assert value(stage, "/Render/Viewport", "omni:rtx:background:source:type") == "texture"
+
+
+def test_all_rain_grades_keep_bright_ambient_fill_and_requested_lights():
+    stage = FakeStage()
+    environment.apply_environment_mode(stage, "rain")
+    for amount in environment.RAIN_AMOUNT_PROFILES:
+        environment.apply_weather_controls(stage, rain_amount=amount)
+        assert value(stage, environment.DAY_SKY_PATH, "inputs:intensity") >= 400
+        assert value(stage, environment.DAY_SKY_PATH, "inputs:exposure") == -.08
+        assert min(value(stage, environment.DAY_SKY_PATH, "inputs:color")) >= .78
+        assert value(stage, environment.DAY_SUN_PATH, "inputs:intensity") >= 300
+        assert environment.RAIN_BACKGROUND_TEXTURE_LUMINANCE[amount] >= .50
+        assert value(stage, environment.NIGHT_STREET_LIGHTS_PATH, "visibility") == "inherited"
+        assert value(stage, environment.RTG_LED_NIGHT_ROOT_PATHS[0], "visibility") == "inherited"
+        assert all(value(stage, path, "visibility") == "invisible"
+                   for path in environment.RTG_LED_NIGHT_ROOT_PATHS[1:])
 
 
 def test_puddles_splashes_and_mist_are_disabled():

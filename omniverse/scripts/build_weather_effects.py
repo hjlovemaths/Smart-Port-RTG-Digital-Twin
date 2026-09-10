@@ -15,10 +15,10 @@ RAIN_DROP_COUNT = sum(RAIN_LAYER_DROP_COUNTS)
 # longer streaks in the dense layers make heavy/torrential rain immediately
 # distinguishable in a wide yard camera.
 RAIN_LAYER_STREAK_PROFILES = (
-    ((0.25, 0.55), (0.006, 0.010), 0.055),
-    ((0.45, 0.90), (0.009, 0.014), 0.090),
-    ((0.70, 1.35), (0.013, 0.022), 0.140),
-    ((1.05, 2.00), (0.018, 0.032), 0.210),
+    ((0.18, 0.38), (0.006, 0.010), 0.055),
+    ((0.24, 0.52), (0.007, 0.012), 0.075),
+    ((0.32, 0.70), (0.009, 0.015), 0.100),
+    ((0.42, 0.92), (0.010, 0.018), 0.130),
 )
 SPLASH_LAYER_COUNTS = ()
 SPLASH_LAYER_SIZE_PROFILES = (
@@ -92,7 +92,11 @@ def rain_streak_quads() -> list[tuple[tuple[float, float, float], ...]]:
             y = rng.uniform(*AIR_RAIN_Y_RANGE)
             z = rng.uniform(*RAIN_Z_RANGE)
             length = rng.uniform(*length_range)
-            width = rng.uniform(*width_range)
+            # Width is the *full* physical width, not the old half-width.
+            # A narrow tail and wider leading end read as a motion streak,
+            # without textures, extra vertices or transparent billboard cards.
+            width = rng.uniform(*width_range) * 0.5
+            tail_width = width * 0.18
             wind_x = length * slant_ratio
             wind_y = length * slant_ratio * 0.34
             bottom = (x + wind_x, y + wind_y, z - length)
@@ -101,16 +105,16 @@ def rain_streak_quads() -> list[tuple[tuple[float, float, float], ...]]:
             # yard camera without making the rain itself look thick.
             quads.append(
                 (
-                    (top[0] - width, top[1], top[2]),
-                    (top[0] + width, top[1], top[2]),
+                    (top[0] - tail_width, top[1], top[2]),
+                    (top[0] + tail_width, top[1], top[2]),
                     (bottom[0] + width, bottom[1], bottom[2]),
                     (bottom[0] - width, bottom[1], bottom[2]),
                 )
             )
             quads.append(
                 (
-                    (top[0], top[1] - width, top[2]),
-                    (top[0], top[1] + width, top[2]),
+                    (top[0], top[1] - tail_width, top[2]),
+                    (top[0], top[1] + tail_width, top[2]),
                     (bottom[0], bottom[1] + width, bottom[2]),
                     (bottom[0], bottom[1] - width, bottom[2]),
                 )
@@ -355,8 +359,8 @@ over Xform "World"
                 def Shader "PreviewSurface"
                 {{
                     uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.62, 0.76, 0.86)
-                    color3f inputs:emissiveColor = (0.08, 0.12, 0.16)
+                    color3f inputs:diffuseColor = (0.58, 0.62, 0.65)
+                    color3f inputs:emissiveColor = (0.008, 0.008, 0.008)
                     float inputs:metallic = 0
                     float inputs:opacity = 0.32
                     float inputs:roughness = 0.18
