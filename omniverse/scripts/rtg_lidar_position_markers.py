@@ -267,7 +267,7 @@ def show_rtg_lidar_position_markers(
     if key in _MARKER_STATES and resolved.GetPrimAtPath(MARKER_ROOT_PATH):
         with Usd.EditContext(resolved, resolved.GetSessionLayer()):
             purpose = (
-                UsdGeom.Tokens.default if renderable else UsdGeom.Tokens.guide
+                UsdGeom.Tokens.default_ if renderable else UsdGeom.Tokens.guide
             )
             for spec in LIDAR_MARKER_SPECS:
                 prim = resolved.GetPrimAtPath(
@@ -290,7 +290,7 @@ def show_rtg_lidar_position_markers(
             "Approximate offsets from authored C camera markers; survey calibration required",
         )
         material = _blue_material(resolved, MARKER_ROOT_PATH, Gf, Sdf, UsdShade)
-        purpose = UsdGeom.Tokens.default if renderable else UsdGeom.Tokens.guide
+        purpose = UsdGeom.Tokens.default_ if renderable else UsdGeom.Tokens.guide
         for spec in LIDAR_MARKER_SPECS:
             sphere = UsdGeom.Sphere.Define(
                 resolved, f"{MARKER_ROOT_PATH}/{spec.name}"
