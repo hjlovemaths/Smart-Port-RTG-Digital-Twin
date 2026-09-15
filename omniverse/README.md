@@ -87,8 +87,11 @@ show_rtg_lidar_position_markers()
 ```
 
 They appear under `/World/RTG_LIDAR_POSITION_MARKERS` and follow the primary
-RTG's current gantry/trolley/hoist pose. They are session-layer guide geometry,
-so they are not saved into the source model and are excluded from LiDAR data.
+RTG's current gantry/trolley/hoist pose. By default they use a bright blue
+renderable material so they are visible in the Rendered viewport. Use
+`show_rtg_lidar_position_markers(renderable=False)` during a capture-only
+session if the spheres should be excluded from RTX returns; they remain
+temporary session-layer geometry and are not saved into the source model.
 
 The downward sensor uses a nadir orientation and a 150 m range by default,
 which is enough to cover the containers below the RTG without doubling the

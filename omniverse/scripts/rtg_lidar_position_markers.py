@@ -3,9 +3,10 @@
 The supplied RTG drawing identifies the LiDAR locations relative to the
 existing green C1-C33 camera markers, but it does not provide survey-grade
 XYZ coordinates.  This helper therefore uses the authored C markers as
-runtime anchors and adds a small blue offset.  The spheres are guide-purpose
-geometry in the session layer, so they do not become LiDAR returns and do not
-modify the source RTG model.
+runtime anchors and adds a small blue offset.  The spheres are temporary
+session-layer geometry and do not modify the source RTG model.  They are
+renderable by default for visibility; pass ``renderable=False`` when a scan
+must exclude the marker geometry.
 
 Run in the Isaac Sim Script Editor after the stage is open::
 
@@ -247,8 +248,15 @@ def show_rtg_lidar_position_markers(
     stage: Any = None,
     *,
     radius_m: float = DEFAULT_MARKER_RADIUS_M,
+    renderable: bool = True,
 ) -> dict[str, Any]:
-    """Create and continuously update blue L1-L24 guide spheres."""
+    """Create and continuously update blue L1-L24 spheres.
+
+    ``renderable=True`` is the useful interactive mode: the spheres appear in
+    the normal Rendered viewport.  Pass ``renderable=False`` to use USD guide
+    purpose, which is safer for a capture-only session because guide geometry
+    is normally excluded from RTX sensor products.
+    """
 
     resolved = _resolve_stage(stage)
     if radius_m <= 0:
@@ -257,6 +265,17 @@ def show_rtg_lidar_position_markers(
 
     key = id(resolved)
     if key in _MARKER_STATES and resolved.GetPrimAtPath(MARKER_ROOT_PATH):
+        with Usd.EditContext(resolved, resolved.GetSessionLayer()):
+            purpose = (
+                UsdGeom.Tokens.default if renderable else UsdGeom.Tokens.guide
+            )
+            for spec in LIDAR_MARKER_SPECS:
+                prim = resolved.GetPrimAtPath(
+                    f"{MARKER_ROOT_PATH}/{spec.name}"
+                )
+                if prim and prim.IsValid():
+                    UsdGeom.Imageable(prim).CreatePurposeAttr().Set(purpose)
+        _MARKER_STATES[key]["renderable"] = bool(renderable)
         return update_rtg_lidar_position_markers(resolved)
 
     with Usd.EditContext(resolved, resolved.GetSessionLayer()):
@@ -271,12 +290,13 @@ def show_rtg_lidar_position_markers(
             "Approximate offsets from authored C camera markers; survey calibration required",
         )
         material = _blue_material(resolved, MARKER_ROOT_PATH, Gf, Sdf, UsdShade)
+        purpose = UsdGeom.Tokens.default if renderable else UsdGeom.Tokens.guide
         for spec in LIDAR_MARKER_SPECS:
             sphere = UsdGeom.Sphere.Define(
                 resolved, f"{MARKER_ROOT_PATH}/{spec.name}"
             )
             sphere.CreateRadiusAttr().Set(float(radius_m))
-            sphere.CreatePurposeAttr().Set(UsdGeom.Tokens.guide)
+            sphere.CreatePurposeAttr().Set(purpose)
             sphere.CreateDisplayColorAttr().Set([Gf.Vec3f(*BLUE_RGB)])
             sphere.GetPrim().SetCustomDataByKey("rtg:lidarLabel", spec.name)
             sphere.GetPrim().SetCustomDataByKey(
@@ -285,7 +305,11 @@ def show_rtg_lidar_position_markers(
             )
             UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(material)
 
-    _MARKER_STATES[key] = {"stage": resolved, "last_update": []}
+    _MARKER_STATES[key] = {
+        "stage": resolved,
+        "last_update": [],
+        "renderable": bool(renderable),
+    }
     result = update_rtg_lidar_position_markers(resolved)
 
     try:

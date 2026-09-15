@@ -16,7 +16,7 @@ open::
 The sensors are created at the validated trolley pose and the visual mounts
 are placed at the trolley.  The live viewport uses the RTX point-cloud debug
 writer: horizontal returns are green and downward returns are orange.
-When enabled, the service also creates temporary blue L1-L24 guide spheres at
+When enabled, the service also creates temporary blue L1-L24 spheres at
 the RTG drawing's approximate LiDAR installation points.
 Captures default to the primary horizontal LiDAR coordinate frame, where
 that RTG radar is the origin; the downward sensor is transformed into the
