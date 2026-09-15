@@ -51,7 +51,8 @@
         @./ground_color_override.usda@,
         @./quay_yard_traffic_layout.usda@,
         @./offshore_quay_layout.usda@,
-        @./4c_ship_replacements.usda@
+        @./4c_ship_replacements.usda@,
+        @./live_containers.usda@
     ]
     timeCodesPerSecond = 24
     upAxis = "Z"
@@ -3233,6 +3234,12 @@ def Xform "World"
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
         }
     }
+
+    over "PhysicsScene" (
+        prepend apiSchemas = ["NewtonSceneAPI", "PhysxSceneAPI"]
+    )
+    {
+    }
 }
 
 def "Render" (
@@ -3257,10 +3264,12 @@ def "Render" (
                 color3f omni:rtx:background:source:color = (0.34, 0.55, 0.84)
                 asset omni:rtx:background:source:texture:path = @D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png@
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
                 string omni:rtx:debug:view:target = ""
                 token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
                 bool omni:rtx:dlss:frameGeneration = 1
+                float3 omni:rtx:domeLight:rotationAxis = (0, 0, 1)
                 float omni:rtx:fog:distanceDensity = 0.34
                 float omni:rtx:fog:endDist = 5750
                 float omni:rtx:fog:height:density = 0
@@ -3268,25 +3277,41 @@ def "Render" (
                 float omni:rtx:fog:start:height = 3
                 bool omni:rtx:fog:zUp:enabled = 1
                 bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
                 bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
                 bool omni:rtx:post:registeredCompositing:invertToneMap = 1
                 bool omni:rtx:pt:adaptiveSampling:filterError = 0
                 uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                int omni:rtx:pt:clampSpp = 64
+                float omni:rtx:pt:fireflyFilter:maxPerEmissiveUnexposedIntensity = 3199.9995
+                float omni:rtx:pt:fireflyFilter:maxUnexposedIntensityPerSample = 3199.9995
+                float omni:rtx:pt:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse = 3199.9995
+                uint omni:rtx:pt:limits:maxBounces = 3
+                uint omni:rtx:pt:limits:maxGlossyBounces = 3
                 uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
                 uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                int omni:rtx:pt:samplesPerIteration = 64
+                uint omni:rtx:pt:samplesPerPixel = 64
                 bool omni:rtx:reflections:denoiser:enabled = 0
                 token omni:rtx:rendermode = "RealTimePathTracing"
                 color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
                 bool omni:rtx:rt:demoire = 0
+                float omni:rtx:rt:directLighting:maxRayUnexposedIntensity = 6399.999
+                float omni:rtx:rt:indirectdiffuse:maxRayUnexposedIntensity = 6399.999
+                float omni:rtx:rt:inscattering:maxRTSampleUnexposedIntensity = 204799.97
                 bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                float omni:rtx:rt:refractions:maxRayUnexposedIntensity = 19199.998
                 int omni:rtx:rt:sss:samples = 1
                 uint omni:rtx:rtpt:maxVolumeBounces = 15
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
                 bool omni:rtx:wireframe:enabled = 1
                 token omni:rtx:wireframe:mode = "instance"
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
-                uniform int2 resolution = (1343, 585)
+                uniform int2 resolution = (1280, 720)
             }
         }
     }
@@ -3417,3 +3442,4 @@ over "OmniverseKit_Top" (
     double3 xformOp:translate = (0, 0, 500)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
+

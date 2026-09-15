@@ -23,6 +23,72 @@ Open `scenes/smart_port.usda` in Omniverse.
 4. Split environment and dynamic equipment into separate USD assets.
 5. Add physics, joints, collision, sensors, and ROS2 bindings in stronger USD layers rather than editing the source asset.
 
+### Trolley-mounted yard LiDAR point cloud
+
+`scripts/rtg_yard_lidar.py` adds a horizontal RTX LiDAR and a second RTX LiDAR
+pointing downward near the primary RTG trolley. Because Isaac Sim 6.x is
+unstable when RTX prims are nested below the animated/physics RTG hierarchy,
+the runtime sensors are root-level and their positions are synchronized to
+the current trolley immediately before capture. The viewport displays
+horizontal returns in green and downward returns in orange. The capture
+writer exports both sensor-centered and world-coordinate `.ply`, `.pcd`, and
+`.npy` files to `outputs/rtg_pointcloud`.
+
+The recommended one-shot launcher is:
+
+```powershell
+& "D:/isaacsim/python.bat" `
+  "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/launch_isaac_sim_project.py" `
+  --load-live-inventory `
+  --enable-rtg-lidar `
+  --freeze-rtgs `
+  --rtg-bay 3C/002 `
+  --lidar-far-range 220
+```
+
+The launcher initializes Isaac Sim, prepares the live USD layer, and then
+opens the stage. If the
+inventory JSON changes, close and relaunch Isaac Sim so the sublayer is loaded
+cleanly; do not call `yard_reload(reload_stage=True)` from Script Editor while
+RTX sensors are attached, because a synchronous Stage reload can invalidate
+Hydra render products.
+
+For a stationary RTG scan, use `--freeze-rtgs`. This freezes the primary and
+background RTGs at their frame-1 pose while leaving the timeline available for
+RTX sensor rendering; it does not enable PhysX or a motion controller.
+The default LiDAR far range is 600 m because the current live inventory is
+approximately 263–444 m from the initial primary-RTG pose; override it with
+`--lidar-far-range <metres>` when the yard layout changes.
+
+After the stage is open, use these snippets in the Script Editor:
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_yard_lidar.py", encoding="utf-8").read())
+start_rtg_yard_lidar()
+import asyncio
+asyncio.ensure_future(capture_rtg_yard_pointcloud())  # RTG LiDAR frame -> PLY/PCD/NPY
+save_rtg_yard_map()            # accumulated voxel-thinned map -> PLY/PCD/NPY
+get_rtg_yard_lidar_status()
+stop_rtg_yard_lidar()
+```
+
+`capture_rtg_yard_pointcloud()` 默认以 RTG 上的 LiDAR 为原点输出
+`output_frame="sensor"` 点云；需要码头世界坐标时传入
+`output_frame="world"`。两种坐标会在采集过程中同时保留。
+
+The downward sensor uses a nadir orientation and a 150 m range by default,
+which is enough to cover the containers below the RTG without doubling the
+full-yard range allocation.
+
+The default horizontal sensor mount is `(X=-3.7811, Y=5.00, Z=9.35)` in the
+RTG trolley local frame; the downward sensor is 0.20 m lower and points toward
+world `-Z`. If the particular RTG asset revision places the roof elsewhere,
+pass a different `translation=(x, y, z)` to `start_rtg_yard_lidar`; the
+downward sensor follows that position automatically. The implementation uses
+LiDAR because a geometric yard point cloud needs dense range returns; a true
+millimetre-wave Radar sensor is better suited to sparse detections and radial
+velocity.
+
 ## RTG roles
 
 The middle yard RTG is the production candidate and is exported under

@@ -38,10 +38,14 @@ CONTAINER_ASSET_PATH = (
     PROJECT_ROOT / "omniverse" / "assets" / "resource" / "container" / "Shipping_Container.usdz"
 )
 
-# Shipping_Container.usdz is authored in centimetres with Y-up coordinates:
+# Shipping_Container.usdz is authored in centimetre scene units with Y-up
+# coordinates.  USD references do not automatically convert the referenced
+# mesh's scene units to the root stage's metres, so the source dimensions here
+# must stay in the asset's raw units.  Using metre values (2.4/2.902/6.015)
+# makes the imported model roughly 100x too large in the metre-based yard.
 # X is width, Y is height, and Z is the long container axis.  The live yard
 # stage uses metres, Z-up coordinates, and the container length on Y.
-CONTAINER_ASSET_SOURCE_SIZE_M = Gf.Vec3f(2.400, 2.902, 6.015)
+CONTAINER_ASSET_SOURCE_SIZE_UNITS = Gf.Vec3f(240.0, 290.2, 601.5)
 CONTAINER_ASSET_ROTATE_X_DEG = 90.0
 
 LIVE_ROOT_PATH = "/World/LiveContainers"
@@ -226,9 +230,9 @@ def create_imported_container_model(
         xform.AddScaleOp,
     ).Set(
         Gf.Vec3f(
-            float(scale[0]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[0]),
-            float(scale[2]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[1]),
-            float(scale[1]) / float(CONTAINER_ASSET_SOURCE_SIZE_M[2]),
+            float(scale[0]) / float(CONTAINER_ASSET_SOURCE_SIZE_UNITS[0]),
+            float(scale[2]) / float(CONTAINER_ASSET_SOURCE_SIZE_UNITS[1]),
+            float(scale[1]) / float(CONTAINER_ASSET_SOURCE_SIZE_UNITS[2]),
         )
     )
     resolved = any(model.GetPrim().GetChildren())

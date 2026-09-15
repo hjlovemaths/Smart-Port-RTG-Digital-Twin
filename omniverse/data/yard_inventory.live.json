@@ -2869,6 +2869,16 @@
       "duplicate": false,
       "taskId": "27334366",
       "workType": "UNLOAD"
+    },
+    "27715572": {
+      "applied": true,
+      "changedBays": [
+        "3C/061"
+      ],
+      "completedAtUtc": "2026-09-07T06:39:21Z",
+      "duplicate": false,
+      "taskId": "27715572",
+      "workType": "SWITCH"
     }
   },
   "createdAtUtc": "2026-07-31T05:13:01Z",
@@ -2880,9 +2890,28 @@
       "bayNumber": 2,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 7,
+      "revision": 10,
       "rows": [
-        [],
+        [
+          {
+            "colorIndex": 5,
+            "containerId": "INV-F19DD8B255EA",
+            "containerNo": "SPF19DD8B25",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-611922A7DE1D",
+            "containerNo": "SP611922A7D",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ],
         [
           {
             "colorIndex": 5,
@@ -2930,6 +2959,24 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-A0BF30D9598B",
+            "containerNo": "SPA0BF30D95",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-694D65071234",
+            "containerNo": "SP694D65071",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
         [
@@ -2937,6 +2984,33 @@
             "colorIndex": 5,
             "containerId": "INV-AE56920D84C4",
             "containerNo": "SPAE56920D8",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-8835C20622CD",
+            "containerNo": "SP8835C2062",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-4A16E6E66C2D",
+            "containerNo": "SP4A16E6E66",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-033024F6F952",
+            "containerNo": "SP033024F6F",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -2952,24 +3026,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-B968EA369ED0",
-            "containerNo": "SPB968EA369",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 3,
-            "containerId": "INV-15531CB42941",
-            "containerNo": "SP15531CB42",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ],
         [
@@ -2981,27 +3037,18 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-BDBCCE964AD9",
-            "containerNo": "SPBDBCCE964",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-18T05:20:22Z"
+      "updatedAtUtc": "2026-09-07T09:07:35Z"
     },
     "3C/005": {
       "bayId": "3C/005",
       "bayNumber": 5,
       "block": "3C",
       "containerSizeFt": 20,
-      "revision": 11,
+      "revision": 15,
       "rows": [
         [
           {
@@ -3021,27 +3068,37 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
+          }
+        ],
+        [
           {
-            "colorIndex": 0,
-            "containerId": "INV-CBDFABBBD8D3",
-            "containerNo": "SPCBDFABBBD",
+            "colorIndex": 2,
+            "containerId": "INV-D4A145828F11",
+            "containerNo": "SPD4A145828",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
           },
           {
-            "colorIndex": 3,
-            "containerId": "INV-8391B226EC9B",
-            "containerNo": "SP8391B226E",
+            "colorIndex": 1,
+            "containerId": "INV-9FF12439E957",
+            "containerNo": "SP9FF12439E",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-170C9D44FC92",
+            "containerNo": "SP170C9D44F",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
           }
         ],
-        [],
         [
           {
             "colorIndex": 2,
@@ -3056,15 +3113,6 @@
             "colorIndex": 5,
             "containerId": "INV-1AD03F160D4E",
             "containerNo": "SP1AD03F160",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 2,
-            "containerId": "INV-4037EE8906B2",
-            "containerNo": "SP4037EE890",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
@@ -3084,14 +3132,22 @@
         ],
         [
           {
-            "colorIndex": 4,
-            "containerId": "TIIU2023885",
-            "containerNo": "TIIU2023885",
+            "colorIndex": 5,
+            "containerId": "INV-55985A1B67A4",
+            "containerNo": "SP55985A1B6",
             "heightM": 2.6,
-            "lastTaskId": "27315174",
             "sizeFt": 20,
-            "source": "task",
-            "type": "GP"
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-8EFFDCCAFD35",
+            "containerNo": "SP8EFFDCCAF",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
         [
@@ -3103,29 +3159,57 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-AECAA2EC5134",
-            "containerNo": "SPAECAA2EC5",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-17T08:43:55Z"
+      "updatedAtUtc": "2026-09-04T05:35:26Z"
     },
     "3C/008": {
       "bayId": "3C/008",
       "bayNumber": 8,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 6,
+      "revision": 15,
       "rows": [
-        [],
+        [
+          {
+            "colorIndex": 3,
+            "containerId": "INV-4B89CEF6C2F6",
+            "containerNo": "SP4B89CEF6C",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-210B05834421",
+            "containerNo": "SP210B05834",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-84E18978E5F2",
+            "containerNo": "SP84E18978E",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-7BDDF7A75934",
+            "containerNo": "SP7BDDF7A75",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ],
         [
           {
             "colorIndex": 5,
@@ -3149,15 +3233,6 @@
             "colorIndex": 5,
             "containerId": "INV-C40B6A8DEC78",
             "containerNo": "SPC40B6A8DE",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 3,
-            "containerId": "INV-A206C7EF859F",
-            "containerNo": "SPA206C7EF8",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -3204,30 +3279,9 @@
         ],
         [
           {
-            "colorIndex": 5,
-            "containerId": "MSNU8017231",
-            "containerNo": "MSNU8017231",
-            "heightM": 2.9,
-            "lastTaskId": "27314707",
-            "sizeFt": 40,
-            "source": "task",
-            "type": "GP"
-          }
-        ],
-        [
-          {
-            "colorIndex": 0,
-            "containerId": "INV-7B6630227A04",
-            "containerNo": "SP7B6630227",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-2D4EB5BA511F",
-            "containerNo": "SP2D4EB5BA5",
+            "colorIndex": 3,
+            "containerId": "INV-EDDA39953830",
+            "containerNo": "SPEDDA39953",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -3235,8 +3289,37 @@
           },
           {
             "colorIndex": 1,
-            "containerId": "INV-94F9B531B17A",
-            "containerNo": "SP94F9B531B",
+            "containerId": "INV-7BE60BEE3E46",
+            "containerNo": "SP7BE60BEE3",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-347809D6C02F",
+            "containerNo": "SP347809D6C",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-BDB3667A8A89",
+            "containerNo": "SPBDB3667A8",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ],
+        [
+          {
+            "colorIndex": 0,
+            "containerId": "INV-7B6630227A04",
+            "containerNo": "SP7B6630227",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -3252,20 +3335,11 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-305677F21F6B",
-            "containerNo": "SP305677F21",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ]
       ],
-      "source": "task-settlement",
-      "updatedAtUtc": "2026-08-17T07:07:57Z"
+      "source": "task-bay-map",
+      "updatedAtUtc": "2026-09-07T09:21:08Z"
     },
     "3C/012": {
       "bayId": "3C/012",
@@ -4883,7 +4957,7 @@
       "bayNumber": 47,
       "block": "3C",
       "containerSizeFt": 20,
-      "revision": 7,
+      "revision": 8,
       "rows": [
         [
           {
@@ -4903,6 +4977,15 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-A7FF9807EEEF",
+            "containerNo": "SPA7FF9807E",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
         [
@@ -4910,33 +4993,6 @@
             "colorIndex": 3,
             "containerId": "INV-9A4D495ED777",
             "containerNo": "SP9A4D495ED",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-667AC22A7EDB",
-            "containerNo": "SP667AC22A7",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 2,
-            "containerId": "INV-CB03E15690BE",
-            "containerNo": "SPCB03E1569",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-5F7D836F7ABA",
-            "containerNo": "SP5F7D836F7",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
@@ -4999,15 +5055,6 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-6772B70CCFBB",
-            "containerNo": "SP6772B70CC",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ],
         [
@@ -5039,27 +5086,18 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-25F3366BDDA8",
-            "containerNo": "SP25F3366BD",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-18T05:38:04Z"
+      "updatedAtUtc": "2026-09-04T05:12:14Z"
     },
     "3C/050": {
       "bayId": "3C/050",
       "bayNumber": 50,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 4,
+      "revision": 7,
       "rows": [
         [
           {
@@ -5077,33 +5115,6 @@
             "colorIndex": 4,
             "containerId": "INV-94CBF7D2B202",
             "containerNo": "SP94CBF7D2B",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-F2A7DD48905E",
-            "containerNo": "SPF2A7DD489",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-953EFC92AD89",
-            "containerNo": "SP953EFC92A",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-5CFBD4840965",
-            "containerNo": "SP5CFBD4840",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5137,16 +5148,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "MRKU6194714",
-            "containerNo": "MRKU6194714",
-            "heightM": 2.9,
-            "lastTaskId": "27335434",
-            "sizeFt": 40,
-            "source": "task",
-            "type": "GP"
           }
         ],
         [
@@ -5172,6 +5173,15 @@
             "colorIndex": 0,
             "containerId": "INV-2DBA5E63B1AD",
             "containerNo": "SP2DBA5E63B",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-9F64049DBAED",
+            "containerNo": "SP9F64049DB",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5216,11 +5226,20 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-0FF78B6C1FDF",
+            "containerNo": "SP0FF78B6C1",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-18T05:30:26Z"
+      "updatedAtUtc": "2026-09-04T05:58:07Z"
     },
     "3C/054": {
       "bayId": "3C/054",
@@ -5349,7 +5368,7 @@
       "bayNumber": 58,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 4,
+      "revision": 5,
       "rows": [
         [
           {
@@ -5378,15 +5397,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-456CE57F2F0A",
-            "containerNo": "SP456CE57F2",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ],
         [
@@ -5398,18 +5408,35 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-8172385C5991",
+            "containerNo": "SP8172385C5",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
         [
           {
-            "colorIndex": 2,
-            "containerId": "ECMU6065201",
-            "containerNo": "ECMU6065201",
-            "heightM": 2.9,
-            "lastTaskId": "27315352",
+            "colorIndex": 0,
+            "containerId": "INV-FB1320D188F8",
+            "containerNo": "SPFB1320D18",
+            "heightM": 2.6,
             "sizeFt": 40,
-            "source": "task",
-            "type": "GP"
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-265AB3180AF3",
+            "containerNo": "SP265AB3180",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
         [
@@ -5439,47 +5466,65 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-F4133B12AE0C",
+            "containerNo": "SPF4133B12A",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
-        [],
         [
           {
-            "colorIndex": 3,
-            "containerId": "INV-19BA1034E98B",
-            "containerNo": "SP19BA1034E",
+            "colorIndex": 2,
+            "containerId": "INV-174CD9043DAC",
+            "containerNo": "SP174CD9043",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
           },
           {
-            "colorIndex": 3,
-            "containerId": "INV-D78BF77B223B",
-            "containerNo": "SPD78BF77B2",
+            "colorIndex": 1,
+            "containerId": "INV-8DCE905EF728",
+            "containerNo": "SP8DCE905EF",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-B1FFE0795DD6",
+            "containerNo": "SPB1FFE0795",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
           }
-        ]
+        ],
+        []
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-17T08:12:19Z"
+      "updatedAtUtc": "2026-09-07T06:41:53Z"
     },
     "3C/061": {
       "bayId": "3C/061",
       "bayNumber": 61,
       "block": "3C",
       "containerSizeFt": 20,
-      "revision": 7,
+      "revision": 10,
       "rows": [
         [
           {
-            "colorIndex": 1,
-            "containerId": "FTAU1178907",
-            "containerNo": "FTAU1178907",
+            "colorIndex": 5,
+            "containerId": "SITU2686880",
+            "containerNo": "SITU2686880",
             "heightM": 2.6,
-            "lastTaskId": "27312470",
+            "lastTaskId": "27715570",
             "sizeFt": 20,
             "source": "task",
             "type": "GP"
@@ -5503,6 +5548,16 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "SITU2889023",
+            "containerNo": "SITU2889023",
+            "heightM": 2.6,
+            "lastTaskId": "27715572",
+            "sizeFt": 20,
+            "source": "switch",
+            "type": "GP"
           }
         ],
         [
@@ -5514,6 +5569,33 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-822959AECC87",
+            "containerNo": "SP822959AEC",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-39173D8F8860",
+            "containerNo": "SP39173D8F8",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-6262DB54A152",
+            "containerNo": "SP6262DB54A",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
         [
@@ -5521,6 +5603,33 @@
             "colorIndex": 2,
             "containerId": "INV-8AA5D5AF4579",
             "containerNo": "SP8AA5D5AF4",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-1F5ECAA80B61",
+            "containerNo": "SP1F5ECAA80",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-6C738C3EC610",
+            "containerNo": "SP6C738C3EC",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-9E3AD28B2CDC",
+            "containerNo": "SP9E3AD28B2",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
@@ -5559,32 +5668,31 @@
           }
         ]
       ],
-      "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-17T04:45:49Z"
+      "source": "task-settlement",
+      "updatedAtUtc": "2026-09-07T06:39:21Z"
     },
     "3C/063": {
       "bayId": "3C/063",
       "bayNumber": 63,
       "block": "3C",
       "containerSizeFt": 20,
-      "revision": 5,
+      "revision": 6,
       "rows": [
-        [
-          {
-            "colorIndex": 2,
-            "containerId": "INV-585856A33E1B",
-            "containerNo": "SP585856A33",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          }
-        ],
+        [],
         [
           {
             "colorIndex": 5,
             "containerId": "INV-6CF695C075D5",
             "containerNo": "SP6CF695C07",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-6AAE118C3EF9",
+            "containerNo": "SP6AAE118C3",
             "heightM": 2.6,
             "sizeFt": 20,
             "source": "task-bay-map",
@@ -5600,15 +5708,6 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 2,
-            "containerId": "INV-33787C2BA453",
-            "containerNo": "SP33787C2BA",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ],
         [
@@ -5620,9 +5719,55 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-761FA516598C",
+            "containerNo": "SP761FA5165",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-DD281F67DC2F",
+            "containerNo": "SPDD281F67D",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
-        [],
+        [
+          {
+            "colorIndex": 0,
+            "containerId": "INV-5BB8D127332F",
+            "containerNo": "SP5BB8D1273",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-74C0AC3013C1",
+            "containerNo": "SP74C0AC301",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-E51654CBECC1",
+            "containerNo": "SPE51654CBE",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          }
+        ],
         [
           {
             "colorIndex": 1,
@@ -5632,18 +5777,27 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-AB6F55E523D1",
+            "containerNo": "SPAB6F55E52",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ]
       ],
-      "source": "task-settlement",
-      "updatedAtUtc": "2026-08-18T05:08:29Z"
+      "source": "task-bay-map",
+      "updatedAtUtc": "2026-09-07T09:29:26Z"
     },
     "3C/066": {
       "bayId": "3C/066",
       "bayNumber": 66,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 9,
+      "revision": 10,
       "rows": [
         [
           {
@@ -5654,16 +5808,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "MSBU7109906",
-            "containerNo": "MSBU7109906",
-            "heightM": 2.9,
-            "lastTaskId": "27231058",
-            "sizeFt": 40,
-            "source": "task",
-            "type": "GP"
           }
         ],
         [
@@ -5671,6 +5815,33 @@
             "colorIndex": 2,
             "containerId": "INV-05115E814F4E",
             "containerNo": "SP05115E814",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-B526BFA2A67C",
+            "containerNo": "SPB526BFA2A",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-22EEAD21C3BD",
+            "containerNo": "SP22EEAD21C",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-8ABD3D19F419",
+            "containerNo": "SP8ABD3D19F",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5695,6 +5866,24 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-47C1276DBBF2",
+            "containerNo": "SP47C1276DB",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-B937B72806E0",
+            "containerNo": "SPB937B7280",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
         [
@@ -5715,6 +5904,15 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-AE078DB6CD81",
+            "containerNo": "SPAE078DB6C",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
         [
@@ -5731,6 +5929,15 @@
             "colorIndex": 0,
             "containerId": "INV-EABBFC8183A2",
             "containerNo": "SPEABBFC818",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-995129F59B9F",
+            "containerNo": "SP995129F59",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5759,29 +5966,20 @@
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-13T04:15:56Z"
+      "updatedAtUtc": "2026-09-07T09:23:13Z"
     },
     "3C/070": {
       "bayId": "3C/070",
       "bayNumber": 70,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 2,
+      "revision": 3,
       "rows": [
         [
           {
             "colorIndex": 5,
             "containerId": "INV-DEF50EEB29CE",
             "containerNo": "SPDEF50EEB2",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-74E1BBF3C614",
-            "containerNo": "SP74E1BBF3C",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5806,15 +6004,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-8DC823656000",
-            "containerNo": "SP8DC823656",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ],
         [
@@ -5828,22 +6017,14 @@
             "type": "40GP"
           },
           {
-            "colorIndex": 1,
-            "containerId": "INV-A4BD6431B07E",
-            "containerNo": "SPA4BD6431B",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
             "colorIndex": 0,
-            "containerId": "INV-219D814F1E52",
-            "containerNo": "SP219D814F1",
-            "heightM": 2.6,
+            "containerId": "FFAU7709520",
+            "containerNo": "FFAU7709520",
+            "heightM": 2.9,
+            "lastTaskId": "27653415",
             "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -5860,15 +6041,6 @@
             "colorIndex": 0,
             "containerId": "INV-504AAE19F118",
             "containerNo": "SP504AAE19F",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 3,
-            "containerId": "INV-E4577903ED48",
-            "containerNo": "SPE4577903E",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -5904,17 +6076,36 @@
             "type": "40GP"
           }
         ],
-        []
+        [
+          {
+            "colorIndex": 5,
+            "containerId": "INV-BF359CCA20E9",
+            "containerNo": "SPBF359CCA2",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-D0FE77C33D5E",
+            "containerNo": "SPD0FE77C33",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-13T06:53:34Z"
+      "updatedAtUtc": "2026-09-04T05:52:04Z"
     },
     "3C/074": {
       "bayId": "3C/074",
       "bayNumber": 74,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 7,
+      "revision": 8,
       "rows": [
         [
           {
@@ -5934,9 +6125,55 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-D9851DB5ACFF",
+            "containerNo": "SPD9851DB5A",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-8DE4FA7346A6",
+            "containerNo": "SP8DE4FA734",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
           }
         ],
-        [],
+        [
+          {
+            "colorIndex": 2,
+            "containerId": "INV-F26C43276857",
+            "containerNo": "SPF26C43276",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-D30AA30188F8",
+            "containerNo": "SPD30AA3018",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-9D012B6DA645",
+            "containerNo": "SP9D012B6DA",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ],
         [
           {
             "colorIndex": 5,
@@ -5964,15 +6201,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-480EB042819E",
-            "containerNo": "SP480EB0428",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ],
         [
@@ -5980,6 +6208,15 @@
             "colorIndex": 0,
             "containerId": "INV-BC0B989537A9",
             "containerNo": "SPBC0B98953",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-A9FE73E4E4ED",
+            "containerNo": "SPA9FE73E4E",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -6000,6 +6237,15 @@
             "colorIndex": 4,
             "containerId": "INV-6F8ED3A2F80A",
             "containerNo": "SP6F8ED3A2F",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-2CEE6C03D81C",
+            "containerNo": "SP2CEE6C03D",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -6027,8 +6273,8 @@
           }
         ]
       ],
-      "source": "task-settlement",
-      "updatedAtUtc": "2026-08-18T03:40:55Z"
+      "source": "task-bay-map",
+      "updatedAtUtc": "2026-09-04T05:14:17Z"
     },
     "3C/077": {
       "bayId": "3C/077",
@@ -6185,13 +6431,22 @@
       "bayNumber": 80,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 2,
+      "revision": 3,
       "rows": [
         [
           {
             "colorIndex": 3,
             "containerId": "INV-1E4448A197BB",
             "containerNo": "SP1E4448A19",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-959B53413573",
+            "containerNo": "SP959B53413",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -6212,24 +6467,6 @@
             "colorIndex": 5,
             "containerId": "INV-B58D6449F334",
             "containerNo": "SPB58D6449F",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 2,
-            "containerId": "INV-6554917056BD",
-            "containerNo": "SP655491705",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 3,
-            "containerId": "INV-D4DAAF062E96",
-            "containerNo": "SPD4DAAF062",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -6265,26 +6502,7 @@
             "type": "40GP"
           }
         ],
-        [
-          {
-            "colorIndex": 0,
-            "containerId": "INV-C9682BE10E0C",
-            "containerNo": "SPC9682BE10",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-3317A30E487F",
-            "containerNo": "SP3317A30E4",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          }
-        ],
+        [],
         [
           {
             "colorIndex": 1,
@@ -6306,37 +6524,19 @@
           },
           {
             "colorIndex": 2,
-            "containerId": "INV-14413019F634",
-            "containerNo": "SP14413019F",
-            "heightM": 2.6,
+            "containerId": "BSIU8326198",
+            "containerNo": "BSIU8326198",
+            "heightM": 2.9,
+            "lastTaskId": "27715515",
             "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
-        [
-          {
-            "colorIndex": 3,
-            "containerId": "INV-55374F62765F",
-            "containerNo": "SP55374F627",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-7960B2EEC67E",
-            "containerNo": "SP7960B2EEC",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          }
-        ]
+        []
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-18T04:25:17Z"
+      "updatedAtUtc": "2026-09-07T06:31:22Z"
     },
     "3C/083": {
       "bayId": "3C/083",
@@ -6576,7 +6776,7 @@
       "bayNumber": 90,
       "block": "3C",
       "containerSizeFt": 40,
-      "revision": 7,
+      "revision": 8,
       "rows": [
         [
           {
@@ -6598,24 +6798,6 @@
             "sizeFt": 40,
             "source": "task-bay-map",
             "type": "40GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-89704605F0DD",
-            "containerNo": "SP89704605F",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-65055F97E31D",
-            "containerNo": "SP65055F97E",
-            "heightM": 2.6,
-            "sizeFt": 40,
-            "source": "task-bay-map",
-            "type": "40GP"
           }
         ],
         [
@@ -6623,6 +6805,24 @@
             "colorIndex": 1,
             "containerId": "INV-F8EC2D8DBCB6",
             "containerNo": "SPF8EC2D8DB",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-1CE2A43DAB6F",
+            "containerNo": "SP1CE2A43DA",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-49EB776BC4F1",
+            "containerNo": "SP49EB776BC",
             "heightM": 2.6,
             "sizeFt": 40,
             "source": "task-bay-map",
@@ -6696,10 +6896,29 @@
             "type": "40GP"
           }
         ],
-        []
+        [
+          {
+            "colorIndex": 2,
+            "containerId": "INV-A884C2A224E8",
+            "containerNo": "SPA884C2A22",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-5C3745BCAD6F",
+            "containerNo": "SP5C3745BCA",
+            "heightM": 2.6,
+            "sizeFt": 40,
+            "source": "task-bay-map",
+            "type": "40GP"
+          }
+        ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-18T04:20:02Z"
+      "updatedAtUtc": "2026-09-04T05:46:28Z"
     },
     "4C/004": {
       "bayId": "4C/004",
@@ -6872,7 +7091,7 @@
       "bayNumber": 7,
       "block": "4C",
       "containerSizeFt": 20,
-      "revision": 13,
+      "revision": 17,
       "rows": [
         [
           {
@@ -6932,6 +7151,33 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-F092186C79AA",
+            "containerNo": "SPF092186C7",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 2,
+            "containerId": "INV-E891E04B981A",
+            "containerNo": "SPE891E04B9",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-B0576C65B313",
+            "containerNo": "SPB0576C65B",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
         [
@@ -6963,13 +7209,14 @@
             "type": "20GP"
           },
           {
-            "colorIndex": 3,
-            "containerId": "INV-4D4E9B31FC59",
-            "containerNo": "SP4D4E9B31F",
-            "heightM": 2.6,
+            "colorIndex": 4,
+            "containerId": "TRGU3510277",
+            "containerNo": "TRGU3510277",
+            "heightM": 2.9,
+            "lastTaskId": "27715470",
             "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -7010,20 +7257,11 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 4,
-            "containerId": "INV-656FAE8DDF05",
-            "containerNo": "SP656FAE8DD",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-14T06:58:35Z"
+      "updatedAtUtc": "2026-09-07T06:26:19Z"
     },
     "4C/010": {
       "bayId": "4C/010",
@@ -7077,7 +7315,7 @@
       "bayNumber": 13,
       "block": "4C",
       "containerSizeFt": 20,
-      "revision": 8,
+      "revision": 11,
       "rows": [
         [
           {
@@ -7106,35 +7344,18 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 0,
-            "containerId": "INV-B4E7404A7EC5",
-            "containerNo": "SPB4E7404A7",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ],
         [
           {
-            "colorIndex": 0,
-            "containerId": "INV-E9E6054CE0DD",
-            "containerNo": "SPE9E6054CE",
+            "colorIndex": 4,
+            "containerId": "CDDU0093540",
+            "containerNo": "CDDU0093540",
             "heightM": 2.6,
+            "lastTaskId": "27654127",
             "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 2,
-            "containerId": "INV-32AB7A67DDA3",
-            "containerNo": "SP32AB7A67D",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -7175,26 +7396,18 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 5,
-            "containerId": "INV-794E08551943",
-            "containerNo": "SP794E08551",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ],
         [
           {
-            "colorIndex": 3,
-            "containerId": "INV-BEA43C9309AE",
-            "containerNo": "SPBEA43C930",
+            "colorIndex": 0,
+            "containerId": "CDDU0093642",
+            "containerNo": "CDDU0093642",
             "heightM": 2.6,
+            "lastTaskId": "27654126",
             "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -7219,24 +7432,25 @@
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-13T09:38:28Z"
+      "updatedAtUtc": "2026-09-04T06:11:27Z"
     },
     "4C/015": {
       "bayId": "4C/015",
       "bayNumber": 15,
       "block": "4C",
       "containerSizeFt": 20,
-      "revision": 7,
+      "revision": 10,
       "rows": [
         [
           {
-            "colorIndex": 4,
-            "containerId": "INV-238ED0675976",
-            "containerNo": "SP238ED0675",
+            "colorIndex": 1,
+            "containerId": "FCIU6306868",
+            "containerNo": "FCIU6306868",
             "heightM": 2.6,
+            "lastTaskId": "27714453",
             "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -7268,14 +7482,125 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-9495EF5F08D5",
+            "containerNo": "SP9495EF5F0",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-BAA4655CCAFB",
+            "containerNo": "SPBAA4655CC",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-CE5C604444A2",
+            "containerNo": "SPCE5C60444",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
-        [],
-        [],
-        []
+        [
+          {
+            "colorIndex": 3,
+            "containerId": "INV-BDD10D549828",
+            "containerNo": "SPBDD10D549",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "INV-9F8CFB33B44D",
+            "containerNo": "SP9F8CFB33B",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-A444D0E60FF2",
+            "containerNo": "SPA444D0E60",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-FD8B9B7476CD",
+            "containerNo": "SPFD8B9B747",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          }
+        ],
+        [
+          {
+            "colorIndex": 0,
+            "containerId": "INV-F6EA98AD4D51",
+            "containerNo": "SPF6EA98AD4",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 3,
+            "containerId": "INV-B504AF849057",
+            "containerNo": "SPB504AF849",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 5,
+            "containerId": "INV-246AEE3B8290",
+            "containerNo": "SP246AEE3B8",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          }
+        ],
+        [
+          {
+            "colorIndex": 3,
+            "containerId": "INV-EAE379F827A4",
+            "containerNo": "SPEAE379F82",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-474878414583",
+            "containerNo": "SP474878414",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          }
+        ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-13T09:11:06Z"
+      "updatedAtUtc": "2026-09-07T06:14:48Z"
     },
     "4C/018": {
       "bayId": "4C/018",
@@ -7367,7 +7692,7 @@
       "bayNumber": 21,
       "block": "4C",
       "containerSizeFt": 20,
-      "revision": 5,
+      "revision": 6,
       "rows": [
         [
           {
@@ -7378,6 +7703,16 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
+          },
+          {
+            "colorIndex": 1,
+            "containerId": "FCIU5648207",
+            "containerNo": "FCIU5648207",
+            "heightM": 2.6,
+            "lastTaskId": "27711967",
+            "sizeFt": 20,
+            "source": "task",
+            "type": "GP"
           }
         ],
         [
@@ -7389,45 +7724,17 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-6147F32378FE",
-            "containerNo": "SP6147F3237",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-E91285804BE2",
-            "containerNo": "SPE91285804",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
-          },
-          {
-            "colorIndex": 1,
-            "containerId": "INV-EE3BE44E848C",
-            "containerNo": "SPEE3BE44E8",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ],
         [
           {
-            "colorIndex": 0,
-            "containerId": "AXIU2186821",
-            "containerNo": "AXIU2186821",
+            "colorIndex": 1,
+            "containerId": "INV-40ACD0FE4719",
+            "containerNo": "SP40ACD0FE4",
             "heightM": 2.6,
-            "lastTaskId": "27255185",
             "sizeFt": 20,
-            "source": "task",
-            "type": "GP"
+            "source": "task-bay-map",
+            "type": "20GP"
           }
         ],
         [
@@ -7441,7 +7748,35 @@
             "type": "20GP"
           }
         ],
-        [],
+        [
+          {
+            "colorIndex": 4,
+            "containerId": "INV-FF4EB50665BB",
+            "containerNo": "SPFF4EB5066",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 0,
+            "containerId": "INV-911EBD85BD86",
+            "containerNo": "SP911EBD85B",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          },
+          {
+            "colorIndex": 4,
+            "containerId": "INV-A327C9638365",
+            "containerNo": "SPA327C9638",
+            "heightM": 2.6,
+            "sizeFt": 20,
+            "source": "task-bay-map",
+            "type": "20GP"
+          }
+        ],
         [
           {
             "colorIndex": 1,
@@ -7451,20 +7786,11 @@
             "sizeFt": 20,
             "source": "task-bay-map",
             "type": "20GP"
-          },
-          {
-            "colorIndex": 3,
-            "containerId": "INV-BA2945339767",
-            "containerNo": "SPBA2945339",
-            "heightM": 2.6,
-            "sizeFt": 20,
-            "source": "task-bay-map",
-            "type": "20GP"
           }
         ]
       ],
       "source": "task-bay-map",
-      "updatedAtUtc": "2026-08-14T08:20:06Z"
+      "updatedAtUtc": "2026-09-07T02:37:01Z"
     },
     "4C/024": {
       "bayId": "4C/024",
@@ -8007,10 +8333,10 @@
   },
   "stats": {
     "anchorCount": 314,
-    "completedTaskCount": 35,
-    "containerCount": 469,
+    "completedTaskCount": 36,
+    "containerCount": 503,
     "initializedStackCount": 40,
     "occupiedStackCount": 40
   },
-  "updatedAtUtc": "2026-08-18T05:43:31Z"
+  "updatedAtUtc": "2026-09-11T06:29:46Z"
 }

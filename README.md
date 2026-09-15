@@ -70,6 +70,7 @@ RTG 会话层变换，二者不要同时运行。
 | 文件 | 在哪里运行 | 用途 | 是否直接运行 |
 |---|---|---|---|
 | `omniverse/scripts/rtg_simulation_driver.py` | Omniverse Kit Script Editor | 启动虚拟任务、随机仿真库存和 RTG 动画 | 是，用 `exec(open(...).read())` |
+| `omniverse/scripts/rtg_isaac_physics.py` | Isaac Sim Script Editor | 显式启用 RTG 刚体、碰撞代理、三条物理关节和线性驱动 | 是，先打开场景再执行 |
 | `omniverse/scripts/rtg_twin_state_receiver.py` | Omniverse Kit Script Editor | 接收真实 TwinState、驱动场景并维护真实库存 | 是，用 `exec(open(...).read())` |
 | `omniverse/scripts/rtg_viewport_only_livestream.py` | Omniverse Kit Script Editor | 启动跟随 RTG 的 viewport-only WebRTC 画面 | 是，加载与启动命令必须一次执行 |
 | `services/rtg_twin_service.py` | 项目根目录 PowerShell | 订阅 PLC/RCMS，向 Omniverse 发布 TwinState | 是，用系统 Python |
@@ -436,9 +437,9 @@ start_viewport_only_livestream(target_fps=120)
 | PDF 阶段 | 当前状态 | 还需要做 |
 |---|---|---|
 | 1. RTG 模型转 USD | 已完成 | 整理生产级模型层级 |
-| 2. SimReady RTG | 未完成 | 碰撞体、质量、关节、驱动、限位 |
-| 3. 港区环境 | 部分完成 | 已有白天/夜晚切换、道路灯和 RTG 横梁灯；缺雨、雾 |
-| 4. Isaac Sim + ROS2 | 未开始 | 控制、状态回传、传感器仿真 |
+| 2. SimReady RTG | 物理原型已搭建 | 已有质量、三条 Prismatic Joint、Drive、限位和可逆激活脚本；碰撞代理和完整吊装验证待完成 |
+| 3. 港区环境 | 演示级已完成 | 已有白天/夜晚、道路灯、RTG 横梁灯、四档雨天和雾天效果；还需统一物理与传感器环境 |
+| 4. Isaac Sim + ROS2 | 部分开始 | 已有可显式启用的 Isaac Physics 原型；ROS2 控制、状态回传和传感器仿真待接入 |
 | 5. AI Agent | 未开始 | 调度、故障诊断、预测维护 |
 | 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
 
