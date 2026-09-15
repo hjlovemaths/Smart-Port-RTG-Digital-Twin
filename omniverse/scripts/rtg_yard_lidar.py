@@ -16,6 +16,8 @@ open::
 The sensors are created at the validated trolley pose and the visual mounts
 are placed at the trolley.  The live viewport uses the RTX point-cloud debug
 writer: horizontal returns are green and downward returns are orange.
+When enabled, the service also creates temporary blue L1-L24 guide spheres at
+the RTG drawing's approximate LiDAR installation points.
 Captures default to the primary horizontal LiDAR coordinate frame, where
 that RTG radar is the origin; the downward sensor is transformed into the
 same frame.  Pass ``output_frame="world"`` for a world-coordinate map.
@@ -860,6 +862,29 @@ def _attach_lidar_outputs(service: RtgYardLidarService, draw_point_size: float) 
     print("[RTG LiDAR] writers attached after playback warmup")
 
 
+def show_rtg_lidar_position_markers(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create/update the temporary blue L1-L24 installation-point spheres."""
+
+    from rtg_lidar_position_markers import (
+        show_rtg_lidar_position_markers as _show_markers,
+    )
+
+    return _show_markers(stage, **kwargs)
+
+
+def remove_rtg_lidar_position_markers(stage: Any = None) -> dict[str, Any]:
+    """Remove the temporary blue L1-L24 installation-point spheres."""
+
+    from rtg_lidar_position_markers import (
+        remove_rtg_lidar_position_markers as _remove_markers,
+    )
+
+    return _remove_markers(stage)
+
+
 def start_rtg_yard_lidar(
     stage: Any = None,
     *,
@@ -872,6 +897,7 @@ def start_rtg_yard_lidar(
     draw_point_size: float = 0.05,
     voxel_size_m: float = DEFAULT_VOXEL_SIZE_M,
     max_accumulated_points: int = DEFAULT_MAX_ACCUMULATED_POINTS,
+    show_position_markers: bool = True,
 ) -> dict[str, Any]:
     """Create the horizontal/downward trolley-mounted LiDAR pair."""
 
@@ -1007,6 +1033,19 @@ def start_rtg_yard_lidar(
     # attaches writers after playback warmup.
     _service = service
 
+    position_marker_result = None
+    if show_position_markers:
+        try:
+            from rtg_lidar_position_markers import (
+                show_rtg_lidar_position_markers,
+            )
+
+            position_marker_result = show_rtg_lidar_position_markers(stage)
+        except Exception as error:
+            # Marker geometry is a convenience layer and must not prevent the
+            # RTX sensors from starting on an asset revision without C markers.
+            print(f"[RTG LiDAR] position markers skipped: {error}")
+
     print(
         "[RTG LiDAR] horizontal + downward sensors created at the trolley "
         "world pose; writers will attach after playback warmup at "
@@ -1018,9 +1057,18 @@ def start_rtg_yard_lidar(
     print(
         "[RTG LiDAR] commands: capture_rtg_yard_pointcloud(), "
         "save_rtg_yard_map(), save_rtg_yard_sensor_scan(), "
-        "stop_rtg_yard_lidar()"
+        "show_rtg_lidar_position_markers(), stop_rtg_yard_lidar()"
     )
-    return service.status()
+    result = service.status()
+    if position_marker_result is not None:
+        result["positionMarkers"] = {
+            "rootPath": position_marker_result.get("rootPath"),
+            "count": position_marker_result.get("count", 0),
+            "anchorCount": position_marker_result.get("anchorCount", 0),
+            "fallbackCount": position_marker_result.get("fallbackCount", 0),
+            "followPrimaryRtg": position_marker_result.get("followPrimaryRtg", False),
+        }
+    return result
 
 
 async def capture_rtg_yard_pointcloud(
@@ -1475,6 +1523,14 @@ def stop_rtg_yard_lidar() -> None:
                 pass
     stage = omni.usd.get_context().get_stage()
     if stage is not None:
+        try:
+            from rtg_lidar_position_markers import (
+                remove_rtg_lidar_position_markers,
+            )
+
+            remove_rtg_lidar_position_markers(stage)
+        except Exception as error:
+            print(f"[RTG LiDAR] position marker cleanup skipped: {error}")
         # Runtime sensor and guide housing are authored in the normal active
         # layer; removing them from Session Layer would leave stale prims.
         for prim_path in (
@@ -1495,6 +1551,7 @@ __all__ = [
     "get_rtg_yard_lidar_status",
     "create_rtg_lidar_probe",
     "remove_rtg_lidar_probe",
+    "show_rtg_lidar_position_markers",
     "save_rtg_yard_map",
     "save_rtg_yard_sensor_scan",
     "spherical_to_cartesian",

@@ -26,7 +26,10 @@ Open `scenes/smart_port.usda` in Omniverse.
 ### Trolley-mounted yard LiDAR point cloud
 
 `scripts/rtg_yard_lidar.py` adds a horizontal RTX LiDAR and a second RTX LiDAR
-pointing downward near the primary RTG trolley. Because Isaac Sim 6.x is
+pointing downward near the primary RTG trolley. It also creates temporary blue
+L1-L24 guide spheres from `scripts/rtg_lidar_position_markers.py`; these are
+approximate drawing locations anchored to the imported green C camera markers.
+Because Isaac Sim 6.x is
 unstable when RTX prims are nested below the animated/physics RTG hierarchy,
 the runtime sensors are root-level and their positions are synchronized to
 the current trolley immediately before capture. The viewport displays
@@ -75,6 +78,17 @@ stop_rtg_yard_lidar()
 `capture_rtg_yard_pointcloud()` 默认以 RTG 上的 LiDAR 为原点输出
 `output_frame="sensor"` 点云；需要码头世界坐标时传入
 `output_frame="world"`。两种坐标会在采集过程中同时保留。
+
+If only the blue installation markers are needed, run this in Script Editor:
+
+```python
+exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_lidar_position_markers.py", encoding="utf-8").read())
+show_rtg_lidar_position_markers()
+```
+
+They appear under `/World/RTG_LIDAR_POSITION_MARKERS` and follow the primary
+RTG's current gantry/trolley/hoist pose. They are session-layer guide geometry,
+so they are not saved into the source model and are excluded from LiDAR data.
 
 The downward sensor uses a nadir orientation and a 150 m range by default,
 which is enough to cover the containers below the RTG without doubling the
