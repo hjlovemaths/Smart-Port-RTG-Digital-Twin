@@ -409,10 +409,13 @@ def main() -> None:
         if args.enable_rtg_lidar_representatives:
             lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
             _publish_lidar_api(lidar_module)
+            representative_config = args.lidar_config
+            if representative_config == "Example_Rotary":
+                representative_config = "Single_Emitter_Rotary"
             representative_far_range = min(float(args.lidar_far_range), 150.0)
             fleet_result = lidar_module.start_rtg_lidar_representative_fleet(
                 context.get_stage(),
-                config=args.lidar_config,
+                config=representative_config,
                 output_dir=args.lidar_output_dir,
                 far_range_m=representative_far_range,
             )

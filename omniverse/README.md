@@ -159,7 +159,7 @@ cap:
   --enable-rtg-lidar-representatives `
   --freeze-rtgs `
   --rtg-bay 3C/002 `
-  --lidar-config Example_Rotary `
+  --lidar-config Single_Emitter_Rotary `
   --lidar-far-range 150
 ```
 
@@ -188,8 +188,10 @@ asyncio.ensure_future(capture_representative_once())
 The merged result is written to
 `outputs/rtg_pointcloud/rtg_lidar_representative_capture_world.ply`, `.pcd`,
 and `.npy`; each selected L sensor also writes its own bundle. Inspect progress
-with `get_rtg_lidar_fleet_status()`. The 24-sensor mode remains available with
-`--enable-all-rtg-lidars` when the higher GPU load is acceptable.
+with `get_rtg_lidar_fleet_status()`. Representative mode intentionally does
+not attach the live `draw-point-cloud` viewport writers; this avoids a GPU
+crash while retaining the captured files. The 24-sensor mode remains available
+with `--enable-all-rtg-lidars` when the higher GPU load is acceptable.
 
 ## RTG roles
 

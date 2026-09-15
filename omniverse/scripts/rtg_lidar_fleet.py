@@ -40,6 +40,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "rtg_pointcloud"
 FLEET_ROOT_PATH = "/World/RTG_LIDAR_FLEET"
 PRIMARY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 DEFAULT_FLEET_CONFIG = "Example_Rotary"
+DEFAULT_REPRESENTATIVE_CONFIG = "Single_Emitter_Rotary"
 DEFAULT_FLEET_TICK_RATE_HZ = 1.0
 DEFAULT_FLEET_FAR_RANGE_M = 150.0
 DEFAULT_FLEET_WARMUP_FRAMES = 10
@@ -591,6 +592,12 @@ def start_rtg_lidar_representative_fleet(
 ) -> dict[str, Any]:
     """Create one low-load representative RTX LiDAR for each table zone."""
 
+    kwargs.setdefault("config", DEFAULT_REPRESENTATIVE_CONFIG)
+    # The point cloud is still polled from generic-model-output and written to
+    # PLY/PCD/NPY.  Avoiding eight live draw-point-cloud writers is important on
+    # an 8 GiB GPU and keeps this mode focused on capture rather than viewport
+    # visualization.
+    kwargs.setdefault("draw_point_cloud", False)
     kwargs.setdefault("sensor_names", REPRESENTATIVE_LIDAR_NAMES)
     return start_rtg_lidar_fleet(stage, **kwargs)
 
@@ -787,6 +794,7 @@ def stop_rtg_lidar_fleet(*, remove_markers: bool = False) -> dict[str, Any]:
 
 __all__ = [
     "FLEET_ROOT_PATH",
+    "DEFAULT_REPRESENTATIVE_CONFIG",
     "REPRESENTATIVE_LIDAR_NAMES",
     "capture_rtg_lidar_fleet_pointcloud",
     "get_rtg_lidar_fleet_status",
