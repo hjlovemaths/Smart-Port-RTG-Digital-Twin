@@ -71,6 +71,7 @@ RTG 会话层变换，二者不要同时运行。
 |---|---|---|---|
 | `omniverse/scripts/rtg_simulation_driver.py` | Omniverse Kit Script Editor | 启动虚拟任务、随机仿真库存和 RTG 动画 | 是，用 `exec(open(...).read())` |
 | `omniverse/scripts/rtg_isaac_physics.py` | Isaac Sim Script Editor | 显式启用 RTG 刚体、碰撞代理、三条物理关节和线性驱动 | 是，先打开场景再执行 |
+| `omniverse/scripts/rtg_lidar_fleet.py` | Isaac Sim Script Editor | 创建 L1-L24 共 24 路 RTX LiDAR 并导出合并点云 | 是，建议冻结 RTG 后执行 |
 | `omniverse/scripts/rtg_twin_state_receiver.py` | Omniverse Kit Script Editor | 接收真实 TwinState、驱动场景并维护真实库存 | 是，用 `exec(open(...).read())` |
 | `omniverse/scripts/rtg_viewport_only_livestream.py` | Omniverse Kit Script Editor | 启动跟随 RTG 的 viewport-only WebRTC 画面 | 是，加载与启动命令必须一次执行 |
 | `services/rtg_twin_service.py` | 项目根目录 PowerShell | 订阅 PLC/RCMS，向 Omniverse 发布 TwinState | 是，用系统 Python |

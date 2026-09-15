@@ -106,6 +106,43 @@ LiDAR because a geometric yard point cloud needs dense range returns; a true
 millimetre-wave Radar sensor is better suited to sparse detections and radial
 velocity.
 
+### 24-sensor L1-L24 fleet test
+
+The drawing labels can also be created as 24 independent RTX LiDARs with the
+opt-in fleet API. This is substantially heavier than the normal horizontal
+plus downward pair, so start with one scan and keep the RTG frozen:
+
+```powershell
+& "D:/isaacsim/python.bat" `
+  "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/launch_isaac_sim_project.py" `
+  --load-live-inventory `
+  --enable-all-rtg-lidars `
+  --freeze-rtgs `
+  --rtg-bay 3C/002 `
+  --lidar-config Example_Rotary `
+  --lidar-far-range 220
+```
+
+After the stage is ready, press Play and run this in Script Editor:
+
+```python
+import asyncio
+
+asyncio.ensure_future(
+    capture_rtg_lidar_fleet_pointcloud(
+        timeout_frames=600,
+        min_scans=1,
+        output_frame="world",
+    )
+)
+```
+
+The sensors are created under `/World/RTG_LIDAR_FLEET/L1` through `L24`.
+Each sensor writes its own scan bundle, and the merged cloud is written as
+`rtg_lidar_fleet_capture_world.ply/.pcd/.npy`. Check progress with
+`get_rtg_lidar_fleet_status()` and stop the fleet with
+`stop_rtg_lidar_fleet()`.
+
 ## RTG roles
 
 The middle yard RTG is the production candidate and is exported under
