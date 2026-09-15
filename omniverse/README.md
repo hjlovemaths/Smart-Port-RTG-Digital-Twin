@@ -141,7 +141,55 @@ The sensors are created under `/World/RTG_LIDAR_FLEET/L1` through `L24`.
 Each sensor writes its own scan bundle, and the merged cloud is written as
 `rtg_lidar_fleet_capture_world.ply/.pcd/.npy`. Check progress with
 `get_rtg_lidar_fleet_status()` and stop the fleet with
-`stop_rtg_lidar_fleet()`.
+`stop_rtg_lidar_fleet()`. If the normal 2-sensor service is already running,
+the fleet start command stops it before creating L1-L24.
+
+### Low-load representative fleet
+
+For a faster point-cloud test, use one LiDAR from each installation zone in the
+supplied table: `L1`, `L6`, `L14`, `L18`, `L20`, `L22`, `L23`, and `L24` (8
+sensors total). The representative mode defaults to 1 Hz, 10 warmup frames,
+one scan, a 150 m range, 5 cm voxel thinning, and a 500,000-point merged-cloud
+cap:
+
+```powershell
+& "D:/isaacsim/python.bat" `
+  "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/launch_isaac_sim_project.py" `
+  --load-live-inventory `
+  --enable-rtg-lidar-representatives `
+  --freeze-rtgs `
+  --rtg-bay 3C/002 `
+  --lidar-config Example_Rotary `
+  --lidar-far-range 150
+```
+
+After the stage is ready, press Play and run this in Script Editor. Use
+`asyncio.ensure_future`; top-level `await` is invalid in the Script Editor:
+
+```python
+import asyncio
+
+async def capture_representative_once():
+    try:
+        result = await capture_rtg_lidar_fleet_pointcloud(
+            timeout_frames=180,
+            warmup_frames=10,
+            min_scans=1,
+            output_frame="world",
+            output_stem="rtg_lidar_representative_capture",
+        )
+        print(result)
+    except Exception as error:
+        print(repr(error))
+
+asyncio.ensure_future(capture_representative_once())
+```
+
+The merged result is written to
+`outputs/rtg_pointcloud/rtg_lidar_representative_capture_world.ply`, `.pcd`,
+and `.npy`; each selected L sensor also writes its own bundle. Inspect progress
+with `get_rtg_lidar_fleet_status()`. The 24-sensor mode remains available with
+`--enable-all-rtg-lidars` when the higher GPU load is acceptable.
 
 ## RTG roles
 

@@ -886,15 +886,28 @@ def remove_rtg_lidar_position_markers(stage: Any = None) -> dict[str, Any]:
 
 
 def start_rtg_lidar_fleet(stage: Any = None, **kwargs: Any) -> dict[str, Any]:
-    """Create the 24 independent L1-L24 RTX LiDAR sensors."""
+    """Create the selected independent L1-L24 RTX LiDAR sensors."""
 
     from rtg_lidar_fleet import start_rtg_lidar_fleet as _start_fleet
 
     return _start_fleet(stage, **kwargs)
 
 
+def start_rtg_lidar_representative_fleet(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create one low-load representative RTX LiDAR for each table zone."""
+
+    from rtg_lidar_fleet import (
+        start_rtg_lidar_representative_fleet as _start_representative_fleet,
+    )
+
+    return _start_representative_fleet(stage, **kwargs)
+
+
 def capture_rtg_lidar_fleet_pointcloud(**kwargs: Any):
-    """Return the async 24-sensor fleet capture coroutine."""
+    """Return the async selected-sensor fleet capture coroutine."""
 
     from rtg_lidar_fleet import (
         capture_rtg_lidar_fleet_pointcloud as _capture_fleet,
@@ -904,7 +917,7 @@ def capture_rtg_lidar_fleet_pointcloud(**kwargs: Any):
 
 
 def get_rtg_lidar_fleet_status() -> dict[str, Any]:
-    """Return the 24-sensor fleet status."""
+    """Return the selected-sensor fleet status."""
 
     from rtg_lidar_fleet import get_rtg_lidar_fleet_status as _fleet_status
 
@@ -912,7 +925,7 @@ def get_rtg_lidar_fleet_status() -> dict[str, Any]:
 
 
 def stop_rtg_lidar_fleet(**kwargs: Any) -> dict[str, Any]:
-    """Stop and remove the 24 runtime RTX LiDAR sensors."""
+    """Stop and remove the selected runtime RTX LiDAR sensors."""
 
     from rtg_lidar_fleet import stop_rtg_lidar_fleet as _stop_fleet
 
@@ -1587,6 +1600,7 @@ __all__ = [
     "remove_rtg_lidar_probe",
     "show_rtg_lidar_position_markers",
     "start_rtg_lidar_fleet",
+    "start_rtg_lidar_representative_fleet",
     "capture_rtg_lidar_fleet_pointcloud",
     "get_rtg_lidar_fleet_status",
     "stop_rtg_lidar_fleet",

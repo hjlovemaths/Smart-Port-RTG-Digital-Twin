@@ -210,11 +210,19 @@ def main() -> None:
         help="attach the RTX LiDAR to the primary RTG trolley after stage load",
     )
     parser.add_argument(
+        "--enable-rtg-lidar-representatives",
+        action="store_true",
+        help=(
+            "create one low-load representative RTX LiDAR for each supplied "
+            "installation zone (8 sensors)"
+        ),
+    )
+    parser.add_argument(
         "--enable-all-rtg-lidars",
         action="store_true",
         help=(
             "create all 24 drawing LiDARs L1-L24; this is a heavy opt-in "
-            "fleet test and cannot be combined with --enable-rtg-lidar"
+            "fleet test and cannot be combined with another RTG LiDAR mode"
         ),
     )
     parser.add_argument(
@@ -257,9 +265,18 @@ def main() -> None:
         parser.error("--cpu-threads must be greater than zero")
     if args.activate_physics and args.activate_visual_control:
         parser.error("use either --activate-physics or --activate-rtg, not both")
-    if args.enable_rtg_lidar and args.enable_all_rtg_lidars:
+    lidar_mode_count = sum(
+        bool(value)
+        for value in (
+            args.enable_rtg_lidar,
+            args.enable_rtg_lidar_representatives,
+            args.enable_all_rtg_lidars,
+        )
+    )
+    if lidar_mode_count > 1:
         parser.error(
-            "use either --enable-rtg-lidar or --enable-all-rtg-lidars, not both"
+            "use only one RTG LiDAR mode: --enable-rtg-lidar, "
+            "--enable-rtg-lidar-representatives, or --enable-all-rtg-lidars"
         )
     stage_path = args.stage.resolve()
     if not stage_path.is_file():
@@ -389,7 +406,21 @@ def main() -> None:
             print(f"[RTG] RTG animation held for static sensor capture: {freeze_result}", flush=True)
         if physics_module is not None:
             _publish_rtg_api(physics_module)
-        if args.enable_all_rtg_lidars:
+        if args.enable_rtg_lidar_representatives:
+            lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
+            _publish_lidar_api(lidar_module)
+            representative_far_range = min(float(args.lidar_far_range), 150.0)
+            fleet_result = lidar_module.start_rtg_lidar_representative_fleet(
+                context.get_stage(),
+                config=args.lidar_config,
+                output_dir=args.lidar_output_dir,
+                far_range_m=representative_far_range,
+            )
+            print(
+                f"[RTG LiDAR representative fleet] Ready: {fleet_result}",
+                flush=True,
+            )
+        elif args.enable_all_rtg_lidars:
             lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
             _publish_lidar_api(lidar_module)
             fleet_result = lidar_module.start_rtg_lidar_fleet(

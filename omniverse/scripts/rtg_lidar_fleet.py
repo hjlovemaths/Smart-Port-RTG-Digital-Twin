@@ -11,7 +11,6 @@ The fleet is intentionally opt-in because 24 RTX render products are much
 heavier than the normal two-sensor yard scan.  Use one scan first::
 
     exec(open(r"D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/rtg_yard_lidar.py", encoding="utf-8").read())
-    stop_rtg_yard_lidar()  # only if the normal 2-sensor service is running
     print(start_rtg_lidar_fleet())
 
     import asyncio
@@ -32,7 +31,7 @@ from dataclasses import dataclass, field
 import importlib
 from pathlib import Path
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -41,12 +40,26 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "rtg_pointcloud"
 FLEET_ROOT_PATH = "/World/RTG_LIDAR_FLEET"
 PRIMARY_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 DEFAULT_FLEET_CONFIG = "Example_Rotary"
-DEFAULT_FLEET_TICK_RATE_HZ = 2.0
-DEFAULT_FLEET_FAR_RANGE_M = 220.0
-DEFAULT_FLEET_WARMUP_FRAMES = 30
+DEFAULT_FLEET_TICK_RATE_HZ = 1.0
+DEFAULT_FLEET_FAR_RANGE_M = 150.0
+DEFAULT_FLEET_WARMUP_FRAMES = 10
 DEFAULT_FLEET_CAPTURE_SCANS = 1
 DEFAULT_FLEET_VOXEL_SIZE_M = 0.05
-DEFAULT_FLEET_MAX_POINTS = 1_500_000
+DEFAULT_FLEET_MAX_POINTS = 500_000
+
+# One representative sensor from each row/installation zone in the supplied
+# table: trolley frame, spreader, electrical-room side, left/right gantry end,
+# outer electrical-room side, trolley roof, and main girder.
+REPRESENTATIVE_LIDAR_NAMES = (
+    "L1",
+    "L6",
+    "L14",
+    "L18",
+    "L20",
+    "L22",
+    "L23",
+    "L24",
+)
 
 # The experimental RTX Lidar API uses a quaternion in wxyz order.  The ray
 # direction of the sensor is its local +X axis, matching the existing
@@ -107,6 +120,7 @@ class RtgLidarFleetService:
             "running": True,
             "sensorRoot": FLEET_ROOT_PATH,
             "sensorCount": len(self.sensors),
+            "sensorNames": [item.name for item in self.sensors],
             "sensorsAttached": attached,
             "allSensorsAttached": attached == len(self.sensors),
             "config": self.config,
@@ -155,6 +169,29 @@ def _marker_module() -> Any:
     return importlib.import_module("rtg_lidar_position_markers")
 
 
+def _normalize_sensor_names(
+    sensor_names: Optional[Sequence[str]],
+) -> tuple[str, ...]:
+    available = tuple(
+        spec.name for spec in _marker_module().LIDAR_MARKER_SPECS
+    )
+    if sensor_names is None:
+        return available
+    requested = tuple(
+        str(name).strip().upper() for name in sensor_names if str(name).strip()
+    )
+    unknown = tuple(name for name in requested if name not in available)
+    if unknown:
+        raise ValueError(
+            f"Unknown LiDAR names: {unknown}; expected names are L1-L24"
+        )
+    if not requested:
+        raise ValueError("sensor_names must contain at least one L1-L24 name")
+    if len(set(requested)) != len(requested):
+        raise ValueError("sensor_names must not contain duplicate LiDAR names")
+    return requested
+
+
 def _fleet_orientation(name: str) -> tuple[float, float, float, float]:
     number = int(str(name).lstrip("L"))
     if number in (18, 19, 22):
@@ -164,7 +201,10 @@ def _fleet_orientation(name: str) -> tuple[float, float, float, float]:
     return DOWNWARD_WXYZ
 
 
-def _resolve_marker_positions(stage: Any) -> list[dict[str, Any]]:
+def _resolve_marker_positions(
+    stage: Any,
+    sensor_names: Optional[Sequence[str]] = None,
+) -> list[dict[str, Any]]:
     """Resolve all L positions using the same C-anchor code as blue markers."""
 
     from pxr import Gf, Usd, UsdGeom
@@ -175,8 +215,11 @@ def _resolve_marker_positions(stage: Any) -> list[dict[str, Any]]:
     # A temporary use of the marker module's pure position resolver keeps the
     # visual and sensor positions identical without requiring guide spheres to
     # be visible during a point-cloud capture.
+    selected = set(_normalize_sensor_names(sensor_names))
     result: list[dict[str, Any]] = []
     for spec in marker_module.LIDAR_MARKER_SPECS:
+        if spec.name not in selected:
+            continue
         position, source = marker_module._position_for_spec(
             stage,
             spec,
@@ -197,8 +240,8 @@ def _resolve_marker_positions(stage: Any) -> list[dict[str, Any]]:
                 "orientation": _fleet_orientation(spec.name),
             }
         )
-    if len(result) != 24:
-        raise RuntimeError(f"Expected 24 Lidar marker positions, got {len(result)}")
+    if not result:
+        raise RuntimeError("No selected LiDAR marker positions were resolved")
     return result
 
 
@@ -268,12 +311,13 @@ def _author_fleet_lidars(
     config: str,
     tick_rate_hz: float,
     far_range_m: float,
+    sensor_names: Optional[Sequence[str]] = None,
 ) -> list[FleetSensorState]:
     import numpy as np
     from isaacsim.sensors.experimental.rtx import Lidar
 
     base = _base_module()
-    positions = _resolve_marker_positions(stage)
+    positions = _resolve_marker_positions(stage, sensor_names)
     result: list[FleetSensorState] = []
     try:
         for item in positions:
@@ -478,18 +522,20 @@ def start_rtg_lidar_fleet(
     voxel_size_m: float = DEFAULT_FLEET_VOXEL_SIZE_M,
     max_points: int = DEFAULT_FLEET_MAX_POINTS,
     show_position_markers: bool = True,
+    sensor_names: Optional[Sequence[str]] = None,
 ) -> dict[str, Any]:
-    """Create all 24 independent RTX LiDAR sensors at L1-L24."""
+    """Create the selected independent RTX LiDAR sensors at L1-L24."""
 
     global _fleet_service
     if _fleet_service is not None:
         return _fleet_service.status()
     base = _base_module()
     if getattr(base, "_service", None) is not None:
-        raise RuntimeError(
-            "The normal 2-sensor RTG LiDAR service is running. "
-            "Run stop_rtg_yard_lidar() before start_rtg_lidar_fleet()."
+        print(
+            "[RTG LiDAR fleet] stopping the existing 2-sensor service "
+            "before creating the 24-sensor fleet"
         )
+        base.stop_rtg_yard_lidar()
     resolved = _resolve_stage(stage)
     if not resolved.GetPrimAtPath(PRIMARY_PATH):
         raise RuntimeError(f"Primary RTG was not found: {PRIMARY_PATH}")
@@ -510,6 +556,7 @@ def start_rtg_lidar_fleet(
         config=config,
         tick_rate_hz=float(tick_rate_hz),
         far_range_m=float(far_range_m),
+        sensor_names=sensor_names,
     )
     _fleet_service = RtgLidarFleetService(
         stage=resolved,
@@ -530,11 +577,22 @@ def start_rtg_lidar_fleet(
             print(f"[RTG LiDAR fleet] blue marker display skipped: {error}")
     result = _fleet_service.status()
     print(
-        "[RTG LiDAR fleet] created 24 independent RTX LiDARs: "
+        f"[RTG LiDAR fleet] created {len(sensors)} independent RTX LiDARs "
+        f"({', '.join(item.name for item in sensors)}): "
         f"root={FLEET_ROOT_PATH}, output={output_path}, "
         f"config={config}, draw={draw_point_cloud}"
     )
     return result
+
+
+def start_rtg_lidar_representative_fleet(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create one low-load representative RTX LiDAR for each table zone."""
+
+    kwargs.setdefault("sensor_names", REPRESENTATIVE_LIDAR_NAMES)
+    return start_rtg_lidar_fleet(stage, **kwargs)
 
 
 def get_rtg_lidar_fleet_status() -> dict[str, Any]:
@@ -553,7 +611,7 @@ async def capture_rtg_lidar_fleet_pointcloud(
     reset_accumulation: bool = True,
     hold_pose: bool = False,
 ) -> dict[str, Any]:
-    """Capture at least ``min_scans`` from every one of the 24 LiDARs."""
+    """Capture at least ``min_scans`` from every selected LiDAR."""
 
     global _fleet_service
     if _fleet_service is None:
@@ -688,19 +746,20 @@ async def capture_rtg_lidar_fleet_pointcloud(
         "perSensor": per_sensor,
     }
     print(
-        f"[RTG LiDAR fleet] captured 24 sensors, "
+        f"[RTG LiDAR fleet] captured {len(service.sensors)} sensors, "
         f"{result['totalPointCount']} merged world points: {world_bundle}"
     )
     return result
 
 
 def stop_rtg_lidar_fleet(*, remove_markers: bool = False) -> dict[str, Any]:
-    """Detach the 24 sensors and remove their runtime USD prims."""
+    """Detach the selected sensors and remove their runtime USD prims."""
 
     global _fleet_service
     if _fleet_service is None:
         return {"stopped": False}
     service = _fleet_service
+    sensor_count = len(service.sensors)
     for item in service.sensors:
         if item.sensor is None:
             continue
@@ -722,14 +781,16 @@ def stop_rtg_lidar_fleet(*, remove_markers: bool = False) -> dict[str, Any]:
             except Exception as error:
                 print(f"[RTG LiDAR fleet] marker cleanup skipped: {error}")
     _fleet_service = None
-    print("[RTG LiDAR fleet] stopped and removed 24 runtime sensors")
-    return {"stopped": True, "sensorCount": 24}
+    print(f"[RTG LiDAR fleet] stopped and removed {sensor_count} runtime sensors")
+    return {"stopped": True, "sensorCount": sensor_count}
 
 
 __all__ = [
     "FLEET_ROOT_PATH",
+    "REPRESENTATIVE_LIDAR_NAMES",
     "capture_rtg_lidar_fleet_pointcloud",
     "get_rtg_lidar_fleet_status",
     "start_rtg_lidar_fleet",
+    "start_rtg_lidar_representative_fleet",
     "stop_rtg_lidar_fleet",
 ]
