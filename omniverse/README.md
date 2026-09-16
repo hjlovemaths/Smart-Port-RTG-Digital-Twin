@@ -147,8 +147,10 @@ the fleet start command stops it before creating L1-L24.
 ### Low-load representative fleet
 
 For a faster point-cloud test, use one LiDAR from each installation zone in the
-supplied table: `L1`, `L6`, `L14`, `L18`, `L20`, `L22`, `L23`, and `L24` (8
-sensors total). The representative mode defaults to 1 Hz, 10 warmup frames,
+supplied table: `L2`, `L6`, `L14`, `L18`, `L20`, `L22`, `L23`, and `L24` (8
+sensors total). `L2` represents the same trolley-bottom installation row as
+L1-L5; L1 is excluded because its GMO stream is invalid in this stage. The
+representative mode defaults to 1 Hz, 10 warmup frames,
 one scan, a 150 m range, 5 cm voxel thinning, and a 500,000-point merged-cloud
 cap:
 

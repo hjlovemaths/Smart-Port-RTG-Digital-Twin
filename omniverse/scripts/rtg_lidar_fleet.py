@@ -50,9 +50,10 @@ DEFAULT_FLEET_MAX_POINTS = 500_000
 
 # One representative sensor from each row/installation zone in the supplied
 # table: trolley frame, spreader, electrical-room side, left/right gantry end,
-# outer electrical-room side, trolley roof, and main girder.
+# outer electrical-room side, trolley roof, and main girder. L2 is used for
+# the trolley-bottom row because the L1 GMO stream is invalid in this stage.
 REPRESENTATIVE_LIDAR_NAMES = (
-    "L1",
+    "L2",
     "L6",
     "L14",
     "L18",
