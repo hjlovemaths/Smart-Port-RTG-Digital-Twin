@@ -1,0 +1,8329 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    over "PortAndRTG"
+    {
+        over "SMART_PORT_ADDITIONAL_STS_CRANE_01" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_ADDITIONAL_STS_CRANE_02" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_ADDITIONAL_STS_CRANE_03" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_ADDITIONAL_STS_CRANE_04" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_2_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_left_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_Y__13_8_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_20" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_Y__13_8_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_Xbrace__13_8_b" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_top_right_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_3_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_Xbrace__10_2_a" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_3_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_corner_lock_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_25" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_short_chain_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_back_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_corner_lock_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_side__13_56__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_31" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_front_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_black_end_band__12_78" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_front_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_left_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_short_chain_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_16__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_0_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_corner_lock_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_side__14_04__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_hoist_rope_0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_2_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_corner_lock_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_1_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_33" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_1_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_32" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_end_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_2_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_3_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_3_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_9" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_leg_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_X__3_5_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_blue_trolley_under_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_17__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_top_warning_stripe_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_black_end_band__12_78" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_end_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_1_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_left_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_Y__10_2_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_corner_lock_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_yellow_spreader_small" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_corner_lock_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_top_smart_port_logo__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_top_warning_stripe_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_stay_cable_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_stay_cable_2_8_r" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_top_warning_stripe_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_1_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_top_swll_mark__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_front_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_Y__13_8_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_end_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_3_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_Y__10_2_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_end_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_short_chain_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_2__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_side__14_04__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_waterside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_leg_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_top_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_top_warning_stripe_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_landside_tail_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_top_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_X__7_7_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_corner_lock_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_white_roof_panel" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_right_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_X__3_5_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_top_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_18__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_top_warning_stripe_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_X__3_5_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_top_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_Xbrace__10_2_a" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_trolley_cab_dark_glass_left" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_stay_cable_2_8_r" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_main_mast" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_cable_anchor_top_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_2_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_Y__10_2_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_2_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_landside_blue_tail_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_corner_lock_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_yellow_spreader_small" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_X__7_7_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_corner_lock_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_white_machinery_house" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_Y__13_8_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_brace_X__7_7_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_R_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_blue_trolley_under_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_mid_girder" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_Xbrace__10_2_a" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_short_chain_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_waterside_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_top_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_leg_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_1_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_top_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_15__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_top_cage_hint" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_blue_outer_pivot_ring_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_3_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_21" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_right_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_landside_blue_tail_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_Y__13_8_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_right_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_Xbrace__13_8_b" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_conn_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_end_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_side__13_56__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_trolley_rail__14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_back_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_0_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_2_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_14__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_blue_trolley_under_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_trolley_cab_dark_glass_left" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_12__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_steel_highlight_stay_cable_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_top_cage_hint" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_top_left_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_black_end_band__12_78" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_16__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_1_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_0_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_15__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_black_end_band__11_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_3_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_roof_rib_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_roof_rib_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_leg_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_conn_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_blue_roof_rail_R" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_trolley_rail__10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_trolley_cab_dark_glass_right" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_end_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_trolley_cab_dark_glass_front" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_top_warning_stripe_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_3_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_23" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_waterside_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_top_sts01_number__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_roof_rib_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_black_end_band__11_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_roof_rib_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_trolley_cab_dark_glass_right" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_13__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_top_warning_stripe_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_blue_roof_rail_L" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_landside_tail_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_silver_rim_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_conn_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_conn_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_corner_lock_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_conn_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_1_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_top_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_top_cage_hint" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_top_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_leg_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_corner_lock_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_0_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_0_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_2_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_2_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_end_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_leg_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_corner_lock_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_1_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_blue_foot_gusset_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_mid_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_3_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_top_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_X__3_5_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_trolley_rail__14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_right_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_blue_foot_gusset_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_0_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_top_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_top_warning_stripe_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_15__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_Y__13_8_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_0_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_conn_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_top_warning_stripe_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_top_swll_mark__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_0_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_black_end_band__11_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_blue_foot_gusset_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_X__7_7_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_main_mast" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_3_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_26" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_end_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_28" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_short_chain_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_blue_foot_gusset_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_2_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_25" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_end_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_14__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_23" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_side__13_56__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_outer_pivot_ring_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_1_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_1_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_leg_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_24" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_top_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_20" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_1_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_0_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_cable_anchor_end_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_waterside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_top_right_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_0_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_2_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_R__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_0_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_stay_cable__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_blue_hubcap_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_1_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_right_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_wheel_blue_hubcap_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_1_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_landside_blue_tail_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_3_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_trolley_cab_dark_glass_right" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_X__3_5_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_leg_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_trolley_cab_dark_glass_left" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_1_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_trolley_cab_dark_glass_front" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_3__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_0__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_17__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_0_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_9" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_spreader_short_chain_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_1_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_1__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_17__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_0_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_Y__10_2_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_blue_outer_pivot_ring_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_conn_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_trolley_rail__10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_3_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_3_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_white_roof_panel" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_top_cross_seam_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_2_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_3__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_blue_foot_gusset_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_L__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_X__7_7_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_Xbrace__10_2_b" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_conn_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_blue_foot_gusset_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_hoist_rope__0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_Y__10_2_6_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_24" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_2_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_0__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_brace_Y__10_2_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_wheel_silver_rim_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_18__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_landside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_3_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_X__7_7_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_wheel_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_16" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_blue_foot_gusset_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_19" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_main_mast" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_Xbrace__13_8_a" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_1_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_trolley_rail__10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_0_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_17" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_2_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_2__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_hoist_rope_0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_1__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_28" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_front_leg_ladder_rung_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_hoist_rope__0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_roof_rib_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_white_machinery_house" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_1_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_30" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_large_round_pivot_cover_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_L_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_24" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_right_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_yellow_spreader_small" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_2_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_26" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_top_sts01_number__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_18__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_left_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_1_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_waterside_blue_nose_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_conn_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_27" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_32" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_trolley_rail__14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_top_sts01_number__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_25" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_1_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_trolley_cab_dark_glass_front" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_1_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_29" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_3_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_top_left_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_axle_3_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_26" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_29" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_9" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_9" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_1_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_33" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_28" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_18" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_conn_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_1_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_32" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_3_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_27" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_axle_3_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_1_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_31" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_front_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_top_right_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_3_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_white_insert_panel_3_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_left_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_3_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_33" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_12" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_1_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__8_7_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_side__14_04__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__2_4_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_30" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_toe_board" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_leg_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_0_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R__2_4_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_L__8_7" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L_2_8_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_R_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_silver_rim_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_2_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R_2_8_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_1_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__2_4_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_0__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_pivot_bolt_L__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_roof_rib_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_0_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_waterside_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_top_platform_back_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_2_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_blue_foot_gusset_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_roof_rib_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_14__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_white_boom_side_seam_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_blue_foot_gusset_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_blue_roof_rail_R" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_R__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_3_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__8_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_1_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_bogie_conn_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__8_7_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_blue_roof_rail_L" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_1_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_1_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_7" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_0_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_0_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_3__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_R_2_8_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_large_round_pivot_cover_L__2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_1_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_0_0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_roof_rib_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_mid_girder" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_0_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_2_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_2__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_3_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_1_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_side_seam_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_3__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_Xbrace__10_2_b" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_landside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_0__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_13__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_2_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_white_machinery_house" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_irregular_boom_weather_streak_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_1__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_rail_post_4__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_stay_cable__22_0_r" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_machinery_house_roof_rib_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_end_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_stay_cable__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_stay_cable_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_hoist_rope__0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_2__0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__22_0_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_axle_3__0_42" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_3_5_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_21" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_black_hoist_rope_0_22" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_leg_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_blue_cable_anchor_end_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_steel_highlight_stay_cable_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_steel_highlight_stay_cable_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_9" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__22_0_1" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_stay_cable__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_3_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_L_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_8__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_landside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_leg_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_1_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_back_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_21" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_Xbrace__13_8_b" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__8_7_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_0_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_short_chain_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_1_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_leg_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_steel_highlight_stay_cable_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_10" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__22_0_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_12__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_front_leg_ladder_rung_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_panel_horizontal_joint_3_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_right_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_grated_walkway" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_1_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_pivot_bolt_L__22_0_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_roof_rib_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_R_11" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_back_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_2_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_0_4" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_2__0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_short_chain_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_1_0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_blue_roof_rail_R" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_steel_highlight_stay_cable_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_bogie_conn_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_2_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_steel_highlight_stay_cable_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_right_boom_top_handrail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_17" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_5" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_12__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_roof_rib_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_front_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_blue_foot_gusset_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_left_boom_rail_post_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_Xbrace__10_2_b" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_1__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_roof_rib_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_back_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_grime_vertical_mark_3_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_18" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_stay_cable_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_3_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_spreader_short_chain_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_panel_bolt_L_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_orange_Xbrace__13_8_a" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_13__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_steel_highlight_stay_cable_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_2_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_short_chain_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_20" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_2_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_wheel_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_stay_cable__22_0_r" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_3_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_steel_highlight_stay_cable_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_13" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_side_seam_R_7" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_15" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_R_2_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_2_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_short_chain_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_19" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_2_3" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_2_0_42__3_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_brace_X__3_5_3_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_white_boom_top_cross_seam_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_5__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_wheel_1__0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_1_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_short_chain_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_29" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_3_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_top_smart_port_logo__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_2_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_machinery_house_blue_roof_rail_L" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_steel_highlight_stay_cable_1__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_27" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_grime_vertical_mark_2_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_16" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_irregular_boom_weather_streak_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_waterside_blue_nose_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_7__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_11__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_spreader_top_swll_mark__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_top_platform_left_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_31" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_blue_foot_gusset_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_14" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_6__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_steel_highlight_stay_cable_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_30" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_blue_foot_gusset_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_machinery_house_white_roof_panel" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_18" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_boom_top_smart_port_logo__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_16__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_large_round_pivot_cover_R__22_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_leg_white_insert_panel_3_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_black_stay_cable_2_8_r" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_steel_highlight_stay_cable_0__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_leg_panel_horizontal_joint_2_2_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_23" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_2_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_3_hub_2_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_L_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_1_0_42__7_8" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_bogie_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_hub_0__0_42__7_6" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_top_left_blue_edge" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_0_7_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_wheel_blue_hubcap_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_pivot_bolt_L_2_8_1" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_left_mid_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_black_stay_cable__22_0_r" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_irregular_boom_weather_streak_22" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_steel_highlight_stay_cable_3__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_mid_girder" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_hub_3_0_42__3_4" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_boom_panel_bolt_L_2" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_panel_bolt_R_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane3_left_boom_rail_post_10__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_0_upper" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_top_platform_front_rail__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_waterside_tip_beacon" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_0_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_1_orange_landside_tail_boom" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_0_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_grime_vertical_mark_1_3" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_panel_horizontal_joint_2_4_0" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_white_boom_top_cross_seam_6" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_quay_sts_crane_0_orange_Xbrace__13_8_a" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_leg_white_insert_panel_1_lower" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane0_front_leg_ladder_rung_2__USD_MESH" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_boom_waterside_blue_nose_cap" (
+            active = false
+        )
+        {
+        }
+
+        over "CODEx_STS_Crane1_right_boom_rail_post_9__USD_MESH" (
+            active = false
+        )
+        {
+        }
+    }
+
+    def "STSControls"
+    {
+        def Xform "STS_01" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 34.5
+            custom double sts:gantryMin = -62
+            custom double sts:homeY = 55
+            custom string sts:sourceId = "Additional_01"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 55, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_02" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 35.5
+            custom double sts:gantryMin = -34.5
+            custom double sts:homeY = 130
+            custom string sts:sourceId = "Additional_02"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 130, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_03" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 24.50000000000003
+            custom double sts:gantryMin = -35.49999999999997
+            custom double sts:homeY = 206.99999999999997
+            custom string sts:sourceId = "Legacy_3"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 206.99999999999997, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_04" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 10.033500671386719
+            custom double sts:gantryMin = -24.5
+            custom double sts:homeY = 262
+            custom string sts:sourceId = "Legacy_1"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 262, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_05" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 37.96649932861328
+            custom double sts:gantryMin = -10.033500671386719
+            custom double sts:homeY = 288.06700134277344
+            custom string sts:sourceId = "Legacy_0"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 288.06700134277344, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_06" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 34.5
+            custom double sts:gantryMin = -37.96649932861328
+            custom double sts:homeY = 370
+            custom string sts:sourceId = "Additional_03"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 370, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Xform "STS_07" (
+            prepend references = @../assets/rtg/STS_Crane_Controlled.usdc@</STSCrane>
+        )
+        {
+            custom double sts:gantryMax = 62
+            custom double sts:gantryMin = -34.5
+            custom double sts:homeY = 445
+            custom string sts:sourceId = "Additional_04"
+            float xformOp:rotateZ = -90
+            double3 xformOp:translate = (-241.42000000476838, 445, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ"]
+
+            over "Gantry"
+            {
+                def Xform "DynamicCables"
+                {
+                    def Cylinder "Cable_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (-0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.92, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (-0.012, 0, -1.4695761589768239e-18, 0), (0, 0.012, 0, 0), (6.833529139242231e-16, 0, -5.58, 0), (0.26, -0.48, 7.03, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_4"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, -0.002016847382349614, 0.0016639774189251381, 0), (-0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (-2.0500000000000003, -20.44, -4.080000000000009, 0), (-1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_5"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.01679772323220075, 0.002016847382349614, -0.0016639774189251381, 0), (0.002016847382349614, -0.003109444144012737, 0.016591072411136498, 0), (2.0500000000000003, -20.44, -4.080000000000009, 0), (1.025, -6.16, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_6"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, 0.005646616093528553, 0.0036720582934378736, 0), (0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (-2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (-1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Cable_7"
+                    {
+                        uniform token axis = "Z"
+                        double height = 1
+                        color3f[] primvars:displayColor = [(0.025, 0.025, 0.025)]
+                        double radius = 1
+                        matrix4d xformOp:transform = ( (0.015608706371185875, -0.005646616093528553, -0.0036720582934378736, 0), (-0.005646616093528553, -0.00591699799910125, -0.014903182927513713, 0), (2.0500000000000003, 8.320000000000002, -4.079999999999999, 0), (1.025, 8.22, 11.899999999999999, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+    }
+}
+

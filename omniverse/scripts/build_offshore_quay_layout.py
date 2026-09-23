@@ -10,8 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import omni.kit.app
 from pxr import Gf, Sdf, Usd, UsdGeom, Vt
+
+try:
+    import omni.kit.app
+except ModuleNotFoundError:  # Kit Python can run this builder without app bootstrap.
+    omni = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -54,12 +58,12 @@ CAUSEWAY_WIDTH_M = 9.0
 DECK_TOP_Z_M = 0.18
 DECK_THICKNESS_M = 0.28
 MARKING_TOP_Z_M = DECK_TOP_Z_M + 0.025
-CRANE_SEAWARD_OFFSET_M = 4.0
+CRANE_SEAWARD_OFFSET_M = 10.3
 CRANE_GROUP_TRANSLATE_X_M = (
     OFFSHORE_QUAY_LANDSIDE_X_M
     + OFFSHORE_SIDE_SIGN * CRANE_SEAWARD_OFFSET_M
 )
-CRANE_WHEEL_TRACK_OFFSETS_X_M = (3.5, 7.7)
+CRANE_WHEEL_TRACK_OFFSETS_X_M = (3.2, 8.0)
 CRANE_RAIL_X_M = (
     CRANE_GROUP_TRANSLATE_X_M
     + OFFSHORE_SIDE_SIGN * CRANE_WHEEL_TRACK_OFFSETS_X_M[0],
@@ -69,7 +73,7 @@ CRANE_RAIL_X_M = (
 CRANE_GROUP_TRANSLATE_Y_M = 250.0
 ADDITIONAL_STS_CRANE_CENTERS_Y_M = (55.0, 130.0, 370.0, 445.0)
 STS_PROTOTYPE_SOURCE_CENTER = Gf.Vec2d(-38.06700134277344, -9.620000004768373)
-STS_TARGET_CENTER_X_M = -235.12000000476837
+STS_TARGET_CENTER_X_M = -241.42000000476837
 CRANE_PREFIX_FAMILIES = (
     ("CODEx_STS_Crane0", "SMART_PORT_quay_sts_crane_0"),
     ("CODEx_STS_Crane1", "SMART_PORT_quay_sts_crane_1"),
@@ -482,4 +486,5 @@ def build() -> dict[str, object]:
 try:
     print(f"OFFSHORE_QUAY_RESULT {build()}")
 finally:
-    omni.kit.app.get_app().post_quit(0)
+    if omni is not None:
+        omni.kit.app.get_app().post_quit(0)

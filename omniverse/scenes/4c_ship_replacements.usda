@@ -8386,26 +8386,24 @@ def Xform "World"
 
         def Xform "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -90
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-246.2, 50, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-249.6, 40, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
 
         def Xform "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -90
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-246.2, 120, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-249.6, 125, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
     }
 }

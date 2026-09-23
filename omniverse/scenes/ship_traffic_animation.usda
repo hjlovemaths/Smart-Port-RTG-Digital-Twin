@@ -10,7 +10,7 @@
 def Xform "World"
 {
     def Xform "SMART_PORT_OUTBOUND_CARGO_SHIP" (
-        prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
     )
     {
         custom string ship:motion = "outbound to open sea"
@@ -20,15 +20,15 @@ def Xform "World"
             720: "inherited",
             900: "invisible",
         }
-        float xformOp:rotateX = 90
         float xformOp:rotateZ = 165
-        float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (-350, 570, -7.5)
         double3 xformOp:translate.timeSamples = {
-            1: (-260, 495, 1.3012471449582028),
-            240: (-520, 555, 1.3012471449582028),
-            480: (-820, 630, 1.3012471449582028),
-            720: (-1260, 760, 1.3012471449582028),
+            1: (-350, 570, -7.5),
+            240: (-600, 650, -7.5),
+            480: (-900, 760, -7.5),
+            720: (-1260, 900, -7.5),
         }
-        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
     }
 }

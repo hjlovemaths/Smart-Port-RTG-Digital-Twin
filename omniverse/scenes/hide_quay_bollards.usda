@@ -1,0 +1,42 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over "World"
+{
+    over "SMART_PORT_OFFSHORE_QUAY"
+    {
+        over "Edges"
+        {
+            over "Bollard_01" (active = false) { }
+            over "Bollard_02" (active = false) { }
+            over "Bollard_03" (active = false) { }
+            over "Bollard_04" (active = false) { }
+            over "Bollard_05" (active = false) { }
+            over "Bollard_06" (active = false) { }
+            over "Bollard_07" (active = false) { }
+            over "Bollard_08" (active = false) { }
+            over "Bollard_09" (active = false) { }
+            over "Bollard_10" (active = false) { }
+            over "Bollard_11" (active = false) { }
+            over "Bollard_12" (active = false) { }
+            over "Bollard_13" (active = false) { }
+            over "Bollard_14" (active = false) { }
+            over "Bollard_15" (active = false) { }
+            over "Bollard_16" (active = false) { }
+            over "Bollard_17" (active = false) { }
+            over "Bollard_18" (active = false) { }
+            over "Bollard_19" (active = false) { }
+            over "Bollard_20" (active = false) { }
+            over "Bollard_21" (active = false) { }
+            over "Bollard_22" (active = false) { }
+            over "Bollard_23" (active = false) { }
+            over "Bollard_24" (active = false) { }
+            over "Bollard_25" (active = false) { }
+            over "Bollard_26" (active = false) { }
+        }
+    }
+}

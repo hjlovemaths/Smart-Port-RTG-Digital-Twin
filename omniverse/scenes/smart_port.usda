@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (24.23444688175598, 325.7350069445011, 4.451490494492121)
-                double3 target = (20.000076986541348, 341.15561916211635, 2.801852597189076)
+                double3 position = (-272.77260538353016, 233.51527220431223, 9.019792697991655)
+                double3 target = (-254.09649360192077, 220.40000426692035, 0.8642257917532259)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -26,13 +26,19 @@
         dictionary renderSettings = {
             float3 "rtx:background:source:color" = (0.34, 0.55, 0.84)
             token "rtx:background:source:texture:path" = "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png"
-            int "rtx:background:source:type" = 0
+            double "rtx:directLighting:sampledLighting:maxRayUnexposedIntensity" = 6399.9990234375
             double "rtx:fog:fogDistanceDensity" = 0.34
             double "rtx:fog:fogEndDist" = 5750
             double "rtx:fog:fogHeightDensity" = 0
             double "rtx:fog:fogHeightFalloff" = 0.12
             double "rtx:fog:fogStartHeight" = 3
             bool "rtx:fog:fogZup:enabled" = 1
+            double "rtx:indirectDiffuse:maxRayUnexposedIntensity" = 6399.9990234375
+            double "rtx:pathtracing:fireflyFilter:maxPerEmissiveUnexposedIntensity" = 3199.99951171875
+            double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
+            double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse" = 3199.99951171875
+            double "rtx:raytracing:inscattering:maxRTSampleUnexposedIntensity" = 204799.96875
+            double "rtx:translucency:maxRayUnexposedIntensity" = 19199.998046875
         }
     }
     defaultPrim = "World"
@@ -41,6 +47,8 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./hide_quay_bollards.usda@,
+        @./sts_controls.usda@,
         @./weather_effects.usda@,
         @./rtg_led_floodlights.usda@,
         @./ship_traffic_animation.usda@,
@@ -91,14 +99,13 @@ def Xform "World"
 
         def Xform "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -90
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-246.2, 190, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-249.6, 210, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
 
         over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_ROOT" (
@@ -109,50 +116,35 @@ def Xform "World"
 
         def Xform "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -90
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-246.2, 260, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-249.6, 295, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
 
         def Xform "SMART_PORT_REMOTE_CARGO_SHIP_01" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -78
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-260, 330, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-260, 380, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
 
         def Xform "SMART_PORT_REMOTE_CARGO_SHIP_02" (
             instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
+            prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
-            float xformOp:rotateX = 90
             float xformOp:rotateZ = -105
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-275, 400, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
-        }
-
-        def Xform "SMART_PORT_REMOTE_CARGO_SHIP_03" (
-            instanceable = true
-            prepend references = @../assets/resource/ship/Cargo_Ship_09_variant_b.usdz@
-        )
-        {
-            float xformOp:rotateX = 90
-            float xformOp:rotateZ = -65
-            float3 xformOp:scale = (0.03883929, 0.027641999, 0.043764994)
-            double3 xformOp:translate = (-292, 460, 1.3012471449582028)
-            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:rotateX", "xformOp:scale"]
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-275, 465, -7.5)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
         }
 
         over "CODEx_showcase_inside_circular_sea_surface"
@@ -3240,6 +3232,24 @@ def Xform "World"
     )
     {
     }
+
+    over "SMART_PORT_OFFSHORE_QUAY"
+    {
+        over "Markings"
+        {
+            over "WatersideLane_LeftEdge" (
+                active = false
+            )
+            {
+            }
+
+            over "WatersideLane_RightEdge" (
+                active = false
+            )
+            {
+            }
+        }
+    }
 }
 
 def "Render" (
@@ -3311,7 +3321,7 @@ def "Render" (
                 token omni:rtx:wireframe:mode = "instance"
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
-                uniform int2 resolution = (1280, 720)
+                uniform int2 resolution = (1343, 585)
             }
         }
     }
@@ -3358,10 +3368,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -16.076270549097615)
-    float3 xformOp:rotateXYZ = (84.11033, 3.0695446e-12, 375.3545)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.234699831251895)
+    float3 xformOp:rotateXYZ = (70.33474, 7.9580786e-13, 234.92162)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (24.23444688175598, 325.7350069445011, 4.451490494492121)
+    double3 xformOp:translate = (-272.77260538353016, 233.51527220431223, 9.019792697991655)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

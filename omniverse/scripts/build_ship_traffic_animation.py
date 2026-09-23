@@ -11,15 +11,15 @@ from pxr import Gf, Sdf, Usd, UsdGeom
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "omniverse" / "scenes" / "ship_traffic_animation.usda"
-SHIP_REFERENCE = "../assets/resource/ship/Cargo_Ship_09_variant_b.usdz"
+SHIP_REFERENCE = "../assets/ship/Custom_Feeder_Ship.usdc"
 SHIP_PATH = "/World/SMART_PORT_OUTBOUND_CARGO_SHIP"
-COMMON_SHIP_SCALE = Gf.Vec3f(0.03883929, 0.027641999, 0.043764994)
-SHIP_Z_M = 1.3012471449582028
+COMMON_SHIP_SCALE = Gf.Vec3f(1.0, 1.0, 1.0)
+SHIP_Z_M = -7.5
 ROUTE = (
-    (1.0, Gf.Vec3d(-260.0, 495.0, SHIP_Z_M)),
-    (240.0, Gf.Vec3d(-520.0, 555.0, SHIP_Z_M)),
-    (480.0, Gf.Vec3d(-820.0, 630.0, SHIP_Z_M)),
-    (720.0, Gf.Vec3d(-1260.0, 760.0, SHIP_Z_M)),
+    (1.0, Gf.Vec3d(-350.0, 570.0, SHIP_Z_M)),
+    (240.0, Gf.Vec3d(-600.0, 650.0, SHIP_Z_M)),
+    (480.0, Gf.Vec3d(-900.0, 760.0, SHIP_Z_M)),
+    (720.0, Gf.Vec3d(-1260.0, 900.0, SHIP_Z_M)),
 )
 
 
@@ -39,12 +39,11 @@ def build() -> dict[str, object]:
     xform = UsdGeom.Xformable(ship.GetPrim())
     translate = xform.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
     rotate_z = xform.AddRotateZOp()
-    rotate_x = xform.AddRotateXOp()
     scale = xform.AddScaleOp()
+    translate.Set(ROUTE[0][1])
     for frame, position in ROUTE:
         translate.Set(position, Usd.TimeCode(frame))
     rotate_z.Set(165.0)
-    rotate_x.Set(90.0)
     scale.Set(COMMON_SHIP_SCALE)
 
     visibility = ship.CreateVisibilityAttr(UsdGeom.Tokens.inherited)
