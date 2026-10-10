@@ -27,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STAGE = PROJECT_ROOT / "omniverse" / "scenes" / "smart_port.usda"
 PHYSICS_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "rtg_isaac_physics.py"
 LIDAR_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "rtg_yard_lidar.py"
+SEA_MOTION_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "ship_sea_motion.py"
 DEFAULT_INVENTORY = PROJECT_ROOT / "omniverse" / "data" / "yard_inventory.live.json"
 ISAAC_ROOT = Path(sys.executable).resolve().parents[2]
 BASE_EXPERIENCE = ISAAC_ROOT / "apps" / "isaacsim.exp.base.kit"
@@ -95,6 +96,10 @@ def _publish_yard_inventory_api() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--enable-sts-controls", action="store_true",
+        help="open the four-axis STS crane control panel (gantry/trolley/hoist/boom)",
+    )
+    parser.add_argument(
         "stage",
         nargs="?",
         type=Path,
@@ -119,6 +124,16 @@ def main() -> None:
         help=(
             "start the Isaac timeline after RTG activation and send the "
             "configured first-pass target"
+        ),
+    )
+    parser.add_argument(
+        "--disable-sea-motion",
+        dest="enable_sea_motion",
+        action="store_false",
+        default=True,
+        help=(
+            "keep the authored sea and ships static; sea motion is enabled "
+            "by default after the stage loads"
         ),
     )
     parser.add_argument(
@@ -218,6 +233,22 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--enable-rtg-lidar-trolley-bottom",
+        action="store_true",
+        help=(
+            "create only L2-L5 on the trolley-frame bottom, all pointing "
+            "downward at the current RTG bay"
+        ),
+    )
+    parser.add_argument(
+        "--enable-rtg-lidar-spreader",
+        action="store_true",
+        help=(
+            "create L6-L13 on the upper spreader, aimed inward and obliquely "
+            "downward for the current RTG bay"
+        ),
+    )
+    parser.add_argument(
         "--enable-all-rtg-lidars",
         action="store_true",
         help=(
@@ -244,7 +275,19 @@ def main() -> None:
     parser.add_argument(
         "--lidar-config",
         default="Example_Rotary",
-        help="Isaac Sim RTX LiDAR config name (default: Example_Rotary)",
+        help=(
+            "Isaac Sim RTX LiDAR config name or local USD/USDA/USDC asset "
+            "path (default: Example_Rotary; representative mode uses the "
+            "local OS1 profile unless overridden)"
+        ),
+    )
+    parser.add_argument(
+        "--lidar-variant",
+        default=None,
+        help=(
+            "Optional RTX LiDAR asset variant, for example "
+            "OS1_REV7_128ch10hz512res"
+        ),
     )
     parser.add_argument(
         "--lidar-far-range",
@@ -270,13 +313,17 @@ def main() -> None:
         for value in (
             args.enable_rtg_lidar,
             args.enable_rtg_lidar_representatives,
+            args.enable_rtg_lidar_trolley_bottom,
+            args.enable_rtg_lidar_spreader,
             args.enable_all_rtg_lidars,
         )
     )
     if lidar_mode_count > 1:
         parser.error(
             "use only one RTG LiDAR mode: --enable-rtg-lidar, "
-            "--enable-rtg-lidar-representatives, or --enable-all-rtg-lidars"
+            "--enable-rtg-lidar-representatives, "
+            "--enable-rtg-lidar-trolley-bottom, "
+            "--enable-rtg-lidar-spreader, or --enable-all-rtg-lidars"
         )
     stage_path = args.stage.resolve()
     if not stage_path.is_file():
@@ -291,6 +338,9 @@ def main() -> None:
     warp_cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("WARP_CACHE_PATH", str(warp_cache))
 
+    # Multi-tick rendering is experimental on this workstation. Keep the
+    # normal scene viewer on Kit's default scheduling unless explicitly opted in.
+    experimental_multitick = os.environ.get("RTG_ENABLE_MULTITICK", "0") == "1"
     simulation_app = SimulationApp(
         {
             "headless": False,
@@ -299,6 +349,7 @@ def main() -> None:
             "window_width": args.width,
             "window_height": args.height,
             "multi_gpu": False,
+            "enable_motion_bvh": experimental_multitick or lidar_mode_count > 0,
             "renderer": "RaytracedLighting",
             "limit_cpu_threads": args.cpu_threads,
             "extra_args": [
@@ -311,6 +362,22 @@ def main() -> None:
                 # user config that forces the GPU-resident path results in
                 # empty GenericModelOutput data.
                 "--/app/sensors/nv/lidar/outputBufferOnGPU=false",
+                # ``omni.kit.loop-isaac`` normally raises this persistent
+                # viewport setting to 120 Hz.  On this GPU it attempts to
+                # replace the already-created 0 Hz display engine and loops
+                # forever with ``failed to create Hydra Engine thread``.
+                # Keep the interactive viewport on its single default engine;
+                # the batched capture path creates only one sensor product
+                # after the scene has opened.
+                "--/persistent/app/viewport/defaults/tickRate=0",
+                # The base experience does not add the RTX multi-tick
+                # settings on every Isaac Sim 6.x build.  A rotary sensor
+                # needs its own tick-rate engine; explicitly enable it before
+                # the first viewport/render product is created.
+                f"--/rtx/hydra/supportMultiTickRate={str(experimental_multitick).lower()}",
+                f"--/rtx/rendering/perSensorTickTlas={str(experimental_multitick).lower()}",
+                *(["--/rtx/hydra/multiTickRateForcedFixedSimRate=60"]
+                  if experimental_multitick else []),
                 "--enable",
                 "omni.kit.window.script_editor",
             ],
@@ -319,6 +386,25 @@ def main() -> None:
     )
 
     try:
+        try:
+            import carb
+
+            settings = carb.settings.get_settings()
+            print(
+                "[RTG] Hydra startup settings: "
+                "viewportTickRate="
+                f"{settings.get('/persistent/app/viewport/defaults/tickRate')}; "
+                "activeGpu="
+                f"{settings.get('/renderer/activeGpu')}; "
+                "multiTick="
+                f"{settings.get('/rtx/hydra/supportMultiTickRate')}; "
+                "perSensorTlas="
+                f"{settings.get('/rtx/rendering/perSensorTickTlas')}",
+                flush=True,
+            )
+        except Exception as error:
+            print(f"[RTG] Hydra startup settings could not be read: {error}", flush=True)
+
         # smart_port.usda already contains ./live_containers.usda as a
         # sublayer.  Build that file after SimulationApp initializes Kit (so
         # pxr is available), but before opening the stage.  Rebuilding it
@@ -355,6 +441,32 @@ def main() -> None:
             raise RuntimeError(f"Isaac Sim could not open stage: {stage_path}")
 
         print("[RTG] Stage loaded. Isaac Sim is ready.", flush=True)
+        if args.enable_sea_motion:
+            try:
+                sea_motion_module = _load_script_module(
+                    SEA_MOTION_SCRIPT,
+                    "ship_sea_motion_live",
+                )
+                sea_motion = sea_motion_module.start_sea_motion(
+                    context.get_stage()
+                )
+                print(
+                    "[Sea motion] Harbor sea wave animation started: "
+                    f"{len(sea_motion.ships)} ships.",
+                    flush=True,
+                )
+            except Exception as error:
+                print(
+                    "[Sea motion] Startup animation could not be enabled; "
+                    f"Isaac will continue with the authored scene. Error: {error}",
+                    flush=True,
+                )
+                traceback.print_exc()
+        if args.enable_sts_controls:
+            from sts_control import show_sts_controls
+
+            show_sts_controls()
+            print("[STS] Four-axis crane control panel ready.", flush=True)
         _publish_yard_inventory_api()
         if not args.hide_fps:
             import omni.ui
@@ -406,16 +518,105 @@ def main() -> None:
             print(f"[RTG] RTG animation held for static sensor capture: {freeze_result}", flush=True)
         if physics_module is not None:
             _publish_rtg_api(physics_module)
-        if args.enable_rtg_lidar_representatives:
+        if args.enable_rtg_lidar_spreader:
+            lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
+            _publish_lidar_api(lidar_module)
+            spreader_config = args.lidar_config
+            if spreader_config in {
+                "Example_Rotary",
+                "Single_Emitter_Rotary",
+                "single_emitter_rotary",
+                "single-emitter-rotary",
+            }:
+                spreader_config = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_CONFIG",
+                    spreader_config,
+                )
+            spreader_variant = args.lidar_variant
+            if spreader_variant is None and spreader_config == getattr(
+                lidar_module, "DEFAULT_REPRESENTATIVE_CONFIG", None
+            ):
+                spreader_variant = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_VARIANT",
+                    None,
+                )
+            spreader_result = lidar_module.start_rtg_lidar_spreader_fleet(
+                context.get_stage(),
+                config=spreader_config,
+                variant=spreader_variant,
+                output_dir=args.lidar_output_dir,
+                far_range_m=min(float(args.lidar_far_range), 150.0),
+            )
+            print(
+                f"[RTG LiDAR spreader] Ready: {spreader_result}",
+                flush=True,
+            )
+        elif args.enable_rtg_lidar_trolley_bottom:
+            lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
+            _publish_lidar_api(lidar_module)
+            trolley_config = args.lidar_config
+            if trolley_config in {
+                "Example_Rotary",
+                "Single_Emitter_Rotary",
+                "single_emitter_rotary",
+                "single-emitter-rotary",
+            }:
+                trolley_config = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_CONFIG",
+                    trolley_config,
+                )
+            trolley_variant = args.lidar_variant
+            if trolley_variant is None and trolley_config == getattr(
+                lidar_module, "DEFAULT_REPRESENTATIVE_CONFIG", None
+            ):
+                trolley_variant = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_VARIANT",
+                    None,
+                )
+            trolley_result = lidar_module.start_rtg_lidar_trolley_bottom_fleet(
+                context.get_stage(),
+                config=trolley_config,
+                variant=trolley_variant,
+                output_dir=args.lidar_output_dir,
+                far_range_m=min(float(args.lidar_far_range), 150.0),
+            )
+            print(
+                f"[RTG LiDAR trolley-bottom] Ready: {trolley_result}",
+                flush=True,
+            )
+        elif args.enable_rtg_lidar_representatives:
             lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
             _publish_lidar_api(lidar_module)
             representative_config = args.lidar_config
-            if representative_config == "Example_Rotary":
-                representative_config = "Single_Emitter_Rotary"
+            if representative_config in {
+                "Example_Rotary",
+                "Single_Emitter_Rotary",
+                "single_emitter_rotary",
+                "single-emitter-rotary",
+            }:
+                representative_config = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_CONFIG",
+                    representative_config,
+                )
+            representative_variant = args.lidar_variant
+            if representative_variant is None and representative_config == getattr(
+                lidar_module, "DEFAULT_REPRESENTATIVE_CONFIG", None
+            ):
+                representative_variant = getattr(
+                    lidar_module,
+                    "DEFAULT_REPRESENTATIVE_VARIANT",
+                    None,
+                )
             representative_far_range = min(float(args.lidar_far_range), 150.0)
             fleet_result = lidar_module.start_rtg_lidar_representative_fleet(
                 context.get_stage(),
                 config=representative_config,
+                variant=representative_variant,
                 output_dir=args.lidar_output_dir,
                 far_range_m=representative_far_range,
             )
@@ -426,7 +627,7 @@ def main() -> None:
         elif args.enable_all_rtg_lidars:
             lidar_module = _load_script_module(LIDAR_SCRIPT, "rtg_yard_lidar_live")
             _publish_lidar_api(lidar_module)
-            fleet_result = lidar_module.start_rtg_lidar_fleet(
+            fleet_result = lidar_module.start_rtg_lidar_all_fleet(
                 context.get_stage(),
                 config=args.lidar_config,
                 output_dir=args.lidar_output_dir,

@@ -113,6 +113,22 @@ def test_launcher_exposes_visual_rtg_startup_shortcut():
     assert "context.open_stage" in launcher
 
 
+def test_launcher_starts_harbor_sea_motion_by_default():
+    launcher = (
+        SCRIPT_PATH.parent / "launch_isaac_sim_project.py"
+    ).read_text(encoding="utf-8")
+    sea_motion = (
+        SCRIPT_PATH.parent / "ship_sea_motion.py"
+    ).read_text(encoding="utf-8")
+    assert "SEA_MOTION_SCRIPT" in launcher
+    assert '"--disable-sea-motion"' in launcher
+    assert "default=True" in launcher
+    assert "start_sea_motion" in launcher
+    assert "def start_sea_motion(stage=None):" in sea_motion
+    assert "ShipDouble20YardModelLayer" in sea_motion
+    assert "COMPANION_ROOTS" in sea_motion
+
+
 def test_launcher_can_place_only_the_primary_rtg_before_lidar_startup():
     launcher = (
         SCRIPT_PATH.parent / "launch_isaac_sim_project.py"
