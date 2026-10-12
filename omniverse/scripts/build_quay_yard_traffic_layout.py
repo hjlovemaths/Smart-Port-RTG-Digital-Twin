@@ -260,6 +260,9 @@ def waiting_bay_quads() -> list[tuple]:
 
 
 def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
+    # The rebuilt yard owns the two yellow RTG tire tracks and the dense white
+    # bay separators.  Do not add the older longitudinal white road-edge lines
+    # here: they sit outside the yellow tracks and visually widen each yard.
     white_quads = []
     yellow_centerline_quads = []
     cross_road_clear_ranges = tuple(
@@ -270,15 +273,8 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
         for center_y in ALL_CROSS_ROAD_CENTERS_Y
     )
 
-    for y_min, y_max in segments_without(
-        LAYOUT_START_Y, LAYOUT_END_Y - 5.0, cross_road_clear_ranges
-    ):
-        white_quads.extend(
-            (
-                rect(110.55, y_min, 110.77, y_max, 0.145),
-                rect(125.23, y_min, 125.45, y_max, 0.145),
-            )
-        )
+    # Keep the yellow lane-center dashes below.  The former white edge pair at
+    # x=110.55/125.23 is intentionally omitted.
     dash_y = LAYOUT_START_Y + 8.0
     while dash_y < LAYOUT_END_Y - 8.0:
         dash_end = min(dash_y + 4.0, LAYOUT_END_Y - 8.0)
@@ -375,15 +371,9 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
         dash_x += 8.0
 
     for x_min, x_max in YARD_ROAD_X_RANGES:
-        for y_min, y_max in segments_without(
-            LAYOUT_START_Y, LAYOUT_END_Y, cross_road_clear_ranges
-        ):
-            white_quads.extend(
-                (
-                    rect(x_min + 0.18, y_min, x_min + 0.40, y_max, 0.147),
-                    rect(x_max - 0.40, y_min, x_max - 0.18, y_max, 0.147),
-                )
-            )
+        # The rebuilt yard's yellow tracks are the nearest longitudinal
+        # guides.  Do not redraw the two white lines on the outside of each
+        # inter-yard road.
         center_x = (x_min + x_max) * 0.5
         dash_y = LAYOUT_START_Y + 4.0
         while dash_y < LAYOUT_END_Y - 4.0:
