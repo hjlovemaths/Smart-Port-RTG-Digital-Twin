@@ -568,7 +568,11 @@ class Double20RoundTripTask:
                 self.go('STS lower onto truck 1', self.pose(self.place_top))
             elif self.phase == 'STS lower onto truck 1':
                 self.cargo_mode = 'truck_in'
-                self.inbound_position = self.ship_stop
+                # Gf.Vec3d is mutable.  Keep the immutable task anchors
+                # independent from the route cursor: _truck_route_tick uses
+                # ``position += ...`` and would otherwise move ship_stop all
+                # the way to the 2C yard.
+                self.inbound_position = Gf.Vec3d(self.ship_stop)
                 self.inbound_heading = 180.0
                 self.set_pair_to_truck(self.inbound_position, self.inbound_heading)
                 self.delivering = True
@@ -598,7 +602,7 @@ class Double20RoundTripTask:
                 self.set_pair_to_yard()
                 self.rtg_command(Gf.Vec3d(self.yard_center_top[0], self.yard_center_top[1], self.rtg_high))
                 UsdGeom.Imageable(self.return_truck).GetVisibilityAttr().Set(UsdGeom.Tokens.inherited)
-                self.return_position = self.yard_truck_start
+                self.return_position = Gf.Vec3d(self.yard_truck_start)
                 self.inbound_position = Gf.Vec3d(self.yard_stop)
                 self.inbound_departure_route = rounded_route([
                     self.yard_stop, self.yard_truck_start,
