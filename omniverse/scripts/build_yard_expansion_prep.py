@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from yard_coordinate_mapping import (  # noqa: E402
     BAY_GAP_M,
     BAY_LENGTH_M,
+    TRUCK_OPERATING_LANE_CENTER_X_M,
     YARD_BLOCKS,
     YARD_LAYOUT_START_Y_M,
 )
@@ -30,12 +31,17 @@ SOURCE_ROOT_PATH = "/World"
 AI_SOURCE_PIVOT = Gf.Vec2d(-18.0, 17.0)
 AI_TARGET_CENTER = Gf.Vec2d(138.0, 470.0)
 AI_ROTATION_DEGREES = 90.0
-YARD_X_MIN = -10.0
-YARD_X_MAX = 10.0
+YARD_X_MIN = -8.0
+YARD_X_MAX = 8.0
 YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 RIGHTMOST_YARD_OUTER_BOUNDARY_X = YARD_COLUMN_CENTERS_X[-1] + YARD_X_MAX
-YARD_LANE_WIDTH = 10.0
+YARD_LANE_WIDTH = 5.0
+RTG_TIRE_TRACK_OFFSET_X = 6.50
+RTG_TIRE_TRACK_WIDTH = 0.10
+TRUCK_LANE_EDGE_WIDTH = 0.065
+TRUCK_LANE_CENTERLINE_WIDTH = 0.075
+TRUCK_LANE_CENTER_X = TRUCK_OPERATING_LANE_CENTER_X_M
 YARD_BLOCK_SPECS = tuple(
     (
         block.name,
@@ -49,7 +55,8 @@ BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M
 MARKING_WIDTH = 0.055
 MARKING_Z = 0.145
 MARKING_COLOR = Gf.Vec3f(0.88, 0.9, 0.87)
-LABEL_SIDE_OFFSETS_X = (-3.15, 5.65)
+YELLOW_MARKING_COLOR = Gf.Vec3f(0.96, 0.76, 0.04)
+LABEL_SIDE_OFFSETS_X = (0.0,)
 LABEL_PANEL_SIZE = (1.15, 0.74)
 LABEL_PANEL_Z = 0.149
 LABEL_PANEL_COLOR = Gf.Vec3f(0.82, 0.84, 0.8)
@@ -58,13 +65,18 @@ LABEL_DIGIT_STROKE = 0.055
 LABEL_DIGIT_GAP = 0.08
 LABEL_DIGIT_Z = 0.151
 LABEL_DIGIT_COLOR = Gf.Vec3f(0.018, 0.025, 0.03)
-BLOCK_LABEL_OFFSET_X = sum(LABEL_SIDE_OFFSETS_X) * 0.5
+# Keep block identifiers outside the narrowed painted corridor.  One centered
+# label per block avoids covering the central bay-001 number mark.
+BLOCK_LABEL_OFFSET_X = YARD_X_MAX + 1.4
 REBUILT_ROOT_PATH = "/World/SMART_PORT_REBUILT_YARD_LAYOUT"
 REBUILT_MARKINGS_NAME = "SMART_PORT_CLEAN_BAY_MARKINGS"
 REBUILT_LABEL_BACKINGS_NAME = "SMART_PORT_CLEAN_BAY_NUMBER_BACKINGS"
 REBUILT_LABEL_DIGITS_NAME = "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"
 REBUILT_BLOCK_LABEL_BACKINGS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"
 REBUILT_BLOCK_LABEL_GLYPHS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"
+REBUILT_RTG_TRACKS_NAME = "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"
+REBUILT_TRUCK_LANE_EDGES_NAME = "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"
+REBUILT_TRUCK_LANE_CENTER_NAME = "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"
 
 DIGIT_SEGMENTS = {
     "0": ("top", "upper_left", "upper_right", "lower_left", "lower_right", "bottom"),
@@ -212,6 +224,27 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
         x_min = center_x + YARD_X_MIN
         x_max = center_x + YARD_X_MAX
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
+            # Each RTG bay has a narrowed white perimeter.  The original
+            # overlay only restored one global right-hand edge, which made the
+            # yard width read much wider than the actual operating corridor.
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                x_min - MARKING_WIDTH * 0.5,
+                x_min + MARKING_WIDTH * 0.5,
+                y_min,
+                y_max,
+            )
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                x_max - MARKING_WIDTH * 0.5,
+                x_max + MARKING_WIDTH * 0.5,
+                y_min,
+                y_max,
+            )
             _append_centered_rectangle(
                 points,
                 counts,
@@ -248,22 +281,89 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
                     position + MARKING_WIDTH * 0.5,
                 )
 
-    # Restore only the outer edge beside the relocated right-side green belt.
-    # Keeping it split by block leaves every inter-block traffic lane clear.
-    for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-        _append_rectangle(
-            points,
-            counts,
-            indices,
-            RIGHTMOST_YARD_OUTER_BOUNDARY_X - MARKING_WIDTH * 0.5,
-            RIGHTMOST_YARD_OUTER_BOUNDARY_X + MARKING_WIDTH * 0.5,
-            y_min,
-            y_max,
-        )
-
     return _define_flat_mesh(
         output_stage, REBUILT_MARKINGS_NAME, points, counts, indices, MARKING_COLOR
     )
+
+
+def _yard_longitudinal_span() -> tuple[float, float]:
+    return YARD_BLOCK_SPECS[0][2], YARD_BLOCK_SPECS[-1][3]
+
+
+def _author_rtg_tire_tracks(output_stage: Usd.Stage) -> int:
+    points: list[Gf.Vec3f] = []
+    counts: list[int] = []
+    indices: list[int] = []
+    y_min, y_max = _yard_longitudinal_span()
+    for center_x in YARD_COLUMN_CENTERS_X:
+        for offset_x in (-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X):
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                center_x + offset_x - RTG_TIRE_TRACK_WIDTH * 0.5,
+                center_x + offset_x + RTG_TIRE_TRACK_WIDTH * 0.5,
+                y_min,
+                y_max,
+            )
+    return _define_flat_mesh(
+        output_stage,
+        REBUILT_RTG_TRACKS_NAME,
+        points,
+        counts,
+        indices,
+        YELLOW_MARKING_COLOR,
+    )
+
+
+def _author_rtg_truck_lane_markings(output_stage: Usd.Stage) -> dict[str, int]:
+    edge_points: list[Gf.Vec3f] = []
+    edge_counts: list[int] = []
+    edge_indices: list[int] = []
+    center_points: list[Gf.Vec3f] = []
+    center_counts: list[int] = []
+    center_indices: list[int] = []
+    y_min, y_max = _yard_longitudinal_span()
+    half_width = YARD_LANE_WIDTH * 0.5
+    for center_x in YARD_COLUMN_CENTERS_X:
+        lane_center_x = center_x + TRUCK_LANE_CENTER_X
+        for edge_x in (lane_center_x - half_width, lane_center_x + half_width):
+            _append_rectangle(
+                edge_points,
+                edge_counts,
+                edge_indices,
+                edge_x - TRUCK_LANE_EDGE_WIDTH * 0.5,
+                edge_x + TRUCK_LANE_EDGE_WIDTH * 0.5,
+                y_min,
+                y_max,
+            )
+        _append_rectangle(
+            center_points,
+            center_counts,
+            center_indices,
+            lane_center_x - TRUCK_LANE_CENTERLINE_WIDTH * 0.5,
+            lane_center_x + TRUCK_LANE_CENTERLINE_WIDTH * 0.5,
+            y_min,
+            y_max,
+        )
+    return {
+        REBUILT_TRUCK_LANE_EDGES_NAME: _define_flat_mesh(
+            output_stage,
+            REBUILT_TRUCK_LANE_EDGES_NAME,
+            edge_points,
+            edge_counts,
+            edge_indices,
+            MARKING_COLOR,
+        ),
+        REBUILT_TRUCK_LANE_CENTER_NAME: _define_flat_mesh(
+            output_stage,
+            REBUILT_TRUCK_LANE_CENTER_NAME,
+            center_points,
+            center_counts,
+            center_indices,
+            YELLOW_MARKING_COLOR,
+        ),
+    }
 
 
 def _append_digit(
@@ -396,35 +496,33 @@ def _author_terminal_block_labels(output_stage: Usd.Stage) -> dict[str, int]:
 
     for center_x in YARD_COLUMN_CENTERS_X:
         label_x = center_x + BLOCK_LABEL_OFFSET_X
-        for block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            slots = list(_odd_bay_slots(bay_count, y_min, y_max))
-            for _bay_number, slot_start, slot_end in (slots[0], slots[-1]):
-                label_y = (slot_start + slot_end) * 0.5
-                _append_centered_rectangle(
-                    backing_points,
-                    backing_counts,
-                    backing_indices,
-                    label_x,
-                    label_y,
-                    LABEL_PANEL_SIZE[0],
-                    LABEL_PANEL_SIZE[1],
-                    LABEL_PANEL_Z,
+        for block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
+            label_y = (y_min + y_max) * 0.5
+            _append_centered_rectangle(
+                backing_points,
+                backing_counts,
+                backing_indices,
+                label_x,
+                label_y,
+                LABEL_PANEL_SIZE[0],
+                LABEL_PANEL_SIZE[1],
+                LABEL_PANEL_Z,
+            )
+            for glyph_index, glyph in enumerate(block_name):
+                glyph_x = (
+                    label_x
+                    - text_width * 0.5
+                    + glyph_width * 0.5
+                    + glyph_index * (glyph_width + LABEL_DIGIT_GAP)
                 )
-                for glyph_index, glyph in enumerate(block_name):
-                    glyph_x = (
-                        label_x
-                        - text_width * 0.5
-                        + glyph_width * 0.5
-                        + glyph_index * (glyph_width + LABEL_DIGIT_GAP)
-                    )
-                    _append_digit(
-                        glyph_points,
-                        glyph_counts,
-                        glyph_indices,
-                        glyph,
-                        glyph_x,
-                        label_y,
-                    )
+                _append_digit(
+                    glyph_points,
+                    glyph_counts,
+                    glyph_indices,
+                    glyph,
+                    glyph_x,
+                    label_y,
+                )
 
     return {
         REBUILT_BLOCK_LABEL_BACKINGS_NAME: _define_flat_mesh(
@@ -533,7 +631,7 @@ def build() -> tuple[int, int, dict[str, int]]:
     output_stage.SetMetadata("upAxis", "Z")
     port = output_stage.OverridePrim(PORT_PATH)
     port.CreateAttribute("yard:preservedCorridor", Sdf.ValueTypeNames.String).Set(
-        "1C-4C; X=-10..10"
+        "1C-4C; painted X=-8..8; logical bay coordinates unchanged"
     )
     port.CreateAttribute("yard:futureLayoutRule", Sdf.ValueTypeNames.String).Set(
         "Six yards repeat the 1C-4C bay template; the former coastal yard is split into a road and green tree belt"
@@ -561,6 +659,12 @@ def build() -> tuple[int, int, dict[str, int]]:
     rebuilt_root.CreateAttribute("yard:laneWidth", Sdf.ValueTypeNames.Double).Set(
         YARD_LANE_WIDTH
     )
+    rebuilt_root.CreateAttribute(
+        "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
+    ).Set(Vt.DoubleArray((-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X)))
+    rebuilt_root.CreateAttribute(
+        "yard:truckLaneCenterOffsetX", Sdf.ValueTypeNames.Double
+    ).Set(TRUCK_LANE_CENTER_X)
     rebuilt_root.CreateAttribute("yard:bayPitch", Sdf.ValueTypeNames.Double).Set(
         BAY_PITCH_Y
     )
@@ -571,16 +675,18 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Clean procedural 1C-4C bay markings without embedded ground debris"
+        "Clean procedural 1C-4C bay markings with narrowed edges, yellow RTG tire tracks, and one central bay-number group"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
-    ).Set("one block label on the first and last bay of every yard column")
+    ).Set("one block label outside each yard block, centered longitudinally")
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelCount", Sdf.ValueTypeNames.Int
-    ).Set(len(YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS) * 2)
+    ).Set(len(YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
 
     face_counts = {REBUILT_MARKINGS_NAME: _author_clean_bay_markings(output_stage)}
+    face_counts[REBUILT_RTG_TRACKS_NAME] = _author_rtg_tire_tracks(output_stage)
+    face_counts.update(_author_rtg_truck_lane_markings(output_stage))
     face_counts.update(_author_bay_number_labels(output_stage))
     face_counts.update(_author_terminal_block_labels(output_stage))
 

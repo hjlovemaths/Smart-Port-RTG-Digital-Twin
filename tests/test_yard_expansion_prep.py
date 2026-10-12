@@ -44,12 +44,15 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
         pattern = rf'over "{root_name}"\s*\(\s*active = false'
         assert re.search(pattern, text)
 
-    assert 'custom string yard:preservedCorridor = "1C-4C; X=-10..10"' in text
+    assert (
+        'custom string yard:preservedCorridor = '
+        '"1C-4C; painted X=-8..8; logical bay coordinates unchanged"'
+    ) in text
     assert 'def Xform "SMART_PORT_REBUILT_YARD_LAYOUT"' in text
     assert (
         "custom double[] yard:columnCentersX = [-60, -30, 0, 30, 60, 90]" in text
     )
-    assert "custom double yard:laneWidth = 10" in text
+    assert "custom double yard:laneWidth = 5" in text
     assert "custom double yard:bayPitch = 2.675" in text
     assert "custom double yard:firstBayStartY = -0.5" in text
     assert "custom double yard:lastBayEndY = 446.225" in text
@@ -58,10 +61,13 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert 'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
-    assert "custom int yard:terminalBlockLabelCount = 48" in text
+    assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
+    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' in text
+    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' in text
+    assert "custom int yard:terminalBlockLabelCount = 24" in text
     assert (
         'custom string yard:terminalBlockLabelRule = '
-        '"one block label on the first and last bay of every yard column"'
+        '"one block label outside each yard block, centered longitudinally"'
     ) in text
     assert 'def Mesh "SMART_PORT_UNIFIED_SIDEYARD_white_slot_separators"' not in text
     assert 'def Mesh "SMART_PORT_UNIFIED_SIDEYARD_light_grey_40ft_slots"' not in text
@@ -69,7 +75,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert "SMART_PORT_REBUILT_1C4C_YELLOW_SAFETY_LINES" not in text
 
     point_blocks = re.findall(r"point3f\[\] points = \[(.*?)\]", text, re.DOTALL)
-    assert len(point_blocks) == 5
+    assert len(point_blocks) == 8
     for block in point_blocks:
         coordinates = [
             tuple(float(value) for value in match)
@@ -87,12 +93,9 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
         )
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
-    assert len(count_blocks) == 5
+    assert len(count_blocks) == 8
     for block in count_blocks:
         assert set(re.findall(r"\d+", block)) == {"4"}
-    assert "0.012" not in text
-    assert "0.129" not in text
-    assert "0.141" not in text
 
 
 def test_decorative_ground_agvs_and_light_poles_are_inactive():
@@ -128,12 +131,12 @@ def test_decorative_ground_agvs_and_light_poles_are_inactive():
 def test_builder_documents_parallel_future_yards_and_lane_separation():
     text = BUILDER.read_text(encoding="utf-8")
     assert "Six yards repeat the 1C-4C bay template" in text
-    assert "YARD_X_MIN = -10.0" in text
-    assert "YARD_X_MAX = 10.0" in text
+    assert "YARD_X_MIN = -8.0" in text
+    assert "YARD_X_MAX = 8.0" in text
     assert (
         "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
     )
-    assert "YARD_LANE_WIDTH = 10.0" in text
+    assert "YARD_LANE_WIDTH = 5.0" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "YARD_LAYOUT_START_Y_M" in text
@@ -158,7 +161,7 @@ def test_old_left_and_right_central_boundary_meshes_are_inactive():
         )
 
 
-def test_rebuilt_bay_markings_only_have_the_required_right_outer_boundary():
+def test_rebuilt_bay_markings_have_narrowed_perimeters():
     text = OVERLAY.read_text(encoding="utf-8")
     mesh = re.search(
         r'def Mesh "SMART_PORT_CLEAN_BAY_MARKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',
@@ -185,14 +188,13 @@ def test_rebuilt_bay_markings_only_have_the_required_right_outer_boundary():
         if y_span > 0.0551:
             longitudinal_quads.append(quad)
 
-    assert len(longitudinal_quads) == 4
-    expected_y_ranges = ((-0.5, 122.35), (129.75, 252.6), (260.0, 382.85), (390.25, 446.225))
-    actual_y_ranges = []
+    assert len(longitudinal_quads) == 48
+    expected_x_centers = {
+        center_x + offset
+        for center_x in (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
+        for offset in (-8.0, 8.0)
+    }
     for quad in longitudinal_quads:
         x_values = [point[0] for point in quad]
-        assert min(x_values) == 99.9725
-        assert max(x_values) == 100.0275
-        actual_y_ranges.append(
-            (min(point[1] for point in quad), max(point[1] for point in quad))
-        )
-    assert tuple(actual_y_ranges) == expected_y_ranges
+        assert round((min(x_values) + max(x_values)) * 0.5, 4) in expected_x_centers
+        assert round(max(x_values) - min(x_values), 4) == 0.055

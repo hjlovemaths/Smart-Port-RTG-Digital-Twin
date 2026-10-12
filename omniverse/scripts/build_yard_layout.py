@@ -43,12 +43,17 @@ BLOCK_GAP_M = 7.4
 START_Y_M = -0.50
 
 APRON_WIDTH_M = 16.0
+# The logical bay width remains 20 m for container/task coordinates.  These
+# values control the painted yard footprint only, so tightening the visual
+# corridor does not move existing bay anchors or runtime container stacks.
+YARD_MARKING_HALF_WIDTH_M = 8.0
+YARD_MARKING_WIDTH_M = YARD_MARKING_HALF_WIDTH_M * 2.0
 GANTRY_RAIL_X_M = 6.50
+TRUCK_LANE_CENTER_X_M = -3.75
+TRUCK_LANE_WIDTH_M = 5.0
 PAD_TOP_Z_M = 0.10
 MARKING_TOP_Z_M = 0.135
-LEFT_SIDE_BAY_LABEL_X_M = -3.15
-RIGHT_SIDE_BAY_LABEL_X_M = 5.65
-SIDE_BAY_LABEL_X_POSITIONS_M = (LEFT_SIDE_BAY_LABEL_X_M, RIGHT_SIDE_BAY_LABEL_X_M)
+SIDE_BAY_LABEL_X_POSITIONS_M = (0.0,)
 SIDE_BAY_LABEL_PANEL_SIZE_M = (1.15, 0.74, 0.018)
 SIDE_BAY_LABEL_DIGIT_WIDTH_M = 0.24
 SIDE_BAY_LABEL_DIGIT_HEIGHT_M = 0.43
@@ -401,7 +406,6 @@ def build_yard_layout() -> dict[str, object]:
     bay_number_black = get_material("YARD_LAYOUT_BayNumberBlack", (0.005, 0.005, 0.004, 1.0), roughness=0.60)
     bay_number_backing = get_material("YARD_LAYOUT_BayNumberLightSideBacking", (0.96, 0.95, 0.88, 1.0), roughness=0.64)
     yellow = get_material("YARD_LAYOUT_YellowMarking", (0.95, 0.62, 0.03, 1.0), roughness=0.50)
-    rail = get_material("YARD_LAYOUT_GantryRail", (0.035, 0.040, 0.045, 1.0), metallic=0.75, roughness=0.35)
     infill_materials = {
         "LEFT_CENTRAL": get_material("YARD_LAYOUT_LeftCentralInfill", (0.115, 0.125, 0.135, 1.0), roughness=0.86),
         "RIGHT_CENTRAL": get_material("YARD_LAYOUT_RightCentralInfill", (0.105, 0.120, 0.130, 1.0), roughness=0.86),
@@ -486,12 +490,12 @@ def build_yard_layout() -> dict[str, object]:
             slot_length = slot_end - slot_start
             slot_center = (slot_start + slot_end) * 0.5
             ground_slot_boxes.append(
-                ((0.0, slot_center, PAD_TOP_Z_M - 0.015), (BAY_WIDTH_M, slot_length, 0.03))
+                ((0.0, slot_center, PAD_TOP_Z_M - 0.015), (YARD_MARKING_WIDTH_M, slot_length, 0.03))
             )
             if slot_end < end_y - 1.0e-4:
                 gap_center = slot_end + BAY_GAP_M * 0.5
                 ground_slot_separator_boxes.append(
-                    ((0.0, gap_center, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.055, 0.015))
+                    ((0.0, gap_center, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.055, 0.015))
                 )
 
         for index in range(bay_count):
@@ -541,10 +545,10 @@ def build_yard_layout() -> dict[str, object]:
             separators["ground_slot_rule"] = "separator between visible odd bay 40ft slots"
 
         boundary_boxes = [
-            ((-BAY_WIDTH_M * 0.5, center_y, MARKING_TOP_Z_M), (0.08, length, 0.02)),
-            ((BAY_WIDTH_M * 0.5, center_y, MARKING_TOP_Z_M), (0.08, length, 0.02)),
-            ((0.0, current_y, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.08, 0.02)),
-            ((0.0, end_y, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.08, 0.02)),
+            ((-YARD_MARKING_HALF_WIDTH_M, center_y, MARKING_TOP_Z_M), (0.08, length, 0.02)),
+            ((YARD_MARKING_HALF_WIDTH_M, center_y, MARKING_TOP_Z_M), (0.08, length, 0.02)),
+            ((0.0, current_y, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.08, 0.02)),
+            ((0.0, end_y, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.08, 0.02)),
         ]
         boundaries = create_boxes_object(
             f"YARD_LAYOUT_1C4C_{block_name}_OUTER_BOUNDARIES",
@@ -560,10 +564,35 @@ def build_yard_layout() -> dict[str, object]:
                 ((-GANTRY_RAIL_X_M, center_y, MARKING_TOP_Z_M), (0.10, length, 0.035)),
                 ((GANTRY_RAIL_X_M, center_y, MARKING_TOP_Z_M), (0.10, length, 0.035)),
             ],
-            rail,
+            yellow,
             marking_collection,
         )
         rails.parent = root
+
+        truck_lane_half_width = TRUCK_LANE_WIDTH_M * 0.5
+        truck_lane = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_{block_name}_TRUCK_LANE_MARKINGS",
+            [
+                (
+                    (TRUCK_LANE_CENTER_X_M - truck_lane_half_width, center_y, MARKING_TOP_Z_M),
+                    (0.065, length, 0.02),
+                ),
+                (
+                    (TRUCK_LANE_CENTER_X_M + truck_lane_half_width, center_y, MARKING_TOP_Z_M),
+                    (0.065, length, 0.02),
+                ),
+            ],
+            white,
+            marking_collection,
+        )
+        truck_lane.parent = root
+        truck_lane_center = create_boxes_object(
+            f"YARD_LAYOUT_1C4C_{block_name}_TRUCK_LANE_CENTERLINE",
+            [((TRUCK_LANE_CENTER_X_M, center_y, MARKING_TOP_Z_M), (0.075, length, 0.02))],
+            yellow,
+            marking_collection,
+        )
+        truck_lane_center.parent = root
 
         label_numbers = odd_ground_slot_numbers(bay_count)
         for bay_number in label_numbers:
@@ -592,7 +621,7 @@ def build_yard_layout() -> dict[str, object]:
         )
         bay_number_panels.parent = root
         bay_number_panels["yard_block"] = block_name
-        bay_number_panels["ground_mark_rule"] = "light backing behind black side odd bay numbers"
+        bay_number_panels["ground_mark_rule"] = "light backing behind one central group of black odd bay numbers"
         bay_number_panels["side_label_x_positions_m"] = str(SIDE_BAY_LABEL_X_POSITIONS_M)
 
         bay_number_digits = create_boxes_object(
@@ -603,20 +632,21 @@ def build_yard_layout() -> dict[str, object]:
         )
         bay_number_digits.parent = root
         bay_number_digits["yard_block"] = block_name
-        bay_number_digits["ground_mark_rule"] = "black segmented odd bay numbers on both side markers"
+        bay_number_digits["ground_mark_rule"] = "black segmented odd bay numbers in one central group"
         bay_number_digits["side_label_x_positions_m"] = str(SIDE_BAY_LABEL_X_POSITIONS_M)
 
-        for suffix, label_y in (("START", current_y + 3.0), ("END", end_y - 3.0)):
-            marker_panels.append(((-5.20, label_y, MARKING_TOP_Z_M), (1.8, 2.2, 0.025)))
-            block_label = create_text(
-                f"YARD_LAYOUT_1C4C_LABEL_{block_name}_{suffix}",
+        block_label_x = YARD_MARKING_HALF_WIDTH_M + 1.4
+        label_y = center_y
+        marker_panels.append(((block_label_x, label_y, MARKING_TOP_Z_M), (1.8, 2.2, 0.025)))
+        block_label = create_text(
+                f"YARD_LAYOUT_1C4C_LABEL_{block_name}",
                 block_name,
-                (-5.20, label_y, MARKING_TOP_Z_M + 0.02),
+                (block_label_x, label_y, MARKING_TOP_Z_M + 0.02),
                 1.05,
                 yellow,
                 label_collection,
-            )
-            block_label.parent = root
+        )
+        block_label.parent = root
         panels = create_boxes_object(
             f"YARD_LAYOUT_1C4C_{block_name}_LABEL_PANELS",
             marker_panels,
@@ -649,13 +679,13 @@ def build_yard_layout() -> dict[str, object]:
             extension_slot_boxes.append(
                 (
                     (0.0, slot_center, PAD_TOP_Z_M - 0.015),
-                    (BAY_WIDTH_M, slot_end - slot_start, 0.03),
+                    (YARD_MARKING_WIDTH_M, slot_end - slot_start, 0.03),
                 )
             )
             if slot_index < YARD_END_EXTENSION_SLOT_COUNT - 1:
                 gap_center = slot_end + BAY_GAP_M * 0.5
                 extension_separator_boxes.append(
-                    ((0.0, gap_center, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.055, 0.015))
+                    ((0.0, gap_center, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.055, 0.015))
                 )
             slot_start = slot_end + BAY_GAP_M
 
@@ -689,14 +719,14 @@ def build_yard_layout() -> dict[str, object]:
             "YARD_LAYOUT_1C4C_4C_END_EXTENSION_BOUNDARIES",
             [
                 (
-                    (-BAY_WIDTH_M * 0.5, extension_center_y, MARKING_TOP_Z_M),
+                    (-YARD_MARKING_HALF_WIDTH_M, extension_center_y, MARKING_TOP_Z_M),
                     (0.08, YARD_END_EXTENSION_LENGTH_M, 0.02),
                 ),
                 (
-                    (BAY_WIDTH_M * 0.5, extension_center_y, MARKING_TOP_Z_M),
+                    (YARD_MARKING_HALF_WIDTH_M, extension_center_y, MARKING_TOP_Z_M),
                     (0.08, YARD_END_EXTENSION_LENGTH_M, 0.02),
                 ),
-                ((0.0, extension_end_y, MARKING_TOP_Z_M), (BAY_WIDTH_M, 0.08, 0.02)),
+                ((0.0, extension_end_y, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.08, 0.02)),
             ],
             yellow,
             marking_collection,
