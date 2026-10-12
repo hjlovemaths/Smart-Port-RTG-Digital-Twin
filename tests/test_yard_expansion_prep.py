@@ -52,10 +52,12 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert (
         "custom double[] yard:columnCentersX = [-60, -30, 0, 30, 60, 90]" in text
     )
+    assert "custom double[] yard:visualOnlyInfillColumnCentersX = [-45, 15, 75]" in text
     assert "custom double yard:bayPitch = 2.675" in text
     assert "custom double yard:firstBayStartY = -0.5" in text
     assert "custom double yard:lastBayEndY = 446.225" in text
     assert 'def Mesh "SMART_PORT_CLEAN_BAY_MARKINGS"' in text
+    assert 'def Mesh "SMART_PORT_VISUAL_ONLY_INFILL_BAY_MARKINGS"' in text
     assert 'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
@@ -75,7 +77,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert "SMART_PORT_REBUILT_1C4C_YELLOW_SAFETY_LINES" not in text
 
     point_blocks = re.findall(r"point3f\[\] points = \[(.*?)\]", text, re.DOTALL)
-    assert len(point_blocks) == 6
+    assert len(point_blocks) == 7
     for block in point_blocks:
         coordinates = [
             tuple(float(value) for value in match)
@@ -93,7 +95,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
         )
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
-    assert len(count_blocks) == 6
+    assert len(count_blocks) == 7
     for block in count_blocks:
         assert set(re.findall(r"\d+", block)) == {"4"}
 
@@ -148,6 +150,14 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert "AI_SOURCE_PIVOT = Gf.Vec2d(-18.0, 17.0)" in text
     assert "AI_TARGET_CENTER = Gf.Vec2d(138.0, 470.0)" in text
     assert "AI_ROTATION_DEGREES = 90.0" in text
+
+
+def test_visual_only_infill_markings_do_not_change_rtg_tracks_or_containers():
+    text = OVERLAY.read_text(encoding="utf-8")
+    assert "custom int yard:visualOnlyInfillColumnCount = 3" in text
+    assert text.count('def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"') == 1
+    assert "custom int yard:terminalBlockLabelCount = 24" in text
+    assert "SMART_PORT_VISUAL_ONLY_INFILL_BAY_MARKINGS" in text
 
 
 def test_old_left_and_right_central_boundary_meshes_are_inactive():
