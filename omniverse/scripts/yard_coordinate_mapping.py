@@ -19,6 +19,19 @@ YARD_LAYOUT_START_Y_M = -0.50
 # the receiver's physical stop line, not the geometric centre of the painted lane.
 TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
 
+# The primary moving RTG is authored on the zero-X yard column. Keep that
+# column fixed while the surrounding static yard columns are compacted toward
+# it. These values are shared by the ground layout, static RTG population, and
+# inter-yard traffic layer; the live RTG controller continues to use its own
+# gantry alignment datum on this fixed column.
+MOVING_RTG_YARD_CENTER_X_M = 0.0
+YARD_COLUMN_SPACING_X_M = 20.0
+YARD_COLUMN_CENTERS_X = tuple(
+    MOVING_RTG_YARD_CENTER_X_M + (index - 2) * YARD_COLUMN_SPACING_X_M
+    for index in range(6)
+)
+INTER_YARD_ROAD_WIDTH_X_M = 5.0
+
 
 @dataclass(frozen=True)
 class YardBlock:

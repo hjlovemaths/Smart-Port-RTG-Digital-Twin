@@ -50,11 +50,11 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     ) in text
     assert 'def Xform "SMART_PORT_REBUILT_YARD_LAYOUT"' in text
     assert (
-        "custom double[] yard:columnCentersX = [-60, -30, 0, 30, 60, 90]" in text
+        "custom double[] yard:columnCentersX = [-40, -20, 0, 20, 40, 60]" in text
     )
     assert "custom double yard:visualColumnWidth = 14.75" in text
     assert (
-        "custom double[] yard:visualColumnCentersX = [-60, -30, 0, 30, 60, 90]"
+        "custom double[] yard:visualColumnCentersX = [-40, -20, 0, 20, 40, 60]"
         in text
     )
     assert "custom double yard:bayPitch = 2.675" in text
@@ -65,8 +65,12 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     assert 'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
-    assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
+    assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' not in text
     assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.75, 8]" in text
+    assert (
+        'custom string yard:yellowLongitudinalGuides = '
+        '"disabled; no longitudinal yellow road or yard guide lines"'
+    ) in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' not in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' not in text
     assert "custom int yard:terminalBlockLabelCount = 24" in text
@@ -80,7 +84,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     assert "SMART_PORT_REBUILT_1C4C_YELLOW_SAFETY_LINES" not in text
 
     point_blocks = re.findall(r"point3f\[\] points = \[(.*?)\]", text, re.DOTALL)
-    assert len(point_blocks) == 6
+    assert len(point_blocks) == 5
     for block in point_blocks:
         coordinates = [
             tuple(float(value) for value in match)
@@ -91,14 +95,14 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
         ]
         x_values = [point[0] for point in coordinates]
         assert x_values
-        assert min(x_values) >= -70.0001
-        assert max(x_values) <= 100.0276
+        assert min(x_values) >= -46.7501
+        assert max(x_values) <= 69.9751
         assert {round(point[2], 6) for point in coordinates}.issubset(
             {0.145, 0.149, 0.151}
         )
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
-    assert len(count_blocks) == 6
+    assert len(count_blocks) == 5
     for block in count_blocks:
         assert set(re.findall(r"\d+", block)) == {"4"}
 
@@ -139,7 +143,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert "YARD_X_MIN = -8.0" in text
     assert "YARD_X_MAX = 8.0" in text
     assert (
-        "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
+        "YARD_COLUMN_CENTERS_X," in text
     )
     assert "RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)" in text
     assert "column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X" in text
@@ -148,7 +152,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "YARD_LAYOUT_START_Y_M" in text
     assert "REBUILT_LABEL_DIGITS_NAME" in text
-    assert "for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS" in text
+    assert "for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS" in text
     assert '"C": ("top", "upper_left", "lower_left", "bottom")' in text
     assert "_author_terminal_block_labels(output_stage)" in text
     assert "GROUND_MARKING_PREFIXES" in text
@@ -157,10 +161,10 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert "AI_ROTATION_DEGREES = 90.0" in text
 
 
-def test_visual_layout_is_uniform_without_changing_rtg_tracks_or_containers():
+def test_visual_layout_is_uniform_without_changing_containers():
     text = OVERLAY.read_text(encoding="utf-8")
     assert "custom int yard:visualColumnCount = 6" in text
-    assert text.count('def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"') == 1
+    assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' not in text
     assert "custom int yard:terminalBlockLabelCount = 24" in text
     assert "SMART_PORT_VISUAL_ONLY_INFILL_BAY_MARKINGS" not in text
 
@@ -206,11 +210,11 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -66.75
-    assert max(x_values) == 98.0
+    assert min(x_values) == -46.75
+    assert max(x_values) == 68.0
     expected_ranges = {
         (center - 6.75, center + 8.0)
-        for center in (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
+        for center in (-40.0, -20.0, 0.0, 20.0, 40.0, 60.0)
     }
     assert {
         (min(point[0] for point in quad), max(point[0] for point in quad))

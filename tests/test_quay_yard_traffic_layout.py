@@ -75,11 +75,11 @@ def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
     }
     road_ranges = (
         (-85.875, -70.0),
-        (-48.7, -41.3),
-        (-18.7, -11.3),
-        (11.3, 18.7),
-        (41.3, 48.7),
-        (71.3, 78.7),
+        (-32.5, -27.5),
+        (-12.5, -7.5),
+        (7.5, 12.5),
+        (27.5, 32.5),
+        (47.5, 52.5),
     )
     cross_centers = (-5.375, 126.05, 256.30, 386.55)
     expected_intersections = {
@@ -92,7 +92,7 @@ def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
     # the set therefore contains 15 unique x=-70 translations (14 yard + 4
     # intersection placements minus 3 coincident endpoints).
     assert sum(1 for x, _y, _z in translations if x == -70.0) == 15
-    for x in (-41.3, -11.3, 18.7, 48.7, 78.7):
+    for x in (-27.5, -7.5, 12.5, 32.5, 52.5):
         assert sum(1 for tx, _y, _z in translations if tx == x) == 15
     assert all(x != 102.0 for x, _y, _z in translations)
 
@@ -149,9 +149,10 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
     )
     assert len(targets) == 66 * 3
 
-    pole_x_by_side = (-70.0, -41.3, -11.3, 18.7, 48.7, 78.7)
-    right_offsets = (6.85, 11.25, 15.65)
-    left_offsets = (-23.15, -18.75, -14.35)
+    pole_x_by_side = (-70.0, -27.5, -7.5, 12.5, 32.5, 52.5)
+    right_offsets = (4.35, 8.75, 13.15)
+    coastal_right_offsets = (26.85, 31.25, 35.65)
+    left_offsets = (-15.65, -11.25, -6.85)
     block_specs = {
         "1C": (-0.5, 46),
         "2C": (129.75, 46),
@@ -164,7 +165,7 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
         side_index = int(side)
         light_index = int(light)
         if side_index == 1:
-            target_offsets = right_offsets
+            target_offsets = coastal_right_offsets
         elif light_index % 2 == 1:
             target_offsets = (left_offsets[2], right_offsets[1], left_offsets[0])
         else:
@@ -280,11 +281,11 @@ def test_coastal_strip_and_inter_yard_gaps_are_longitudinal_roads():
     text = TRAFFIC.read_text(encoding="utf-8")
     road_ranges = (
         (-85.875, -70.0),
-        (-48.7, -41.3),
-        (-18.7, -11.3),
-        (11.3, 18.7),
-        (41.3, 48.7),
-        (71.3, 78.7),
+        (-32.5, -27.5),
+        (-12.5, -7.5),
+        (7.5, 12.5),
+        (27.5, 32.5),
+        (47.5, 52.5),
     )
     for x_min, x_max in road_ranges:
         assert f"({x_min:g}, -10.25, 0.109)" in text
@@ -337,11 +338,11 @@ def test_white_lane_markings_stop_at_all_yard_road_intersections():
     quads = [points[index : index + 4] for index in range(0, len(points), 4)]
     yard_roads = (
         (-85.875, -70.0),
-        (-48.7, -41.3),
-        (-18.7, -11.3),
-        (11.3, 18.7),
-        (41.3, 48.7),
-        (71.3, 78.7),
+        (-32.5, -27.5),
+        (-12.5, -7.5),
+        (7.5, 12.5),
+        (27.5, 32.5),
+        (47.5, 52.5),
     )
     cross_centers = (-5.375, 126.05, 256.30, 386.55, 496.30)
     for quad in quads:

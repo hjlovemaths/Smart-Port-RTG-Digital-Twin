@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from yard_coordinate_mapping import (  # noqa: E402
     BAY_GAP_M,
     BAY_LENGTH_M,
+    YARD_COLUMN_CENTERS_X,
     YARD_BLOCKS,
     YARD_LAYOUT_START_Y_M,
 )
@@ -32,14 +33,12 @@ AI_TARGET_CENTER = Gf.Vec2d(138.0, 470.0)
 AI_ROTATION_DEGREES = 90.0
 YARD_X_MIN = -8.0
 YARD_X_MAX = 8.0
-YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
-# Keep one visible guide under each RTG wheel track.  The source RTG model's
-# left and right wheel centers are asymmetric around the yard center, so the
-# left guide is pulled inward to sit directly under the left tire.  Bay
-# separators use the same two guides as their exact horizontal boundaries.
+# Keep the two RTG wheel-track offsets as the geometric corridor for bay
+# separators.  The yellow guide meshes themselves are intentionally not
+# rendered; the yard should show white bay lines without longitudinal yellow
+# lines spilling onto the roads.
 RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)
-RTG_TIRE_TRACK_WIDTH = 0.10
 RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)
 YARD_BLOCK_SPECS = tuple(
     (
@@ -54,7 +53,6 @@ BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M
 MARKING_WIDTH = 0.055
 MARKING_Z = 0.145
 MARKING_COLOR = Gf.Vec3f(0.88, 0.9, 0.87)
-YELLOW_MARKING_COLOR = Gf.Vec3f(0.96, 0.76, 0.04)
 LABEL_SIDE_OFFSETS_X = (0.0,)
 LABEL_PANEL_SIZE = (1.15, 0.74)
 LABEL_PANEL_Z = 0.149
@@ -73,7 +71,6 @@ REBUILT_LABEL_BACKINGS_NAME = "SMART_PORT_CLEAN_BAY_NUMBER_BACKINGS"
 REBUILT_LABEL_DIGITS_NAME = "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"
 REBUILT_BLOCK_LABEL_BACKINGS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"
 REBUILT_BLOCK_LABEL_GLYPHS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"
-REBUILT_RTG_TRACKS_NAME = "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"
 
 DIGIT_SEGMENTS = {
     "0": ("top", "upper_left", "upper_right", "lower_left", "lower_right", "bottom"),
@@ -248,32 +245,6 @@ def _author_clean_bay_markings(
 
     return _define_flat_mesh(
         output_stage, mesh_name, points, counts, indices, MARKING_COLOR
-    )
-
-
-def _author_rtg_tire_tracks(output_stage: Usd.Stage) -> int:
-    points: list[Gf.Vec3f] = []
-    counts: list[int] = []
-    indices: list[int] = []
-    for center_x in YARD_COLUMN_CENTERS_X:
-        for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            for offset_x in RTG_TIRE_TRACK_OFFSETS_X:
-                _append_rectangle(
-                    points,
-                    counts,
-                    indices,
-                    center_x + offset_x - RTG_TIRE_TRACK_WIDTH * 0.5,
-                    center_x + offset_x + RTG_TIRE_TRACK_WIDTH * 0.5,
-                    y_min,
-                    y_max,
-                )
-    return _define_flat_mesh(
-        output_stage,
-        REBUILT_RTG_TRACKS_NAME,
-        points,
-        counts,
-        indices,
-        YELLOW_MARKING_COLOR,
     )
 
 
@@ -577,6 +548,9 @@ def build() -> tuple[int, int, dict[str, int]]:
         "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
     ).Set(Vt.DoubleArray(RTG_TIRE_TRACK_OFFSETS_X))
     rebuilt_root.CreateAttribute(
+        "yard:yellowLongitudinalGuides", Sdf.ValueTypeNames.String
+    ).Set("disabled; no longitudinal yellow road or yard guide lines")
+    rebuilt_root.CreateAttribute(
         "yard:visualColumnWidth", Sdf.ValueTypeNames.Double
     ).Set(RTG_YARD_WIDTH_X)
     rebuilt_root.CreateAttribute(
@@ -595,12 +569,12 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Bay markings and labels are limited to the six existing RTG yellow-track yard areas; column gaps remain empty"
+        "Moving RTG yard stays at X=0; five other RTG yard columns compact to 20 m spacing, with white bay markings only inside the RTG tire corridor"
     )
     rebuilt_root.CreateAttribute(
         "yard:visualFillRule", Sdf.ValueTypeNames.String
     ).Set(
-        "draw bay lines only between each runtime RTG tire-guide pair; draw no markings or yellow guides in column gaps"
+        "draw white bay lines only between each runtime RTG tire-guide pair; draw no longitudinal yellow guides or markings in column gaps"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
@@ -610,7 +584,6 @@ def build() -> tuple[int, int, dict[str, int]]:
     ).Set(len(YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
 
     face_counts = {REBUILT_MARKINGS_NAME: _author_clean_bay_markings(output_stage)}
-    face_counts[REBUILT_RTG_TRACKS_NAME] = _author_rtg_tire_tracks(output_stage)
     face_counts.update(_author_bay_number_labels(output_stage))
     face_counts.update(_author_terminal_block_labels(output_stage))
 

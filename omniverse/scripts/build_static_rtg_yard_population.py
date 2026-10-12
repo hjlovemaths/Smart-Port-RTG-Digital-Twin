@@ -8,7 +8,7 @@ import omni.kit.app
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
 from rtg_live_control import GANTRY_LATERAL_ALIGNMENT_X_M
-from yard_coordinate_mapping import bay_scene_y_m
+from yard_coordinate_mapping import YARD_COLUMN_CENTERS_X, bay_scene_y_m
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,15 +27,14 @@ SCENE_START_TIME = Usd.TimeCode(1.0)
 
 ALL_RTG_COLUMN_CENTERS_X = tuple(
     # Use the exact lateral datum that RTGController applies to PLC poses.
-    center_x + GANTRY_LATERAL_ALIGNMENT_X_M
-    for center_x in (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
+    center_x + GANTRY_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X
 )
 STATIC_RTG_PLACEMENTS = (
-    ("SMART_PORT_STATIC_RTG_YARD_M60", -60.0, "1C", 17),
-    ("SMART_PORT_STATIC_RTG_YARD_M30", -30.0, "1C", 63),
-    ("SMART_PORT_STATIC_RTG_YARD_P30", 30.0, "2C", 29),
-    ("SMART_PORT_STATIC_RTG_YARD_P60", 60.0, "3C", 57),
-    ("SMART_PORT_STATIC_RTG_YARD_P90", 90.0, "4C", 25),
+    ("SMART_PORT_STATIC_RTG_YARD_M60", -40.0, "1C", 17),
+    ("SMART_PORT_STATIC_RTG_YARD_M30", -20.0, "1C", 63),
+    ("SMART_PORT_STATIC_RTG_YARD_P30", 20.0, "2C", 29),
+    ("SMART_PORT_STATIC_RTG_YARD_P60", 40.0, "3C", 57),
+    ("SMART_PORT_STATIC_RTG_YARD_P90", 60.0, "4C", 25),
 )
 ORIGINAL_STATIC_NAMES = ("RTG_STATIC_LEFT", "RTG_STATIC_RIGHT")
 ANIMATED_SPREADER_PATH = f"{PROTOTYPE_MODEL_PATH}/AnimatedSpreader"

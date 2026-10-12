@@ -23,11 +23,11 @@ def test_original_static_rtgs_are_hidden_in_favor_of_animated_references():
 def test_five_yards_receive_instanceable_static_visual_rtgs_at_distinct_bays():
     text = LAYER.read_text(encoding="utf-8")
     expected = (
-        ("SMART_PORT_STATIC_RTG_YARD_M60", -60, "1C", 17, 22.1375),
-        ("SMART_PORT_STATIC_RTG_YARD_M30", -30, "1C", 63, 83.6625),
-        ("SMART_PORT_STATIC_RTG_YARD_P30", 30, "2C", 29, 168.4375),
-        ("SMART_PORT_STATIC_RTG_YARD_P60", 60, "3C", 57, 336.1375),
-        ("SMART_PORT_STATIC_RTG_YARD_P90", 90, "4C", 25, 423.5875),
+        ("SMART_PORT_STATIC_RTG_YARD_M60", -40, "1C", 17, 22.1375),
+        ("SMART_PORT_STATIC_RTG_YARD_M30", -20, "1C", 63, 83.6625),
+        ("SMART_PORT_STATIC_RTG_YARD_P30", 20, "2C", 29, 168.4375),
+        ("SMART_PORT_STATIC_RTG_YARD_P60", 40, "3C", 57, 336.1375),
+        ("SMART_PORT_STATIC_RTG_YARD_P90", 60, "4C", 25, 423.5875),
     )
     for name, center_x, block, bay, center_y in expected:
         pattern = (
@@ -37,7 +37,7 @@ def test_five_yards_receive_instanceable_static_visual_rtgs_at_distinct_bays():
             rf'custom string rtg:role = "static_visual".*?'
             rf'custom bool rtg:runtimeControlled = 0.*?'
             rf'custom string rtg:yardBlock = "{block}".*?'
-            rf'custom double rtg:yardColumnCenterX = {center_x}'
+            rf'custom double rtg:yardColumnCenterX = {center_x + 1.2:g}'
         )
         assert re.search(pattern, text, flags=re.DOTALL)
         assert f"custom int rtg:bayNumber = {bay}" in text
@@ -52,7 +52,8 @@ def test_five_yards_receive_instanceable_static_visual_rtgs_at_distinct_bays():
 
 def test_builder_uses_all_six_parallel_yard_centers_without_cloning_dynamic_rtg():
     text = BUILDER.read_text(encoding="utf-8")
-    assert "ALL_RTG_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
+    assert "YARD_COLUMN_CENTERS_X" in text
+    assert "center_x + GANTRY_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X" in text
     assert 'STATIC_TEMPLATE_NAME = "RTG_STATIC_LEFT"' in text
     assert 'STATIC_TEMPLATE_NAME = "RTG_PRIMARY_DYNAMIC"' not in text
 
