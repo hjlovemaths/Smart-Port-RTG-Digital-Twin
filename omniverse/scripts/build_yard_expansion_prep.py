@@ -34,10 +34,11 @@ YARD_X_MIN = -8.0
 YARD_X_MAX = 8.0
 YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
-# Keep one visible guide under each RTG wheel track.  The right half of the
-# white bay separators is intentionally omitted so it cannot compete with the
-# right yellow guide.
-RTG_TIRE_TRACK_OFFSET_X = 8.0
+# Keep one visible guide under each RTG wheel track.  The source RTG model's
+# left and right wheel centers are asymmetric around the yard center, so the
+# left guide is pulled inward to sit directly under the left tire.  Bay
+# separators use the same two guides as their exact horizontal boundaries.
+RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)
 RTG_TIRE_TRACK_WIDTH = 0.10
 YARD_BLOCK_SPECS = tuple(
     (
@@ -216,10 +217,11 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
     counts: list[int] = []
     indices: list[int] = []
     for center_x in YARD_COLUMN_CENTERS_X:
-        x_min = center_x + YARD_X_MIN
+        x_min = center_x + min(RTG_TIRE_TRACK_OFFSETS_X)
+        x_max = center_x + max(RTG_TIRE_TRACK_OFFSETS_X)
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            # Keep only the bay separators.  The outer white perimeter was a
-            # visual frame and is intentionally omitted from the final yard.
+            # Keep the bay separators across the complete painted corridor.
+            # The outer white perimeter remains intentionally omitted.
             for _bay_number, _slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
             ):
@@ -231,7 +233,7 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
                     counts,
                     indices,
                     x_min,
-                    center_x,
+                    x_max,
                     position - MARKING_WIDTH * 0.5,
                     position + MARKING_WIDTH * 0.5,
                 )
@@ -247,7 +249,7 @@ def _author_rtg_tire_tracks(output_stage: Usd.Stage) -> int:
     indices: list[int] = []
     for center_x in YARD_COLUMN_CENTERS_X:
         for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            for offset_x in (-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X):
+            for offset_x in RTG_TIRE_TRACK_OFFSETS_X:
                 _append_rectangle(
                     points,
                     counts,
@@ -559,7 +561,7 @@ def build() -> tuple[int, int, dict[str, int]]:
     )
     rebuilt_root.CreateAttribute(
         "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
-    ).Set(Vt.DoubleArray((-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X)))
+    ).Set(Vt.DoubleArray(RTG_TIRE_TRACK_OFFSETS_X))
     rebuilt_root.CreateAttribute("yard:bayPitch", Sdf.ValueTypeNames.Double).Set(
         BAY_PITCH_Y
     )

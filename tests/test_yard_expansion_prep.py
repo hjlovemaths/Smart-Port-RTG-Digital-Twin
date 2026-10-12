@@ -61,6 +61,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
     assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
+    assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.75, 8]" in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' not in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' not in text
     assert "custom int yard:terminalBlockLabelCount = 24" in text
@@ -135,7 +136,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert (
         "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
     )
-    assert "RTG_TIRE_TRACK_OFFSET_X = 8.0" in text
+    assert "RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "YARD_LAYOUT_START_Y_M" in text
@@ -189,3 +190,6 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
             longitudinal_quads.append(quad)
 
     assert not longitudinal_quads
+    x_values = [point[0] for quad in quads for point in quad]
+    assert min(x_values) == -66.75
+    assert max(x_values) == 98.0
