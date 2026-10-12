@@ -263,28 +263,11 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
     # The rebuilt yard owns the two yellow RTG tire tracks and the dense white
     # bay separators.  Do not add the older longitudinal white road-edge lines
     # here: they sit outside the yellow tracks and visually widen each yard.
+    # Traffic-lane yellow centerlines are omitted as well; the road between
+    # yard blocks must remain clear, while the tire tracks stay visible on the
+    # RTG footprint itself.
     white_quads = []
     yellow_centerline_quads = []
-    cross_road_clear_ranges = tuple(
-        (
-            center_y - ROAD_INTERSECTION_CLEARANCE_M,
-            center_y + ROAD_INTERSECTION_CLEARANCE_M,
-        )
-        for center_y in ALL_CROSS_ROAD_CENTERS_Y
-    )
-
-    # Keep the yellow lane-center dashes below.  The former white edge pair at
-    # x=110.55/125.23 is intentionally omitted.
-    dash_y = LAYOUT_START_Y + 8.0
-    while dash_y < LAYOUT_END_Y - 8.0:
-        dash_end = min(dash_y + 4.0, LAYOUT_END_Y - 8.0)
-        for y_min, y_max in segments_without(
-            dash_y, dash_end, cross_road_clear_ranges
-        ):
-            yellow_centerline_quads.append(
-                rect(117.89, y_min, 118.11, y_max, 0.145)
-            )
-        dash_y += 8.0
 
     for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
         for x_min, x_max in segments_without(
@@ -314,59 +297,6 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
                     ),
                 )
             )
-        dash_x = YARD_INLAND_EDGE_X + 4.0
-        while dash_x < 107.0:
-            dash_end = min(dash_x + 4.0, 107.0)
-            for x_min, x_max in segments_without(
-                dash_x, dash_end, YARD_ROAD_X_RANGES
-            ):
-                yellow_centerline_quads.append(
-                    rect(
-                        x_min,
-                        center_y - 0.11,
-                        x_max,
-                        center_y + 0.11,
-                        0.146,
-                    )
-                )
-            dash_x += 8.0
-
-    # The terminal cross-road remains part of the asphalt/yellow guidance, but
-    # its outer white edge pair is a stray boundary line and is intentionally
-    # omitted.  Internal yard bay separators are authored by the rebuilt yard.
-    terminal_y = TERMINAL_CROSS_ROAD_CENTER_Y
-    dash_x = YARD_INLAND_EDGE_X + 4.0
-    while dash_x < APRON_EDGE_X - 3.0:
-        dash_end = min(dash_x + 4.0, APRON_EDGE_X - 3.0)
-        for x_min, x_max in segments_without(
-            dash_x, dash_end, TERMINAL_INTERSECTION_X_RANGES
-        ):
-            yellow_centerline_quads.append(
-                rect(
-                    x_min,
-                    terminal_y - 0.11,
-                    x_max,
-                    terminal_y + 0.11,
-                    0.146,
-                )
-            )
-        dash_x += 8.0
-
-    for x_min, x_max in YARD_ROAD_X_RANGES:
-        # The rebuilt yard's yellow tracks are the nearest longitudinal
-        # guides.  Do not redraw the two white lines on the outside of each
-        # inter-yard road.
-        center_x = (x_min + x_max) * 0.5
-        dash_y = LAYOUT_START_Y + 4.0
-        while dash_y < LAYOUT_END_Y - 4.0:
-            dash_end = min(dash_y + 4.0, LAYOUT_END_Y - 4.0)
-            for y_min, y_max in segments_without(
-                dash_y, dash_end, cross_road_clear_ranges
-            ):
-                yellow_centerline_quads.append(
-                    rect(center_x - 0.11, y_min, center_x + 0.11, y_max, 0.148)
-                )
-            dash_y += 8.0
     return white_quads, yellow_centerline_quads
 
 

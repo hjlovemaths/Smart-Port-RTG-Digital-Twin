@@ -225,7 +225,10 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
             for _bay_number, _slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
             ):
-                if slot_end >= y_max - 1e-6:
+                # Leave the final bay boundary to the yellow wheel tracks;
+                # a white separator immediately before the block end reads
+                # as an unwanted outer frame in the viewport.
+                if slot_end >= y_max - BAY_PITCH_Y - 1e-6:
                     continue
                 position = slot_end + BAY_GAP_M * 0.5
                 _append_rectangle(

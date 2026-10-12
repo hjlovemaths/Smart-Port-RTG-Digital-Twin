@@ -193,3 +193,4 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
     x_values = [point[0] for quad in quads for point in quad]
     assert min(x_values) == -66.75
     assert max(x_values) == 98.0
+    assert max(point[1] for quad in quads for point in quad) < 443.0
