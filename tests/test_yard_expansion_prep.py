@@ -32,7 +32,7 @@ def test_ai_console_is_relocated_as_one_complete_component_set():
     assert "custom double yard:aiConsoleRotation = 90" in text
 
 
-def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
+def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     text = OVERLAY.read_text(encoding="utf-8")
     for root_name in (
         "SMART_PORT_UNIFIED_SIDEYARD_cyan_lane_lines",
@@ -52,9 +52,16 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert (
         "custom double[] yard:columnCentersX = [-60, -30, 0, 30, 60, 90]" in text
     )
-    assert (
-        "custom double[] yard:visualColumnCentersX = [-60, -41.25, -22.5, -3.75, 15, 33.75, 52.5, 71.25, 90]"
-        in text
+    assert "custom double yard:visualColumnWidth = 14.75" in text
+    visual_centers = re.search(
+        r"custom double\[\] yard:visualColumnCentersX = \[(.*?)\]", text
+    )
+    assert visual_centers
+    centers = [float(value.strip()) for value in visual_centers.group(1).split(",")]
+    assert len(centers) == 11
+    assert all(
+        abs((right - left) - 14.75) < 1e-6
+        for left, right in zip(centers, centers[1:])
     )
     assert "custom double yard:bayPitch = 2.675" in text
     assert "custom double yard:firstBayStartY = -0.5" in text
@@ -68,7 +75,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.75, 8]" in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' not in text
     assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' not in text
-    assert "custom int yard:terminalBlockLabelCount = 36" in text
+    assert "custom int yard:terminalBlockLabelCount = 44" in text
     assert (
         'custom string yard:terminalBlockLabelRule = '
         '"one block label outside each yard block, centered longitudinally"'
@@ -140,7 +147,10 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert (
         "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
     )
-    assert "VISUAL_YARD_COLUMN_CENTERS_X = (" in text
+    assert "VISUAL_YARD_COLUMN_CENTERS_X = _derive_visual_yard_column_centers()" in text
+    assert "RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)" in text
+    assert "def _derive_visual_yard_column_centers()" in text
+    assert "column_count = max(1, int(footprint_width // RTG_YARD_WIDTH_X))" in text
     assert "RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
@@ -157,9 +167,9 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
 
 def test_visual_layout_is_uniform_without_changing_rtg_tracks_or_containers():
     text = OVERLAY.read_text(encoding="utf-8")
-    assert "custom int yard:visualColumnCount = 9" in text
+    assert "custom int yard:visualColumnCount = 11" in text
     assert text.count('def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"') == 1
-    assert "custom int yard:terminalBlockLabelCount = 36" in text
+    assert "custom int yard:terminalBlockLabelCount = 44" in text
     assert "SMART_PORT_VISUAL_ONLY_INFILL_BAY_MARKINGS" not in text
 
 
@@ -204,6 +214,6 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -66.75
-    assert max(x_values) == 98.0
+    assert min(x_values) == -65.5
+    assert max(x_values) == 96.75
     assert max(point[1] for quad in quads for point in quad) < 443.0

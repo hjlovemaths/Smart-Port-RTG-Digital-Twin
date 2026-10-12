@@ -33,20 +33,6 @@ AI_ROTATION_DEGREES = 90.0
 YARD_X_MIN = -8.0
 YARD_X_MAX = 8.0
 YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
-# Nine visual yard columns are evenly spaced across the original six-column
-# span. These are ground layout coordinates only; RTG tracks, containers, and
-# motion targets continue to use YARD_COLUMN_CENTERS_X below.
-VISUAL_YARD_COLUMN_CENTERS_X = (
-    -60.0,
-    -41.25,
-    -22.5,
-    -3.75,
-    15.0,
-    33.75,
-    52.5,
-    71.25,
-    90.0,
-)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 # Keep one visible guide under each RTG wheel track.  The source RTG model's
 # left and right wheel centers are asymmetric around the yard center, so the
@@ -54,6 +40,37 @@ YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 # separators use the same two guides as their exact horizontal boundaries.
 RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)
 RTG_TIRE_TRACK_WIDTH = 0.10
+RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)
+
+
+def _derive_visual_yard_column_centers() -> tuple[float, ...]:
+    """Tile full-width visual yards across the existing six-column footprint.
+
+    The six runtime RTG columns define the available footprint. Each visual
+    yard uses exactly the distance between the two RTG tire guides, so the
+    count is derived from the geometry instead of being a layout constant.
+    Runtime RTG, container, and motion coordinates continue to use
+    YARD_COLUMN_CENTERS_X elsewhere in this script.
+    """
+    footprint_min = min(YARD_COLUMN_CENTERS_X) + min(RTG_TIRE_TRACK_OFFSETS_X)
+    footprint_max = max(YARD_COLUMN_CENTERS_X) + max(RTG_TIRE_TRACK_OFFSETS_X)
+    footprint_width = footprint_max - footprint_min
+    column_count = max(1, int(footprint_width // RTG_YARD_WIDTH_X))
+    used_width = column_count * RTG_YARD_WIDTH_X
+    side_margin = (footprint_width - used_width) * 0.5
+    # The RTG root is not centered between its asymmetric tire offsets. Use
+    # the left tire guide as the visual cell's actual left boundary.
+    first_center = footprint_min + side_margin - min(RTG_TIRE_TRACK_OFFSETS_X)
+    return tuple(
+        round(first_center + index * RTG_YARD_WIDTH_X, 6)
+        for index in range(column_count)
+    )
+
+
+# Ground markings and labels are visual-only. Their count is computed from
+# the RTG wheel gauge so the available footprint is filled evenly without
+# changing runtime RTG or container placement.
+VISUAL_YARD_COLUMN_CENTERS_X = _derive_visual_yard_column_centers()
 YARD_BLOCK_SPECS = tuple(
     (
         block.name,
@@ -590,6 +607,9 @@ def build() -> tuple[int, int, dict[str, int]]:
         "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
     ).Set(Vt.DoubleArray(RTG_TIRE_TRACK_OFFSETS_X))
     rebuilt_root.CreateAttribute(
+        "yard:visualColumnWidth", Sdf.ValueTypeNames.Double
+    ).Set(RTG_YARD_WIDTH_X)
+    rebuilt_root.CreateAttribute(
         "yard:visualColumnCentersX", Sdf.ValueTypeNames.DoubleArray
     ).Set(Vt.DoubleArray(VISUAL_YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute(
@@ -605,7 +625,12 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Nine evenly spaced visual columns with narrowed edges, six fixed yellow RTG tracks, and one central bay-number group"
+        "Visual columns tiled across the RTG footprint at the exact yellow track spacing; runtime RTG tracks and containers unchanged"
+    )
+    rebuilt_root.CreateAttribute(
+        "yard:visualFillRule", Sdf.ValueTypeNames.String
+    ).Set(
+        "derive full-width column count from RTG tire-guide spacing and distribute leftover footprint evenly at both sides"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
