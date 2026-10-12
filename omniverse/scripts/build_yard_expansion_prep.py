@@ -33,9 +33,20 @@ AI_ROTATION_DEGREES = 90.0
 YARD_X_MIN = -8.0
 YARD_X_MAX = 8.0
 YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
-# Visual-only infill strips occupy three former road gaps. They deliberately
-# do not participate in RTG tracks, container placement, or motion targets.
-VISUAL_ONLY_INFILL_COLUMN_CENTERS_X = (-45.0, 15.0, 75.0)
+# Nine visual yard columns are evenly spaced across the original six-column
+# span. These are ground layout coordinates only; RTG tracks, containers, and
+# motion targets continue to use YARD_COLUMN_CENTERS_X below.
+VISUAL_YARD_COLUMN_CENTERS_X = (
+    -60.0,
+    -41.25,
+    -22.5,
+    -3.75,
+    15.0,
+    33.75,
+    52.5,
+    71.25,
+    90.0,
+)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 # Keep one visible guide under each RTG wheel track.  The source RTG model's
 # left and right wheel centers are asymmetric around the yard center, so the
@@ -76,7 +87,6 @@ REBUILT_LABEL_DIGITS_NAME = "SMART_PORT_CLEAN_BAY_NUMBER_DIGITS"
 REBUILT_BLOCK_LABEL_BACKINGS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"
 REBUILT_BLOCK_LABEL_GLYPHS_NAME = "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"
 REBUILT_RTG_TRACKS_NAME = "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"
-REBUILT_INFILL_MARKINGS_NAME = "SMART_PORT_VISUAL_ONLY_INFILL_BAY_MARKINGS"
 
 DIGIT_SEGMENTS = {
     "0": ("top", "upper_left", "upper_right", "lower_left", "lower_right", "bottom"),
@@ -218,7 +228,7 @@ def _odd_bay_slots(bay_count: int, y_min: float, y_max: float):
 
 def _author_clean_bay_markings(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
     mesh_name: str = REBUILT_MARKINGS_NAME,
 ) -> int:
     points: list[Gf.Vec3f] = []
@@ -334,7 +344,10 @@ def _append_digit(
         )
 
 
-def _author_bay_number_labels(output_stage: Usd.Stage) -> dict[str, int]:
+def _author_bay_number_labels(
+    output_stage: Usd.Stage,
+    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
+) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
     backing_indices: list[int] = []
@@ -344,7 +357,7 @@ def _author_bay_number_labels(output_stage: Usd.Stage) -> dict[str, int]:
     digit_width, _digit_height = LABEL_DIGIT_SIZE
     text_width = digit_width * 2 + LABEL_DIGIT_GAP
 
-    for center_x in YARD_COLUMN_CENTERS_X:
+    for center_x in column_centers:
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
             for bay_number, slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
@@ -398,7 +411,10 @@ def _author_bay_number_labels(output_stage: Usd.Stage) -> dict[str, int]:
     }
 
 
-def _author_terminal_block_labels(output_stage: Usd.Stage) -> dict[str, int]:
+def _author_terminal_block_labels(
+    output_stage: Usd.Stage,
+    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
+) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
     backing_indices: list[int] = []
@@ -408,7 +424,7 @@ def _author_terminal_block_labels(output_stage: Usd.Stage) -> dict[str, int]:
     glyph_width, _glyph_height = LABEL_DIGIT_SIZE
     text_width = glyph_width * 2 + LABEL_DIGIT_GAP
 
-    for center_x in YARD_COLUMN_CENTERS_X:
+    for center_x in column_centers:
         label_x = center_x + BLOCK_LABEL_OFFSET_X
         for block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
             label_y = (y_min + y_max) * 0.5
@@ -574,11 +590,11 @@ def build() -> tuple[int, int, dict[str, int]]:
         "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
     ).Set(Vt.DoubleArray(RTG_TIRE_TRACK_OFFSETS_X))
     rebuilt_root.CreateAttribute(
-        "yard:visualOnlyInfillColumnCentersX", Sdf.ValueTypeNames.DoubleArray
-    ).Set(Vt.DoubleArray(VISUAL_ONLY_INFILL_COLUMN_CENTERS_X))
+        "yard:visualColumnCentersX", Sdf.ValueTypeNames.DoubleArray
+    ).Set(Vt.DoubleArray(VISUAL_YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute(
-        "yard:visualOnlyInfillColumnCount", Sdf.ValueTypeNames.Int
-    ).Set(len(VISUAL_ONLY_INFILL_COLUMN_CENTERS_X))
+        "yard:visualColumnCount", Sdf.ValueTypeNames.Int
+    ).Set(len(VISUAL_YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute("yard:bayPitch", Sdf.ValueTypeNames.Double).Set(
         BAY_PITCH_Y
     )
@@ -589,21 +605,16 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Clean procedural 1C-4C bay markings with narrowed edges, yellow RTG tire tracks, and one central bay-number group"
+        "Nine evenly spaced visual columns with narrowed edges, six fixed yellow RTG tracks, and one central bay-number group"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
     ).Set("one block label outside each yard block, centered longitudinally")
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelCount", Sdf.ValueTypeNames.Int
-    ).Set(len(YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
+    ).Set(len(VISUAL_YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
 
     face_counts = {REBUILT_MARKINGS_NAME: _author_clean_bay_markings(output_stage)}
-    face_counts[REBUILT_INFILL_MARKINGS_NAME] = _author_clean_bay_markings(
-        output_stage,
-        VISUAL_ONLY_INFILL_COLUMN_CENTERS_X,
-        REBUILT_INFILL_MARKINGS_NAME,
-    )
     face_counts[REBUILT_RTG_TRACKS_NAME] = _author_rtg_tire_tracks(output_stage)
     face_counts.update(_author_bay_number_labels(output_stage))
     face_counts.update(_author_terminal_block_labels(output_stage))
