@@ -77,6 +77,11 @@ DEFAULT_DOWN_FAR_RANGE_M = 150.0
 # along world -Z.
 DOWNWARD_ORIENTATION_WXYZ = (0.7071067812, 0.0, 0.7071067812, 0.0)
 DEFAULT_CONFIG = "Example_Rotary"
+# Defaults also exposed by this launcher-facing wrapper so the project
+# launcher can select the downloaded Ouster profile without treating a path as
+# a named config.
+DEFAULT_REPRESENTATIVE_CONFIG = "OS1"
+DEFAULT_REPRESENTATIVE_VARIANT = "OS1_REV7_128ch10hz512res"
 DEFAULT_TICK_RATE_HZ = 10.0
 DEFAULT_FAR_RANGE_M = 600.0
 DEFAULT_SENSOR_WARMUP_FRAMES = 30
@@ -135,6 +140,87 @@ def _numpy_array(value: Any):
     if hasattr(value, "numpy"):
         value = value.numpy()
     return np.asarray(value)
+
+
+def _coerce_gmo_buffer(value: Any):
+    """Unwrap and validate the buffer accepted by the RTX GMO parser.
+
+    ``LidarSensor.get_data()`` returns ``(data, info)``.  The parser accepts
+    the first element when it is a Warp or NumPy buffer, but treats any other
+    object as a native memory pointer.  Passing a tuple, dict, stale pointer,
+    or unrelated annotator buffer down that path produces a misleading
+    ``GMO magic number is not correct`` warning.  A NumPy/Warp array can also
+    be the wrong annotator payload, so check its header before parsing.
+    """
+
+    if isinstance(value, tuple):
+        value = value[0] if value else None
+    if isinstance(value, dict):
+        value = value.get("data")
+    if value is None:
+        return None
+    import numpy as np
+
+    if isinstance(value, np.ndarray):
+        buffer = value
+    else:
+        try:
+            import warp as wp
+
+            if not isinstance(value, wp.array):
+                return None
+            buffer = value
+        except Exception:
+            return None
+
+    try:
+        from isaacsim.sensors.experimental.rtx.generic_model_output import (
+            getMagicNumberGMO,
+        )
+
+        raw = buffer.numpy() if hasattr(buffer, "numpy") else buffer
+        raw = np.asarray(raw)
+        if raw.nbytes < 4:
+            return None
+        actual_magic = int(
+            np.frombuffer(raw.tobytes(), dtype=np.uint32, count=1)[0]
+        )
+        if actual_magic != int(getMagicNumberGMO()):
+            return None
+    except Exception:
+        # Keep the type guard useful outside Isaac Sim unit tests.  The
+        # runtime parser remains the final validator when its GMO module is
+        # unavailable during import-time testing.
+        return buffer
+    return buffer
+
+
+def _gmo_valid_mask(gmo: Any, count: int, np: Any):
+    """Return the RTX GMO validity mask when the packet exposes one.
+
+    ``skipDroppingInvalidPoints`` is enabled for compatibility with the RTX
+    6.x rotary path.  That means a GMO packet can contain no-return samples
+    whose range is the sensor maximum.  They must be removed using the GMO
+    ``VALID`` bit instead of treating every positive range as a hit.
+    """
+
+    flags = _numpy_array(getattr(gmo, "flags", None))
+    if flags is None:
+        return None
+    flags = np.asarray(flags).reshape(-1)
+    if len(flags) < int(count):
+        return None
+    try:
+        from isaacsim.sensors.experimental.rtx.generic_model_output import (
+            ElementFlags,
+        )
+
+        valid_bit = int(ElementFlags.VALID.value)
+    except Exception:
+        # Isaac Sim 6.0's ElementFlags.VALID is 64.  Keep this fallback for
+        # older runtimes where the enum is not re-exported by the extension.
+        valid_bit = 64
+    return (flags[:count].astype(np.uint64, copy=False) & valid_bit) != 0
 
 
 def _make_world_transform(stage: Any, prim_path: str, time_code: Any):
@@ -335,8 +421,7 @@ class RtgYardLidarService:
         from isaacsim.sensors.experimental.rtx import parse_generic_model_output_data
         import omni.timeline
 
-        if isinstance(gmo_raw, dict):
-            gmo_raw = gmo_raw.get("data")
+        gmo_raw = _coerce_gmo_buffer(gmo_raw)
         if gmo_raw is None:
             return 0
 
@@ -365,18 +450,35 @@ class RtgYardLidarService:
                 np.linalg.norm(sensor_points, axis=1) > 1e-6
             )
         else:
-            # GenericModelOutput stores LiDAR returns as azimuth (x),
-            # elevation (y), and range (z).  This is the portable path across
-            # Isaac Sim 5.x/6.x; the extractor is optional.
-            spherical = np.column_stack(
-                (
-                    _numpy_array(gmo.x)[:count],
-                    _numpy_array(gmo.y)[:count],
-                    _numpy_array(gmo.z)[:count],
+            x = _numpy_array(gmo.x)
+            y = _numpy_array(gmo.y)
+            z = _numpy_array(gmo.z)
+            if x is None or y is None or z is None:
+                return 0
+            count = min(count, len(x), len(y), len(z))
+            coordinates = np.column_stack((x[:count], y[:count], z[:count]))
+            # GenericModelOutput normally stores LiDAR returns as azimuth
+            # (x), elevation (y), and range (z).  Some sensor profiles can
+            # request Cartesian output, so honor the packet's coordinate
+            # type instead of converting every profile as spherical.
+            coords_type = getattr(gmo, "elementsCoordsType", None)
+            coords_name = str(getattr(coords_type, "name", "")).upper()
+            coords_value = getattr(coords_type, "value", None)
+            if coords_name == "CARTESIAN" or coords_value == 0:
+                sensor_points = coordinates.astype(np.float32, copy=False)
+                valid = np.isfinite(sensor_points).all(axis=1) & (
+                    np.linalg.norm(sensor_points, axis=1) > 1e-6
                 )
-            )
-            valid = np.isfinite(spherical).all(axis=1) & (spherical[:, 2] > 1e-6)
-            sensor_points = spherical_to_cartesian(spherical)
+            else:
+                # Spherical path: azimuth/elevation are degrees and range is
+                # metres, matching the RTX GMO contract.
+                valid = np.isfinite(coordinates).all(axis=1) & (
+                    coordinates[:, 2] > 1e-6
+                )
+                sensor_points = spherical_to_cartesian(coordinates)
+            gmo_valid = _gmo_valid_mask(gmo, count, np)
+            if gmo_valid is not None:
+                valid &= gmo_valid
 
         sensor_points = sensor_points[valid]
         source_writer.last_valid_point_count = int(len(sensor_points))
@@ -706,18 +808,48 @@ def _sync_runtime_lidar_pose(service: RtgYardLidarService) -> tuple[float, float
 def _create_lidar(
     Lidar: Any,
     lidar_path: str,
-    config: str,
+    config: str | Path,
     tick_rate_hz: float,
     far_range_m: float,
     np: Any,
     translations: tuple[float, float, float] | None = None,
     orientations: tuple[float, float, float, float] | None = None,
+    variant: str | dict[str, str] | None = None,
 ):
-    """Create a configured LiDAR, with a local schema-default fallback."""
+    """Create a configured LiDAR or reference a local USD sensor profile.
+
+    A filesystem path is accepted as ``config`` so downloaded sensor assets
+    such as Ouster OS1 can be used without a Nucleus asset root. Named
+    profiles retain the existing offline compatibility fallback.
+    """
 
     sensor_translation = np.array(
         [0.0, 0.0, 0.0] if translations is None else translations
     )
+    config_text = str(config).strip()
+
+    # Isaac Sim 6.x enables per-sensor multi-tick rendering in the base
+    # experience.  RTX rotary LiDARs need ray-tracing Motion BVH enabled before
+    # their render products are created; otherwise the first multi-tick scan
+    # can be reported as motion-incorrect even when the RTG is frozen.
+    try:
+        import carb
+
+        carb.settings.get_settings().set(
+            "/renderer/raytracingMotion/enabled",
+            True,
+        )
+    except Exception as error:
+        print(f"[RTG LiDAR] Motion BVH setting could not be enabled: {error}")
+
+    config_path = Path(config_text).expanduser()
+    local_sensor_asset = None
+    if config_path.suffix.lower() in {".usd", ".usda", ".usdc"}:
+        if not config_path.is_file():
+            raise FileNotFoundError(
+                f"Local RTX LiDAR asset was not found: {config_path}"
+            )
+        local_sensor_asset = config_path.resolve()
 
     def offline_rotary_attributes() -> dict[str, Any]:
         """Build the bundled Example_Rotary pattern when Nucleus is offline."""
@@ -765,7 +897,78 @@ def _create_lidar(
         "omni:sensor:Core:validEndAzimuthDeg": 360.0,
         "omni:sensor:Core:startAzimuthOffsetDeg": 0.0,
     }
-    if config.strip().lower() in {
+    if local_sensor_asset is not None:
+        # Keep the intrinsic Ouster firing pattern, channel count, and scan
+        # geometry from the downloaded asset. Only apply project-level range
+        # and invalid-return handling overrides. The 128ch/10Hz/512-res
+        # profile is intentionally selected by the representative fleet as a
+        # lower-load OS1 option than the 1024/2048 resolution variants.
+        print(
+            f"[RTG LiDAR] using local RTX LiDAR asset: {local_sensor_asset}",
+            flush=True,
+        )
+        local_attributes = {
+            "omni:sensor:Core:nearRangeM": 0.5,
+            "omni:sensor:Core:farRangeM": float(far_range_m),
+            # The downloaded OS1 asset has a 0.1 reflectance gate.  The
+            # project's simulated container materials are darker than that,
+            # so the renderer can emit a full GMO packet with every sample
+            # marked invalid.  Use the permissive simulation threshold and
+            # let RTX drop no-return samples in the normal OS1 path.
+            "omni:sensor:Core:minReflectance": 0.0,
+            "omni:sensor:Core:skipDroppingInvalidPoints": False,
+        }
+        try:
+            return Lidar.create(
+                lidar_path,
+                usd_path=str(local_sensor_asset),
+                tick_rate=tick_rate_hz,
+                aux_output_level="FULL",
+                accumulate_outputs=True,
+                attributes=local_attributes,
+                translations=sensor_translation,
+                orientations=orientations,
+            )
+        except ValueError as exc:
+            # Isaac Sim 6.x may fail to discover the OmniLidar root in a
+            # downloaded Ouster profile even though the USDA text contains
+            # an OmniLidar definition.  Do not abort the entire fleet in that
+            # case: fall back to the shipped, schema-valid 3D rotary profile.
+            # This keeps the scan/capture workflow usable; the console makes
+            # the profile substitution explicit to the user.
+            if "unable to find omnilidar prim" not in str(exc).lower():
+                raise
+            print(
+                "[RTG LiDAR] local profile could not be composed as an "
+                "OmniLidar; falling back to Example_Rotary 3D profile: "
+                f"{exc}",
+                flush=True,
+            )
+            config = "Example_Rotary"
+            variant = None
+            attributes = {
+                "omni:sensor:Core:nearRangeM": 1.0,
+                "omni:sensor:Core:farRangeM": float(far_range_m),
+                "omni:sensor:Core:skipDroppingInvalidPoints": True,
+            }
+
+    if config_text.lower() in {"os0", "os1", "os2"}:
+        # Ouster profiles already contain their calibrated channel, firing,
+        # and scan-rate attributes. Overriding those with the generic rotary
+        # values above can produce an all-zero GMO stream.
+        print(
+            f"[RTG LiDAR] using {config_text}"
+            + (f" variant {variant}" if variant else " default variant"),
+            flush=True,
+        )
+        attributes = {
+            "omni:sensor:Core:nearRangeM": 0.5,
+            "omni:sensor:Core:farRangeM": float(far_range_m),
+            "omni:sensor:Core:minReflectance": 0.0,
+            "omni:sensor:Core:skipDroppingInvalidPoints": False,
+        }
+
+    if config_text.lower() in {
         "single_emitter_rotary",
         "single-emitter-rotary",
         "debug_single_emitter",
@@ -796,6 +999,7 @@ def _create_lidar(
         return Lidar.create(
             lidar_path,
             config=config,
+            variant=variant,
             tick_rate=tick_rate_hz,
             aux_output_level="FULL",
             accumulate_outputs=True,
@@ -906,6 +1110,43 @@ def start_rtg_lidar_representative_fleet(
     return _start_representative_fleet(stage, **kwargs)
 
 
+def start_rtg_lidar_trolley_bottom_fleet(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create only the four downward-facing trolley-bottom LiDARs."""
+
+    from rtg_lidar_fleet import (
+        start_rtg_lidar_trolley_bottom_fleet as _start_trolley_bottom_fleet,
+    )
+
+    return _start_trolley_bottom_fleet(stage, **kwargs)
+
+
+def start_rtg_lidar_spreader_fleet(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create L6-L13 on the spreader with overlapping oblique-down views."""
+
+    from rtg_lidar_fleet import (
+        start_rtg_lidar_spreader_fleet as _start_spreader_fleet,
+    )
+
+    return _start_spreader_fleet(stage, **kwargs)
+
+
+def start_rtg_lidar_all_fleet(
+    stage: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Create all L1-L24 sensors, including the right-side units."""
+
+    from rtg_lidar_fleet import start_rtg_lidar_all_fleet as _start_all_fleet
+
+    return _start_all_fleet(stage, **kwargs)
+
+
 def capture_rtg_lidar_fleet_pointcloud(**kwargs: Any):
     """Return the async selected-sensor fleet capture coroutine."""
 
@@ -916,12 +1157,69 @@ def capture_rtg_lidar_fleet_pointcloud(**kwargs: Any):
     return _capture_fleet(**kwargs)
 
 
+def capture_rtg_lidar_fleet_in_batches(*args: Any, **kwargs: Any):
+    """Return the safe one-sensor-at-a-time full-fleet capture coroutine."""
+
+    from rtg_lidar_fleet import (
+        capture_rtg_lidar_fleet_in_batches as _capture_fleet_in_batches,
+    )
+
+    return _capture_fleet_in_batches(*args, **kwargs)
+
+
 def get_rtg_lidar_fleet_status() -> dict[str, Any]:
     """Return the selected-sensor fleet status."""
 
     from rtg_lidar_fleet import get_rtg_lidar_fleet_status as _fleet_status
 
     return _fleet_status()
+
+
+def show_rtg_lidar_scan_volumes(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Draw the USD scan-volume aid in the viewport."""
+
+    from rtg_lidar_fleet import show_rtg_lidar_scan_volumes as _show_volumes
+
+    return _show_volumes(*args, **kwargs)
+
+
+def show_rtg_lidar_scan_debug_draw(
+    *args: Any,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Draw green scan rays directly in the viewport."""
+
+    from rtg_lidar_fleet import (
+        show_rtg_lidar_scan_debug_draw as _show_debug_draw,
+    )
+
+    return _show_debug_draw(*args, **kwargs)
+
+
+def show_rtg_lidar_position_scan_debug_draw(
+    *args: Any,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Draw planned L1-L24 scan envelopes without loading RTX sensors."""
+
+    from rtg_lidar_fleet import (
+        show_rtg_lidar_position_scan_debug_draw as _show_position_debug_draw,
+    )
+
+    return _show_position_debug_draw(*args, **kwargs)
+
+
+def show_rtg_lidar_position_scan_wireframes(
+    *args: Any,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Draw planned L1-L24 scan envelopes as green USD curves."""
+
+    from rtg_lidar_fleet import (
+        show_rtg_lidar_position_scan_wireframes as _show_position_wireframes,
+    )
+
+    return _show_position_wireframes(*args, **kwargs)
 
 
 def stop_rtg_lidar_fleet(**kwargs: Any) -> dict[str, Any]:
@@ -1181,8 +1479,10 @@ async def capture_rtg_yard_pointcloud(
         pass
 
     def tick_static_timeline() -> None:
-        if static_time_s is not None:
-            timeline.set_current_time(static_time_s)
+        # RTX rotary sensors require an advancing timeline. A static RTG pose
+        # must be authored in the session layer (freeze_rtg_animations), not
+        # implemented by repeatedly resetting current time here.
+        return None
 
     was_playing = bool(timeline.is_playing())
     needs_output_attach = (
@@ -1405,7 +1705,11 @@ def diagnose_rtg_yard_lidar() -> dict[str, Any]:
             "omni:sensor:Core:accumulateOutputs",
         ):
             attribute = lidar.GetAttribute(name)
-            result[name] = attribute.Get() if attribute else None
+            result[name] = (
+                attribute.Get()
+                if attribute and attribute.IsValid()
+                else None
+            )
 
     down_lidar = stage.GetPrimAtPath(DOWN_LIDAR_PATH)
     result["downSensorValid"] = bool(down_lidar and down_lidar.IsValid())
@@ -1439,7 +1743,11 @@ def diagnose_rtg_yard_lidar() -> dict[str, Any]:
             "omni:sensor:Core:skipDroppingInvalidPoints",
         ):
             attribute = down_lidar.GetAttribute(name)
-            result[f"down.{name}"] = attribute.Get() if attribute else None
+            result[f"down.{name}"] = (
+                attribute.Get()
+                if attribute and attribute.IsValid()
+                else None
+            )
 
     if _service is not None and _service.sensor is not None:
         try:
@@ -1601,8 +1909,18 @@ __all__ = [
     "show_rtg_lidar_position_markers",
     "start_rtg_lidar_fleet",
     "start_rtg_lidar_representative_fleet",
+    "start_rtg_lidar_trolley_bottom_fleet",
+    "start_rtg_lidar_spreader_fleet",
+    "start_rtg_lidar_all_fleet",
+    "DEFAULT_REPRESENTATIVE_CONFIG",
+    "DEFAULT_REPRESENTATIVE_VARIANT",
     "capture_rtg_lidar_fleet_pointcloud",
+    "capture_rtg_lidar_fleet_in_batches",
     "get_rtg_lidar_fleet_status",
+    "show_rtg_lidar_scan_volumes",
+    "show_rtg_lidar_scan_debug_draw",
+    "show_rtg_lidar_position_scan_debug_draw",
+    "show_rtg_lidar_position_scan_wireframes",
     "stop_rtg_lidar_fleet",
     "save_rtg_yard_map",
     "save_rtg_yard_sensor_scan",

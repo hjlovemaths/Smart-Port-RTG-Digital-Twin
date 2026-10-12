@@ -425,8 +425,8 @@ def Xform "World"
             custom string rtg:role = "static_visual"
             custom bool rtg:runtimeControlled = 0
             custom string rtg:yardBlock = "1C"
-            custom double rtg:yardColumnCenterX = -60
-            double3 xformOp:translate = (-19.994451124929057, 12.737499845027932, 0)
+            custom double rtg:yardColumnCenterX = -58.8
+            double3 xformOp:translate = (-18.794451124929057, 12.737499845027932, 0)
         }
 
         def Xform "SMART_PORT_STATIC_RTG_YARD_M30" (
@@ -439,8 +439,8 @@ def Xform "World"
             custom string rtg:role = "static_visual"
             custom bool rtg:runtimeControlled = 0
             custom string rtg:yardBlock = "1C"
-            custom double rtg:yardColumnCenterX = -30
-            double3 xformOp:translate = (10.005548875070943, 74.26249984502793, 0)
+            custom double rtg:yardColumnCenterX = -28.8
+            double3 xformOp:translate = (11.205548875070943, 74.26249984502793, 0)
         }
 
         def Xform "SMART_PORT_STATIC_RTG_YARD_P30" (
@@ -453,8 +453,8 @@ def Xform "World"
             custom string rtg:role = "static_visual"
             custom bool rtg:runtimeControlled = 0
             custom string rtg:yardBlock = "2C"
-            custom double rtg:yardColumnCenterX = 30
-            double3 xformOp:translate = (70.00554887507094, 159.03749984502792, 0)
+            custom double rtg:yardColumnCenterX = 31.2
+            double3 xformOp:translate = (71.20554887507094, 159.03749984502792, 0)
         }
 
         def Xform "SMART_PORT_STATIC_RTG_YARD_P60" (
@@ -467,8 +467,8 @@ def Xform "World"
             custom string rtg:role = "static_visual"
             custom bool rtg:runtimeControlled = 0
             custom string rtg:yardBlock = "3C"
-            custom double rtg:yardColumnCenterX = 60
-            double3 xformOp:translate = (100.00554887507094, 326.7374998450279, 0)
+            custom double rtg:yardColumnCenterX = 61.2
+            double3 xformOp:translate = (101.20554887507094, 326.7374998450279, 0)
         }
 
         def Xform "SMART_PORT_STATIC_RTG_YARD_P90" (
@@ -481,12 +481,15 @@ def Xform "World"
             custom string rtg:role = "static_visual"
             custom bool rtg:runtimeControlled = 0
             custom string rtg:yardBlock = "4C"
-            custom double rtg:yardColumnCenterX = 90
-            double3 xformOp:translate = (130.00554887507093, 414.18749984502796, 0)
+            custom double rtg:yardColumnCenterX = 91.2
+            double3 xformOp:translate = (131.20554887507093, 414.18749984502796, 0)
         }
 
         def Xform "SMART_PORT_STATIC_RTG_HOIST_ROPES"
         {
+            double3 xformOp:translate = (1.2, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
             def BasisCurves "SMART_PORT_STATIC_RTG_YARD_M60_HOIST_ROPES" (
                 prepend apiSchemas = ["MaterialBindingAPI"]
             )
@@ -721,7 +724,7 @@ def Xform "World"
 
     def Scope "SMART_PORT_STATIC_RTG_YARD_POPULATION"
     {
-        custom double[] rtg:columnCentersX = [-60, -30, 0, 30, 60, 90]
+        custom double[] rtg:columnCentersX = [-58.8, -28.8, 1.2, 31.2, 61.2, 91.2]
         custom string rtg:layoutRule = "five static RTGs use different yard blocks and bay positions"
     }
 }

@@ -1,0 +1,58 @@
+#usda 1.0
+(
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+# Visible 2x20 load placed on the ship served by STS_01.
+# The layer is independent so the cargo can be moved or disabled without
+# editing the feeder-ship asset.
+over "World"
+{
+    over "PortAndRTG"
+    {
+        over "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED" (
+            instanceable = false
+        )
+        {
+            over "Model"
+            {
+                def Xform "ShipDouble20_STS01"
+                {
+                    custom token ship:containerComposition = "2x20"
+                    custom token ship:assignedCrane = "STS_01"
+
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-22.968, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-20.232, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Cube "PairJoint"
+                    {
+                        float3[] primvars:displayColor = [(0.015, 0.020, 0.025)]
+                        double3 xformOp:translate = (-21.6, -4.496, 9.85)
+                        float3 xformOp:scale = (0.055, 1.42, 0.84)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+            }
+        }
+    }
+}

@@ -64,7 +64,8 @@ class STSTest(unittest.TestCase):
         self.settle(hoist=7.7)
         self.assertAlmostEqual(self.bounds('Gantry/Trolley/Hoist').GetMin()[2],
                                before + (7.7 - INITIAL['hoist']) * scale_z, places=4)
-        ends = rope_endpoints(self.c.state['trolley'], self.c.state['hoist'])
+        ends = rope_endpoints(self.c.state['trolley'], self.c.state['hoist'],
+                              upper_offset=self.c.upper_offset)
         for i, (top, bottom) in enumerate(ends):
             self.assertGreater(top[2], bottom[2])
             cable = self.stage.GetPrimAtPath(f'{self.c.path}/Gantry/DynamicCables/Cable_{i}')
@@ -73,25 +74,42 @@ class STSTest(unittest.TestCase):
             self.assertLess((m.Transform(Gf.Vec3d(0, 0, 0.5))-bottom).GetLength(), 1e-6)
 
     def test_luffing_hinge_fixed_and_front_raises_without_rear_motion(self):
-        self.settle(trolley=-8, hoist=7.7)
-        fixed = self.center('Gantry/Fixed')
+        self.settle(trolley=-8, hoist=self.c.park_hoist)
+        fixed_prim = self.stage.GetPrimAtPath(self.c.path + '/Gantry/Fixed')
+        cache = UsdGeom.XformCache()
+        fixed_transform = cache.GetLocalToWorldTransform(fixed_prim)
         self.settle(boom=60)
-        self.assertLess((self.center('Gantry/Fixed')-fixed).GetLength(), 1e-7)
+        self.assertEqual(cache.GetLocalToWorldTransform(fixed_prim), fixed_transform)
         self.assertGreater(self.bounds('Gantry/Boom').GetMax()[2], 20.0)
         self.assertLess((boom_matrix(60).Transform(PIVOT)-PIVOT).GetLength(), 1e-7)
         boom = self.stage.GetPrimAtPath(self.c.path+'/Gantry/Boom')
         g = self.stage.GetPrimAtPath(self.c.path+'/Gantry')
-        cache = UsdGeom.XformCache()
         actual = cache.GetLocalToWorldTransform(boom).Transform(Gf.Vec3d(0))
-        expected = cache.GetLocalToWorldTransform(g).Transform(PIVOT)
+        expected = cache.GetLocalToWorldTransform(g).Transform(self.c.boom_pivot)
         self.assertLess((actual-expected).GetLength(), 1e-6)
+
+    def test_luffing_hides_pivot_covers_and_restores_them(self):
+        covers = [p for p in Usd.PrimRange(
+            self.stage.GetPrimAtPath(self.c.path + '/Gantry/Fixed'))
+            if any(tag in p.GetName().lower()
+                   for tag in ('blue_outer_pivot_ring', 'large_round_pivot_cover'))]
+        self.assertTrue(covers)
+        self.assertTrue(all(UsdGeom.Imageable(p).GetVisibilityAttr().Get()
+                            != UsdGeom.Tokens.invisible for p in covers))
+        self.settle(trolley=-8, hoist=self.c.park_hoist)
+        self.settle(boom=60)
+        self.assertTrue(all(UsdGeom.Imageable(p).GetVisibilityAttr().Get()
+                            == UsdGeom.Tokens.invisible for p in covers))
+        self.settle(boom=0)
+        self.assertTrue(all(UsdGeom.Imageable(p).GetVisibilityAttr().Get()
+                            != UsdGeom.Tokens.invisible for p in covers))
 
     def test_interlock_rejects_unparked_and_simultaneous_bypass(self):
         for command in (dict(boom=45), dict(trolley=-8, hoist=7.7, boom=45)):
             with self.assertRaises(ValueError):
                 self.c.command(**command)
             self.assertEqual(self.c.targets, INITIAL)
-        self.settle(trolley=-8, hoist=7.7)
+        self.settle(trolley=-8, hoist=self.c.park_hoist)
         self.settle(boom=45)
         for command in (dict(trolley=0), dict(hoist=2), dict(boom=0, trolley=4)):
             with self.assertRaises(ValueError):

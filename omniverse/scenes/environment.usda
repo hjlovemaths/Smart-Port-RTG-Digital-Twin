@@ -36,13 +36,14 @@ def Xform "Environment"
             def Shader "PreviewSurface"
             {
                 uniform token info:id = "UsdPreviewSurface"
-                float inputs:clearcoat = 0.22
-                float inputs:clearcoatRoughness = 0.1
-                color3f inputs:diffuseColor = (0.008, 0.075, 0.105)
+                float inputs:clearcoat = 0.05
+                float inputs:clearcoatRoughness = 0.14
+                color3f inputs:diffuseColor = (0.007, 0.048, 0.064)
                 float inputs:ior = 1.333
                 float inputs:metallic = 0
                 normal3f inputs:normal.connect = </Environment/Looks/HarborWater/NormalTexture.outputs:rgb>
                 float inputs:roughness = 0.16
+                float inputs:roughness.connect = </Environment/Looks/HarborWater/RoughnessTexture.outputs:r>
                 token outputs:surface
             }
 
@@ -58,22 +59,35 @@ def Xform "Environment"
                 uniform token info:id = "UsdTransform2d"
                 float2 inputs:in.connect = </Environment/Looks/HarborWater/UVReader.outputs:result>
                 float inputs:rotation = 8
-                float2 inputs:scale = (120, 120)
+                float2 inputs:scale = (145, 145)
+                float2 inputs:translation = (0, 0)
                 float2 outputs:result
             }
 
             def Shader "NormalTexture"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../materials/textures/harbor_water_normal.png@
                 float4 inputs:bias = (-1, -1, -1, 0)
+                asset inputs:file = @../materials/textures/harbor_water_multiscale_normal.png@
+                float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </Environment/Looks/HarborWater/UVTransform.outputs:result>
-                float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:wrapS = "repeat"
                 token inputs:wrapT = "repeat"
                 float3 outputs:rgb
             }
+
+            def Shader "RoughnessTexture"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../materials/textures/harbor_water_multiscale_roughness.png@
+                token inputs:sourceColorSpace = "raw"
+                float2 inputs:st.connect = </Environment/Looks/HarborWater/UVTransform.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float outputs:r
+            }
         }
     }
 }
+

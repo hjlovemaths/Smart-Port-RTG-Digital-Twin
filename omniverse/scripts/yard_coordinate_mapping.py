@@ -15,6 +15,9 @@ BAY_WIDTH_M = 20.0
 BAY_GAP_M = 0.20
 BLOCK_GAP_M = 7.4
 YARD_LAYOUT_START_Y_M = -0.50
+# Shared with the PLC receiver: the operating truck centre is calibrated to
+# the receiver's physical stop line, not the geometric centre of the painted lane.
+TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
 
 
 @dataclass(frozen=True)

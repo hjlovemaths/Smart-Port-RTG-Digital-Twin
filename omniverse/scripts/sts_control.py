@@ -1,8 +1,8 @@
 """Four-axis visual STS control for the composed smart-port stage.
 
-Gantry is world-Y displacement from home. Trolley is seaward reach from the
-boom hinge. Hoist is the lowest spreader point's Z. All distances are existing
-scene metres. Boom angle is degrees upward from horizontal. This is kinematic
+Gantry is world-Y displacement from home. Trolley and hoist are authored local
+axis coordinates; the composed gantry scale maps them to world displacement.
+Boom angle is the local luffing angle from horizontal. This is kinematic
 visual control, not a load-bearing physics/PLC model.
 """
 from __future__ import annotations
@@ -22,6 +22,10 @@ SPREADER_40FT_HALF_SPAN = 1.05
 SPREADER_20FT_END_DELTA = 0.60
 SPREADER_CENTER_Y = -0.70
 SPREADER_ROPE_Z = 4.24
+# These two pivot-cover details belong to the fixed portal in the source asset.
+# They are visually hidden while the boom is raised so they do not protrude
+# through the luffing boom silhouette.
+LUFFING_HIDE_TAGS = ('blue_outer_pivot_ring', 'large_round_pivot_cover')
 
 
 def load_unload_task_class():
@@ -37,22 +41,37 @@ def load_unload_task_class():
     return module.UnloadTask
 
 
+def load_double20_roundtrip_task_class():
+    """Load the paired-20 ft round-trip task from the sibling script."""
+    path = Path(__file__).resolve().with_name('sts_double20_roundtrip_task.py')
+    if not path.is_file():
+        raise FileNotFoundError(f'Double20 task script missing: {path}')
+    spec = importlib.util.spec_from_file_location('_sts_double20_roundtrip_runtime', path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f'Cannot load double20 task: {path}')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.Double20RoundTripTask
+
+
 def _translate(v):
     return Gf.Matrix4d(1).SetTranslate(Gf.Vec3d(*v))
 
 
-def boom_matrix(angle):
-    return (_translate(-PIVOT) *
+def boom_matrix(angle, pivot=PIVOT):
+    return (_translate(-pivot) *
             Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(1, 0, 0), -angle)) *
-            _translate(PIVOT))
+            _translate(pivot))
 
 
-def rope_endpoints(trolley, hoist, spreader_size_ft=40):
+def rope_endpoints(trolley, hoist, spreader_size_ft=40, upper_offset=None):
     dy = INITIAL['trolley'] - trolley
     dz = hoist - INITIAL['hoist']
     # Fixed upper headblock; only the lower spreader end beams telescope.
-    return [(Gf.Vec3d(x, y+dy, 9.82),
-             Gf.Vec3d(x, y+dy, SPREADER_ROPE_Z+dz))
+    offset = Gf.Vec3d(0) if upper_offset is None else Gf.Vec3d(upper_offset)
+    lower_offset = Gf.Vec3d(offset[0], offset[1], 0)
+    return [(Gf.Vec3d(x, y+dy, 9.82) + offset,
+             Gf.Vec3d(x, y+dy, SPREADER_ROPE_Z+dz) + lower_offset)
             for x in (-0.26, 0.26) for y in (-0.92, -0.48)]
 
 
@@ -66,6 +85,26 @@ def cylinder_matrix(start, end, radius):
             _translate((start + end) * 0.5))
 
 
+def stay_endpoints(angle, width_scale=1.0, width_anchor=0.94, upper_offset=None, tower_offset=None):
+    """Stay attachments follow the fixed portal, not the moving front boom."""
+    def rear_y(y):
+        return width_anchor + (y - width_anchor) * width_scale
+    top = Gf.Vec3d(0, rear_y(4.06), 13.94)
+    if tower_offset is not None:
+        top += Gf.Vec3d(tower_offset)
+    offset = Gf.Vec3d(0) if upper_offset is None else Gf.Vec3d(upper_offset)
+    result = []
+    for y in (-16.38, 12.38):
+        for x in (-2.05, 2.05):
+            end = Gf.Vec3d(x, y, 9.86)
+            if y < 0:
+                end = boom_matrix(angle).Transform(end)
+            else:
+                end[1] = rear_y(y)
+            result.append((top + offset, end + offset))
+    return result
+
+
 class STSController:
     def __init__(self, stage, crane='STS_04'):
         self.stage = stage
@@ -75,6 +114,17 @@ class STSController:
             raise ValueError(f'Controlled crane missing: {self.path}. Load sts_controls.usda first.')
         self.limits = dict(LIMITS, gantry=(prim.GetAttribute('sts:gantryMin').Get(),
                                         prim.GetAttribute('sts:gantryMax').Get()))
+        self.fixed_width_scale = prim.GetAttribute('sts:fixedWidthScale').Get() or 1.0
+        anchor = prim.GetAttribute('sts:fixedWidthAnchor').Get()
+        self.fixed_width_anchor = 0.94 if anchor is None else anchor
+        offset = prim.GetAttribute('sts:upperOffset').Get()
+        self.upper_offset = Gf.Vec3d(0) if offset is None else Gf.Vec3d(offset)
+        tower_offset = prim.GetAttribute('sts:towerOffset').Get()
+        self.tower_offset = Gf.Vec3d(0) if tower_offset is None else Gf.Vec3d(tower_offset)
+        self.boom_pivot = PIVOT + self.upper_offset
+        self.park_hoist = 7.7 + self.upper_offset[2]
+        self.luffing_min_hoist = 7.5 + self.upper_offset[2]
+        self.limits['hoist'] = (LIMITS['hoist'][0], LIMITS['hoist'][1] + self.upper_offset[2])
         self.layer = Sdf.Layer.CreateAnonymous(f'{crane}_motion.usda')
         self.state = dict(INITIAL)
         self.targets = dict(INITIAL)
@@ -82,6 +132,7 @@ class STSController:
         self.stopped = False
         self.closed = False
         self._ops = {}
+        self._luffing_cover_prims = []
         session = stage.GetSessionLayer()
         session.subLayerPaths.insert(0, self.layer.identifier)
         try:
@@ -103,6 +154,12 @@ class STSController:
                     op = xf.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'stsControl')
                     xf.SetXformOpOrder([op]+[o for o in xf.GetOrderedXformOps() if o != op])
                     self._ops[name] = op
+                fixed = stage.GetPrimAtPath(f'{self.path}/Gantry/Fixed')
+                for prim in Usd.PrimRange(fixed):
+                    if any(tag in prim.GetName().lower() for tag in LUFFING_HIDE_TAGS):
+                        imageable = UsdGeom.Imageable(prim)
+                        if imageable:
+                            self._luffing_cover_prims.append(imageable)
                 for i in range(8):
                     cable = UsdGeom.Cylinder.Define(stage, f'{self.path}/Gantry/DynamicCables/Cable_{i}')
                     cable.CreateAxisAttr('Z')
@@ -133,8 +190,8 @@ class STSController:
         # Require the actual and commanded trolley/hoist poses to be parked.
         # A simultaneous park+raise command cannot bypass the interlock.
         if max(self.state['boom'], target['boom']) > 0.01:
-            if any(p['trolley'] > -6.0 or p['hoist'] < 7.5 for p in (self.state, target)):
-                raise ValueError('Boom interlock: trolley <= -6.0 m and hoist >= 7.5 m required.')
+            if any(p['trolley'] > -6.0 or p['hoist'] < self.luffing_min_hoist for p in (self.state, target)):
+                raise ValueError(f'Boom interlock: trolley <= -6.0 m and hoist >= {self.luffing_min_hoist:.2f} m required.')
         self.targets = target
 
     def set_spreader_size(self, size_ft):
@@ -176,21 +233,22 @@ class STSController:
         s = self.state
         # Root is rotated -90 degrees: local -X equals world +Y.
         with Usd.EditContext(self.stage, self.layer):
+            cover_visibility = (UsdGeom.Tokens.invisible
+                                if s['boom'] > 0.01 else UsdGeom.Tokens.visible)
+            for imageable in self._luffing_cover_prims:
+                imageable.GetVisibilityAttr().Set(cover_visibility)
             self._ops['Gantry'].Set(_translate((-s['gantry'], 0, 0)))
             # Boom has an authored pivot translation; rotate locally at that pivot.
-            self._ops['Gantry/Boom'].Set(boom_matrix(s['boom']))
+            self._ops['Gantry/Boom'].Set(boom_matrix(s['boom'], self.boom_pivot))
             self._ops['Gantry/Trolley'].Set(_translate((0, INITIAL['trolley']-s['trolley'], 0)))
             self._ops['Gantry/Trolley/Hoist'].Set(_translate((0, 0, s['hoist']-INITIAL['hoist'])))
             delta = SPREADER_20FT_END_DELTA if self.spreader_size_ft == 20 else 0.0
             self._ops['Gantry/Trolley/Hoist/STS_SpreaderEndFront'].Set(_translate((-delta, 0, 0)))
             self._ops['Gantry/Trolley/Hoist/STS_SpreaderEndRear'].Set(_translate((delta, 0, 0)))
-            endpoints = rope_endpoints(s['trolley'], s['hoist'], self.spreader_size_ft)
-            for y in (-16.38, 12.38):
-                for x in (-2.05, 2.05):
-                    end = Gf.Vec3d(x, y, 9.86)
-                    if y < 0:
-                        end = boom_matrix(s['boom']).Transform(end)
-                    endpoints.append((Gf.Vec3d(0, 4.06, 13.94), end))
+            endpoints = rope_endpoints(s['trolley'], s['hoist'], self.spreader_size_ft,
+                                       self.upper_offset)
+            endpoints.extend(stay_endpoints(s['boom'], self.fixed_width_scale,
+                                            self.fixed_width_anchor, self.upper_offset, self.tower_offset))
             for i, (start, end) in enumerate(endpoints):
                 self._ops[f'cable{i}'].Set(cylinder_matrix(start, end, 0.012 if i < 4 else 0.017))
 
@@ -223,7 +281,7 @@ class STSPanel:
                     self.choice.model.add_item_changed_fn(self._select)
                     ui.Button('Focus', clicked_fn=self.focus, width=65)
                 for axis, label in (('gantry', 'Gantry offset (m)'), ('trolley', 'Seaward reach (m)'),
-                                    ('hoist', 'Spreader height (m)'), ('boom', 'Boom up (deg)')):
+                                    ('hoist', 'Hoist coordinate (m)'), ('boom', 'Boom up (deg)')):
                     with ui.HStack(height=28):
                         ui.Label(label, width=160)
                         field = ui.FloatField()
@@ -245,9 +303,10 @@ class STSPanel:
                 self.readout = ui.Label('', height=32, word_wrap=True)
                 with ui.HStack(height=28):
                     ui.Button('STS_01 -> Truck -> 2C004', clicked_fn=self.start_unload)
+                    ui.Button('STS_03 Double20 Round Trip', clicked_fn=self.start_double20_roundtrip)
                     ui.Button('Pause / Resume task', clicked_fn=self.pause_unload)
                     ui.Button('Reset task', clicked_fn=self.reset_unload)
-                self.task_status = ui.Label('Ship bow top box -> truck -> RTG -> 2C003+005 / row 1 / tier 1', height=44, word_wrap=True)
+                self.task_status = ui.Label('Single-box task: ship box -> truck -> RTG -> 2C003+005', height=44, word_wrap=True)
                 ui.Button('Focus task vehicle / crane', clicked_fn=self.focus_task, height=26)
                 ui.Label('Raise only after Park finishes.\nLower fully before moving trolley seaward.\nClose panel: stop all axes and restore the home pose.', height=65, word_wrap=True)
         self.window.set_visibility_changed_fn(self._visibility)
@@ -257,9 +316,39 @@ class STSPanel:
 
     @property
     def controller(self):
+        self._sync_stage_context()
         if self.selected not in self.controllers:
             self.controllers[self.selected] = STSController(self.stage, self.selected)
         return self.controllers[self.selected]
+
+    def _sync_stage_context(self):
+        """Rebind the panel after Kit replaces the current USD stage."""
+        import omni.usd
+
+        current = omni.usd.get_context().get_stage()
+        if current is None:
+            raise RuntimeError('Open smart_port.usda first')
+        if current is self.stage:
+            return
+        # A stage reload invalidates controllers and any task objects holding
+        # the old UsdStage.  Drop them before creating controllers on the new
+        # stage; otherwise GetPrimAtPath receives a closed/stale stage proxy.
+        if self.unload_task:
+            try:
+                self.unload_task.close()
+            except Exception:
+                pass
+            self.unload_task = None
+        for controller in self.controllers.values():
+            try:
+                controller.close()
+            except Exception:
+                pass
+        self.controllers.clear()
+        self.stage = current
+        self.cranes = [p.GetName() for p in current.GetPrimAtPath(ROOT).GetChildren()]
+        if self.selected not in self.cranes:
+            self.selected = self.cranes[0]
 
     def _select(self, model, item):
         for controller in self.controllers.values():
@@ -273,7 +362,8 @@ class STSPanel:
         for axis, field in self.fields.items():
             field.set_value(c.targets[axis])
         self.status.text = (f'{self.selected}: gantry {c.limits["gantry"]}; trolley -10..17; '
-                            f'hoist 0.3..8; boom 0..80; spreader {c.spreader_size_ft} ft')
+                            f'hoist {c.limits["hoist"][0]:.2f}..{c.limits["hoist"][1]:.2f}; '
+                            f'boom 0..80; spreader {c.spreader_size_ft} ft')
 
     def send(self, **values):
         try:
@@ -288,7 +378,7 @@ class STSPanel:
         self.send(**{axis: self.fields[axis].as_float})
 
     def park(self):
-        self.send(trolley=-8.0, hoist=7.7)
+        self.send(trolley=-8.0, hoist=self.controller.park_hoist)
 
     def set_spreader(self, size_ft):
         try:
@@ -306,6 +396,7 @@ class STSPanel:
 
     def start_unload(self):
         try:
+            self._sync_stage_context()
             if self.unload_task:
                 raise ValueError('Reset the existing task before starting again.')
             self.task_status.text = 'Loading STS_01 unload task...'
@@ -319,6 +410,24 @@ class STSPanel:
             self.task_status.text = self.unload_task.phase
         except Exception as exc:
             self.task_status.text = f'Start failed: {type(exc).__name__}: {exc}'
+            traceback.print_exc()
+
+    def start_double20_roundtrip(self):
+        try:
+            self._sync_stage_context()
+            if self.unload_task:
+                raise ValueError('请先 Reset 当前任务')
+            self.task_status.text = 'Loading double20 round-trip task...'
+            Double20RoundTripTask = load_double20_roundtrip_task_class()
+            import omni.timeline
+            omni.timeline.get_timeline_interface().pause()
+            if 'STS_03' not in self.controllers:
+                self.controllers['STS_03'] = STSController(self.stage, 'STS_03')
+            self.unload_task = Double20RoundTripTask(self.controllers['STS_03'])
+            self.choice.model.get_item_value_model().set_value(self.cranes.index('STS_03'))
+            self.task_status.text = self.unload_task.phase
+        except Exception as exc:
+            self.task_status.text = f'Double20 task start failed: {type(exc).__name__}: {exc}'
             traceback.print_exc()
 
     def pause_unload(self):
@@ -343,19 +452,23 @@ class STSPanel:
         import omni.usd
         from omni.kit.viewport.utility import get_active_viewport, frame_viewport_selection
         task = self.unload_task
-        path = '/World/STSUnloadTask/Truck'
+        path = '/World/STSUnloadTask/TruckInbound' if task and hasattr(task, 'inbound_truck') else '/World/STSUnloadTask/Truck'
         if not task:
             path = '/World/STSControls/STS_01'
-        elif task.delivering and not task.delivery.phase.startswith('Truck to'):
+        elif task.delivering and 'Truck 1 to' not in task.phase and 'Truck 2 approaching' not in task.phase:
             path = '/World/PortAndRTG/RTG_PRIMARY_DYNAMIC'
         omni.usd.get_context().get_selection().set_selected_prim_paths([path], False)
         frame_viewport_selection(get_active_viewport())
 
     def _update(self, event):
         import omni.usd
-        if omni.usd.get_context().get_stage() != self.stage:
+        current_stage = omni.usd.get_context().get_stage()
+        if current_stage is None:
             self.close()
             return
+        if current_stage is not self.stage:
+            self._sync_stage_context()
+            self._refresh()
         for c in self.controllers.values():
             if self.unload_task and c == self.unload_task.c and self.unload_task.paused:
                 continue
@@ -408,6 +521,21 @@ def show_sts_controls():
             raise FileNotFoundError(layer_path)
         session = stage.GetSessionLayer()
         session.subLayerPaths.insert(0, str(layer_path))
+    # An already-open scene can opt into the new dimensions without a destructive
+    # root-layer reload. Existing runtime controllers were closed above.
+    crane = stage.GetPrimAtPath(ROOT + '/STS_01')
+    if crane and crane.GetAttribute('sts:heightFactor').Get() is None:
+        dimensions = Path(__file__).resolve().parents[1] / 'scenes/sts_dimensions.usda'
+        if dimensions.is_file():
+            stage.GetSessionLayer().subLayerPaths.insert(0, str(dimensions))
+    if crane and crane.GetAttribute('sts:upperOffset').Get() is None:
+        elevation = Path(__file__).resolve().parents[1] / 'scenes/sts_elevation.usda'
+        if elevation.is_file():
+            stage.GetSessionLayer().subLayerPaths.insert(0, str(elevation))
+    if crane and crane.GetAttribute('sts:trackGaugeFactor').Get() is None:
+        gauge = Path(__file__).resolve().parents[1] / 'scenes/sts_track_gauge.usda'
+        if gauge.is_file():
+            stage.GetSessionLayer().subLayerPaths.insert(0, str(gauge))
     panel = STSPanel(stage)
     builtins._smart_port_sts_panel = panel
     return panel

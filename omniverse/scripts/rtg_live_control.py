@@ -73,10 +73,10 @@ SPREADER_TELESCOPE_SPEED_M_S = 0.60
 # value as the stage plays.  A dedicated additive op remains stable at every
 # timeline frame.
 SPREADER_LIVE_TELESCOPE_OP_SUFFIX = "rtgLiveTelescoping"
-# Live commands are offsets from the Blender-authored frame-1 pose.  Keeping
-# all three controller origins at zero prevents the first ROS2/WPF command from
-# jumping to a value captured from an earlier validation frame.
-GANTRY_BASE_TRANSLATE = Gf.Vec3d(0.0, 0.0, 0.0)
+# The PLC receiver drives travel in Y; X is its fixed lateral datum. Use this
+# shared datum for both the live primary RTG and the static yard RTGs.
+GANTRY_LATERAL_ALIGNMENT_X_M = 1.2
+GANTRY_BASE_TRANSLATE = Gf.Vec3d(GANTRY_LATERAL_ALIGNMENT_X_M, 0.0, 0.0)
 TROLLEY_BASE_TRANSLATE = Gf.Vec3d(0.0, 0.0, 0.0)
 HOIST_BASE_TRANSLATE = Gf.Vec3d(0.0, 0.0, 0.0)
 ROPE_SYSTEM_PATH = (

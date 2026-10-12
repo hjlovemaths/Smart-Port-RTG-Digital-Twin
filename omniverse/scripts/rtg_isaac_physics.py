@@ -94,7 +94,14 @@ VISUAL_CONTROL_MODE = "rtg_kinematic_visual_control"
 # made a 4 m -> 14 m command almost invisible.
 HOIST_ENGINEERING_LIMITS = (0.0, 18.0)
 TROLLEY_ENGINEERING_LIMITS = (0.0, 18.0)
-TROLLEY_USD_POSITION_LIMITS = (0.0, -18.0)
+# The RTG asset's trolley controller is compressed in USD space.  Engineering
+# travel is 0..18 m, but the authored trolley rail is only about 6.9 USD m
+# long.  Writing -18 USD m sends the trolley beyond the gantry, which is why
+# multi-position scans previously showed the spreader outside the RTG frame.
+TROLLEY_USD_POSITION_LIMITS = (
+    0.005003036169343086,
+    -6.9031499445989670,
+)
 HOIST_ACTUAL_TIER_HEIGHT_M = 2.60
 HOIST_VISUAL_TIER_HEIGHT_M = 0.904353 + 0.035
 HOIST_USD_PER_ENGINEERING_M = (
@@ -358,6 +365,14 @@ def move_primary_rtg_to_bay(
     post_cache = UsdGeom.XformCache(time_code)
     new_root_world = post_cache.GetLocalToWorldTransform(root).ExtractTranslation()
     new_gantry_world = post_cache.GetLocalToWorldTransform(gantry).ExtractTranslation()
+    # Keep the public engineering target in the same absolute world-Y space
+    # as the placement helper.  Otherwise a later move_trolley()/move_hoist()
+    # call preserves the old default gantry target (16.0 m) and moves the
+    # entire RTG back toward the 1C side even though the root placement op is
+    # still present.
+    engineering_targets = _current_engineering_targets(resolved)
+    engineering_targets["gantry_m"] = target_controller_y
+    _ENGINEERING_TARGETS[id(resolved)] = engineering_targets
     result = {
         "bayId": str(bay_id).strip().upper().replace("-", "/"),
         "primaryPath": PRIMARY_PATH,
@@ -379,6 +394,7 @@ def move_primary_rtg_to_bay(
             float(new_gantry_world[2]),
         ],
         "placementOp": placement_op.GetOpName(),
+        "engineeringTargets": dict(engineering_targets),
         "note": "Only the primary RTG was moved; create/restart LiDAR after placement",
     }
     print("[RTG Physics] Primary RTG placed", result)
@@ -433,6 +449,18 @@ def _set_attribute(prim: Any, name: str, value: Any, type_name: Any) -> None:
     if not attr:
         attr = prim.CreateAttribute(name, type_name)
     attr.Set(value)
+
+
+def _get_attribute_value(attr: Any, default: Any = None, time_code: Any = None) -> Any:
+    """Read an optional USD attribute without calling Get on an invalid handle."""
+
+    if attr is None or not attr.IsValid():
+        return default
+    try:
+        value = attr.Get() if time_code is None else attr.Get(time_code)
+    except Exception:
+        return default
+    return default if value is None else value
 
 
 def _freeze_animation_attribute(attr: Any, time_code: Any) -> tuple[Any, bool] | None:
@@ -566,12 +594,15 @@ def _enable_joint(stage: Any, joint_path: str, UsdPhysics: Any, Sdf: Any) -> Non
         # The authored SimReady layer contains demonstration target samples.
         # Freeze every sample in the session layer so pressing Play cannot
         # make the Blender demo drive fight the PhysX command.
-        target = drive.GetTargetPositionAttr().Get()
+        target_attr = drive.GetTargetPositionAttr()
+        target = _get_attribute_value(target_attr)
         if target is not None:
             _set_animation_attribute_constant(
-                drive.GetTargetPositionAttr(), float(target)
+                target_attr, float(target)
             )
-        _set_animation_attribute_constant(drive.GetTargetVelocityAttr(), 0.0)
+        velocity_attr = drive.GetTargetVelocityAttr()
+        if velocity_attr and velocity_attr.IsValid():
+            _set_animation_attribute_constant(velocity_attr, 0.0)
 
 
 def _move_articulation_root(stage: Any, UsdPhysics: Any) -> None:
@@ -1111,7 +1142,11 @@ def _apply_articulation_targets(stage: Any) -> bool:
     # visual follower only; attempting to construct an Articulation view here
     # produces repeated "pattern list did not match any articulations" errors.
     root = _valid_prim(stage, ARTICULATION_ROOT_PATH)
-    mode = root.GetAttribute(PHYSICS_MODE_ATTRIBUTE).Get() if root else None
+    mode = (
+        _get_attribute_value(root.GetAttribute(PHYSICS_MODE_ATTRIBUTE))
+        if root
+        else None
+    )
     if mode == VISUAL_CONTROL_MODE:
         return False
     target = _ARTICULATION_TARGETS.get(key)
@@ -1195,10 +1230,9 @@ def _set_visual_controller_transforms(
                         f"xformOp:translate:{PRIMARY_RTG_PLACEMENT_OP_SUFFIX}"
                     )
                     placement_attr = root.GetAttribute(placement_name)
-                    placement = (
-                        placement_attr.Get(Usd.TimeCode.Default())
-                        if placement_attr
-                        else None
+                    placement = _get_attribute_value(
+                        placement_attr,
+                        time_code=Usd.TimeCode.Default(),
                     )
                     if placement is not None:
                         placement_y = float(placement[1])
@@ -1424,8 +1458,12 @@ def diagnose_rtg_physics(stage: Optional[Any] = None) -> dict[str, Any]:
         report["bodies"][role] = {
             "path": path,
             "valid": True,
-            "rigid_body_enabled": bool(rigid.Get()) if rigid else None,
-            "mass": float(mass.Get()) if mass and mass.Get() is not None else None,
+            "rigid_body_enabled": _get_attribute_value(rigid),
+            "mass": (
+                float(_get_attribute_value(mass))
+                if _get_attribute_value(mass) is not None
+                else None
+            ),
         }
 
     for joint_path, _body, _axis in JOINT_SPECS:
@@ -1443,22 +1481,31 @@ def diagnose_rtg_physics(stage: Optional[Any] = None) -> dict[str, Any]:
         item: dict[str, Any] = {
             "valid": True,
             "joint_enabled": bool(
-                joint.GetAttribute("physics:jointEnabled").Get()
+                _get_attribute_value(
+                    joint.GetAttribute("physics:jointEnabled"),
+                    False,
+                )
             ),
             "body0": relationship_targets("physics:body0"),
             "body1": relationship_targets("physics:body1"),
-            "local_pos0": str(joint.GetAttribute("physics:localPos0").Get()),
-            "local_pos1": str(joint.GetAttribute("physics:localPos1").Get()),
+            "local_pos0": str(
+                _get_attribute_value(joint.GetAttribute("physics:localPos0"), "")
+            ),
+            "local_pos1": str(
+                _get_attribute_value(joint.GetAttribute("physics:localPos1"), "")
+            ),
         }
         if drive:
-            target = drive.GetTargetPositionAttr().Get()
+            target = _get_attribute_value(drive.GetTargetPositionAttr())
             item["drive_target"] = float(target) if target is not None else None
-            item["drive_stiffness"] = float(
-                drive.GetStiffnessAttr().Get()
-            ) if drive.GetStiffnessAttr().Get() is not None else None
-            item["drive_damping"] = float(
-                drive.GetDampingAttr().Get()
-            ) if drive.GetDampingAttr().Get() is not None else None
+            stiffness = _get_attribute_value(drive.GetStiffnessAttr())
+            damping = _get_attribute_value(drive.GetDampingAttr())
+            item["drive_stiffness"] = (
+                float(stiffness) if stiffness is not None else None
+            )
+            item["drive_damping"] = (
+                float(damping) if damping is not None else None
+            )
         report["joints"][joint_path] = item
 
     key = id(resolved)
@@ -1512,15 +1559,14 @@ def _read_mapping(stage: Any, joint_path: str) -> tuple[tuple[float, float], tup
         # rtg_simready layer is still composed into the open stage.
         return HOIST_ENGINEERING_LIMITS, HOIST_USD_POSITION_LIMITS
     if joint_path == TROLLEY_JOINT_PATH:
-        # The checked-in rtg_simready layer maps trolley 0..18 m into only
-        # 0..-2.25 USD units, which visually restricts the trolley to the
-        # truck lane and outermost row.  Visual control needs the full RTG
-        # span, so use one USD metre per engineering metre here.
+        # Use the calibrated full trolley span from rtg_live_control.  The
+        # authored rtg_simready layer may still contain the older 0..-2.25
+        # mapping, so do not read that stale mapping from the joint.
         return TROLLEY_ENGINEERING_LIMITS, TROLLEY_USD_POSITION_LIMITS
 
     def value(name: str, fallback: float) -> float:
         attr = prim.GetAttribute(name)
-        result = attr.Get() if attr else None
+        result = _get_attribute_value(attr)
         return float(result if result is not None else fallback)
 
     return (
@@ -1764,7 +1810,11 @@ def set_rtg_physics_targets(
 
     resolved = _resolve_stage(stage)
     root = _valid_prim(resolved, ARTICULATION_ROOT_PATH)
-    mode = root.GetAttribute(PHYSICS_MODE_ATTRIBUTE).Get() if root else None
+    mode = (
+        _get_attribute_value(root.GetAttribute(PHYSICS_MODE_ATTRIBUTE))
+        if root
+        else None
+    )
     if mode == VISUAL_CONTROL_MODE:
         return set_rtg_visual_targets(
             gantry_m=gantry_m,
@@ -1845,7 +1895,11 @@ def set_rtg_visual_targets(
 
     resolved = _resolve_stage(stage)
     root = _valid_prim(resolved, ARTICULATION_ROOT_PATH)
-    mode = root.GetAttribute(PHYSICS_MODE_ATTRIBUTE).Get() if root else None
+    mode = (
+        _get_attribute_value(root.GetAttribute(PHYSICS_MODE_ATTRIBUTE))
+        if root
+        else None
+    )
     if mode != VISUAL_CONTROL_MODE:
         activate_rtg_visual_control(resolved)
     values = {
@@ -1931,9 +1985,28 @@ def move_gantry(gantry_m: float, stage: Optional[Any] = None) -> dict[str, float
 
 
 def move_trolley(trolley_m: float, stage: Optional[Any] = None) -> dict[str, float]:
-    """Move only the trolley in engineering metres."""
+    """Move only the trolley while preserving the current gantry world Y."""
 
-    return move_to(trolley_m=trolley_m, stage=stage)
+    resolved = _resolve_stage(stage)
+    targets = _current_engineering_targets(resolved)
+    gantry_m = float(targets.get("gantry_m", DEFAULT_RTG_GANTRY_M))
+    try:
+        _Gf, _Sdf, Usd, UsdGeom, _UsdPhysics = _runtime_modules()
+        gantry = _valid_prim(resolved, GANTRY_PATH)
+        if gantry is not None:
+            matrix = UsdGeom.Xformable(gantry).ComputeLocalToWorldTransform(
+                Usd.TimeCode.Default()
+            )
+            gantry_m = float(matrix.ExtractTranslation()[1])
+    except Exception:
+        # Keep the cached target as a fallback for partially loaded stages.
+        pass
+    return set_rtg_visual_targets(
+        gantry_m=gantry_m,
+        trolley_m=float(trolley_m),
+        hoist_m=float(targets.get("hoist_m", DEFAULT_RTG_HOIST_M)),
+        stage=resolved,
+    )
 
 
 def move_hoist(hoist_m: float, stage: Optional[Any] = None) -> dict[str, float]:
@@ -2102,7 +2175,7 @@ def get_rtg_physics_targets(stage: Optional[Any] = None) -> dict[str, float]:
             continue
         drive = UsdPhysics.DriveAPI.Get(joint, UsdPhysics.Tokens.linear)
         if drive:
-            value = drive.GetTargetPositionAttr().Get()
+            value = _get_attribute_value(drive.GetTargetPositionAttr())
             result[joint_path] = float(value if value is not None else 0.0)
     return result
 

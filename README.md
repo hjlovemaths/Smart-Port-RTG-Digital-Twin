@@ -59,6 +59,10 @@ Omniverse / Isaac Sim     WPF 客户端
 4. 修改 Blender 模型后，先运行 `omniverse/scripts/configure_rtg_roles.py` 修复 RTG 角色和层级，再运行 `omniverse/scripts/export_usd.py` 重新导出。
 5. `omniverse/scenes/rtg_simready.usda` 负责非破坏性的 SimReady 元数据和动态绳索覆盖。
 
+如果希望场景加载后自动看到之前的海面波浪和船舶晃动效果，请使用
+`omniverse/scripts/launch_isaac_sim_project.py` 启动；该启动器默认开启海面运动。
+需要静态场景或传感器采集时，加上 `--disable-sea-motion`。
+
 ## 运行与调试指令
 
 以下 Python 指令需要在 Omniverse Kit 的 Script Editor 中执行，并且应先打开
@@ -79,6 +83,51 @@ RTG 会话层变换，二者不要同时运行。
 | `omniverse/scripts/yard_inventory.py` | 由上述脚本自动导入 | 库存模型、原子保存、任务结算 | 否 |
 | `omniverse/scripts/rtg_task_state_machine.py` | 由仿真器和接收器自动导入 | LOAD/UNLOAD/SWITCH 状态机 | 否 |
 | `omniverse/scripts/rtg_live_control.py` | 由接收器自动导入 | RTG 大车、小车、吊具和伸缩吊具控制 | 否 |
+
+### 吊具上侧面 L6-L13 雷达扫描
+
+启动器提供一个只启用吊具四周 8 个雷达的低负载模式。L6-L13 按四个侧面布置为
+四个角点加四个侧面中点，安装点使用吊具/提升架局部坐标，因此会随吊具运动；
+启动时会在返回状态中打印 `anchors`、`positions`、`installationSides` 和
+`orientationsWXYZ` 供检查。每个雷达独立朝吊具内侧并向下倾斜 35°，覆盖箱顶和
+箱体上部侧面，同时减少吊具结构遮挡。
+采集函数默认按雷达串行启用 GMO 输出，避免 8 个 OS1 高分辨率渲染产品同时抢占
+RTX/FIF 资源；最终仍会合并为一个世界坐标点云文件。
+
+PowerShell 单行启动：
+
+```powershell
+& "D:\isaacsim\python.bat" "D:\dnt\project\Smart Port RTG Digital Twin\omniverse\scripts\launch_isaac_sim_project.py" --load-live-inventory --enable-rtg-lidar-spreader --freeze-rtgs --rtg-bay "3C/002" --lidar-config OS1 --lidar-variant OS1_REV7_128ch10hz512res --lidar-far-range 60
+```
+
+Isaac Sim 进入界面后按 Play，再在 Script Editor 一次执行下面的整段代码。它会
+采集 L6-L13 各 1 帧，并将世界坐标点云合并成一个文件组：
+
+```python
+import asyncio
+
+async def capture_spreader_lidar():
+    try:
+        result = await capture_rtg_lidar_fleet_pointcloud(
+            timeout_frames=300,
+            warmup_frames=20,
+            min_scans=1,
+            output_frame="world",
+            output_stem="rtg_spreader_L6_L13",
+            reset_accumulation=True,
+            hold_pose=False,
+            serial=True,
+        )
+        print("合并点云采集完成:", result)
+    except Exception as error:
+        print("点云采集失败:", repr(error))
+
+asyncio.ensure_future(capture_spreader_lidar())
+```
+
+合并结果位于 `outputs/rtg_pointcloud/` 下的
+`rtg_spreader_L6_L13_world.ply`、`.pcd` 和 `.npy`。其中 PLY/PCD/NPY 是同一份
+世界坐标点云的三种格式；每个雷达的单独文件也会同时保留，便于排查安装位置。
 
 ### 常用运行模块 Python 命令速查
 

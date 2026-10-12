@@ -69,6 +69,8 @@ if str(SCRIPT_DIR) in sys.path:
     sys.path.remove(str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPT_DIR))
 
+from yard_coordinate_mapping import TRUCK_OPERATING_LANE_CENTER_X_M
+
 def _ensure_pillow_available() -> bool:
     """Load Pillow from Kit's pip archive when it is not on ``sys.path``."""
 
@@ -122,7 +124,7 @@ PILLOW_AVAILABLE = _ensure_pillow_available()
 # of PortAndRTG.  They are authored inside the payload, so the static scene
 # replacement layer is not sufficient when Kit keeps an already-open stage.
 FOUR_C_FEEDER_SHIP_ASSET_PATH = (
-    SCRIPT_DIR.parent / "assets" / "resource" / "ship" / "Cargo_Ship_09_variant_b.usdz"
+    SCRIPT_DIR.parent / "assets" / "ship" / "Custom_Feeder_Ship.usdc"
 )
 FOUR_C_FEEDER_SHIP_OLD_PREFIXES = (
     "CODEx_left_reference_feeder_ship_clone",
@@ -136,13 +138,13 @@ FOUR_C_LEGACY_SHIP_ROOT_NAMES = (
 )
 FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED": (
-        (-246.2, 50.0, 1.3012471449582028),
+        (-249.6, 40.0, -7.5),
     ),
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED": (
-        (-246.2, 120.0, 1.3012471449582028),
+        (-249.6, 125.0, -7.5),
     ),
 }
-FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (0.03883929, 0.027641999, 0.043764994)
+FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (1.0, 1.0, 1.0)
 LIVE_DRIVER_BUILD_ID = "2026-08-17-remote-mode-signal-link-v4"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
@@ -213,7 +215,7 @@ def ensure_4c_feeder_ship_replacements(stage: Any) -> tuple[bool, int, int]:
                 "xformOp:rotateXYZ",
                 xform.AddRotateXYZOp,
             )
-            rotate_op.Set((90.0, 0.0, -90.0))
+            rotate_op.Set((0.0, 0.0, -90.0))
             scale_op = _billboard_utils.get_or_add_xform_op(
                 xform,
                 "xformOp:scale",
@@ -653,7 +655,6 @@ TRUCK_SETTLE_SECONDS = 1.5
 TRUCK_EXIT_SECONDS = 4.0
 # Move the task truck and its painted lane 0.90 m toward the container side.
 # The companion trolley calibration puts the visible spreader at -3.75 m too.
-TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
 # At the truck trolley stop, the spreader world centre is -3.75 m. Keep the
 # trailer root on that same centreline instead of adding a camera-view offset.
 TASK_TRUCK_VISUAL_X_OFFSET_M = 0.0
@@ -6402,6 +6403,7 @@ class OmniverseRtgTwinDriver:
             create_container_details,
             material,
             reference_first_row_center_x_m,
+            row_center_x_m,
         )
 
         stack = stage.GetPrimAtPath(LIVE_TASK_STACK_PATH)
@@ -6451,10 +6453,7 @@ class OmniverseRtgTwinDriver:
                 Gf.Vec3f(0.04, 0.20, 0.48),
             )
 
-        row_pitch = CONTAINER_WIDTH_X_M + ROW_GAP_X_M
-        first_row_center_x = reference_first_row_center_x_m(6)
-        leftmost_stack_x = first_row_center_x - 5 * row_pitch
-        x = leftmost_stack_x + (6 - row) * row_pitch
+        x = row_center_x_m(row, 6)
         y = container_center_y_for_bay(block, int(bay_number), int(container_size_ft))
         slot_heights_m = _task_bay_slot_heights_m(task, pattern)
         support_heights_m = slot_heights_m[row - 1][: max(0, tier - 1)]

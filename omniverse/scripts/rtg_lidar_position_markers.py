@@ -33,6 +33,15 @@ MARKER_ROOT_PATH = "/World/RTG_LIDAR_POSITION_MARKERS"
 DEFAULT_MARKER_RADIUS_M = 0.16
 BLUE_RGB = (0.02, 0.20, 1.0)
 BLUE_EMISSIVE_RGB = (0.0, 0.14, 1.6)
+# These are the validated trolley-local coordinates used by the RTG rope and
+# physics scripts.  The visible spreader is attached below TROLLEY_PATH; using
+# HOIST_PATH with z=0.18 was the reason the markers appeared in the yard.
+SPREADER_LOCAL_LEFT_X_M = 1.00
+SPREADER_LOCAL_RIGHT_X_M = 3.90
+SPREADER_LOCAL_FRONT_Y_M = -5.56
+SPREADER_LOCAL_REAR_Y_M = -4.44
+SPREADER_LOCAL_MOUNT_Z_M = 4.3575
+SPREADER_PERIMETER_CLEARANCE_M = 0.12
 
 _CAMERA_MARKER_RE = re.compile(
     r"^(?:(?:CAMERA[_-]?MARKER|CAMERA|CAM)[_-]?C?|C)[_-]?(\d+)(?:[_-].*)?$",
@@ -49,28 +58,34 @@ class LidarMarkerSpec:
     world_offset: tuple[float, float, float]
     fallback_parent: str
     fallback_local: tuple[float, float, float]
+    installation_side: Optional[str] = None
 
 
 # The C anchors are the green markers already present in RTG_Model.usdc.  The
 # offsets are deliberately small: they keep the blue spheres legible beside
 # the green camera markers without claiming millimetre-level survey accuracy.
-# L1-L5/L23 are on the trolley, L6-L13 are on the spreader/hoist, L14-L17 are
-# in the electrical-room side, L18-L21 are at the two gantry ends, L22 is on
-# the outer electrical-room side, and L24 is on the main girder.
+# L1-L5/L23 are on the trolley, L14-L17 are in the electrical-room side,
+# L18-L21 are at the two gantry ends, L22 is on the outer electrical-room side,
+# and L24 is on the main girder.
+#
+# L6-L13 are different: they are the perimeter LiDARs shown around the
+# spreader in the operator drawing.  Their positions use the validated
+# trolley-local spreader plane shared by the rope/physics code.  The eight
+# units are four corners plus four side centers.
 LIDAR_MARKER_SPECS: tuple[LidarMarkerSpec, ...] = (
     LidarMarkerSpec("L1", 29, (0.28, 0.00, -0.18), TROLLEY_PATH, (-3.78, 5.00, 9.15)),
     LidarMarkerSpec("L2", 1, (0.28, 0.00, -0.18), TROLLEY_PATH, (-3.78, 4.10, 9.15)),
     LidarMarkerSpec("L3", 3, (0.28, 0.00, -0.18), TROLLEY_PATH, (-3.78, 5.90, 9.15)),
     LidarMarkerSpec("L4", 2, (0.28, 0.00, -0.18), TROLLEY_PATH, (-3.05, 5.00, 9.15)),
     LidarMarkerSpec("L5", 3, (-0.28, 0.00, -0.18), TROLLEY_PATH, (-4.50, 5.00, 9.15)),
-    LidarMarkerSpec("L6", 4, (0.00, 0.28, 0.18), HOIST_PATH, (2.10, -5.55, 0.00)),
-    LidarMarkerSpec("L7", 4, (0.00, -0.28, 0.18), HOIST_PATH, (2.10, -4.45, 0.00)),
-    LidarMarkerSpec("L8", 5, (0.00, 0.28, 0.18), HOIST_PATH, (1.00, -5.55, 0.00)),
-    LidarMarkerSpec("L9", 5, (0.00, -0.28, 0.18), HOIST_PATH, (1.00, -4.45, 0.00)),
-    LidarMarkerSpec("L10", 30, (0.00, 0.00, 0.25), HOIST_PATH, (1.55, -5.00, 0.00)),
-    LidarMarkerSpec("L11", 30, (0.25, 0.00, 0.18), HOIST_PATH, (2.55, -5.00, 0.00)),
-    LidarMarkerSpec("L12", 7, (0.00, 0.28, 0.18), HOIST_PATH, (2.55, -4.45, 0.00)),
-    LidarMarkerSpec("L13", 31, (0.00, 0.00, 0.18), HOIST_PATH, (2.55, -5.55, 0.00)),
+    LidarMarkerSpec("L6", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (1.00, -5.56, 4.3575), "front_left"),
+    LidarMarkerSpec("L7", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (3.90, -5.56, 4.3575), "front_right"),
+    LidarMarkerSpec("L8", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (1.00, -4.44, 4.3575), "rear_left"),
+    LidarMarkerSpec("L9", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (3.90, -4.44, 4.3575), "rear_right"),
+    LidarMarkerSpec("L10", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (2.45, -5.56, 4.3575), "front"),
+    LidarMarkerSpec("L11", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (2.45, -4.44, 4.3575), "rear"),
+    LidarMarkerSpec("L12", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (1.00, -5.00, 4.3575), "left"),
+    LidarMarkerSpec("L13", None, (0.00, 0.00, 0.00), TROLLEY_PATH, (3.90, -5.00, 4.3575), "right"),
     LidarMarkerSpec("L14", 14, (0.20, 0.00, 0.20), GANTRY_PATH, (-4.00, -2.50, 5.00)),
     LidarMarkerSpec("L15", 15, (0.20, 0.00, 0.20), GANTRY_PATH, (-4.00, -1.70, 5.00)),
     LidarMarkerSpec("L16", 16, (-0.20, 0.00, 0.20), GANTRY_PATH, (-4.00, -0.90, 5.00)),
@@ -155,6 +170,90 @@ def _world_transform(stage: Any, prim_path: str, cache: Any) -> Any:
     return cache.GetLocalToWorldTransform(prim)
 
 
+def _spreader_perimeter_positions(
+    stage: Any,
+    Gf: Any,
+    UsdGeom: Any,
+) -> Optional[dict[str, Any]]:
+    """Return L6-L13 on the actual spreader perimeter in world space."""
+
+    from pxr import Usd
+
+    primary = stage.GetPrimAtPath(PRIMARY_PATH)
+    if not primary or not primary.IsValid():
+        return None
+
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(),
+        [UsdGeom.Tokens.default_, UsdGeom.Tokens.render, UsdGeom.Tokens.proxy],
+        useExtentsHint=False,
+    )
+    spreader_world_range = Gf.Range3d()
+    header_world_range = Gf.Range3d()
+    found_spreader = False
+    found_header = False
+    # The visible spreader meshes are not guaranteed to be authored directly
+    # below HOIST_PATH.  Some asset revisions keep them under a telescope or a
+    # generated RTG component.  Traverse the primary RTG instead of selecting
+    # a lower helper mesh from only the hoist subtree.
+    for prim in Usd.PrimRange(primary):
+        if not prim.IsA(UsdGeom.Boundable):
+            continue
+        name = str(prim.GetName()).upper()
+        if "SPREAD" not in name:
+            continue
+        try:
+            aligned = bbox_cache.ComputeWorldBound(prim).ComputeAlignedRange()
+            minimum = aligned.GetMin()
+            maximum = aligned.GetMax()
+            if any(
+                float(maximum[index]) <= float(minimum[index])
+                for index in range(3)
+            ):
+                continue
+        except Exception:
+            continue
+        spreader_world_range.UnionWith(aligned)
+        found_spreader = True
+        if "YELLOW_PAIR_LIFT_HEADER" in name or "MAIN_SPREADER" in name:
+            header_world_range.UnionWith(aligned)
+            found_header = True
+
+    if not found_spreader:
+        return None
+
+    spreader_min = spreader_world_range.GetMin()
+    spreader_max = spreader_world_range.GetMax()
+    header_min, header_max = (
+        (header_world_range.GetMin(), header_world_range.GetMax())
+        if found_header
+        else (spreader_min, spreader_max)
+    )
+    clearance = SPREADER_PERIMETER_CLEARANCE_M
+    left_x = float(spreader_min[0]) - clearance
+    right_x = float(spreader_max[0]) + clearance
+    front_y = float(spreader_min[1]) - clearance
+    rear_y = float(spreader_max[1]) + clearance
+    center_x = (left_x + right_x) * 0.5
+    center_y = (front_y + rear_y) * 0.5
+    # Use the header plane, not the lowest lock-foot geometry.  This is the
+    # physical side of the spreader where the LiDAR brackets are mounted.
+    mount_z = (float(header_min[2]) + float(header_max[2])) * 0.5
+    if not found_header:
+        mount_z = SPREADER_LOCAL_MOUNT_Z_M
+    world_positions = {
+        "front_left": Gf.Vec3d(left_x, front_y, mount_z),
+        "front_right": Gf.Vec3d(right_x, front_y, mount_z),
+        "rear_left": Gf.Vec3d(left_x, rear_y, mount_z),
+        "rear_right": Gf.Vec3d(right_x, rear_y, mount_z),
+        "front": Gf.Vec3d(center_x, front_y, mount_z),
+        "rear": Gf.Vec3d(center_x, rear_y, mount_z),
+        "left": Gf.Vec3d(left_x, center_y, mount_z),
+        "right": Gf.Vec3d(right_x, center_y, mount_z),
+    }
+    return world_positions
+
+
 def _set_translate(prim: Any, position: Any, Gf: Any, UsdGeom: Any) -> None:
     xform = UsdGeom.Xformable(prim)
     for op in xform.GetOrderedXformOps():
@@ -187,7 +286,16 @@ def _position_for_spec(
     cache: Any,
     Gf: Any,
     UsdGeom: Any,
+    spreader_positions: Optional[dict[str, Any]] = None,
 ) -> tuple[Any, str]:
+    if spec.installation_side:
+        perimeter = spreader_positions
+        if perimeter is None:
+            perimeter = _spreader_perimeter_positions(stage, Gf, UsdGeom)
+        if perimeter is not None:
+            position = perimeter.get(spec.installation_side)
+            if position is not None:
+                return position, "primary_rtg_spreader_geometry_world"
     if spec.anchor_camera is not None:
         anchor_path = camera_paths.get(spec.anchor_camera)
         if anchor_path:
@@ -215,6 +323,9 @@ def update_rtg_lidar_position_markers(stage: Any = None) -> dict[str, Any]:
 
     cache = UsdGeom.XformCache(Usd.TimeCode.Default())
     camera_paths = _camera_marker_paths(resolved)
+    spreader_positions = _spreader_perimeter_positions(
+        resolved, Gf, UsdGeom
+    )
     updates: list[dict[str, Any]] = []
     with Usd.EditContext(resolved, resolved.GetSessionLayer()):
         for spec in LIDAR_MARKER_SPECS:
@@ -222,7 +333,13 @@ def update_rtg_lidar_position_markers(stage: Any = None) -> dict[str, Any]:
             if not prim or not prim.IsValid():
                 continue
             position, source = _position_for_spec(
-                resolved, spec, camera_paths, cache, Gf, UsdGeom
+                resolved,
+                spec,
+                camera_paths,
+                cache,
+                Gf,
+                UsdGeom,
+                spreader_positions,
             )
             _set_translate(prim, position, Gf, UsdGeom)
             updates.append(
@@ -287,7 +404,7 @@ def show_rtg_lidar_position_markers(
         root.SetCustomDataByKey("rtg:markerLabels", "L1-L24")
         root.SetCustomDataByKey(
             "rtg:calibrationNote",
-            "Approximate offsets from authored C camera markers; survey calibration required",
+            "L1-L5/L14-L24 use authored anchors; L6-L13 use the validated trolley-local spreader plane",
         )
         material = _blue_material(resolved, MARKER_ROOT_PATH, Gf, Sdf, UsdShade)
         purpose = UsdGeom.Tokens.default_ if renderable else UsdGeom.Tokens.guide

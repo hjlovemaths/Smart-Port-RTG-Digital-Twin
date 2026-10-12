@@ -23,6 +23,15 @@ Open `scenes/smart_port.usda` in Omniverse.
 4. Split environment and dynamic equipment into separate USD assets.
 5. Add physics, joints, collision, sensors, and ROS2 bindings in stronger USD layers rather than editing the source asset.
 
+### Automatic harbor sea motion
+
+Use `scripts/launch_isaac_sim_project.py` to open the stage when you want the
+previously demonstrated sea surface and moored-ship motion to start
+automatically. The launcher enables it by default after the USD stage loads;
+use `--disable-sea-motion` for a static scene or sensor capture. Opening the
+USD file directly still loads the authored scene only; in that workflow run
+`scripts/ship_sea_motion.py` from Script Editor with `show_sea_motion()`.
+
 ### Trolley-mounted yard LiDAR point cloud
 
 `scripts/rtg_yard_lidar.py` adds a horizontal RTX LiDAR and a second RTX LiDAR
@@ -146,13 +155,95 @@ the fleet start command stops it before creating L1-L24.
 
 ### Low-load representative fleet
 
+For the focused under-trolley scan, use only `L2`, `L3`, `L4`, and `L5`. These
+four sensors are resolved from the trolley-bottom installation markers and all
+point downward, so the captured cloud covers the container bay below the
+current RTG:
+
+```powershell
+& "D:/isaacsim/python.bat" `
+  "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/launch_isaac_sim_project.py" `
+  --load-live-inventory `
+  --enable-rtg-lidar-trolley-bottom `
+  --freeze-rtgs `
+  --rtg-bay 3C/002 `
+  --lidar-config OS1 `
+  --lidar-variant OS1_REV7_128ch10hz512res `
+  --lidar-far-range 60
+```
+
+This mode keeps the live draw writer disabled for stability; after pressing
+Play, use the same `capture_rtg_lidar_fleet_pointcloud(...)` Script Editor
+capture command. The per-sensor files are named `L2` through `L5`, and the
+merged file is written under `outputs/rtg_pointcloud`.
+
+### Spreader upper-side L6-L13 fleet
+
+To scan the bay from eight LiDARs around the spreader, use
+`--enable-rtg-lidar-spreader`. This creates only `L6` through `L13`; they are
+placed in the hoist/spreader local frame as four corners plus four side-center
+units, so the installation follows the moving spreader instead of relying on
+nearby camera markers. Each sensor points independently inward and 35 degrees
+downward, covering container tops and upper side faces. The start status prints
+`anchors`, `positions`, `installationSides`, and `orientationsWXYZ` so the
+installation can be checked in the current stage:
+
+```powershell
+& "D:/isaacsim/python.bat" `
+  "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/launch_isaac_sim_project.py" `
+  --load-live-inventory `
+  --enable-rtg-lidar-spreader `
+  --freeze-rtgs `
+  --rtg-bay 3C/002 `
+  --lidar-config OS1 `
+  --lidar-variant OS1_REV7_128ch10hz512res `
+  --lidar-far-range 150
+```
+
+After pressing Play, capture one scan per sensor and merge in world
+coordinates:
+
+```python
+import asyncio
+
+async def capture_spreader_lidar():
+    try:
+        result = await capture_rtg_lidar_fleet_pointcloud(
+            timeout_frames=300,
+            warmup_frames=20,
+            min_scans=1,
+            output_frame="world",
+            output_stem="rtg_spreader_L6_L13",
+            reset_accumulation=True,
+            hold_pose=False,
+            serial=True,
+        )
+        print("merged spreader cloud:", result)
+    except Exception as error:
+        print("spreader capture failed:", repr(error))
+
+asyncio.ensure_future(capture_spreader_lidar())
+```
+
+The merged files are `outputs/rtg_pointcloud/rtg_spreader_L6_L13_world.ply`,
+`.pcd`, and `.npy`. The per-sensor bundles remain in the same directory for
+diagnosis. The live `draw-point-cloud` writers stay disabled to reduce GPU
+load; the saved merged cloud is unaffected. The capture uses serial GMO
+collection by default, so only one high-resolution OS1 output stream is active
+at a time.
+
 For a faster point-cloud test, use one LiDAR from each installation zone in the
 supplied table: `L2`, `L6`, `L14`, `L18`, `L20`, `L22`, `L23`, and `L24` (8
 sensors total). `L2` represents the same trolley-bottom installation row as
 L1-L5; L1 is excluded because its GMO stream is invalid in this stage. The
-representative mode defaults to 1 Hz, 10 warmup frames,
-one scan, a 150 m range, 5 cm voxel thinning, and a 500,000-point merged-cloud
-cap:
+representative mode uses the Ouster OS1 `OS1_REV7_128ch10hz512res` profile by
+default. This is the 128-channel/10 Hz/512-resolution asset available in
+`D:/isaacsim/Sensors/OS1` (the launcher passes it as `config=OS1` plus the
+variant name so Isaac Sim does not mistake a Windows path for a config name).
+It runs at the asset's 10 Hz scan rate, captures one scan after 10 warmup
+frames, limits range to 150 m, applies 5 cm voxel thinning, and caps the merged
+cloud at 500,000 points. L6 is the spreader-mounted representative; its local
+`+X` ray axis is rotated to world `-Z`, so it scans downward under the spreader:
 
 ```powershell
 & "D:/isaacsim/python.bat" `
@@ -161,7 +252,6 @@ cap:
   --enable-rtg-lidar-representatives `
   --freeze-rtgs `
   --rtg-bay 3C/002 `
-  --lidar-config Single_Emitter_Rotary `
   --lidar-far-range 150
 ```
 

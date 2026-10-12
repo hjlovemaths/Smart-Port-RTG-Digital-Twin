@@ -7,6 +7,7 @@ from pathlib import Path
 import omni.kit.app
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
+from rtg_live_control import GANTRY_LATERAL_ALIGNMENT_X_M
 from yard_coordinate_mapping import bay_scene_y_m
 
 
@@ -24,7 +25,11 @@ PROTOTYPE_MODEL_PATH = f"{PROTOTYPE_ROOT_PATH}/Model"
 PROTOTYPE_MATERIALS_PATH = f"{PROTOTYPE_ROOT_PATH}/_materials"
 SCENE_START_TIME = Usd.TimeCode(1.0)
 
-ALL_RTG_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
+ALL_RTG_COLUMN_CENTERS_X = tuple(
+    # Use the exact lateral datum that RTGController applies to PLC poses.
+    center_x + GANTRY_LATERAL_ALIGNMENT_X_M
+    for center_x in (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
+)
 STATIC_RTG_PLACEMENTS = (
     ("SMART_PORT_STATIC_RTG_YARD_M60", -60.0, "1C", 17),
     ("SMART_PORT_STATIC_RTG_YARD_M30", -30.0, "1C", 63),
@@ -452,6 +457,7 @@ def _define_static_hoist_ropes(
 
     UsdGeom.Xform.Define(stage, STATIC_ROPE_ROOT_PATH)
     for rtg_name, target_x, block, bay in STATIC_RTG_PLACEMENTS:
+        target_x += GANTRY_LATERAL_ALIGNMENT_X_M
         target_y = bay_scene_y_m(block, bay)
         center_x = target_x + spreader_offset_x
         center_y = target_y + spreader_offset_y
@@ -570,6 +576,7 @@ def build() -> dict[str, object]:
         "../assets/rtg/RTG_Static_Visual.usdc", PROTOTYPE_ROOT_PATH
     )
     for name, target_x, block, bay in STATIC_RTG_PLACEMENTS:
+        target_x += GANTRY_LATERAL_ALIGNMENT_X_M
         target_y = bay_scene_y_m(block, bay)
         target = stage.DefinePrim(f"{PORT_PATH}/{name}", "Xform")
         target.GetReferences().AddReference(source_reference)

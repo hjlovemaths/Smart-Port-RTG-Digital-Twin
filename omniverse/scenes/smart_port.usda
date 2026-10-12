@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (-272.77260538353016, 233.51527220431223, 9.019792697991655)
-                double3 target = (-254.09649360192077, 220.40000426692035, 0.8642257917532259)
+                double3 position = (-257.4645476009071, 239.06870624755211, 4.775274104815365)
+                double3 target = (-254.09599856453582, 232.90350407604456, 3.047176541603223)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -47,6 +47,9 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./sts_track_gauge.usda@,
+        @./sts_elevation.usda@,
+        @./sts_dimensions.usda@,
         @./hide_quay_bollards.usda@,
         @./sts_controls.usda@,
         @./weather_effects.usda@,
@@ -60,6 +63,7 @@
         @./quay_yard_traffic_layout.usda@,
         @./offshore_quay_layout.usda@,
         @./4c_ship_replacements.usda@,
+        @./sts01_double20.usda@,
         @./live_containers.usda@
     ]
     timeCodesPerSecond = 24
@@ -68,6 +72,61 @@
 
 def Xform "World"
 {
+    def Scope "ShipDouble20Materials"
+    {
+        def Material "Double20Orange"
+        {
+            token outputs:surface.connect = </World/ShipDouble20Materials/Double20Orange/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.5, 0.11, 0.055)
+                float inputs:roughness = 0.76
+                token outputs:surface
+            }
+        }
+
+        def Material "Double20Cyan"
+        {
+            token outputs:surface.connect = </World/ShipDouble20Materials/Double20Cyan/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.04, 0.21, 0.48)
+                float inputs:roughness = 0.76
+                token outputs:surface
+            }
+        }
+
+        def Material "Double20Purple"
+        {
+            token outputs:surface.connect = </World/ShipDouble20Materials/Double20Purple/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.12, 0.24, 0.42)
+                float inputs:roughness = 0.76
+                token outputs:surface
+            }
+        }
+
+        def Material "Double20Green"
+        {
+            token outputs:surface.connect = </World/ShipDouble20Materials/Double20Green/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.07, 0.36, 0.34)
+                float inputs:roughness = 0.76
+                token outputs:surface
+            }
+        }
+    }
+
     def Xform "Environment" (
         prepend references = @./environment.usda@
     )
@@ -98,7 +157,7 @@ def Xform "World"
         }
 
         def Xform "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED" (
-            instanceable = true
+            instanceable = false
             prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip>
         )
         {
@@ -106,6 +165,149 @@ def Xform "World"
             float3 xformOp:scale = (1, 1, 1)
             double3 xformOp:translate = (-249.6, 210, -7.5)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "Model"
+            {
+                over "ShipContainer000" (
+                    active = false
+                )
+                {
+                }
+
+                over "ShipContainer006" (
+                    active = false
+                )
+                {
+                }
+
+                over "ShipContainer036" (
+                    active = false
+                )
+                {
+                }
+
+                over "ShipContainer042" (
+                    active = false
+                )
+                {
+                }
+
+                def Xform "ShipDouble20_000" (
+                    active = false
+                )
+                {
+                    custom token ship:containerComposition = "2x20"
+
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-22.968, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-20.232, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_006" (
+                    active = false
+                )
+                {
+                    custom token ship:containerComposition = "2x20"
+
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer006/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-22.968, -2.696, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer006/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-20.232, -2.696, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_036" (
+                    active = false
+                )
+                {
+                    custom token ship:containerComposition = "2x20"
+
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer036/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-17.368, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer036/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-14.632, -4.496, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_042" (
+                    active = false
+                )
+                {
+                    custom token ship:containerComposition = "2x20"
+
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer042/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Green>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-17.368, -2.696, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer042/Geometry>
+                    )
+                    {
+                        rel material:binding = </World/ShipDouble20Materials/Double20Green>
+                        uniform token material:binding:strength = "strongerThanDescendants"
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        double3 xformOp:translate = (-14.632, -2.696, 9.85)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+            }
         }
 
         over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_ROOT" (
@@ -181,17 +383,17 @@ def Xform "World"
         {
             over "ANIM_CTRL_RTG_GANTRY_TRAVEL"
             {
-                double3 xformOp:translate = (0, 16.5775, 0)
+                double3 xformOp:translate = (1.2, 16.5775, 0)
                 double3 xformOp:translate.timeSamples = {
-                    1: (0, 16.5775, 0),
-                    60: (0, -0.8100000000000023, 0),
-                    305: (0, -0.8100000000000023, 0),
-                    320: (0, -0.8100000000000023, 0),
-                    370: (0, 20.590000000000003, 0),
-                    680: (0, 20.590000000000003, 0),
-                    700: (0, 20.590000000000003, 0),
-                    745: (0, 7.215, 0),
-                    925: (0, 7.215, 0),
+                    1: (1.2, 16.5775, 0),
+                    60: (1.2, -0.8100000000000023, 0),
+                    305: (1.2, -0.8100000000000023, 0),
+                    320: (1.2, -0.8100000000000023, 0),
+                    370: (1.2, 20.590000000000003, 0),
+                    680: (1.2, 20.590000000000003, 0),
+                    700: (1.2, 20.590000000000003, 0),
+                    745: (1.2, 7.215, 0),
+                    925: (1.2, 7.215, 0),
                 }
 
                 over "ANIM_CTRL_RTG_TROLLEY_TRAVEL"
@@ -3250,6 +3452,247 @@ def Xform "World"
             }
         }
     }
+
+    def Xform "ShipDouble20VisibleColorLayer" (
+        active = false
+    )
+    {
+        def Cube "Orange20A"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-254.096, 232.965, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Orange20B"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-254.096, 230.235, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Cyan20A"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-252.296, 232.965, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Cyan20B"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-252.296, 230.235, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Purple20A"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-254.096, 227.365, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Purple20B"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-254.096, 224.635, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Green20A"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Green>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-252.296, 227.365, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+
+        def Cube "Green20B"
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Green>
+            float3 xformOp:rotateXYZ = (0, 0, -90)
+            float3 xformOp:scale = (1.28, 0.7, 0.52)
+            double3 xformOp:translate = (-252.296, 224.635, 2.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+    }
+
+    def Xform "ShipDouble20YardModelLayer"
+    {
+        def Xform "Orange20A" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-254.096, 232.9035, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+
+            over "R01_T01_Container" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                rel material:binding = None (
+                    bindMaterialAs = "weakerThanDescendants"
+                )
+                bool primvars:enableFastRefractionShadow = 0
+            }
+
+            over "R01_T01_Container_SideCorrugation" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                rel material:binding = None (
+                    bindMaterialAs = "weakerThanDescendants"
+                )
+            }
+        }
+
+        def Xform "Orange20B" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Orange>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-254.096, 230.2675, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Cyan20A" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-252.296, 232.9035, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Cyan20B" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Cyan>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-252.296, 230.2675, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Purple20A" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-254.096, 227.3035, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Purple20B" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Purple>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-254.096, 224.6675, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Green20A" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Green>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-252.296, 227.3035, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Xform "Green20B" (
+            prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
+        )
+        {
+            rel material:binding = </World/ShipDouble20Materials/Double20Green>
+            uniform token material:binding:strength = "strongerThanDescendants"
+            float3 xformOp:scale = (1, 1.015, 1)
+            double3 xformOp:translate = (-252.296, 224.6675, 2.57)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Scope "Looks"
+    {
+        def Material "Carpaint_01"
+        {
+            token outputs:mdl:displacement.connect = </World/Looks/Carpaint_01/Shader.outputs:out>
+            token outputs:mdl:surface.connect = </World/Looks/Carpaint_01/Shader.outputs:out>
+            token outputs:mdl:volume.connect = </World/Looks/Carpaint_01/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @https://omniverse-content-production.s3.us-west-2.amazonaws.com/Materials/2023_2_1/Automotive/Imperfect/Carpaint/Carpaint_01.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "Carpaint_01"
+                token outputs:out (
+                    renderType = "material"
+                )
+            }
+        }
+
+        def Material "Glass_Inner_Light_Clear_02"
+        {
+            token outputs:mdl:displacement.connect = </World/Looks/Glass_Inner_Light_Clear_02/Shader.outputs:out>
+            token outputs:mdl:surface.connect = </World/Looks/Glass_Inner_Light_Clear_02/Shader.outputs:out>
+            token outputs:mdl:volume.connect = </World/Looks/Glass_Inner_Light_Clear_02/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @https://omniverse-content-production.s3.us-west-2.amazonaws.com/Materials/2023_2_1/Automotive/Pristine/Glass/Glass_Inner_Light_Clear_02.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "Glass_Inner_Light_Clear_02"
+                token outputs:out (
+                    renderType = "material"
+                )
+            }
+        }
+
+        def Material "Glass_Reflectors_Base_Orange"
+        {
+            token outputs:mdl:displacement.connect = </World/Looks/Glass_Reflectors_Base_Orange/Shader.outputs:out>
+            token outputs:mdl:surface.connect = </World/Looks/Glass_Reflectors_Base_Orange/Shader.outputs:out>
+            token outputs:mdl:volume.connect = </World/Looks/Glass_Reflectors_Base_Orange/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @https://omniverse-content-production.s3.us-west-2.amazonaws.com/Materials/2023_2_1/Automotive/Imperfect/Glass/Glass_Reflectors_Base_Orange.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "Glass_Reflectors_Base_Orange"
+                token outputs:out (
+                    renderType = "material"
+                )
+            }
+        }
+    }
 }
 
 def "Render" (
@@ -3368,10 +3811,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.234699831251895)
-    float3 xformOp:rotateXYZ = (70.33474, 7.9580786e-13, 234.92162)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -7.234857401081186)
+    float3 xformOp:rotateXYZ = (76.1809, -3.9790393e-13, 208.65135)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (-272.77260538353016, 233.51527220431223, 9.019792697991655)
+    double3 xformOp:translate = (-257.4645476009071, 239.06870624755211, 4.775274104815365)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

@@ -3,6 +3,7 @@
 Kinematic visual task, using the existing truck and primary RTG models.
 """
 import importlib.util
+import builtins
 import sys
 from pathlib import Path
 from pxr import Gf, Sdf, Usd, UsdGeom
@@ -44,6 +45,9 @@ class UnloadTask:
         self.home_size = controller.spreader_size_ft
         self.stage.GetSessionLayer().subLayerPaths.insert(0,self.layer.identifier)
         try:
+            sea=getattr(builtins,'_smart_port_sea_motion',None)
+            if sea and not sea.closed and sea.stage==self.stage:
+                sea.hold(SHIP)
             self.prepare()
         except Exception:
             self.close()
@@ -189,3 +193,6 @@ class UnloadTask:
         self.c.spreader_size_ft=self.home_size
         self.c._apply()
         self.finished=True
+        sea=getattr(builtins,'_smart_port_sea_motion',None)
+        if sea and not sea.closed and sea.stage==self.stage:
+            sea.release(SHIP)

@@ -59,7 +59,7 @@ def build_yard_inventory_layer(
     *,
     bay_ids: Optional[set[str]] = None,
     limit: Optional[int] = None,
-    detailed: bool = False,
+    detailed: bool = True,
 ) -> dict[str, object]:
     """Create a live container USD layer from inventory JSON."""
 
@@ -238,7 +238,7 @@ def rebuild_and_attach_live_inventory(
     inventory_path: Path | str = DEFAULT_INVENTORY_PATH,
     output_path: Path | str = DEFAULT_OUTPUT_PATH,
     limit: Optional[int] = None,
-    detailed: bool = False,
+    detailed: bool = True,
 ) -> dict[str, object]:
     build = build_yard_inventory_layer(
         inventory_path=inventory_path,
@@ -301,7 +301,7 @@ def reload_live_inventory(
     inventory_path: Path | str = DEFAULT_INVENTORY_PATH,
     output_path: Path | str = DEFAULT_OUTPUT_PATH,
     limit: Optional[int] = None,
-    detailed: bool = False,
+    detailed: bool = True,
     reload_stage: bool = True,
 ) -> dict[str, object]:
     """Rebuild and attach the live inventory layer for the current Isaac stage."""
@@ -342,7 +342,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--attach-stage", type=Path, default=None)
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--detailed", action="store_true")
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        default=True,
+        help="Generate the ribbed/door detailed container appearance (default).",
+    )
     args = parser.parse_args()
     result = build_yard_inventory_layer(
         inventory_path=args.inventory,

@@ -35,10 +35,11 @@ class YardDelivery:
         self.phase='Truck to 2C via causeway 02'
         # Import the same coordinate functions as the yard builder by file path.
         layout=task.load_sibling('build_live_containers')
-        self.target=Gf.Vec3d(layout.reference_first_row_center_x_m(6),
+        self.truck_lane_center_x=layout.TRUCK_OPERATING_LANE_CENTER_X_M
+        self.target=Gf.Vec3d(layout.row_center_x_m(1,6),
             layout.container_center_y_for_bay('2C',4,40),
             layout.PAD_TOP_Z_M+layout.STACK_FLOOR_CLEARANCE_M+task.height)
-        self.truck_stop=Gf.Vec3d(-3.75,self.target[1],task.stop[2])
+        self.truck_stop=Gf.Vec3d(self.truck_lane_center_x,self.target[1],task.stop[2])
         self.pick=self.truck_stop+Gf.Vec3d(0,0,task.height+.02)
         self.check_occupancy()
         for path in (GANTRY,TROLLEY,HOIST,ROPES):
@@ -94,7 +95,7 @@ class YardDelivery:
         self.high=max(self.origin[2],6.4)
         self.route=rounded_route([task.stop,
             (-238.,126.05,task.stop[2]),
-            (-3.75,126.05,task.stop[2]),self.truck_stop])
+            (self.truck_lane_center_x,126.05,task.stop[2]),self.truck_stop])
         self.route_index=1
         self.position=Gf.Vec3d(task.stop)
         self.command(Gf.Vec3d(self.origin[0],self.origin[1],self.high))

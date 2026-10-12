@@ -1,0 +1,142 @@
+#usda 1.0
+(
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+# This layer changes only the visible cargo on the shoreline east feeder ship.
+# Yard inventory and live yard containers remain in live_containers.usda.
+def Xform "World"
+{
+    def "PortAndRTG"
+    {
+        over "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED"
+        {
+            instanceable = false
+
+            over "Model"
+            {
+                over "ShipContainer000" (active = false) { }
+                over "ShipContainer006" (active = false) { }
+                over "ShipContainer036" (active = false) { }
+                over "ShipContainer042" (active = false) { }
+
+                def Xform "ShipDouble20_000"
+                {
+                    custom token ship:containerComposition = "2x20"
+                    custom int ship:pairIndex = 1
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-22.968, -4.496, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer000/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-20.232, -4.496, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Cube "PairJoint"
+                    {
+                        float3[] primvars:displayColor = [(0.015, 0.020, 0.025)]
+                        double3 xformOp:translate = (-21.6, -4.496, 5.324)
+                        float3 xformOp:scale = (0.055, 1.42, 0.84)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_006"
+                {
+                    custom token ship:containerComposition = "2x20"
+                    custom int ship:pairIndex = 2
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer006/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-22.968, -2.696, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer006/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-20.232, -2.696, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Cube "PairJoint"
+                    {
+                        float3[] primvars:displayColor = [(0.015, 0.020, 0.025)]
+                        double3 xformOp:translate = (-21.6, -2.696, 5.324)
+                        float3 xformOp:scale = (0.055, 1.42, 0.84)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_036"
+                {
+                    custom token ship:containerComposition = "2x20"
+                    custom int ship:pairIndex = 3
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer036/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-17.368, -4.496, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer036/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-14.632, -4.496, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Cube "PairJoint"
+                    {
+                        float3[] primvars:displayColor = [(0.015, 0.020, 0.025)]
+                        double3 xformOp:translate = (-16.0, -4.496, 5.324)
+                        float3 xformOp:scale = (0.055, 1.42, 0.84)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+
+                def Xform "ShipDouble20_042"
+                {
+                    custom token ship:containerComposition = "2x20"
+                    custom int ship:pairIndex = 4
+                    def Xform "UnitA" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer042/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-17.368, -2.696, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Xform "UnitB" (
+                        prepend references = @../assets/ship/Custom_Feeder_Ship.usdc@</CustomFeederShip/Model/ShipContainer042/Geometry>
+                    )
+                    {
+                        double3 xformOp:translate = (-14.632, -2.696, 5.324)
+                        float3 xformOp:scale = (0.481, 1, 1)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                    def Cube "PairJoint"
+                    {
+                        float3[] primvars:displayColor = [(0.015, 0.020, 0.025)]
+                        double3 xformOp:translate = (-16.0, -2.696, 5.324)
+                        float3 xformOp:scale = (0.055, 1.42, 0.84)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+                    }
+                }
+            }
+        }
+    }
+}

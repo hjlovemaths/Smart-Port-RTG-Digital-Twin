@@ -24,6 +24,7 @@ from yard_coordinate_mapping import (
     BAY_GAP_M,
     BAY_LENGTH_M,
     BAY_WIDTH_M,
+    TRUCK_OPERATING_LANE_CENTER_X_M,
     YARD_LAYOUT_START_Y_M,
     YARD_TOTAL_LENGTH_M,
     bay_scene_y_m,
@@ -37,6 +38,11 @@ OUTPUT_PATH = PROJECT_ROOT / "omniverse" / "scenes" / "live_containers.usda"
 CONTAINER_ASSET_PATH = (
     PROJECT_ROOT / "omniverse" / "assets" / "resource" / "container" / "Shipping_Container.usdz"
 )
+# The textured USDZ is useful for branded close-ups, but the terminal yard
+# view uses the deterministic per-container colour palette below. Keeping this
+# switch explicit makes it possible to restore the branded asset later without
+# changing inventory layout or control layers.
+USE_TEXTURED_CONTAINER_MODEL = False
 
 # Shipping_Container.usdz is authored in centimetre scene units with Y-up
 # coordinates.  USD references do not automatically convert the referenced
@@ -120,6 +126,18 @@ def reference_first_row_center_x_m(row_count: int) -> float:
         + reference_row_width * 0.5
     )
     return reference_leftmost_stack_x + (row_count - 1) * reference_row_pitch
+
+
+def row_center_x_m(row_number: int, row_count: int = ROW_COUNT) -> float:
+    """Return a rendered row centre using the same numbering as PLC tasks."""
+
+    row = int(row_number)
+    count = int(row_count)
+    if not 1 <= row <= count:
+        raise ValueError(f"Row {row} is outside 1-{count}")
+    pitch = CONTAINER_WIDTH_X_M + ROW_GAP_X_M
+    row_1_x = reference_first_row_center_x_m(count)
+    return row_1_x - (row - 1) * pitch
 
 
 def truck_lane_bounds_x() -> tuple[float, float]:
@@ -296,7 +314,7 @@ def create_container_box(
     set_cube_transform(cube, center, scale)
     prim = cube.GetPrim()
     UsdShade.MaterialBindingAPI.Apply(prim).Bind(mat)
-    if imported_container_model_available():
+    if USE_TEXTURED_CONTAINER_MODEL and imported_container_model_available():
         # Keep the established root prim and metadata for task logic, while
         # the referenced USDZ supplies the visible, textured container.
         if create_imported_container_model(stage, path, center, scale):

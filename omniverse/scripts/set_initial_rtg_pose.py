@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.append(str(SCRIPT_DIR))
 
 from rtg_live_control import (
+    GANTRY_LATERAL_ALIGNMENT_X_M,
     RTG_BAY_VISUAL_ALIGNMENT_OFFSET_Y_M,
     RTG_WORK_CENTER_LOCAL_Y_M,
     _rope_points,
@@ -104,7 +105,12 @@ def set_initial_pose(bay_id: str, hoist_m: float, hide_load: bool) -> dict[str, 
     trolley_usd = 0.0
     hoist_usd = hoist_actual_to_usd(hoist_m)
 
-    set_translate(stage, GANTRY_PATH, Gf.Vec3d(0.0, gantry_controller_y, 0.0), frames)
+    set_translate(
+        stage,
+        GANTRY_PATH,
+        Gf.Vec3d(GANTRY_LATERAL_ALIGNMENT_X_M, gantry_controller_y, 0.0),
+        frames,
+    )
     set_translate(stage, TROLLEY_PATH, Gf.Vec3d(trolley_usd, 0.0, 0.0), frames)
     set_translate(stage, HOIST_PATH, Gf.Vec3d(0.0, 0.0, hoist_usd), frames)
 
