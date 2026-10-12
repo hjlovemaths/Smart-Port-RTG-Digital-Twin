@@ -52,7 +52,6 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert (
         "custom double[] yard:columnCentersX = [-60, -30, 0, 30, 60, 90]" in text
     )
-    assert "custom double yard:laneWidth = 5" in text
     assert "custom double yard:bayPitch = 2.675" in text
     assert "custom double yard:firstBayStartY = -0.5" in text
     assert "custom double yard:lastBayEndY = 446.225" in text
@@ -62,8 +61,8 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
     assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
-    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' in text
-    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' in text
+    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_WHITE_EDGES"' not in text
+    assert 'def Mesh "SMART_PORT_RTG_TRUCK_LANE_YELLOW_CENTER"' not in text
     assert "custom int yard:terminalBlockLabelCount = 24" in text
     assert (
         'custom string yard:terminalBlockLabelRule = '
@@ -75,7 +74,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
     assert "SMART_PORT_REBUILT_1C4C_YELLOW_SAFETY_LINES" not in text
 
     point_blocks = re.findall(r"point3f\[\] points = \[(.*?)\]", text, re.DOTALL)
-    assert len(point_blocks) == 8
+    assert len(point_blocks) == 6
     for block in point_blocks:
         coordinates = [
             tuple(float(value) for value in match)
@@ -93,7 +92,7 @@ def test_old_markings_are_replaced_by_seven_parallel_yard_columns():
         )
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
-    assert len(count_blocks) == 8
+    assert len(count_blocks) == 6
     for block in count_blocks:
         assert set(re.findall(r"\d+", block)) == {"4"}
 
@@ -136,11 +135,12 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert (
         "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
     )
-    assert "YARD_LANE_WIDTH = 5.0" in text
+    assert "RTG_TIRE_TRACK_OFFSET_X = 6.50" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "YARD_LAYOUT_START_Y_M" in text
     assert "REBUILT_LABEL_DIGITS_NAME" in text
+    assert "for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS" in text
     assert '"C": ("top", "upper_left", "lower_left", "bottom")' in text
     assert "_author_terminal_block_labels(output_stage)" in text
     assert "GROUND_MARKING_PREFIXES" in text

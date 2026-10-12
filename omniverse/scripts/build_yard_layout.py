@@ -49,8 +49,6 @@ APRON_WIDTH_M = 16.0
 YARD_MARKING_HALF_WIDTH_M = 8.0
 YARD_MARKING_WIDTH_M = YARD_MARKING_HALF_WIDTH_M * 2.0
 GANTRY_RAIL_X_M = 6.50
-TRUCK_LANE_CENTER_X_M = -3.75
-TRUCK_LANE_WIDTH_M = 5.0
 PAD_TOP_Z_M = 0.10
 MARKING_TOP_Z_M = 0.135
 SIDE_BAY_LABEL_X_POSITIONS_M = (0.0,)
@@ -568,31 +566,6 @@ def build_yard_layout() -> dict[str, object]:
             marking_collection,
         )
         rails.parent = root
-
-        truck_lane_half_width = TRUCK_LANE_WIDTH_M * 0.5
-        truck_lane = create_boxes_object(
-            f"YARD_LAYOUT_1C4C_{block_name}_TRUCK_LANE_MARKINGS",
-            [
-                (
-                    (TRUCK_LANE_CENTER_X_M - truck_lane_half_width, center_y, MARKING_TOP_Z_M),
-                    (0.065, length, 0.02),
-                ),
-                (
-                    (TRUCK_LANE_CENTER_X_M + truck_lane_half_width, center_y, MARKING_TOP_Z_M),
-                    (0.065, length, 0.02),
-                ),
-            ],
-            white,
-            marking_collection,
-        )
-        truck_lane.parent = root
-        truck_lane_center = create_boxes_object(
-            f"YARD_LAYOUT_1C4C_{block_name}_TRUCK_LANE_CENTERLINE",
-            [((TRUCK_LANE_CENTER_X_M, center_y, MARKING_TOP_Z_M), (0.075, length, 0.02))],
-            yellow,
-            marking_collection,
-        )
-        truck_lane_center.parent = root
 
         label_numbers = odd_ground_slot_numbers(bay_count)
         for bay_number in label_numbers:
