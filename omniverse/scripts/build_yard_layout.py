@@ -496,7 +496,10 @@ def build_yard_layout() -> dict[str, object]:
             if slot_end < end_y - 1.0e-4:
                 gap_center = slot_end + BAY_GAP_M * 0.5
                 ground_slot_separator_boxes.append(
-                    ((0.0, gap_center, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.055, 0.015))
+                    (
+                        (-YARD_MARKING_HALF_WIDTH_M * 0.5, gap_center, MARKING_TOP_Z_M),
+                        (YARD_MARKING_HALF_WIDTH_M, 0.055, 0.015),
+                    )
                 )
 
         for index in range(bay_count):
@@ -660,7 +663,10 @@ def build_yard_layout() -> dict[str, object]:
             if slot_index < YARD_END_EXTENSION_SLOT_COUNT - 1:
                 gap_center = slot_end + BAY_GAP_M * 0.5
                 extension_separator_boxes.append(
-                    ((0.0, gap_center, MARKING_TOP_Z_M), (YARD_MARKING_WIDTH_M, 0.055, 0.015))
+                    (
+                        (-YARD_MARKING_HALF_WIDTH_M * 0.5, gap_center, MARKING_TOP_Z_M),
+                        (YARD_MARKING_HALF_WIDTH_M, 0.055, 0.015),
+                    )
                 )
             slot_start = slot_end + BAY_GAP_M
 
