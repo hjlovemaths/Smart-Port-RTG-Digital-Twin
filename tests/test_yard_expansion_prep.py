@@ -135,7 +135,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert (
         "YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)" in text
     )
-    assert "RTG_TIRE_TRACK_OFFSET_X = 6.50" in text
+    assert "RTG_TIRE_TRACK_OFFSET_X = 8.0" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "YARD_LAYOUT_START_Y_M" in text

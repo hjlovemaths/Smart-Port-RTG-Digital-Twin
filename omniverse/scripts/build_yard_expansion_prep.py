@@ -34,7 +34,10 @@ YARD_X_MIN = -8.0
 YARD_X_MAX = 8.0
 YARD_COLUMN_CENTERS_X = (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
 YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
-RTG_TIRE_TRACK_OFFSET_X = 6.50
+# Keep one visible guide on the waterside/right wheel track.  It is placed on
+# the narrowed yard edge, so the white bay separators terminate at the yellow
+# line instead of extending beyond it.
+RTG_TIRE_TRACK_OFFSET_X = 8.0
 RTG_TIRE_TRACK_WIDTH = 0.10
 YARD_BLOCK_SPECS = tuple(
     (
@@ -245,16 +248,15 @@ def _author_rtg_tire_tracks(output_stage: Usd.Stage) -> int:
     indices: list[int] = []
     for center_x in YARD_COLUMN_CENTERS_X:
         for _block_name, _bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            for offset_x in (-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X):
-                _append_rectangle(
-                    points,
-                    counts,
-                    indices,
-                    center_x + offset_x - RTG_TIRE_TRACK_WIDTH * 0.5,
-                    center_x + offset_x + RTG_TIRE_TRACK_WIDTH * 0.5,
-                    y_min,
-                    y_max,
-                )
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                center_x + RTG_TIRE_TRACK_OFFSET_X - RTG_TIRE_TRACK_WIDTH * 0.5,
+                center_x + RTG_TIRE_TRACK_OFFSET_X + RTG_TIRE_TRACK_WIDTH * 0.5,
+                y_min,
+                y_max,
+            )
     return _define_flat_mesh(
         output_stage,
         REBUILT_RTG_TRACKS_NAME,
@@ -557,7 +559,7 @@ def build() -> tuple[int, int, dict[str, int]]:
     )
     rebuilt_root.CreateAttribute(
         "yard:rtgTireTrackOffsetsX", Sdf.ValueTypeNames.DoubleArray
-    ).Set(Vt.DoubleArray((-RTG_TIRE_TRACK_OFFSET_X, RTG_TIRE_TRACK_OFFSET_X)))
+    ).Set(Vt.DoubleArray((RTG_TIRE_TRACK_OFFSET_X,)))
     rebuilt_root.CreateAttribute("yard:bayPitch", Sdf.ValueTypeNames.Double).Set(
         BAY_PITCH_Y
     )

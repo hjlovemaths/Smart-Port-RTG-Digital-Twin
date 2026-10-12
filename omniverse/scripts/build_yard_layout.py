@@ -48,7 +48,10 @@ APRON_WIDTH_M = 16.0
 # corridor does not move existing bay anchors or runtime container stacks.
 YARD_MARKING_HALF_WIDTH_M = 8.0
 YARD_MARKING_WIDTH_M = YARD_MARKING_HALF_WIDTH_M * 2.0
-GANTRY_RAIL_X_M = 6.50
+# The visible guide is the single waterside/right wheel track.  Keeping it on
+# the narrowed yard edge also prevents bay separators from protruding beyond
+# the yellow line.
+GANTRY_RAIL_X_M = 8.0
 PAD_TOP_Z_M = 0.10
 MARKING_TOP_Z_M = 0.135
 SIDE_BAY_LABEL_X_POSITIONS_M = (0.0,)
@@ -559,7 +562,6 @@ def build_yard_layout() -> dict[str, object]:
         rails = create_boxes_object(
             f"YARD_LAYOUT_1C4C_{block_name}_GANTRY_RAILS",
             [
-                ((-GANTRY_RAIL_X_M, center_y, MARKING_TOP_Z_M), (0.10, length, 0.035)),
                 ((GANTRY_RAIL_X_M, center_y, MARKING_TOP_Z_M), (0.10, length, 0.035)),
             ],
             yellow,
