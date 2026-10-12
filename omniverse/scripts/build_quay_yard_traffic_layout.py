@@ -263,40 +263,11 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
     # The rebuilt yard owns the two yellow RTG tire tracks and the dense white
     # bay separators.  Do not add the older longitudinal white road-edge lines
     # here: they sit outside the yellow tracks and visually widen each yard.
-    # Traffic-lane yellow centerlines are omitted as well; the road between
-    # yard blocks must remain clear, while the tire tracks stay visible on the
-    # RTG footprint itself.
+    # Traffic-lane white and yellow centerlines are omitted as well; the road
+    # between yard blocks must remain clear, while the tire tracks and bay
+    # separators stay visible in their dedicated yard layer.
     white_quads = []
     yellow_centerline_quads = []
-
-    for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
-        for x_min, x_max in segments_without(
-            YARD_INLAND_EDGE_X, 110.5, YARD_ROAD_X_RANGES
-        ):
-            if x_max <= COASTAL_YARD_ROAD_X_RANGE[0]:
-                edge_offset = CAUSEWAY_EDGE_LINE_OFFSET_M
-                edge_half_width = CAUSEWAY_EDGE_LINE_WIDTH_M * 0.5
-            else:
-                edge_offset = YARD_CROSS_ROAD_HALF_WIDTH_M - 0.21
-                edge_half_width = 0.11
-            white_quads.extend(
-                (
-                    rect(
-                        x_min,
-                        center_y - edge_offset - edge_half_width,
-                        x_max,
-                        center_y - edge_offset + edge_half_width,
-                        0.145,
-                    ),
-                    rect(
-                        x_min,
-                        center_y + edge_offset - edge_half_width,
-                        x_max,
-                        center_y + edge_offset + edge_half_width,
-                        0.145,
-                    ),
-                )
-            )
     return white_quads, yellow_centerline_quads
 
 

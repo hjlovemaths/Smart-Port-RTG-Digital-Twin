@@ -179,7 +179,7 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
         assert abs(float(target_y) - (first_bay_center_y + slot_index * bay_pitch)) < 0.0001
 
 
-def test_traffic_lane_centerlines_are_omitted_but_bay_marks_stay_white():
+def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     text = TRAFFIC.read_text(encoding="utf-8")
     white_mesh = re.search(
         rf'def Mesh "{PREFIX}WHITE_LANE_MARKINGS"\s*\{{(.*?)(?=\n\s*def Mesh ")',
@@ -194,13 +194,10 @@ def test_traffic_lane_centerlines_are_omitted_but_bay_marks_stay_white():
     assert white_mesh and yellow_mesh
     assert "[(0.88, 0.9, 0.87)]" in white_mesh.group(1)
     assert "[(0.96, 0.76, 0.04)]" in yellow_mesh.group(1)
-    for x in ("110.55", "125.23", "-85.69", "-70.4", "-49.82", "-40.4"):
-        assert f"({x}," not in white_mesh.group(1)
-    assert "(117.89," not in white_mesh.group(1)
+    assert "faceVertexCounts = []" in white_mesh.group(1)
+    assert "point3f[] points = [\n\n            ]" in white_mesh.group(1)
     assert "faceVertexCounts = []" in yellow_mesh.group(1)
     assert "point3f[] points = [\n\n            ]" in yellow_mesh.group(1)
-    # Transverse white bay/intersection markings remain available.
-    assert "(-70, -8.975, 0.145)" in white_mesh.group(1)
 
 
 def test_traffic_layer_braces_and_coordinates_are_well_formed():
