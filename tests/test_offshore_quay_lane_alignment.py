@@ -45,17 +45,13 @@ def test_generated_causeways_overlap_the_yard_roads_at_the_shoreline():
         assert position == pytest.approx((-161.5, center_y, 0.04))
 
 
-def test_shore_landings_match_causeway_width_and_white_edge_lines():
+def test_shore_landings_match_causeway_width_after_lane_marking_removal():
     traffic = TRAFFIC_SCENE.read_text(encoding="utf-8")
     for center_y in EXPECTED_CENTERS:
         lower_surface = center_y - 4.5
         upper_surface = center_y + 4.5
-        lower_line = center_y - 4.18
-        upper_line = center_y + 4.18
         assert f"(-101.75, {lower_surface:g}, 0.11)" in traffic
         assert f"(-85.875, {upper_surface:g}, 0.11)" in traffic
-        assert f"(-101.75, {lower_line - 0.08:g}, 0.145)" in traffic
-        assert f"(-85.875, {upper_line + 0.08:g}, 0.145)" in traffic
 
 
 def test_offshore_quay_decks_match_the_traffic_road_color():
@@ -73,13 +69,13 @@ def test_offshore_quay_decks_match_the_traffic_road_color():
         assert re.search(pattern, quay, re.DOTALL)
 
 
-def test_quay_has_two_longitudinal_lanes_outside_the_sts_work_zone():
+def test_quay_has_two_longitudinal_lanes_without_yellow_center_dashes():
     builder = QUAY_BUILDER.read_text(encoding="utf-8")
     quay = QUAY_SCENE.read_text(encoding="utf-8")
     assert "WATERSIDE_TRAFFIC_LANE_CENTER_X_M = -238.0" in builder
     assert "LANDSIDE_TRAFFIC_LANE_CENTER_X_M = -225.0" in builder
-    assert quay.count('def Cube "WatersideLane_CenterDash_') == 42
-    assert quay.count('def Cube "LandsideLane_CenterDash_') == 42
+    assert quay.count('def Cube "WatersideLane_CenterDash_') == 0
+    assert quay.count('def Cube "LandsideLane_CenterDash_') == 0
     for name in (
         "WatersideLane_LeftEdge",
         "WatersideLane_RightEdge",

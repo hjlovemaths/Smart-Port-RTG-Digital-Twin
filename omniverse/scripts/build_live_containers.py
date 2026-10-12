@@ -712,8 +712,6 @@ def create_ground_bar(
 
 
 def create_truck_lane_markings(stage: Usd.Stage, path: str) -> None:
-    white = Gf.Vec3f(0.92, 0.92, 0.86)
-    yellow = Gf.Vec3f(1.0, 0.74, 0.06)
     yard_lane_y_min = YARD_LAYOUT_START_Y_M
     yard_lane_y_max = YARD_LAYOUT_START_Y_M + YARD_TOTAL_LENGTH_M
     yard_lane_center_y = (yard_lane_y_min + yard_lane_y_max) * 0.5
@@ -729,19 +727,6 @@ def create_truck_lane_markings(stage: Usd.Stage, path: str) -> None:
         Gf.Vec3f(truck_lane_width + 0.20, yard_lane_length, 0.012),
         Gf.Vec3f(0.085, 0.095, 0.090),
     )
-    for name, x, width, color in (
-        ("TruckLaneLeftWhite", lane_left_x, 0.065, white),
-        ("TruckLaneRightWhite", lane_right_x, 0.065, white),
-        ("TruckLaneCenterYellow", lane_mid_x, 0.075, yellow),
-    ):
-        create_ground_bar(
-            stage,
-            f"{path}/{name}_1C4C_Through",
-            Gf.Vec3d(x, yard_lane_center_y, GROUND_MARKING_Z_M),
-            Gf.Vec3f(width, yard_lane_length, 0.014),
-            color,
-        )
-
     arrow_spacing_m = 60.0
     arrow_count = max(3, int(yard_lane_length / arrow_spacing_m))
     for arrow_index in range(arrow_count):
@@ -753,19 +738,6 @@ def create_truck_lane_markings(stage: Usd.Stage, path: str) -> None:
             arrow_y,
             1.05,
         )
-
-    for name, y in (
-        ("TruckLane1CStartStopLine", yard_lane_y_min),
-        ("TruckLane4CEndStopLine", yard_lane_y_max),
-    ):
-        create_ground_bar(
-            stage,
-            f"{path}/{name}",
-            Gf.Vec3d(lane_mid_x, y, GROUND_MARKING_Z_M),
-            Gf.Vec3f(truck_lane_width, 0.060, 0.014),
-            white,
-        )
-
 
 SEGMENT_DEFS = {
     "A": (0.0, 0.5, 0.55, 0.075),
@@ -837,7 +809,6 @@ def create_yard_ground_markings(
     column_centers: list[float],
 ) -> None:
     white = Gf.Vec3f(0.92, 0.92, 0.86)
-    yellow = Gf.Vec3f(1.0, 0.74, 0.06)
     dark = Gf.Vec3f(0.03, 0.035, 0.032)
     y_length = BAY_LENGTH_M + 1.15
     y_front = bay_center_y - y_length * 0.5
@@ -857,19 +828,6 @@ def create_yard_ground_markings(
         Gf.Vec3f(truck_lane_width + 0.20, yard_lane_length, 0.012),
         Gf.Vec3f(0.085, 0.095, 0.090),
     )
-
-    for name, x, width, color in (
-        ("TruckLaneLeftWhite", lane_left_x, 0.065, white),
-        ("TruckLaneRightWhite", lane_right_x, 0.065, white),
-        ("TruckLaneCenterYellow", lane_mid_x, 0.075, yellow),
-    ):
-        create_ground_bar(
-            stage,
-            f"{path}/{name}_1C4C_Through",
-            Gf.Vec3d(x, yard_lane_center_y, GROUND_MARKING_Z_M),
-            Gf.Vec3f(width, yard_lane_length, 0.014),
-            color,
-        )
 
     for name, x, width, color in (
         ("StackLeftBoundary", stack_x_min, 0.060, white),
@@ -904,7 +862,7 @@ def create_yard_ground_markings(
             f"{path}/{name}",
             Gf.Vec3d(lane_mid_x, y, GROUND_MARKING_Z_M),
             Gf.Vec3f(truck_lane_width, 0.060, 0.014),
-            white,
+            Gf.Vec3f(0.92, 0.92, 0.86),
         )
 
     sorted_columns = sorted(column_centers)

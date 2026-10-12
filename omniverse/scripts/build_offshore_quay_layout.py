@@ -159,21 +159,6 @@ def build_road_markings(stage: Usd.Stage, root_path: str) -> None:
                 (causeway_length - 0.5, 0.16, 0.025),
                 WHITE,
             )
-        dash_x = CAUSEWAY_DECK_START_X_M + OFFSHORE_SIDE_SIGN * 4.0
-        dash_index = 1
-        while (
-            OFFSHORE_SIDE_SIGN * (OFFSHORE_QUAY_LANDSIDE_X_M - dash_x)
-            > 0.0
-        ):
-            define_cube(
-                stage,
-                f"{root_path}/Markings/Causeway_{index:02d}_CenterDash_{dash_index:02d}",
-                (dash_x, y, MARKING_TOP_Z_M + 0.003),
-                (4.8, 0.16, 0.025),
-                YELLOW,
-            )
-            dash_x += OFFSHORE_SIDE_SIGN * 9.0
-            dash_index += 1
 
     platform_length = OFFSHORE_QUAY_MAX_Y_M - OFFSHORE_QUAY_MIN_Y_M
     for lane_label, lane_center_x in (
@@ -190,14 +175,6 @@ def build_road_markings(stage: Usd.Stage, root_path: str) -> None:
                 (lane_center_x + edge_offset, 250.0, MARKING_TOP_Z_M),
                 (0.16, platform_length - 2.0, 0.025),
                 WHITE,
-            )
-        for dash_index, y in enumerate(range(0, 501, 12), start=1):
-            define_cube(
-                stage,
-                f"{root_path}/Markings/{lane_label}Lane_CenterDash_{dash_index:02d}",
-                (lane_center_x, float(y), MARKING_TOP_Z_M + 0.003),
-                (0.16, 6.0, 0.025),
-                YELLOW,
             )
 
 
