@@ -331,28 +331,10 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
                 )
             dash_x += 8.0
 
+    # The terminal cross-road remains part of the asphalt/yellow guidance, but
+    # its outer white edge pair is a stray boundary line and is intentionally
+    # omitted.  Internal yard bay separators are authored by the rebuilt yard.
     terminal_y = TERMINAL_CROSS_ROAD_CENTER_Y
-    for x_min, x_max in segments_without(
-        YARD_INLAND_EDGE_X, APRON_EDGE_X, TERMINAL_INTERSECTION_X_RANGES
-    ):
-        white_quads.extend(
-            (
-                rect(
-                    x_min,
-                    terminal_y - YARD_CROSS_ROAD_HALF_WIDTH_M + 0.10,
-                    x_max,
-                    terminal_y - YARD_CROSS_ROAD_HALF_WIDTH_M + 0.32,
-                    0.145,
-                ),
-                rect(
-                    x_min,
-                    terminal_y + YARD_CROSS_ROAD_HALF_WIDTH_M - 0.32,
-                    x_max,
-                    terminal_y + YARD_CROSS_ROAD_HALF_WIDTH_M - 0.10,
-                    0.145,
-                ),
-            )
-        )
     dash_x = YARD_INLAND_EDGE_X + 4.0
     while dash_x < APRON_EDGE_X - 3.0:
         dash_end = min(dash_x + 4.0, APRON_EDGE_X - 3.0)

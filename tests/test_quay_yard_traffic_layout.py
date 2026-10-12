@@ -244,8 +244,14 @@ def test_terminal_cross_road_connects_every_longitudinal_lane_to_the_apron():
     text = TRAFFIC.read_text(encoding="utf-8")
     assert "(-101.75, 492.6, 0.11)" in text
     assert "(150, 500, 0.11)" in text
-    assert "(-101.75, 492.7, 0.145)" in text
-    assert "(150, 499.9, 0.145)" in text
+    white_mesh = re.search(
+        rf'def Mesh "{PREFIX}WHITE_LANE_MARKINGS"\s*\{{(.*?)(?=\n\s*def Mesh ")',
+        text,
+        flags=re.DOTALL,
+    )
+    assert white_mesh
+    assert "492.7, 0.145" not in white_mesh.group(1)
+    assert "499.9, 0.145" not in white_mesh.group(1)
 
 
 def test_green_belts_fill_the_terminal_corners_up_to_the_road_surface():
