@@ -39,12 +39,15 @@ COASTAL_GREEN_BELT_X_RANGE = (-101.75, -85.875)
 COASTAL_YARD_ROAD_X_RANGE = (-85.875, -70.0)
 # The right-edge green belt occupies the former narrow lane beside the outer road.
 RIGHT_EDGE_GREEN_BELT_X_RANGE = (105.25, 110.5)
+# Keep the five inter-yard roads centered between the fixed RTG columns while
+# using the intended 7.4 m lane width.  These are road surfaces only: no
+# yellow centerline or extra yard boundary is authored in the gaps.
 INTER_YARD_ROAD_X_RANGES = (
-    (-50.0, -40.0),
-    (-20.0, -10.0),
-    (10.0, 20.0),
-    (40.0, 50.0),
-    (70.0, 80.0),
+    (-48.7, -41.3),
+    (-18.7, -11.3),
+    (11.3, 18.7),
+    (41.3, 48.7),
+    (71.3, 78.7),
 )
 YARD_ROAD_X_RANGES = (
     COASTAL_YARD_ROAD_X_RANGE,
