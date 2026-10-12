@@ -161,7 +161,7 @@ def test_old_left_and_right_central_boundary_meshes_are_inactive():
         )
 
 
-def test_rebuilt_bay_markings_have_narrowed_perimeters():
+def test_rebuilt_bay_markings_omit_outer_white_frames():
     text = OVERLAY.read_text(encoding="utf-8")
     mesh = re.search(
         r'def Mesh "SMART_PORT_CLEAN_BAY_MARKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',
@@ -188,13 +188,4 @@ def test_rebuilt_bay_markings_have_narrowed_perimeters():
         if y_span > 0.0551:
             longitudinal_quads.append(quad)
 
-    assert len(longitudinal_quads) == 48
-    expected_x_centers = {
-        center_x + offset
-        for center_x in (-60.0, -30.0, 0.0, 30.0, 60.0, 90.0)
-        for offset in (-8.0, 8.0)
-    }
-    for quad in longitudinal_quads:
-        x_values = [point[0] for point in quad]
-        assert round((min(x_values) + max(x_values)) * 0.5, 4) in expected_x_centers
-        assert round(max(x_values) - min(x_values), 4) == 0.055
+    assert not longitudinal_quads

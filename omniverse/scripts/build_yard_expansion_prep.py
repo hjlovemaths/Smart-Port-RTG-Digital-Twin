@@ -216,47 +216,8 @@ def _author_clean_bay_markings(output_stage: Usd.Stage) -> int:
         x_min = center_x + YARD_X_MIN
         x_max = center_x + YARD_X_MAX
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
-            # Each RTG bay has a narrowed white perimeter.  The original
-            # overlay only restored one global right-hand edge, which made the
-            # yard width read much wider than the actual operating corridor.
-            _append_rectangle(
-                points,
-                counts,
-                indices,
-                x_min - MARKING_WIDTH * 0.5,
-                x_min + MARKING_WIDTH * 0.5,
-                y_min,
-                y_max,
-            )
-            _append_rectangle(
-                points,
-                counts,
-                indices,
-                x_max - MARKING_WIDTH * 0.5,
-                x_max + MARKING_WIDTH * 0.5,
-                y_min,
-                y_max,
-            )
-            _append_centered_rectangle(
-                points,
-                counts,
-                indices,
-                center_x,
-                y_min,
-                YARD_COLUMN_WIDTH,
-                MARKING_WIDTH,
-                MARKING_Z,
-            )
-            _append_centered_rectangle(
-                points,
-                counts,
-                indices,
-                center_x,
-                y_max,
-                YARD_COLUMN_WIDTH,
-                MARKING_WIDTH,
-                MARKING_Z,
-            )
+            # Keep only the bay separators.  The outer white perimeter was a
+            # visual frame and is intentionally omitted from the final yard.
             for _bay_number, _slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
             ):
