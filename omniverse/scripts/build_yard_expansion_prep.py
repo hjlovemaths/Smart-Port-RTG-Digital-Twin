@@ -41,36 +41,6 @@ YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)
 RTG_TIRE_TRACK_WIDTH = 0.10
 RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)
-
-
-def _derive_visual_yard_column_centers() -> tuple[float, ...]:
-    """Tile full-width visual yards across the existing six-column footprint.
-
-    The six runtime RTG columns define the available footprint. Each visual
-    yard uses exactly the distance between the two RTG tire guides, so the
-    count is derived from the geometry instead of being a layout constant.
-    Runtime RTG, container, and motion coordinates continue to use
-    YARD_COLUMN_CENTERS_X elsewhere in this script.
-    """
-    footprint_min = min(YARD_COLUMN_CENTERS_X) + min(RTG_TIRE_TRACK_OFFSETS_X)
-    footprint_max = max(YARD_COLUMN_CENTERS_X) + max(RTG_TIRE_TRACK_OFFSETS_X)
-    footprint_width = footprint_max - footprint_min
-    column_count = max(1, int(footprint_width // RTG_YARD_WIDTH_X))
-    used_width = column_count * RTG_YARD_WIDTH_X
-    side_margin = (footprint_width - used_width) * 0.5
-    # The RTG root is not centered between its asymmetric tire offsets. Use
-    # the left tire guide as the visual cell's actual left boundary.
-    first_center = footprint_min + side_margin - min(RTG_TIRE_TRACK_OFFSETS_X)
-    return tuple(
-        round(first_center + index * RTG_YARD_WIDTH_X, 6)
-        for index in range(column_count)
-    )
-
-
-# Ground markings and labels are visual-only. Their count is computed from
-# the RTG wheel gauge so the available footprint is filled evenly without
-# changing runtime RTG or container placement.
-VISUAL_YARD_COLUMN_CENTERS_X = _derive_visual_yard_column_centers()
 YARD_BLOCK_SPECS = tuple(
     (
         block.name,
@@ -245,7 +215,7 @@ def _odd_bay_slots(bay_count: int, y_min: float, y_max: float):
 
 def _author_clean_bay_markings(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
     mesh_name: str = REBUILT_MARKINGS_NAME,
 ) -> int:
     points: list[Gf.Vec3f] = []
@@ -363,7 +333,7 @@ def _append_digit(
 
 def _author_bay_number_labels(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
 ) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
@@ -430,7 +400,7 @@ def _author_bay_number_labels(
 
 def _author_terminal_block_labels(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = VISUAL_YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
 ) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
@@ -611,10 +581,10 @@ def build() -> tuple[int, int, dict[str, int]]:
     ).Set(RTG_YARD_WIDTH_X)
     rebuilt_root.CreateAttribute(
         "yard:visualColumnCentersX", Sdf.ValueTypeNames.DoubleArray
-    ).Set(Vt.DoubleArray(VISUAL_YARD_COLUMN_CENTERS_X))
+    ).Set(Vt.DoubleArray(YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute(
         "yard:visualColumnCount", Sdf.ValueTypeNames.Int
-    ).Set(len(VISUAL_YARD_COLUMN_CENTERS_X))
+    ).Set(len(YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute("yard:bayPitch", Sdf.ValueTypeNames.Double).Set(
         BAY_PITCH_Y
     )
@@ -625,19 +595,19 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Visual columns tiled across the RTG footprint at the exact yellow track spacing; runtime RTG tracks and containers unchanged"
+        "Bay markings and labels are limited to the six existing RTG yellow-track yard areas; column gaps remain empty"
     )
     rebuilt_root.CreateAttribute(
         "yard:visualFillRule", Sdf.ValueTypeNames.String
     ).Set(
-        "derive full-width column count from RTG tire-guide spacing and distribute leftover footprint evenly at both sides"
+        "draw bay lines only between each runtime RTG tire-guide pair; draw no markings or yellow guides in column gaps"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
     ).Set("one block label outside each yard block, centered longitudinally")
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelCount", Sdf.ValueTypeNames.Int
-    ).Set(len(VISUAL_YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
+    ).Set(len(YARD_COLUMN_CENTERS_X) * len(YARD_BLOCK_SPECS))
 
     face_counts = {REBUILT_MARKINGS_NAME: _author_clean_bay_markings(output_stage)}
     face_counts[REBUILT_RTG_TRACKS_NAME] = _author_rtg_tire_tracks(output_stage)
