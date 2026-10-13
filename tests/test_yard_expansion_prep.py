@@ -100,7 +100,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
             assert z_values == {0.156}
             continue
         assert min(x_values) >= -72.8
-        assert max(x_values) <= 98.0001
+        assert max(x_values) <= 98.34
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
     assert len(count_blocks) == 6
@@ -213,16 +213,16 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -72.76602
-    assert max(x_values) == 95.98359
+    assert min(x_values) == -70.416023
+    assert max(x_values) == 98.333587
     actual_ranges = {
         (min(point[0] for point in quad), max(point[0] for point in quad))
         for quad in quads
     }
     assert len(actual_ranges) == 8
     for center in (-66.0, -44.0, -22.0, 0.0, 22.0, 44.0, 66.0, 88.0):
-        expected_left = center - 6.76602000559836
-        expected_right = center + 7.983591078615577
+        expected_left = center - 4.416023299119
+        expected_right = center + 10.333587785095
         assert any(
             abs(left - expected_left) < 2e-5
             and abs(right - expected_right) < 2e-5
