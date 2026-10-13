@@ -23,11 +23,11 @@ def test_original_static_rtgs_are_hidden_in_favor_of_animated_references():
 def test_five_yards_receive_instanceable_static_visual_rtgs_at_distinct_bays():
     text = LAYER.read_text(encoding="utf-8")
     expected = (
-        ("SMART_PORT_STATIC_RTG_YARD_M60", -40, "1C", 17, 22.1375),
-        ("SMART_PORT_STATIC_RTG_YARD_M30", -20, "1C", 63, 83.6625),
-        ("SMART_PORT_STATIC_RTG_YARD_P30", 20, "2C", 29, 168.4375),
-        ("SMART_PORT_STATIC_RTG_YARD_P60", 40, "3C", 57, 336.1375),
-        ("SMART_PORT_STATIC_RTG_YARD_P90", 60, "4C", 25, 423.5875),
+        ("SMART_PORT_STATIC_RTG_YARD_M60", -32.125, "1C", 17, 22.1375),
+        ("SMART_PORT_STATIC_RTG_YARD_M30", -16.0625, "1C", 63, 83.6625),
+        ("SMART_PORT_STATIC_RTG_YARD_P30", 16.0625, "2C", 29, 168.4375),
+        ("SMART_PORT_STATIC_RTG_YARD_P60", 32.125, "3C", 57, 336.1375),
+        ("SMART_PORT_STATIC_RTG_YARD_P90", 48.1875, "4C", 25, 423.5875),
     )
     for name, center_x, block, bay, center_y in expected:
         pattern = (
