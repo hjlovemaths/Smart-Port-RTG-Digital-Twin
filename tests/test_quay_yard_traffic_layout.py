@@ -239,12 +239,13 @@ def test_horizontal_cross_roads_have_two_white_edge_lines():
     )
     assert mesh
     assert "[(0.88, 0.9, 0.87)]" in mesh.group(1)
-    # Four cross-roads have two edges, each split around the seven
-    # inter-yard driving gaps: 4 * 2 * 8 * 4 point coordinates.
-    assert mesh.group(1).count("0.145") == 256
+    # Keep both edges on the 1C forecourt and the start side of each block.
+    # Omit the lower edge at the ends of 1C, 2C, and 3C to avoid a duplicate
+    # white stripe on the final bay at each cross-road.
+    assert mesh.group(1).count("0.145") == 160
     assert "-9.165" in mesh.group(1)
     assert "-1.585" in mesh.group(1)
-    assert "122.26" in mesh.group(1)
+    assert "122.26" not in mesh.group(1)
     point_block = re.search(r"point3f\[\] points = \[(.*?)\]", mesh.group(1), re.DOTALL)
     assert point_block
     points = [

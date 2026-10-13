@@ -295,15 +295,23 @@ def cross_road_edge_quads() -> list[tuple]:
 
     The inter-yard gaps and the outside approach roads are longitudinal
     traffic roads.  Keep the edge only inside each yellow yard corridor so it
-    does not form an extra white bar outside the painted yard.
+    does not form an extra white bar outside the painted yard.  The lower
+    edges at the ends of 1C, 2C, and 3C are omitted: they duplicate the last
+    bay marking at the cross-road and create a misaligned extra stripe.
     """
 
+    last_bay_edges_y = {
+        round(YARD_LAYOUT_START_Y_M + block.end_m, 6)
+        for block in YARD_BLOCKS[:3]
+    }
     quads = []
     for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
         for edge_y in (
             center_y - YARD_CROSS_ROAD_HALF_WIDTH_M,
             center_y + YARD_CROSS_ROAD_HALF_WIDTH_M,
         ):
+            if round(edge_y, 6) in last_bay_edges_y:
+                continue
             for column_center_x in YARD_COLUMN_CENTERS_X:
                 x_min = column_center_x - RTG_VISUAL_YARD_WIDTH_X_M * 0.5
                 x_max = column_center_x + RTG_VISUAL_YARD_WIDTH_X_M * 0.5
