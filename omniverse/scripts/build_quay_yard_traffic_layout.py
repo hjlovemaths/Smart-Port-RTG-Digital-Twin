@@ -14,6 +14,7 @@ from yard_coordinate_mapping import (
     BAY_GAP_M,
     BAY_LENGTH_M,
     INTER_YARD_ROAD_WIDTH_X_M,
+    RTG_VISUAL_YARD_WIDTH_X_M,
     YARD_COLUMN_CENTERS_X,
     YARD_BLOCKS,
     YARD_LAYOUT_START_Y_M,
@@ -38,10 +39,13 @@ ALL_CROSS_ROAD_CENTERS_Y = (
     TERMINAL_CROSS_ROAD_CENTER_Y,
 )
 COASTAL_GREEN_BELT_X_RANGE = (-101.75, -85.875)
-COASTAL_YARD_ROAD_X_RANGE = (-85.875, -70.0)
+COASTAL_YARD_ROAD_X_RANGE = (
+    COASTAL_GREEN_BELT_X_RANGE[1],
+    YARD_COLUMN_CENTERS_X[0] - RTG_VISUAL_YARD_WIDTH_X_M * 0.5,
+)
 # The right-edge green belt occupies the former narrow lane beside the outer road.
 RIGHT_EDGE_GREEN_BELT_X_RANGE = (105.25, 110.5)
-# Keep the five inter-yard roads centered between the compacted yard columns.
+# Keep the inter-yard roads centered between the evenly spaced yard columns.
 # These are road surfaces only: no yellow centerline or extra yard boundary is
 # authored in the gaps.
 INTER_YARD_ROAD_X_RANGES = tuple(
@@ -732,8 +736,8 @@ def Xform "World"
     def Xform "{PREFIX}LAYOUT"
     {{
         custom string trafficCoordinateRange = "X=-101.75..150.00; Y=-10.25..500.00; longShoreline=positiveX"
-        custom string trafficLayoutRule = "Four straight quay-to-yard lanes use the clear approach space before bay 001 of 1C, 2C, 3C, and 4C; connected by the long-shore road and a full-width terminal cross-road; the former coastal yard is split evenly into a waterside green tree belt and a yard-side road; the far-right former narrow lane is a green tree belt beside the outer continuous road; five inter-yard gaps are traffic lanes; two groups of ten waiting bays"
-        custom string trafficPrimitiveRule = "Twelve traffic meshes plus 90 unique instanceable three-head street lights and one merged night lamp-glow mesh; overlapping yard endpoints share the crossroad lamp; no labels, collision, or runtime vehicles"
+        custom string trafficLayoutRule = "Four straight quay-to-yard lanes use the clear approach space before bay 001 of 1C, 2C, 3C, and 4C; connected by the long-shore road and a full-width terminal cross-road; the former coastal yard is split evenly into a waterside green tree belt and a yard-side road; the far-right former narrow lane is a green tree belt beside the outer continuous road; seven inter-yard gaps are traffic lanes; two groups of ten waiting bays"
+        custom string trafficPrimitiveRule = "Twelve traffic meshes plus 120 unique instanceable three-head street lights and one merged night lamp-glow mesh; overlapping yard endpoints share the crossroad lamp; no labels, collision, or runtime vehicles"
 {road_material_text}
 {mesh_text}
 

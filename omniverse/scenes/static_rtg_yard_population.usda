@@ -724,7 +724,7 @@ def Xform "World"
 
     def Scope "SMART_PORT_STATIC_RTG_YARD_POPULATION"
     {
-        custom double[] rtg:columnCentersX = [-42.8, -20.8, 1.2, 23.2, 45.2, 67.2]
+        custom double[] rtg:columnCentersX = [-64.8, -42.8, -20.8, 1.2, 23.2, 45.2, 67.2, 89.2]
         custom string rtg:layoutRule = "five static RTGs use different yard blocks and bay positions"
     }
 }

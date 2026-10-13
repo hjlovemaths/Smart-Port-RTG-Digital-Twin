@@ -23,8 +23,10 @@ TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
 # column fixed while the surrounding static yard columns are laid out around
 # it. These values are shared by the ground layout, static RTG population, and
 # inter-yard traffic layer; the live RTG controller continues to use its own
-# gantry alignment datum on this fixed column.
+# gantry alignment datum on this fixed column. One additional empty yard is
+# kept on each side of the existing six-column operating area.
 MOVING_RTG_YARD_CENTER_X_M = 0.0
+MOVING_RTG_YARD_COLUMN_INDEX = 3
 # The painted RTG corridor is 14.75 m wide.  Measuring the composed RTG model
 # gives a 19.97 m physical X span, so a 22 m centre spacing leaves about
 # 2.03 m between the physical envelopes of adjacent RTGs.  Keep this explicit
@@ -36,8 +38,9 @@ RTG_INTER_YARD_CLEARANCE_X_M = 2.03
 YARD_COLUMN_SPACING_X_M = 22.0
 INTER_YARD_GAP_X_M = YARD_COLUMN_SPACING_X_M - RTG_VISUAL_YARD_WIDTH_X_M
 YARD_COLUMN_CENTERS_X = tuple(
-    MOVING_RTG_YARD_CENTER_X_M + (index - 2) * YARD_COLUMN_SPACING_X_M
-    for index in range(6)
+    MOVING_RTG_YARD_CENTER_X_M
+    + (index - MOVING_RTG_YARD_COLUMN_INDEX) * YARD_COLUMN_SPACING_X_M
+    for index in range(8)
 )
 INTER_YARD_ROAD_WIDTH_X_M = INTER_YARD_GAP_X_M
 
