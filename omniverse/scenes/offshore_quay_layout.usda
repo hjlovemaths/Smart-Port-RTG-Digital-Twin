@@ -72,7 +72,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, -9.075, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -81,7 +81,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, -1.675, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -90,7 +90,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 122.35, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -99,7 +99,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 129.75, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -108,7 +108,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 252.6, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -117,7 +117,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 260, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -126,7 +126,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 382.85, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }
@@ -135,7 +135,7 @@ def Xform "World"
             {
                 color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
                 double size = 1
-                float3 xformOp:scale = (119.5, 0.18, 0.025)
+                float3 xformOp:scale = (120, 0.18, 0.025)
                 double3 xformOp:translate = (-161.5, 390.25, 0.205)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
             }

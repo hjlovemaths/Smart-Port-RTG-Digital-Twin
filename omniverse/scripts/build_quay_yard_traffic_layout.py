@@ -291,7 +291,12 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
 
 
 def cross_road_edge_quads() -> list[tuple]:
-    """Draw the two white edges of each horizontal yard cross-road."""
+    """Draw cross-road edges only through the yard-side painted corridors.
+
+    The inter-yard gaps are longitudinal traffic roads.  Leave those gaps
+    unmarked at a horizontal crossing so the cross-road edge does not form a
+    white bar across the driving lane.
+    """
 
     quads = []
     for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
@@ -299,15 +304,20 @@ def cross_road_edge_quads() -> list[tuple]:
             center_y - YARD_CROSS_ROAD_HALF_WIDTH_M,
             center_y + YARD_CROSS_ROAD_HALF_WIDTH_M,
         ):
-            quads.append(
-                rect(
-                    YARD_INLAND_EDGE_X,
-                    edge_y - CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
-                    110.5,
-                    edge_y + CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
-                    CROSS_ROAD_EDGE_LINE_Z_M,
+            for x_min, x_max in segments_without(
+                YARD_INLAND_EDGE_X,
+                110.5,
+                INTER_YARD_ROAD_X_RANGES,
+            ):
+                quads.append(
+                    rect(
+                        x_min,
+                        edge_y - CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
+                        x_max,
+                        edge_y + CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
+                        CROSS_ROAD_EDGE_LINE_Z_M,
+                    )
                 )
-            )
     return quads
 
 

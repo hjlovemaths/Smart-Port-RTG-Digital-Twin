@@ -239,10 +239,38 @@ def test_horizontal_cross_roads_have_two_white_edge_lines():
     )
     assert mesh
     assert "[(0.88, 0.9, 0.87)]" in mesh.group(1)
-    assert mesh.group(1).count("0.145") == 32
+    # Four cross-roads have two edges, each split around the seven
+    # inter-yard driving gaps: 4 * 2 * 8 * 4 point coordinates.
+    assert mesh.group(1).count("0.145") == 256
     assert "-9.165" in mesh.group(1)
     assert "-1.585" in mesh.group(1)
     assert "122.26" in mesh.group(1)
+    point_block = re.search(r"point3f\[\] points = \[(.*?)\]", mesh.group(1), re.DOTALL)
+    assert point_block
+    points = [
+        tuple(float(value) for value in match)
+        for match in re.findall(
+            r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
+            point_block.group(1),
+        )
+    ]
+    quads = [points[index : index + 4] for index in range(0, len(points), 4)]
+    for road_x_min, road_x_max in (
+        (-57.625, -51.375),
+        (-36.625, -30.375),
+        (-15.625, -9.375),
+        (5.375, 11.625),
+        (26.375, 32.625),
+        (47.375, 53.625),
+        (68.375, 74.625),
+    ):
+        assert all(
+            not (
+                max(point[0] for point in quad) > road_x_min
+                and min(point[0] for point in quad) < road_x_max
+            )
+            for quad in quads
+        )
 
 
 def test_traffic_layer_braces_and_coordinates_are_well_formed():

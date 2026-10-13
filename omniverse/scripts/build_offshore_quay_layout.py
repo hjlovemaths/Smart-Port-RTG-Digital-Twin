@@ -60,6 +60,9 @@ CAUSEWAY_WIDTH_M = 9.0
 # centerline offsets as the yard road and meet the shoreline markings cleanly.
 CAUSEWAY_EDGE_LINE_OFFSET_M = 3.7
 CAUSEWAY_EDGE_LINE_WIDTH_M = 0.18
+# Run the trajectory lines exactly to both ends of the causeway deck so they
+# meet the adjoining road surfaces without a visible half-metre shortfall.
+CAUSEWAY_EDGE_LINE_LENGTH_M = CAUSEWAY_LENGTH_M
 DECK_TOP_Z_M = 0.18
 DECK_THICKNESS_M = 0.28
 MARKING_TOP_Z_M = DECK_TOP_Z_M + 0.025
@@ -162,7 +165,7 @@ def build_road_markings(stage: Usd.Stage, root_path: str) -> None:
                 f"{root_path}/Markings/Causeway_{index:02d}_{side}Edge",
                 (causeway_center_x, y + offset, MARKING_TOP_Z_M),
                 (
-                    causeway_length - 2.0 * CAUSEWAY_SHORE_OVERLAP_M,
+                    CAUSEWAY_EDGE_LINE_LENGTH_M,
                     CAUSEWAY_EDGE_LINE_WIDTH_M,
                     0.025,
                 ),

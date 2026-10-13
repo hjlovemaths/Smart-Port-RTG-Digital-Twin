@@ -90,7 +90,7 @@ def test_causeway_edges_merge_with_the_yard_cross_road_edges():
     quay = QUAY_SCENE.read_text(encoding="utf-8")
     assert "CAUSEWAY_EDGE_LINE_OFFSET_M = 3.7" in builder
     assert "CAUSEWAY_EDGE_LINE_WIDTH_M = 0.18" in builder
-    assert "causeway_length - 2.0 * CAUSEWAY_SHORE_OVERLAP_M" in builder
+    assert "CAUSEWAY_EDGE_LINE_LENGTH_M = CAUSEWAY_LENGTH_M" in builder
     for center_y in EXPECTED_CENTERS:
         for edge_y in (center_y - 3.7, center_y + 3.7):
             assert f"double3 xformOp:translate = (-161.5, {edge_y:g}, 0.205)" in quay
@@ -104,6 +104,7 @@ def test_causeway_edges_merge_with_the_yard_cross_road_edges():
     assert len(causeway_markings) == 8
     assert all(color == "(0.88, 0.9, 0.87)" for color, _x, y, _z in causeway_markings)
     assert all(float(y) == 0.18 for _color, _x, y, _z in causeway_markings)
+    assert all(float(x) == 120.0 for _color, x, _y, _z in causeway_markings)
 
 
 def test_four_additional_sts_cranes_are_evenly_distributed_on_the_quay():
