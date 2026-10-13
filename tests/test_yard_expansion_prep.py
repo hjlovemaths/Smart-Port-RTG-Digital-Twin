@@ -66,7 +66,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
     assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
-    assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.76602000559836, 7.983591078615577]" in text
+    assert "custom double[] yard:rtgTireTrackOffsetsX = [-4.416023299119, 10.333587785095]" in text
     assert (
         'custom string yard:yellowLongitudinalGuides = '
         '"enabled; two yellow solid tire paths per yard column, segmented at block roads"'
