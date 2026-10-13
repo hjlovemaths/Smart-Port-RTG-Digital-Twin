@@ -29,10 +29,10 @@ MOVING_RTG_YARD_CENTER_X_M = 0.0
 MOVING_RTG_YARD_COLUMN_INDEX = 3
 # The first container row is on the moving RTG's right side.  Move only the
 # active RTG and its painted ground corridor toward that row; the neighbouring
-# yard columns and static RTGs keep their existing datums.  The 1.75 m value
-# leaves approximately the existing 1.50 m inner safety margin to the row-1
-# container edge.
-PRIMARY_RTG_LATERAL_SHIFT_X_M = -1.75
+# yard columns and static RTGs keep their existing datums.  The 1.00 m value
+# leaves approximately a 2.25 m inner safety margin to the row-1 container
+# edge while keeping the wheel axes on the yellow guides.
+PRIMARY_RTG_LATERAL_SHIFT_X_M = -1.0
 RTG_LATERAL_ALIGNMENT_X_M = 1.2
 PRIMARY_RTG_LATERAL_ALIGNMENT_X_M = (
     RTG_LATERAL_ALIGNMENT_X_M + PRIMARY_RTG_LATERAL_SHIFT_X_M
