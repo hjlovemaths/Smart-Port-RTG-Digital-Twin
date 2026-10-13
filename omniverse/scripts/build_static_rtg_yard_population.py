@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import omni.kit.app
+try:
+    import omni.kit.app
+except ModuleNotFoundError:  # Isaac's standalone Python can build the layer too.
+    omni = None
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
 from rtg_live_control import GANTRY_LATERAL_ALIGNMENT_X_M
@@ -624,4 +627,5 @@ def build() -> dict[str, object]:
 try:
     print(f"STATIC_RTG_YARD_RESULT {build()}")
 finally:
-    omni.kit.app.get_app().post_quit(0)
+    if omni is not None:
+        omni.kit.app.get_app().post_quit(0)
