@@ -76,7 +76,8 @@ SPREADER_TELESCOPE_SPEED_M_S = 0.60
 # timeline frame.
 SPREADER_LIVE_TELESCOPE_OP_SUFFIX = "rtgLiveTelescoping"
 # The PLC receiver drives travel in Y; X is the fixed lateral datum for the
-# active primary RTG. Static RTGs use the unchanged logical yard-column datum.
+# active primary RTG. Static RTGs use the same evenly spaced yard-column
+# datums as the rebuilt ground layout.
 _yard_mapping = sys.modules.get("yard_coordinate_mapping")
 PRIMARY_RTG_LATERAL_ALIGNMENT_X_M = getattr(
     _yard_mapping,

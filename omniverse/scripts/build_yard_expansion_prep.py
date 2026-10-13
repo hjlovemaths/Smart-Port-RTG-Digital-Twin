@@ -630,7 +630,7 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "The active RTG and its white bay markings/yellow tire paths are shifted X=-1.00 m toward the first container row; seven other RTG yard columns remain on their original 22 m datums"
+        "Eight RTG yard columns are evenly spaced at 21 m around the fixed active visual datum X=-2 m; the live RTG remains on its calibrated X=-0.8 m datum"
     )
     rebuilt_root.CreateAttribute(
         "yard:visualFillRule", Sdf.ValueTypeNames.String

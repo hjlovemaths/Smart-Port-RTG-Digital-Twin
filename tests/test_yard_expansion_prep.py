@@ -50,11 +50,11 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     ) in text
     assert 'def Xform "SMART_PORT_REBUILT_YARD_LAYOUT"' in text
     assert (
-        "custom double[] yard:columnCentersX = [-66, -44, -22, 0, 22, 44, 66, 88]" in text
+        "custom double[] yard:columnCentersX = [-65, -44, -23, -2, 19, 40, 61, 82]" in text
     )
     assert "custom double yard:visualColumnWidth = 14.749611084213937" in text
     assert (
-        "custom double[] yard:visualColumnCentersX = [-66, -44, -22, -2, 22, 44, 66, 88]"
+        "custom double[] yard:visualColumnCentersX = [-65, -44, -23, -2, 19, 40, 61, 82]"
         in text
     )
     assert "custom double yard:bayPitch = 2.675" in text
@@ -214,14 +214,14 @@ def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -70.416023
-    assert max(x_values) == 98.333587
+    assert min(x_values) == -69.416023
+    assert max(x_values) == 92.333587
     actual_ranges = {
         (min(point[0] for point in quad), max(point[0] for point in quad))
         for quad in quads
     }
     assert len(actual_ranges) == 8
-    for center in (-66.0, -44.0, -22.0, -2.0, 22.0, 44.0, 66.0, 88.0):
+    for center in (-65.0, -44.0, -23.0, -2.0, 19.0, 40.0, 61.0, 82.0):
         expected_left = center - 4.416023299119
         expected_right = center + 10.333587785095
         assert any(
@@ -232,6 +232,51 @@ def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
     assert max(point[1] for quad in quads for point in quad) == 446.2525
 
 
+def test_yellow_tire_guides_are_thin_and_follow_wheel_axes():
+    text = OVERLAY.read_text(encoding="utf-8")
+    mesh = re.search(
+        r'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"\s*\{(.*?)(?=\n\s*def Mesh ")',
+        text,
+        flags=re.DOTALL,
+    )
+    assert mesh
+    point_block = re.search(
+        r"point3f\[\] points = \[(.*?)\]", mesh.group(1), flags=re.DOTALL
+    )
+    assert point_block
+    points = [
+        tuple(float(value) for value in match)
+        for match in re.findall(
+            r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
+            point_block.group(1),
+        )
+    ]
+    quads = [points[index : index + 4] for index in range(0, len(points), 4)]
+    assert len(quads) == 64
+    assert {
+        round(abs(quad[1][0] - quad[0][0]), 6) for quad in quads
+    } == {0.12}
+    track_centers = {
+        round((quad[0][0] + quad[1][0]) * 0.5, 6) for quad in quads
+    }
+    assert track_centers == {
+        -69.416023,
+        -54.666412,
+        -48.416023,
+        -33.666412,
+        -27.416023,
+        -12.666412,
+        -6.416023,
+        8.333588,
+        14.583977,
+        29.333588,
+        35.583977,
+        50.333588,
+        56.583977,
+        71.333588,
+        77.583977,
+        92.333588,
+    }
 def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
     text = OVERLAY.read_text(encoding="utf-8")
     clean_mesh = re.search(

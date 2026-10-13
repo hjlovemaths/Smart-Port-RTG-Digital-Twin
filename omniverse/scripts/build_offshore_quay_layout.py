@@ -55,6 +55,11 @@ OFFSHORE_QUAY_MAX_Y_M = 510.0
 # Match the four clear approach roads authored by build_quay_yard_traffic_layout.
 CAUSEWAY_CENTER_Y_M = (-5.375, 126.05, 256.30, 386.55)
 CAUSEWAY_WIDTH_M = 9.0
+# Match the two white edges authored on each yard cross-road. The bridge deck
+# is wider than the marked road, so its markings sit on the same ±3.7 m
+# centerline offsets as the yard road and meet the shoreline markings cleanly.
+CAUSEWAY_EDGE_LINE_OFFSET_M = 3.7
+CAUSEWAY_EDGE_LINE_WIDTH_M = 0.18
 DECK_TOP_Z_M = 0.18
 DECK_THICKNESS_M = 0.28
 MARKING_TOP_Z_M = DECK_TOP_Z_M + 0.025
@@ -85,7 +90,7 @@ TRAFFIC_LANE_WIDTH_M = 3.2
 
 CONCRETE = Gf.Vec3f(0.018, 0.035, 0.06)
 CONCRETE_EDGE = Gf.Vec3f(0.64, 0.65, 0.61)
-WHITE = Gf.Vec3f(0.90, 0.92, 0.88)
+WHITE = Gf.Vec3f(0.88, 0.90, 0.87)
 YELLOW = Gf.Vec3f(0.96, 0.70, 0.04)
 RAIL = Gf.Vec3f(0.055, 0.060, 0.062)
 PIER = Gf.Vec3f(0.22, 0.24, 0.24)
@@ -149,14 +154,18 @@ def build_road_markings(stage: Usd.Stage, root_path: str) -> None:
     causeway_center_x = (
         OFFSHORE_QUAY_LANDSIDE_X_M + CAUSEWAY_DECK_START_X_M
     ) * 0.5
-    edge_offset = CAUSEWAY_WIDTH_M * 0.5 - 0.32
+    edge_offset = CAUSEWAY_EDGE_LINE_OFFSET_M
     for index, y in enumerate(CAUSEWAY_CENTER_Y_M, start=1):
         for side, offset in (("Left", -edge_offset), ("Right", edge_offset)):
             define_cube(
                 stage,
                 f"{root_path}/Markings/Causeway_{index:02d}_{side}Edge",
                 (causeway_center_x, y + offset, MARKING_TOP_Z_M),
-                (causeway_length - 0.5, 0.16, 0.025),
+                (
+                    causeway_length - 2.0 * CAUSEWAY_SHORE_OVERLAP_M,
+                    CAUSEWAY_EDGE_LINE_WIDTH_M,
+                    0.025,
+                ),
                 WHITE,
             )
 
