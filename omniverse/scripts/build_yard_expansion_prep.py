@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from yard_coordinate_mapping import (  # noqa: E402
     BAY_GAP_M,
     BAY_LENGTH_M,
+    BAY_NUMBER_LABEL_OFFSET_X_M,
     PAINTED_YARD_COLUMN_CENTERS_X,
     RTG_TIRE_TRACK_OFFSETS_X_M,
     YARD_COLUMN_CENTERS_X,
@@ -57,7 +58,8 @@ BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M
 MARKING_WIDTH = 0.055
 MARKING_Z = 0.145
 MARKING_COLOR = Gf.Vec3f(0.88, 0.9, 0.87)
-LABEL_SIDE_OFFSETS_X = (0.0,)
+# Keep bay numbers in the left truck-lane gap, clear of the container rows.
+LABEL_SIDE_OFFSETS_X = (BAY_NUMBER_LABEL_OFFSET_X_M,)
 LABEL_PANEL_SIZE = (1.15, 0.74)
 LABEL_PANEL_Z = 0.149
 LABEL_PANEL_COLOR = Gf.Vec3f(0.82, 0.84, 0.8)
@@ -229,9 +231,22 @@ def _author_clean_bay_markings(
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
             # Keep the bay separators across the complete painted corridor.
             # The outer white perimeter remains intentionally omitted.
-            for _bay_number, _slot_start, slot_end in _odd_bay_slots(
+            for bay_number, slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
             ):
+                # Restore the requested white cross-line at the start of bay
+                # 001.  It is the only outer cross-boundary line retained;
+                # side frames and the other block-end frames stay omitted.
+                if bay_number == 1:
+                    _append_rectangle(
+                        points,
+                        counts,
+                        indices,
+                        x_min,
+                        x_max,
+                        slot_start - MARKING_WIDTH * 0.5,
+                        slot_start + MARKING_WIDTH * 0.5,
+                    )
                 # Leave the final bay boundary to the yellow wheel tracks;
                 # a white separator immediately before the block end reads
                 # as an unwanted outer frame in the viewport.

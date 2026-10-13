@@ -149,6 +149,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     assert "RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)" in text
     assert "column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X" in text
     assert "RTG_TIRE_TRACK_OFFSETS_X = RTG_TIRE_TRACK_OFFSETS_X_M" in text
+    assert "LABEL_SIDE_OFFSETS_X = (BAY_NUMBER_LABEL_OFFSET_X_M,)" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "REBUILT_TIRE_TRACKS_NAME" in text
@@ -229,3 +230,50 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
             for left, right in actual_ranges
         )
     assert max(point[1] for quad in quads for point in quad) < 443.0
+
+
+def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
+    text = OVERLAY.read_text(encoding="utf-8")
+    clean_mesh = re.search(
+        r'def Mesh "SMART_PORT_CLEAN_BAY_MARKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',
+        text,
+        flags=re.DOTALL,
+    )
+    assert clean_mesh
+    clean_points = re.search(
+        r"point3f\[\] points = \[(.*?)\]",
+        clean_mesh.group(1),
+        flags=re.DOTALL,
+    )
+    assert clean_points
+    clean_y_values = [
+        float(value)
+        for _x, value, _z in re.findall(
+            r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
+            clean_points.group(1),
+        )
+    ]
+    assert -0.5275 in clean_y_values
+
+    label_mesh = re.search(
+        r'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_BACKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',
+        text,
+        flags=re.DOTALL,
+    )
+    assert label_mesh
+    label_points = re.search(
+        r"point3f\[\] points = \[(.*?)\]",
+        label_mesh.group(1),
+        flags=re.DOTALL,
+    )
+    assert label_points
+    points = [
+        tuple(float(value) for value in match)
+        for match in re.findall(
+            r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
+            label_points.group(1),
+        )
+    ]
+    active_column = points[3 * 636 : 4 * 636]
+    assert min(point[0] for point in active_column) == -4.325
+    assert max(point[0] for point in active_column) == -3.175

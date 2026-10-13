@@ -70,6 +70,13 @@ PAINTED_YARD_COLUMN_CENTERS_X = tuple(
     )
     for index, center_x in enumerate(YARD_COLUMN_CENTERS_X)
 )
+# Bay numbers sit on the left truck-lane side of each painted yard corridor.
+# For the active column this resolves to the calibrated lane centre at -3.75 m
+# instead of the middle of the RTG span.
+BAY_NUMBER_LABEL_OFFSET_X_M = (
+    TRUCK_OPERATING_LANE_CENTER_X_M
+    - PAINTED_YARD_COLUMN_CENTERS_X[MOVING_RTG_YARD_COLUMN_INDEX]
+)
 INTER_YARD_ROAD_WIDTH_X_M = INTER_YARD_GAP_X_M
 
 
