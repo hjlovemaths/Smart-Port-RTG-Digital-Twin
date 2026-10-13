@@ -52,7 +52,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     assert (
         "custom double[] yard:columnCentersX = [-66, -44, -22, 0, 22, 44, 66, 88]" in text
     )
-    assert "custom double yard:visualColumnWidth = 14.75" in text
+    assert "custom double yard:visualColumnWidth = 14.749611084213937" in text
     assert (
         "custom double[] yard:visualColumnCentersX = [-66, -44, -22, 0, 22, 44, 66, 88]"
         in text
@@ -66,7 +66,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_BACKINGS"' in text
     assert 'def Mesh "SMART_PORT_TERMINAL_BLOCK_LABEL_GLYPHS"' in text
     assert 'def Mesh "SMART_PORT_RTG_TIRE_TRACK_YELLOW_SOLID"' in text
-    assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.75, 8]" in text
+    assert "custom double[] yard:rtgTireTrackOffsetsX = [-6.76602000559836, 7.983591078615577]" in text
     assert (
         'custom string yard:yellowLongitudinalGuides = '
         '"enabled; two yellow solid tire paths per yard column, segmented at block roads"'
@@ -99,7 +99,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
         if not z_values.issubset({0.145, 0.149, 0.151}):
             assert z_values == {0.156}
             continue
-        assert min(x_values) >= -72.7501
+        assert min(x_values) >= -72.8
         assert max(x_values) <= 98.0001
 
     count_blocks = re.findall(r"int\[\] faceVertexCounts = \[(.*?)\]", text, re.DOTALL)
@@ -148,7 +148,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
     )
     assert "RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)" in text
     assert "column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X" in text
-    assert "RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)" in text
+    assert "RTG_TIRE_TRACK_OFFSETS_X = RTG_TIRE_TRACK_OFFSETS_X_M" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
     assert "REBUILT_TIRE_TRACKS_NAME" in text
@@ -213,14 +213,19 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -72.75
-    assert max(x_values) == 96.0
-    expected_ranges = {
-        (center - 6.75, center + 8.0)
-        for center in (-66.0, -44.0, -22.0, 0.0, 22.0, 44.0, 66.0, 88.0)
-    }
-    assert {
+    assert min(x_values) == -72.76602
+    assert max(x_values) == 95.98359
+    actual_ranges = {
         (min(point[0] for point in quad), max(point[0] for point in quad))
         for quad in quads
-    } == expected_ranges
+    }
+    assert len(actual_ranges) == 8
+    for center in (-66.0, -44.0, -22.0, 0.0, 22.0, 44.0, 66.0, 88.0):
+        expected_left = center - 6.76602000559836
+        expected_right = center + 7.983591078615577
+        assert any(
+            abs(left - expected_left) < 2e-5
+            and abs(right - expected_right) < 2e-5
+            for left, right in actual_ranges
+        )
     assert max(point[1] for quad in quads for point in quad) < 443.0

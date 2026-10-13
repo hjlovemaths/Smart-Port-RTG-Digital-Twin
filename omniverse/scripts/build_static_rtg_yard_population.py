@@ -11,7 +11,11 @@ except ModuleNotFoundError:  # Isaac's standalone Python can build the layer too
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
 from rtg_live_control import GANTRY_LATERAL_ALIGNMENT_X_M
-from yard_coordinate_mapping import YARD_COLUMN_CENTERS_X, bay_scene_y_m
+from yard_coordinate_mapping import (
+    RTG_TIRE_TRACK_OFFSETS_X_M,
+    YARD_COLUMN_CENTERS_X,
+    bay_scene_y_m,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +41,7 @@ ALL_RTG_COLUMN_CENTERS_X = tuple(
 # yellow lines, so use that same datum for static visuals and their ropes.
 # Keeping this separate from GANTRY_LATERAL_ALIGNMENT_X_M preserves the live
 # controller/PLC alignment while making the rendered wheels sit on the guides.
-STATIC_RTG_VISUAL_TARGET_OFFSET_X_M = 0.625
+STATIC_RTG_VISUAL_TARGET_OFFSET_X_M = sum(RTG_TIRE_TRACK_OFFSETS_X_M) * 0.5
 STATIC_RTG_PLACEMENTS = (
     ("SMART_PORT_STATIC_RTG_YARD_M60", YARD_COLUMN_CENTERS_X[1], "1C", 17),
     ("SMART_PORT_STATIC_RTG_YARD_M30", YARD_COLUMN_CENTERS_X[2], "1C", 63),

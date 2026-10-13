@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from yard_coordinate_mapping import (  # noqa: E402
     BAY_GAP_M,
     BAY_LENGTH_M,
+    RTG_TIRE_TRACK_OFFSETS_X_M,
     YARD_COLUMN_CENTERS_X,
     YARD_BLOCKS,
     YARD_LAYOUT_START_Y_M,
@@ -37,7 +38,7 @@ YARD_COLUMN_WIDTH = YARD_X_MAX - YARD_X_MIN
 # Keep the two RTG wheel-track offsets as the shared geometric corridor for
 # both the horizontal bay separators and the yellow longitudinal tire guides.
 # Each block is segmented separately so the yellow paths stop at cross roads.
-RTG_TIRE_TRACK_OFFSETS_X = (-6.75, 8.0)
+RTG_TIRE_TRACK_OFFSETS_X = RTG_TIRE_TRACK_OFFSETS_X_M
 RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)
 RTG_TIRE_TRACK_LINE_WIDTH = 0.12
 RTG_TIRE_TRACK_LINE_Z = 0.156

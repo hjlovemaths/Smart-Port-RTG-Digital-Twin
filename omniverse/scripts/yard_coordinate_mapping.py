@@ -35,6 +35,11 @@ MOVING_RTG_YARD_COLUMN_INDEX = 3
 RTG_VISUAL_YARD_WIDTH_X_M = 14.75
 RTG_PHYSICAL_WIDTH_X_M = 19.97
 RTG_INTER_YARD_CLEARANCE_X_M = 2.03
+# Exact X coordinates of the rendered RTG tire axes on the moving yard
+# column.  Keep the painted guides on the actual wheel centre lines instead
+# of using rounded corridor endpoints, so the live and static RTGs share one
+# visible parking datum.
+RTG_TIRE_TRACK_OFFSETS_X_M = (-6.76602000559836, 7.983591078615577)
 YARD_COLUMN_SPACING_X_M = 22.0
 INTER_YARD_GAP_X_M = YARD_COLUMN_SPACING_X_M - RTG_VISUAL_YARD_WIDTH_X_M
 YARD_COLUMN_CENTERS_X = tuple(
