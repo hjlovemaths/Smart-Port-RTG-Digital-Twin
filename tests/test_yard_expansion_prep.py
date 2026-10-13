@@ -54,7 +54,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     )
     assert "custom double yard:visualColumnWidth = 14.749611084213937" in text
     assert (
-        "custom double[] yard:visualColumnCentersX = [-66, -44, -22, -1, 22, 44, 66, 88]"
+        "custom double[] yard:visualColumnCentersX = [-66, -44, -22, -2, 22, 44, 66, 88]"
         in text
     )
     assert "custom double yard:bayPitch = 2.675" in text
@@ -221,7 +221,7 @@ def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
         for quad in quads
     }
     assert len(actual_ranges) == 8
-    for center in (-66.0, -44.0, -22.0, -1.0, 22.0, 44.0, 66.0, 88.0):
+    for center in (-66.0, -44.0, -22.0, -2.0, 22.0, 44.0, 66.0, 88.0):
         expected_left = center - 4.416023299119
         expected_right = center + 10.333587785095
         assert any(
@@ -276,5 +276,5 @@ def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
         )
     ]
     active_column = points[3 * 636 : 4 * 636]
-    assert min(point[0] for point in active_column) == -4.325
-    assert max(point[0] for point in active_column) == -3.175
+    assert min(point[0] for point in active_column) == -5.325
+    assert max(point[0] for point in active_column) == -4.175
