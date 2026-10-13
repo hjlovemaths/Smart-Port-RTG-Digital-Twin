@@ -23,11 +23,11 @@ def test_traffic_layer_is_scoped_and_lightweight():
     assert 'upAxis = "Z"' in text
     assert PREFIX + "LAYOUT" in text
     mesh_count = len(re.findall(r'^\s*def Mesh "', text, flags=re.MULTILINE))
-    assert mesh_count == 13
+    assert mesh_count == 14
     assert text.count('subdivisionScheme = "none"') == mesh_count
     # Twelve traffic meshes use display colors; the night lamp mesh uses a
     # bound emissive material instead.
-    assert text.count('primvars:displayColor:interpolation = "constant"') == 12
+    assert text.count('primvars:displayColor:interpolation = "constant"') == 13
     assert "X=-101.75..150.00; Y=-10.25..500.00" in text
     assert "longShoreline=positiveX" in text
     assert "Four straight quay-to-yard lanes use the clear approach space before bay 001 of 1C, 2C, 3C, and 4C" in text
@@ -39,7 +39,7 @@ def test_traffic_layer_is_scoped_and_lightweight():
     assert "two groups of ten waiting bays" in text
     assert "Y=439.025..499.000" not in text
     assert "Physics" not in text
-    assert "Twelve traffic meshes plus 120 unique instanceable three-head street lights" in text
+    assert "Thirteen traffic meshes plus 112 unique instanceable three-head street lights" in text
     assert "one merged night lamp-glow mesh" in text
     assert "no labels, collision, or runtime vehicles" in text
     assert 'prepend apiSchemas = ["MaterialBindingAPI"]' in text
@@ -49,28 +49,34 @@ def test_traffic_layer_is_scoped_and_lightweight():
     assert "rel material:binding = </World/SMART_PORT_QUAY_YARD_TRAFFIC_LAYOUT/Looks/RoadSurface>" in text
 
 
-def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
+def test_inter_yard_gaps_have_ground_street_lights_and_crossroads_do_not():
     text = TRAFFIC.read_text(encoding="utf-8")
     reference = "prepend references = @../assets/resource/streetLight/Intersection_Street_Light.usdc@"
     assert STREET_LIGHT_ASSET.is_file()
     assert PREFIX + "INTERSECTION_STREET_LIGHTS" in text
-    assert "custom int intersectionCount = 32" in text
-    assert "custom int streetLightCount = 120" in text
+    assert "custom int intersectionCount = 0" in text
+    assert "custom int streetLightCount = 112" in text
     assert "custom int headsPerStreetLight = 3" in text
-    assert "custom int yardParkingLightCount = 88" in text
+    assert "custom int yardParkingLightCount = 112" in text
     assert "custom int requestedYardParkingLightCount = 112" in text
-    assert "custom int mergedCrossroadCount = 24" in text
-    assert "One side of every yard strip; 1C-3C:4 at both ends plus 2 middle positions" in text
+    assert "custom int mergedCrossroadCount = 0" in text
+    assert "One lamp row centered in every inter-yard gap; 1C-3C:4 positions per block" in text
     assert "custom double streetLightHeightMeters = 6.3305" in text
-    assert text.count(reference) == 120
-    assert text.count("instanceable = true") == 120
-    assert text.count("float3 xformOp:scale = (1.65, 1.65, 0.5475)") == 120
+    assert text.count(reference) == 112
+    assert text.count("instanceable = true") == 112
+    assert text.count("float3 xformOp:scale = (1.65, 1.65, 0.5475)") == 112
 
+    street_lights = re.search(
+        rf'def Xform "{PREFIX}INTERSECTION_STREET_LIGHTS"\s*\{{(.*?)\n\s*\}}\n\n\s*def Xform "{PREFIX}INTERSECTION_NIGHT_LIGHTS"',
+        text,
+        flags=re.DOTALL,
+    )
+    assert street_lights
     translations = {
         tuple(float(value) for value in match)
         for match in re.findall(
             r"xformOp:translate = \((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
-            text,
+            street_lights.group(1),
         )
     }
     road_ranges = (
@@ -83,20 +89,17 @@ def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
         (51.375, 58.625),
         (73.375, 80.625),
     )
-    cross_centers = (-5.375, 126.05, 256.30, 386.55)
-    expected_intersections = {
-        (round(x_max, 4), round(center_y + 3.7, 4), 0.112)
-        for _x_min, x_max in road_ranges
-        for center_y in cross_centers
+    expected_gap_centres = {
+        round((x_min + x_max) * 0.5, 4)
+        for x_min, x_max in road_ranges
     }
-    assert expected_intersections.issubset(translations)
-    # Three yard endpoints coincide with the corresponding crossroad lamps;
-    # the set therefore contains 15 unique x=-70 translations (14 yard + 4
-    # intersection placements minus 3 coincident endpoints).
-    assert sum(1 for x, _y, _z in translations if x == -73.375) == 15
-    for x in (-51.375, -29.375, -7.375, 14.625, 36.625, 58.625, 80.625):
-        assert sum(1 for tx, _y, _z in translations if tx == x) == 15
-    assert all(x != 102.0 for x, _y, _z in translations)
+    assert {round(x, 4) for x, _y, _z in translations} == expected_gap_centres
+    cross_centres = (-5.375, 126.05, 256.30, 386.55)
+    assert all(
+        z == 0.112 and all(abs(y - center) > 3.7 for center in cross_centres)
+        for _x, y, z in translations
+    )
+    assert 'def Xform "Road_' not in text
 
 
 def test_street_lights_exclude_terminal_boundary_and_outer_t_junctions():
@@ -108,32 +111,32 @@ def test_street_lights_exclude_terminal_boundary_and_outer_t_junctions():
     )
     assert street_lights
     section = street_lights.group(1)
-    assert section.count("def Xform \"Road_") == 32
-    assert section.count("def Xform \"Yard_") == 88
-    assert section.count("float3 xformOp:rotateXYZ = (0, 0, 180)") == 32
+    assert section.count("def Xform \"Road_") == 0
+    assert section.count("def Xform \"Yard_") == 112
+    assert section.count("float3 xformOp:rotateXYZ = (0, 0, 0)") == 112
 
 
 def test_night_street_lighting_is_hidden_by_default_and_performance_bounded():
     text = TRAFFIC.read_text(encoding="utf-8")
     assert PREFIX + "INTERSECTION_NIGHT_LIGHTS" in text
     assert 'token visibility = "invisible"' in text
-    assert "custom int effectiveLightCount = 360" in text
-    assert "custom int emissiveLampHeadCount = 360" in text
+    assert "custom int effectiveLightCount = 336" in text
+    assert "custom int emissiveLampHeadCount = 336" in text
     assert "custom int downlightsPerPole = 3" in text
-    assert text.count('def DiskLight "') == 360
-    assert text.count('_Downlight"') == 360
-    assert text.count('prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]') == 360
-    assert text.count("bool inputs:shadow:enable = false") == 360
-    assert text.count("float inputs:intensity = 70000") == 360
-    assert text.count("float inputs:exposure = 2.2") == 360
-    assert text.count("float inputs:radius = 0.24") == 360
-    assert text.count("float inputs:shaping:cone:angle = 76") == 360
-    assert text.count("float inputs:shaping:cone:softness = 0.68") == 360
-    assert text.count("custom double2 smartPort:targetGroundXY") == 360
-    assert "All yard, crossroad, and three-head DiskLights share one intensity" in text
-    assert "yard lamps map to their adjacent bay-area code" in text
+    assert text.count('def DiskLight "') == 336
+    assert text.count('_Downlight"') == 336
+    assert text.count('prepend apiSchemas = ["ShapingAPI", "ShadowAPI"]') == 336
+    assert text.count("bool inputs:shadow:enable = false") == 336
+    assert text.count("float inputs:intensity = 70000") == 336
+    assert text.count("float inputs:exposure = 2.2") == 336
+    assert text.count("float inputs:radius = 0.24") == 336
+    assert text.count("float inputs:shaping:cone:angle = 76") == 336
+    assert text.count("float inputs:shaping:cone:softness = 0.68") == 336
+    assert text.count("custom double2 smartPort:targetGroundXY") == 336
+    assert "All inter-yard three-head DiskLights share one intensity" in text
+    assert "every inter-yard gap lamp maps to its adjacent bay-area code" in text
     assert "always cover both adjacent bay codes" in text
-    assert text.count('uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]') >= 360
+    assert text.count('uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]') >= 336
     assert "float3 xformOp:rotateXYZ = (" in text
     assert 'def Mesh "LampHeadGlow"' in text
     assert 'def Mesh "GroundPool' not in text
@@ -149,18 +152,18 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
         text,
         flags=re.DOTALL,
     )
-    assert len(targets) == 88 * 3
+    assert len(targets) == 112 * 3
 
     column_centers = (-66.0, -44.0, -22.0, 0.0, 22.0, 44.0, 66.0, 88.0)
     pole_x_by_side = (
-        -73.375,
-        -51.375,
-        -29.375,
-        -7.375,
-        14.625,
-        36.625,
-        58.625,
-        80.625,
+        -79.625,
+        -55.0,
+        -33.0,
+        -11.0,
+        11.0,
+        33.0,
+        55.0,
+        77.0,
     )
     within_yard_offsets = (-3.15, 1.25, 5.65)
     block_specs = {
@@ -225,6 +228,20 @@ def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     assert "point3f[] points = []" in white_mesh.group(1)
     assert "faceVertexCounts = []" in yellow_mesh.group(1)
     assert "point3f[] points = []" in yellow_mesh.group(1)
+
+
+def test_horizontal_cross_roads_have_two_yellow_edge_lines():
+    text = TRAFFIC.read_text(encoding="utf-8")
+    mesh = re.search(
+        rf'def Mesh "{PREFIX}YELLOW_CROSS_ROAD_EDGE_LINES"\s*\{{(.*?)(?=\n\s*def Mesh ")',
+        text,
+        flags=re.DOTALL,
+    )
+    assert mesh
+    assert mesh.group(1).count("0.145") == 32
+    assert "-9.165" in mesh.group(1)
+    assert "-1.585" in mesh.group(1)
+    assert "122.26" in mesh.group(1)
 
 
 def test_traffic_layer_braces_and_coordinates_are_well_formed():

@@ -69,6 +69,8 @@ CAUSEWAY_LANDING_HALF_WIDTH_M = 4.5
 CAUSEWAY_EDGE_LINE_OFFSET_M = 4.18
 CAUSEWAY_EDGE_LINE_WIDTH_M = 0.16
 YARD_CROSS_ROAD_HALF_WIDTH_M = 3.7
+CROSS_ROAD_EDGE_LINE_WIDTH_M = 0.18
+CROSS_ROAD_EDGE_LINE_Z_M = 0.145
 INTERSECTION_STREET_LIGHT_ASSET = (
     "../assets/resource/streetLight/Intersection_Street_Light.usdc"
 )
@@ -89,13 +91,20 @@ INTERSECTION_STREET_LIGHT_SCALE = (
 )
 INTERSECTION_STREET_LIGHT_HEAD_COUNT = 3
 PARKING_LIGHT_BASE_Z_M = INTERSECTION_STREET_LIGHT_BASE_Z_M
-# One side of every yard-road strip.  Using each road's x_max puts the lamps
-# on the same white-line side shown by the placement reference image.
-YARD_LIGHT_X_OFFSETS_M = tuple(x_max for _x_min, x_max in YARD_ROAD_X_RANGES)
+# Put one row of lamps on the ground in the middle of every inter-yard gap.
+# The coastal road is included as the first one-sided strip.  Keeping the
+# poles at the road centres makes their footprint visibly belong to the gap,
+# instead of looking like an extra yard boundary or a cross-road fixture.
+YARD_LIGHT_X_OFFSETS_M = tuple(
+    (x_min + x_max) * 0.5 for x_min, x_max in YARD_ROAD_X_RANGES
+)
 # At each side, the four lamps in 1C-3C are placed at both ends plus two
 # evenly spaced middle positions; 4C gets only its two end lamps.
 YARD_LIGHT_COUNTS = {"1C": 4, "2C": 4, "3C": 4, "4C": 2}
-YARD_LIGHT_MARGIN_M = 0.0
+# Bay-block endpoints coincide with the horizontal cross-road edges.  Move the
+# endpoint lamps one metre into the adjacent yard block so no pole sits on the
+# horizontal road itself.
+YARD_LIGHT_MARGIN_M = YARD_CROSS_ROAD_HALF_WIDTH_M + 1.0
 NIGHT_STREET_LIGHT_ROOT_NAME = f"{PREFIX}INTERSECTION_NIGHT_LIGHTS"
 NIGHT_STREET_LIGHT_COLOR = (1.0, 1.0, 1.0)
 NIGHT_STREET_LIGHT_COLOR_TEMPERATURE_K = 4000.0
@@ -281,6 +290,27 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
     return white_quads, yellow_centerline_quads
 
 
+def cross_road_edge_quads() -> list[tuple]:
+    """Draw the two yellow edges of each horizontal yard cross-road."""
+
+    quads = []
+    for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
+        for edge_y in (
+            center_y - YARD_CROSS_ROAD_HALF_WIDTH_M,
+            center_y + YARD_CROSS_ROAD_HALF_WIDTH_M,
+        ):
+            quads.append(
+                rect(
+                    YARD_INLAND_EDGE_X,
+                    edge_y - CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
+                    110.5,
+                    edge_y + CROSS_ROAD_EDGE_LINE_WIDTH_M * 0.5,
+                    CROSS_ROAD_EDGE_LINE_Z_M,
+                )
+            )
+    return quads
+
+
 def safety_hatch_quads() -> list[tuple]:
     quads = []
     for y_min, y_max in ((290.0, 346.0),):
@@ -339,18 +369,9 @@ def tree_quads(x_positions: tuple[float, ...]) -> tuple[list[tuple], list[tuple]
 
 
 def intersection_street_light_placements() -> list[tuple[str, float, float, float]]:
-    """Place one parking-lot lamp at each true crossroad."""
+    """Return no lamps: horizontal cross-roads must remain lamp-free."""
 
-    placements = []
-    for road_index, (x_min, x_max) in enumerate(YARD_ROAD_X_RANGES, start=1):
-        for cross_index, center_y in enumerate(BLOCK_APPROACH_LANE_CENTERS_Y, start=1):
-            # Put the single intersection lamp exactly on the white-line
-            # crossing at the road edge, rather than inside the asphalt lane.
-            x = x_max
-            y = center_y + YARD_CROSS_ROAD_HALF_WIDTH_M
-            name = f"Road_{road_index:02d}_Cross_{cross_index:02d}"
-            placements.append((name, x, y, 180.0))
-    return placements
+    return []
 
 
 def yard_parking_light_placements() -> list[tuple[str, float, float, float]]:
@@ -375,19 +396,9 @@ def yard_parking_light_placements() -> list[tuple[str, float, float, float]]:
 
 
 def all_street_light_placements() -> list[tuple[str, float, float, float]]:
-    # A yard endpoint can be the same physical point as a crossroad vertex.
-    # Keep the intersection lamp (and its orientation) instead of stacking a
-    # second three-head asset at the same coordinates.
-    unique = []
-    seen: set[tuple[float, float]] = set()
-    for placement in [*intersection_street_light_placements(), *yard_parking_light_placements()]:
-        _name, x, y, _rotate_z = placement
-        key = (round(x, 4), round(y, 4))
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(placement)
-    return unique
+    # Keep this helper as the single source of truth for both the asset
+    # instances and the night-light meshes.  Only inter-yard gap lamps remain.
+    return yard_parking_light_placements()
 
 
 def street_light_instances_usda() -> str:
@@ -418,9 +429,9 @@ def street_light_instances_usda() -> str:
             custom int yardParkingLightCount = {len(placements) - len(intersection_placements)}
             custom int requestedYardParkingLightCount = {len(yard_placements)}
             custom int mergedCrossroadCount = {merged_crossroad_count}
-            custom string requestedSideLightCounts = "One side of every yard strip; 1C-3C:4 at both ends plus 2 middle positions; 4C:2 at both ends; overlapping crossroad positions share one three-head lamp"
+            custom string requestedSideLightCounts = "One lamp row centered in every inter-yard gap; 1C-3C:4 positions per block and 4C:2 positions; endpoint lamps are offset away from horizontal cross-roads"
             custom double streetLightHeightMeters = {fmt(INTERSECTION_STREET_LIGHT_HEIGHT_M)}
-            custom string streetLightRule = "One three-head streetLight asset at each true crossroad; every yard strip has one lit side with 4 lamps in 1C-3C and 2 end lamps in 4C"
+            custom string streetLightRule = "One three-head streetLight asset at the ground centre of each inter-yard gap; no streetLight asset is placed on a horizontal cross-road"
 {instance_text}
         }}'''
 
@@ -608,9 +619,9 @@ def night_street_lights_usda() -> str:
             custom int effectiveLightCount = {len(lights)}
             custom int emissiveLampHeadCount = {len(quads)}
             custom int downlightsPerPole = 3
-            custom string uniformLightParametersRule = "All yard, crossroad, and three-head DiskLights share one intensity, exposure, color temperature, radius, cone angle, softness, and shadow setting; only aim transforms differ"
-            custom string performanceRule = "One real shadow-free DiskLight per physical head; road lamps follow the asset directions and yard lamps map to their adjacent bay-area code"
-            custom string yardBayAreaAimRule = "Coastal poles map all heads to the right bay; inter-yard poles always cover both adjacent bay codes and alternate the spare beam between their left and right bay-number strips"
+            custom string uniformLightParametersRule = "All inter-yard three-head DiskLights share one intensity, exposure, color temperature, radius, cone angle, softness, and shadow setting; only aim transforms differ"
+            custom string performanceRule = "One real shadow-free DiskLight per physical head; every inter-yard gap lamp maps to its adjacent bay-area code"
+            custom string yardBayAreaAimRule = "Coastal gap poles map all heads to the right bay; inter-yard gap poles always cover both adjacent bay codes and alternate the spare beam between their left and right bay-number strips"
             def Scope "Looks"
             {{
                 def Material "LampGlow"
@@ -687,6 +698,7 @@ def build_layer() -> str:
     coastal_tree_trunks, coastal_tree_crowns = tree_quads((-97.5, -90.125))
     right_edge_tree_trunks, right_edge_tree_crowns = tree_quads((107.875,))
     white_lane_quads, yellow_centerline_quads = lane_marking_quads()
+    cross_road_edge_line_quads = cross_road_edge_quads()
 
     road_material_path = f"/World/{PREFIX}LAYOUT/Looks/RoadSurface"
     meshes = (
@@ -694,6 +706,7 @@ def build_layer() -> str:
         mesh_usda(f"{PREFIX}ROAD_SURFACE", (0.018, 0.035, 0.06), road_quads, material_path=road_material_path),
         mesh_usda(f"{PREFIX}WHITE_LANE_MARKINGS", (0.88, 0.90, 0.87), white_lane_quads),
         mesh_usda(f"{PREFIX}YELLOW_LANE_CENTERLINES", (0.96, 0.76, 0.04), yellow_centerline_quads),
+        mesh_usda(f"{PREFIX}YELLOW_CROSS_ROAD_EDGE_LINES", (0.96, 0.76, 0.04), cross_road_edge_line_quads),
         mesh_usda(f"{PREFIX}YELLOW_WAITING_BAYS", (0.96, 0.76, 0.04), waiting_bay_quads()),
         mesh_usda(f"{PREFIX}SAFETY_HATCH_MARKINGS", (0.96, 0.76, 0.04), safety_hatch_quads()),
         mesh_usda(f"{PREFIX}COASTAL_GREEN_BELT", (0.08, 0.24, 0.10), segmented_green_belt_quads(COASTAL_GREEN_BELT_X_RANGE)),
@@ -737,7 +750,7 @@ def Xform "World"
     {{
         custom string trafficCoordinateRange = "X=-101.75..150.00; Y=-10.25..500.00; longShoreline=positiveX"
         custom string trafficLayoutRule = "Four straight quay-to-yard lanes use the clear approach space before bay 001 of 1C, 2C, 3C, and 4C; connected by the long-shore road and a full-width terminal cross-road; the former coastal yard is split evenly into a waterside green tree belt and a yard-side road; the far-right former narrow lane is a green tree belt beside the outer continuous road; seven inter-yard gaps are traffic lanes; two groups of ten waiting bays"
-        custom string trafficPrimitiveRule = "Twelve traffic meshes plus 120 unique instanceable three-head street lights and one merged night lamp-glow mesh; overlapping yard endpoints share the crossroad lamp; no labels, collision, or runtime vehicles"
+        custom string trafficPrimitiveRule = "Thirteen traffic meshes plus 112 unique instanceable three-head street lights and one merged night lamp-glow mesh; horizontal cross-roads remain lamp-free; no labels, collision, or runtime vehicles"
 {road_material_text}
 {mesh_text}
 

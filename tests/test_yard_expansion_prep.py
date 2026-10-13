@@ -185,7 +185,7 @@ def test_old_left_and_right_central_boundary_meshes_are_inactive():
         )
 
 
-def test_rebuilt_bay_markings_omit_outer_white_frames():
+def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
     text = OVERLAY.read_text(encoding="utf-8")
     mesh = re.search(
         r'def Mesh "SMART_PORT_CLEAN_BAY_MARKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',
@@ -229,7 +229,7 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
             and abs(right - expected_right) < 2e-5
             for left, right in actual_ranges
         )
-    assert max(point[1] for quad in quads for point in quad) < 443.0
+    assert max(point[1] for quad in quads for point in quad) == 446.2525
 
 
 def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
@@ -254,6 +254,7 @@ def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
         )
     ]
     assert -0.5275 in clean_y_values
+    assert 446.2525 in clean_y_values
 
     label_mesh = re.search(
         r'def Mesh "SMART_PORT_CLEAN_BAY_NUMBER_BACKINGS"\s*\{(.*?)(?=\n\s*def Mesh ")',

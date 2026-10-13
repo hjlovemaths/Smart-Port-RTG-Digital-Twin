@@ -230,7 +230,8 @@ def _author_clean_bay_markings(
         x_max = center_x + max(RTG_TIRE_TRACK_OFFSETS_X)
         for _block_name, bay_count, y_min, y_max in YARD_BLOCK_SPECS:
             # Keep the bay separators across the complete painted corridor.
-            # The outer white perimeter remains intentionally omitted.
+            # The side perimeter remains omitted, but the first and final bay
+            # cross-lines are retained so every block has complete bay ends.
             for bay_number, slot_start, slot_end in _odd_bay_slots(
                 bay_count, y_min, y_max
             ):
@@ -247,9 +248,9 @@ def _author_clean_bay_markings(
                         slot_start - MARKING_WIDTH * 0.5,
                         slot_start + MARKING_WIDTH * 0.5,
                     )
-                # Leave the final bay boundary to the yellow wheel tracks;
-                # a white separator immediately before the block end reads
-                # as an unwanted outer frame in the viewport.
+                # Leave the final bay boundary to the explicit block-end line
+                # below; an internal separator immediately before it would be
+                # a duplicate.
                 if slot_end >= y_max - BAY_PITCH_Y - 1e-6:
                     continue
                 position = slot_end + BAY_GAP_M * 0.5
@@ -262,6 +263,15 @@ def _author_clean_bay_markings(
                     position - MARKING_WIDTH * 0.5,
                     position + MARKING_WIDTH * 0.5,
                 )
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                x_min,
+                x_max,
+                y_max - MARKING_WIDTH * 0.5,
+                y_max + MARKING_WIDTH * 0.5,
+            )
 
     return _define_flat_mesh(
         output_stage, mesh_name, points, counts, indices, MARKING_COLOR
@@ -625,7 +635,7 @@ def build() -> tuple[int, int, dict[str, int]]:
     rebuilt_root.CreateAttribute(
         "yard:visualFillRule", Sdf.ValueTypeNames.String
     ).Set(
-        "draw white bay lines between each runtime RTG tire-guide pair and two yellow tire paths at the wheel guides; draw no longitudinal guides in column gaps"
+        "draw complete white bay cross-lines between each runtime RTG tire-guide pair and two yellow tire paths at the wheel guides; draw no longitudinal guides in column gaps"
     )
     rebuilt_root.CreateAttribute(
         "yard:terminalBlockLabelRule", Sdf.ValueTypeNames.String
