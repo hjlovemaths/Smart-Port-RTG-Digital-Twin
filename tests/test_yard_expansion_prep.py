@@ -220,6 +220,10 @@ def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
         round(sum(point[1] for point in quad) / 4.0, 4) for quad in quads
     }
     assert {119.775, 250.025, 380.275, 443.65}.issubset(y_centers)
+    # The first three block ends open onto the cross-road; only the terminal
+    # 4C end keeps its final white boundary line.
+    assert not {122.35, 252.6, 382.85}.intersection(y_centers)
+    assert 446.225 in y_centers
     actual_ranges = {
         (min(point[0] for point in quad), max(point[0] for point in quad))
         for quad in quads
