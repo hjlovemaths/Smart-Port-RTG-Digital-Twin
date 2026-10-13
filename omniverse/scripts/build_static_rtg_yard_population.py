@@ -32,6 +32,12 @@ ALL_RTG_COLUMN_CENTERS_X = tuple(
     # Use the exact lateral datum that RTGController applies to PLC poses.
     center_x + GANTRY_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X
 )
+# The static visual asset's placement origin is calibrated to the RTG body
+# centre.  The painted tire guides are centred at the midpoint of their two
+# yellow lines, so use that same datum for static visuals and their ropes.
+# Keeping this separate from GANTRY_LATERAL_ALIGNMENT_X_M preserves the live
+# controller/PLC alignment while making the rendered wheels sit on the guides.
+STATIC_RTG_VISUAL_TARGET_OFFSET_X_M = 0.625
 STATIC_RTG_PLACEMENTS = (
     ("SMART_PORT_STATIC_RTG_YARD_M60", YARD_COLUMN_CENTERS_X[1], "1C", 17),
     ("SMART_PORT_STATIC_RTG_YARD_M30", YARD_COLUMN_CENTERS_X[2], "1C", 63),
@@ -459,7 +465,7 @@ def _define_static_hoist_ropes(
 
     UsdGeom.Xform.Define(stage, STATIC_ROPE_ROOT_PATH)
     for rtg_name, target_x, block, bay in STATIC_RTG_PLACEMENTS:
-        target_x += GANTRY_LATERAL_ALIGNMENT_X_M
+        target_x += STATIC_RTG_VISUAL_TARGET_OFFSET_X_M
         target_y = bay_scene_y_m(block, bay)
         center_x = target_x + spreader_offset_x
         center_y = target_y + spreader_offset_y
@@ -578,7 +584,8 @@ def build() -> dict[str, object]:
         "../assets/rtg/RTG_Static_Visual.usdc", PROTOTYPE_ROOT_PATH
     )
     for name, target_x, block, bay in STATIC_RTG_PLACEMENTS:
-        target_x += GANTRY_LATERAL_ALIGNMENT_X_M
+        visual_target_x = target_x + STATIC_RTG_VISUAL_TARGET_OFFSET_X_M
+        metadata_target_x = target_x + GANTRY_LATERAL_ALIGNMENT_X_M
         target_y = bay_scene_y_m(block, bay)
         target = stage.DefinePrim(f"{PORT_PATH}/{name}", "Xform")
         target.GetReferences().AddReference(source_reference)
@@ -589,13 +596,13 @@ def build() -> dict[str, object]:
                 source_stage,
                 cache,
                 STATIC_TEMPLATE_PATH,
-                target_x,
+                visual_target_x,
                 target_y,
             ),
         )
         target.CreateAttribute(
             "rtg:yardColumnCenterX", Sdf.ValueTypeNames.Double, custom=True
-        ).Set(target_x)
+        ).Set(metadata_target_x)
         target.CreateAttribute(
             "rtg:parkingCenterY", Sdf.ValueTypeNames.Double, custom=True
         ).Set(target_y)
