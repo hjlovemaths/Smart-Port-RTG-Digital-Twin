@@ -215,7 +215,11 @@ def test_rebuilt_bay_markings_keep_bay_end_lines_without_side_frames():
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
     assert min(x_values) == -69.416023
-    assert max(x_values) == 92.333587
+    assert max(x_values) == 92.333588
+    y_centers = {
+        round(sum(point[1] for point in quad) / 4.0, 4) for quad in quads
+    }
+    assert {119.775, 250.025, 380.275, 443.65}.issubset(y_centers)
     actual_ranges = {
         (min(point[0] for point in quad), max(point[0] for point in quad))
         for quad in quads

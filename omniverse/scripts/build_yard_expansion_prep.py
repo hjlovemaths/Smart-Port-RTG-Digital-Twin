@@ -248,10 +248,10 @@ def _author_clean_bay_markings(
                         slot_start - MARKING_WIDTH * 0.5,
                         slot_start + MARKING_WIDTH * 0.5,
                     )
-                # Leave the final bay boundary to the explicit block-end line
-                # below; an internal separator immediately before it would be
-                # a duplicate.
-                if slot_end >= y_max - BAY_PITCH_Y - 1e-6:
+                # Leave only the actual final-bay end to the explicit block-end
+                # line below.  Keep the separator before the final bay so its
+                # last bay number is still bounded by a complete white line.
+                if slot_end >= y_max - 1e-6:
                     continue
                 position = slot_end + BAY_GAP_M * 0.5
                 _append_rectangle(

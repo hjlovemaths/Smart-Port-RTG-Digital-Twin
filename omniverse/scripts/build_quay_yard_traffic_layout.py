@@ -293,9 +293,9 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
 def cross_road_edge_quads() -> list[tuple]:
     """Draw cross-road edges only through the yard-side painted corridors.
 
-    The inter-yard gaps are longitudinal traffic roads.  Leave those gaps
-    unmarked at a horizontal crossing so the cross-road edge does not form a
-    white bar across the driving lane.
+    The inter-yard gaps and the outside approach roads are longitudinal
+    traffic roads.  Keep the edge only inside each yellow yard corridor so it
+    does not form an extra white bar outside the painted yard.
     """
 
     quads = []
@@ -304,11 +304,9 @@ def cross_road_edge_quads() -> list[tuple]:
             center_y - YARD_CROSS_ROAD_HALF_WIDTH_M,
             center_y + YARD_CROSS_ROAD_HALF_WIDTH_M,
         ):
-            for x_min, x_max in segments_without(
-                YARD_INLAND_EDGE_X,
-                110.5,
-                INTER_YARD_ROAD_X_RANGES,
-            ):
+            for column_center_x in YARD_COLUMN_CENTERS_X:
+                x_min = column_center_x - RTG_VISUAL_YARD_WIDTH_X_M * 0.5
+                x_max = column_center_x + RTG_VISUAL_YARD_WIDTH_X_M * 0.5
                 quads.append(
                     rect(
                         x_min,
