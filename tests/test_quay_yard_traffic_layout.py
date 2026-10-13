@@ -75,11 +75,11 @@ def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
     }
     road_ranges = (
         (-85.875, -70.0),
-        (-24.75, -23.4375),
-        (-8.6875, -7.375),
-        (7.375, 8.6875),
-        (23.4375, 24.75),
-        (39.5, 40.8125),
+        (-36.625, -29.375),
+        (-14.625, -7.375),
+        (7.375, 14.625),
+        (29.375, 36.625),
+        (51.375, 58.625),
     )
     cross_centers = (-5.375, 126.05, 256.30, 386.55)
     expected_intersections = {
@@ -92,7 +92,7 @@ def test_every_true_crossroad_vertex_has_one_instanceable_street_light():
     # the set therefore contains 15 unique x=-70 translations (14 yard + 4
     # intersection placements minus 3 coincident endpoints).
     assert sum(1 for x, _y, _z in translations if x == -70.0) == 15
-    for x in (-23.4375, -7.375, 8.6875, 24.75, 40.8125):
+    for x in (-29.375, -7.375, 14.625, 36.625, 58.625):
         assert sum(1 for tx, _y, _z in translations if tx == x) == 15
     assert all(x != 102.0 for x, _y, _z in translations)
 
@@ -149,8 +149,8 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
     )
     assert len(targets) == 66 * 3
 
-    column_centers = (-32.125, -16.0625, 0.0, 16.0625, 32.125, 48.1875)
-    pole_x_by_side = (-70.0, -23.4375, -7.375, 8.6875, 24.75, 40.8125)
+    column_centers = (-44.0, -22.0, 0.0, 22.0, 44.0, 66.0)
+    pole_x_by_side = (-70.0, -29.375, -7.375, 14.625, 36.625, 58.625)
     within_yard_offsets = (-3.15, 1.25, 5.65)
     block_specs = {
         "1C": (-0.5, 46),
@@ -296,11 +296,11 @@ def test_coastal_strip_and_inter_yard_gaps_are_longitudinal_roads():
     text = TRAFFIC.read_text(encoding="utf-8")
     road_ranges = (
         (-85.875, -70.0),
-        (-24.75, -23.4375),
-        (-8.6875, -7.375),
-        (7.375, 8.6875),
-        (23.4375, 24.75),
-        (39.5, 40.8125),
+        (-36.625, -29.375),
+        (-14.625, -7.375),
+        (7.375, 14.625),
+        (29.375, 36.625),
+        (51.375, 58.625),
     )
     for x_min, x_max in road_ranges:
         assert f"({x_min:g}, -10.25, 0.109)" in text
@@ -353,11 +353,11 @@ def test_white_lane_markings_stop_at_all_yard_road_intersections():
     quads = [points[index : index + 4] for index in range(0, len(points), 4)]
     yard_roads = (
         (-85.875, -70.0),
-        (-24.75, -23.4375),
-        (-8.6875, -7.375),
-        (7.375, 8.6875),
-        (23.4375, 24.75),
-        (39.5, 40.8125),
+        (-36.625, -29.375),
+        (-14.625, -7.375),
+        (7.375, 14.625),
+        (29.375, 36.625),
+        (51.375, 58.625),
     )
     cross_centers = (-5.375, 126.05, 256.30, 386.55, 496.30)
     for quad in quads:

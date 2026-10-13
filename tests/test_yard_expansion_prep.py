@@ -50,11 +50,11 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     ) in text
     assert 'def Xform "SMART_PORT_REBUILT_YARD_LAYOUT"' in text
     assert (
-        "custom double[] yard:columnCentersX = [-32.125, -16.0625, 0, 16.0625, 32.125, 48.1875]" in text
+        "custom double[] yard:columnCentersX = [-44, -22, 0, 22, 44, 66]" in text
     )
     assert "custom double yard:visualColumnWidth = 14.75" in text
     assert (
-        "custom double[] yard:visualColumnCentersX = [-32.125, -16.0625, 0, 16.0625, 32.125, 48.1875]"
+        "custom double[] yard:visualColumnCentersX = [-44, -22, 0, 22, 44, 66]"
         in text
     )
     assert "custom double yard:bayPitch = 2.675" in text
@@ -95,8 +95,8 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
         ]
         x_values = [point[0] for point in coordinates]
         assert x_values
-        assert min(x_values) >= -38.8751
-        assert max(x_values) <= 58.1626
+        assert min(x_values) >= -50.7501
+        assert max(x_values) <= 76.0001
         assert {round(point[2], 6) for point in coordinates}.issubset(
             {0.145, 0.149, 0.151}
         )
@@ -210,11 +210,11 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
 
     assert not longitudinal_quads
     x_values = [point[0] for quad in quads for point in quad]
-    assert min(x_values) == -38.875
-    assert max(x_values) == 56.1875
+    assert min(x_values) == -50.75
+    assert max(x_values) == 74.0
     expected_ranges = {
         (center - 6.75, center + 8.0)
-        for center in (-32.125, -16.0625, 0.0, 16.0625, 32.125, 48.1875)
+        for center in (-44.0, -22.0, 0.0, 22.0, 44.0, 66.0)
     }
     assert {
         (min(point[0] for point in quad), max(point[0] for point in quad))
