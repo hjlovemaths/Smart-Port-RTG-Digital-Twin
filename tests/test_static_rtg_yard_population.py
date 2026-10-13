@@ -53,7 +53,7 @@ def test_five_yards_receive_instanceable_static_visual_rtgs_at_distinct_bays():
 def test_builder_uses_all_six_parallel_yard_centers_without_cloning_dynamic_rtg():
     text = BUILDER.read_text(encoding="utf-8")
     assert "YARD_COLUMN_CENTERS_X" in text
-    assert "center_x + GANTRY_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X" in text
+    assert "center_x + RTG_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X" in text
     assert 'STATIC_TEMPLATE_NAME = "RTG_STATIC_LEFT"' in text
     assert 'STATIC_TEMPLATE_NAME = "RTG_PRIMARY_DYNAMIC"' not in text
 

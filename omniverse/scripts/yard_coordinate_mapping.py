@@ -27,6 +27,16 @@ TRUCK_OPERATING_LANE_CENTER_X_M = -3.75
 # kept on each side of the existing six-column operating area.
 MOVING_RTG_YARD_CENTER_X_M = 0.0
 MOVING_RTG_YARD_COLUMN_INDEX = 3
+# The first container row is on the moving RTG's right side.  Move only the
+# active RTG and its painted ground corridor toward that row; the neighbouring
+# yard columns and static RTGs keep their existing datums.  The 1.75 m value
+# leaves approximately the existing 1.50 m inner safety margin to the row-1
+# container edge.
+PRIMARY_RTG_LATERAL_SHIFT_X_M = -1.75
+RTG_LATERAL_ALIGNMENT_X_M = 1.2
+PRIMARY_RTG_LATERAL_ALIGNMENT_X_M = (
+    RTG_LATERAL_ALIGNMENT_X_M + PRIMARY_RTG_LATERAL_SHIFT_X_M
+)
 # The painted RTG corridor is 14.75 m wide.  Measuring the composed RTG model
 # gives a 19.97 m physical X span, so a 22 m centre spacing leaves about
 # 2.03 m between the physical envelopes of adjacent RTGs.  Keep this explicit
@@ -47,6 +57,18 @@ YARD_COLUMN_CENTERS_X = tuple(
     MOVING_RTG_YARD_CENTER_X_M
     + (index - MOVING_RTG_YARD_COLUMN_INDEX) * YARD_COLUMN_SPACING_X_M
     for index in range(8)
+)
+# Ground markings follow the active RTG only.  Keep the logical yard-column
+# centers above unchanged so static RTG placement and PLC yard coordinates do
+# not move with this visual correction.
+PAINTED_YARD_COLUMN_CENTERS_X = tuple(
+    center_x
+    + (
+        PRIMARY_RTG_LATERAL_SHIFT_X_M
+        if index == MOVING_RTG_YARD_COLUMN_INDEX
+        else 0.0
+    )
+    for index, center_x in enumerate(YARD_COLUMN_CENTERS_X)
 )
 INTER_YARD_ROAD_WIDTH_X_M = INTER_YARD_GAP_X_M
 

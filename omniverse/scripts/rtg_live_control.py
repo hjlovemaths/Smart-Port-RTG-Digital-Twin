@@ -19,6 +19,7 @@ try:
         BAY_GAP_M,
         BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
+        RTG_LATERAL_ALIGNMENT_X_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
         YARD_LAYOUT_START_Y_M,
@@ -33,6 +34,7 @@ except ModuleNotFoundError:
         BAY_GAP_M,
         BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
+        RTG_LATERAL_ALIGNMENT_X_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
         YARD_LAYOUT_START_Y_M,
@@ -73,9 +75,15 @@ SPREADER_TELESCOPE_SPEED_M_S = 0.60
 # value as the stage plays.  A dedicated additive op remains stable at every
 # timeline frame.
 SPREADER_LIVE_TELESCOPE_OP_SUFFIX = "rtgLiveTelescoping"
-# The PLC receiver drives travel in Y; X is its fixed lateral datum. Use this
-# shared datum for both the live primary RTG and the static yard RTGs.
-GANTRY_LATERAL_ALIGNMENT_X_M = 1.2
+# The PLC receiver drives travel in Y; X is the fixed lateral datum for the
+# active primary RTG. Static RTGs use the unchanged logical yard-column datum.
+_yard_mapping = sys.modules.get("yard_coordinate_mapping")
+PRIMARY_RTG_LATERAL_ALIGNMENT_X_M = getattr(
+    _yard_mapping,
+    "PRIMARY_RTG_LATERAL_ALIGNMENT_X_M",
+    RTG_LATERAL_ALIGNMENT_X_M - 1.75,
+)
+GANTRY_LATERAL_ALIGNMENT_X_M = PRIMARY_RTG_LATERAL_ALIGNMENT_X_M
 GANTRY_BASE_TRANSLATE = Gf.Vec3d(GANTRY_LATERAL_ALIGNMENT_X_M, 0.0, 0.0)
 TROLLEY_BASE_TRANSLATE = Gf.Vec3d(0.0, 0.0, 0.0)
 HOIST_BASE_TRANSLATE = Gf.Vec3d(0.0, 0.0, 0.0)

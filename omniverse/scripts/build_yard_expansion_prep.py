@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from yard_coordinate_mapping import (  # noqa: E402
     BAY_GAP_M,
     BAY_LENGTH_M,
+    PAINTED_YARD_COLUMN_CENTERS_X,
     RTG_TIRE_TRACK_OFFSETS_X_M,
     YARD_COLUMN_CENTERS_X,
     YARD_BLOCKS,
@@ -216,7 +217,7 @@ def _odd_bay_slots(bay_count: int, y_min: float, y_max: float):
 
 def _author_clean_bay_markings(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X,
     mesh_name: str = REBUILT_MARKINGS_NAME,
 ) -> int:
     points: list[Gf.Vec3f] = []
@@ -254,7 +255,7 @@ def _author_clean_bay_markings(
 
 def _author_rtg_tire_tracks(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X,
     mesh_name: str = REBUILT_TIRE_TRACKS_NAME,
 ) -> int:
     points: list[Gf.Vec3f] = []
@@ -337,7 +338,7 @@ def _append_digit(
 
 def _author_bay_number_labels(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X,
 ) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
@@ -404,7 +405,7 @@ def _author_bay_number_labels(
 
 def _author_terminal_block_labels(
     output_stage: Usd.Stage,
-    column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X,
+    column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X,
 ) -> dict[str, int]:
     backing_points: list[Gf.Vec3f] = []
     backing_counts: list[int] = []
@@ -590,7 +591,7 @@ def build() -> tuple[int, int, dict[str, int]]:
     ).Set(RTG_YARD_WIDTH_X)
     rebuilt_root.CreateAttribute(
         "yard:visualColumnCentersX", Sdf.ValueTypeNames.DoubleArray
-    ).Set(Vt.DoubleArray(YARD_COLUMN_CENTERS_X))
+    ).Set(Vt.DoubleArray(PAINTED_YARD_COLUMN_CENTERS_X))
     rebuilt_root.CreateAttribute(
         "yard:visualColumnCount", Sdf.ValueTypeNames.Int
     ).Set(len(YARD_COLUMN_CENTERS_X))
@@ -604,7 +605,7 @@ def build() -> tuple[int, int, dict[str, int]]:
         YARD_BLOCK_SPECS[-1][3]
     )
     rebuilt_root.CreateAttribute("yard:template", Sdf.ValueTypeNames.String).Set(
-        "Moving RTG yard stays at X=0; seven other RTG yard columns use 22 m spacing, with white bay markings and yellow tire paths inside the RTG corridor"
+        "The active RTG and its white bay markings/yellow tire paths are shifted X=-1.75 m toward the first container row; seven other RTG yard columns remain on their original 22 m datums"
     )
     rebuilt_root.CreateAttribute(
         "yard:visualFillRule", Sdf.ValueTypeNames.String

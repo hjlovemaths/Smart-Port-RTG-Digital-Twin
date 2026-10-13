@@ -54,7 +54,7 @@ def test_old_markings_are_replaced_by_evenly_tiled_yard_columns():
     )
     assert "custom double yard:visualColumnWidth = 14.749611084213937" in text
     assert (
-        "custom double[] yard:visualColumnCentersX = [-66, -44, -22, 0, 22, 44, 66, 88]"
+        "custom double[] yard:visualColumnCentersX = [-66, -44, -22, -1.75, 22, 44, 66, 88]"
         in text
     )
     assert "custom double yard:bayPitch = 2.675" in text
@@ -147,7 +147,7 @@ def test_builder_documents_parallel_future_yards_and_lane_separation():
         "YARD_COLUMN_CENTERS_X," in text
     )
     assert "RTG_YARD_WIDTH_X = max(RTG_TIRE_TRACK_OFFSETS_X) - min(RTG_TIRE_TRACK_OFFSETS_X)" in text
-    assert "column_centers: tuple[float, ...] = YARD_COLUMN_CENTERS_X" in text
+    assert "column_centers: tuple[float, ...] = PAINTED_YARD_COLUMN_CENTERS_X" in text
     assert "RTG_TIRE_TRACK_OFFSETS_X = RTG_TIRE_TRACK_OFFSETS_X_M" in text
     assert "BAY_PITCH_Y = BAY_LENGTH_M + BAY_GAP_M" in text
     assert "SMART_PORT_CLEAN_BAY_MARKINGS" in text
@@ -220,7 +220,7 @@ def test_rebuilt_bay_markings_omit_outer_white_frames():
         for quad in quads
     }
     assert len(actual_ranges) == 8
-    for center in (-66.0, -44.0, -22.0, 0.0, 22.0, 44.0, 66.0, 88.0):
+    for center in (-66.0, -44.0, -22.0, -1.75, 22.0, 44.0, 66.0, 88.0):
         expected_left = center - 4.416023299119
         expected_right = center + 10.333587785095
         assert any(

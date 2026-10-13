@@ -10,8 +10,8 @@ except ModuleNotFoundError:  # Isaac's standalone Python can build the layer too
     omni = None
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
-from rtg_live_control import GANTRY_LATERAL_ALIGNMENT_X_M
 from yard_coordinate_mapping import (
+    RTG_LATERAL_ALIGNMENT_X_M,
     RTG_TIRE_TRACK_OFFSETS_X_M,
     YARD_COLUMN_CENTERS_X,
     bay_scene_y_m,
@@ -34,13 +34,13 @@ SCENE_START_TIME = Usd.TimeCode(1.0)
 
 ALL_RTG_COLUMN_CENTERS_X = tuple(
     # Use the exact lateral datum that RTGController applies to PLC poses.
-    center_x + GANTRY_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X
+    center_x + RTG_LATERAL_ALIGNMENT_X_M for center_x in YARD_COLUMN_CENTERS_X
 )
 # The static visual asset's placement origin is calibrated to the RTG body
 # centre.  The painted tire guides are centred at the midpoint of their two
 # yellow lines, so use that same datum for static visuals and their ropes.
-# Keeping this separate from GANTRY_LATERAL_ALIGNMENT_X_M preserves the live
-# controller/PLC alignment while making the rendered wheels sit on the guides.
+# Keeping this separate from the primary RTG's live alignment preserves the
+# logical static-column datum while making the rendered wheels sit on guides.
 STATIC_RTG_VISUAL_TARGET_OFFSET_X_M = sum(RTG_TIRE_TRACK_OFFSETS_X_M) * 0.5
 STATIC_RTG_PLACEMENTS = (
     ("SMART_PORT_STATIC_RTG_YARD_M60", YARD_COLUMN_CENTERS_X[1], "1C", 17),
@@ -589,7 +589,7 @@ def build() -> dict[str, object]:
     )
     for name, target_x, block, bay in STATIC_RTG_PLACEMENTS:
         visual_target_x = target_x + STATIC_RTG_VISUAL_TARGET_OFFSET_X_M
-        metadata_target_x = target_x + GANTRY_LATERAL_ALIGNMENT_X_M
+        metadata_target_x = target_x + RTG_LATERAL_ALIGNMENT_X_M
         target_y = bay_scene_y_m(block, bay)
         target = stage.DefinePrim(f"{PORT_PATH}/{name}", "Xform")
         target.GetReferences().AddReference(source_reference)
