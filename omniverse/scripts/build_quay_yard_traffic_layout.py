@@ -291,7 +291,7 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
 
 
 def cross_road_edge_quads() -> list[tuple]:
-    """Draw the two yellow edges of each horizontal yard cross-road."""
+    """Draw the two white edges of each horizontal yard cross-road."""
 
     quads = []
     for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
@@ -706,7 +706,7 @@ def build_layer() -> str:
         mesh_usda(f"{PREFIX}ROAD_SURFACE", (0.018, 0.035, 0.06), road_quads, material_path=road_material_path),
         mesh_usda(f"{PREFIX}WHITE_LANE_MARKINGS", (0.88, 0.90, 0.87), white_lane_quads),
         mesh_usda(f"{PREFIX}YELLOW_LANE_CENTERLINES", (0.96, 0.76, 0.04), yellow_centerline_quads),
-        mesh_usda(f"{PREFIX}YELLOW_CROSS_ROAD_EDGE_LINES", (0.96, 0.76, 0.04), cross_road_edge_line_quads),
+        mesh_usda(f"{PREFIX}WHITE_CROSS_ROAD_EDGE_LINES", (0.88, 0.90, 0.87), cross_road_edge_line_quads),
         mesh_usda(f"{PREFIX}YELLOW_WAITING_BAYS", (0.96, 0.76, 0.04), waiting_bay_quads()),
         mesh_usda(f"{PREFIX}SAFETY_HATCH_MARKINGS", (0.96, 0.76, 0.04), safety_hatch_quads()),
         mesh_usda(f"{PREFIX}COASTAL_GREEN_BELT", (0.08, 0.24, 0.10), segmented_green_belt_quads(COASTAL_GREEN_BELT_X_RANGE)),

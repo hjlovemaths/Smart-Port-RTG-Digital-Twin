@@ -230,14 +230,15 @@ def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     assert "point3f[] points = []" in yellow_mesh.group(1)
 
 
-def test_horizontal_cross_roads_have_two_yellow_edge_lines():
+def test_horizontal_cross_roads_have_two_white_edge_lines():
     text = TRAFFIC.read_text(encoding="utf-8")
     mesh = re.search(
-        rf'def Mesh "{PREFIX}YELLOW_CROSS_ROAD_EDGE_LINES"\s*\{{(.*?)(?=\n\s*def Mesh ")',
+        rf'def Mesh "{PREFIX}WHITE_CROSS_ROAD_EDGE_LINES"\s*\{{(.*?)(?=\n\s*def Mesh ")',
         text,
         flags=re.DOTALL,
     )
     assert mesh
+    assert "[(0.88, 0.9, 0.87)]" in mesh.group(1)
     assert mesh.group(1).count("0.145") == 32
     assert "-9.165" in mesh.group(1)
     assert "-1.585" in mesh.group(1)

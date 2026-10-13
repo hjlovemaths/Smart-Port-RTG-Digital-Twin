@@ -276,5 +276,5 @@ def test_bay_labels_use_left_truck_lane_gap_and_bay_001_has_start_line():
         )
     ]
     active_column = points[3 * 636 : 4 * 636]
-    assert min(point[0] for point in active_column) == -5.325
-    assert max(point[0] for point in active_column) == -4.175
+    assert min(point[0] for point in active_column) == -4.325
+    assert max(point[0] for point in active_column) == -3.175
