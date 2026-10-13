@@ -229,6 +229,7 @@ def mesh_usda(
     point_lines = ",\n".join(
         f"                ({fmt(x)}, {fmt(y)}, {fmt(z)})" for x, y, z in points
     )
+    point_array = "[]" if not points else f"[\n{point_lines}\n            ]"
     schema = (
         ' (\n            prepend apiSchemas = ["MaterialBindingAPI"]\n        )'
         if material_path
@@ -243,9 +244,7 @@ def mesh_usda(
             int[] faceVertexIndices = [{indices}]
             color3f[] primvars:displayColor = [({fmt(color[0])}, {fmt(color[1])}, {fmt(color[2])})]
             uniform token primvars:displayColor:interpolation = "constant"
-{binding}            point3f[] points = [
-{point_lines}
-            ]
+{binding}            point3f[] points = {point_array}
         }}'''
 
 

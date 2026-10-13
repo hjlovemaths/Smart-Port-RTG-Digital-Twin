@@ -182,6 +182,9 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
 
 def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     text = TRAFFIC.read_text(encoding="utf-8")
+    assert 'def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_WHITE_LANE_MARKINGS"' in text
+    assert 'def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_YELLOW_LANE_CENTERLINES"' in text
+    assert 'point3f[] points = []' in text
     white_mesh = re.search(
         rf'def Mesh "{PREFIX}WHITE_LANE_MARKINGS"\s*\{{(.*?)(?=\n\s*def Mesh ")',
         text,
@@ -196,9 +199,9 @@ def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     assert "[(0.88, 0.9, 0.87)]" in white_mesh.group(1)
     assert "[(0.96, 0.76, 0.04)]" in yellow_mesh.group(1)
     assert "faceVertexCounts = []" in white_mesh.group(1)
-    assert "point3f[] points = [\n\n            ]" in white_mesh.group(1)
+    assert "point3f[] points = []" in white_mesh.group(1)
     assert "faceVertexCounts = []" in yellow_mesh.group(1)
-    assert "point3f[] points = [\n\n            ]" in yellow_mesh.group(1)
+    assert "point3f[] points = []" in yellow_mesh.group(1)
 
 
 def test_traffic_layer_braces_and_coordinates_are_well_formed():

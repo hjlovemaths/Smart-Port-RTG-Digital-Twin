@@ -133,9 +133,7 @@ def Xform "World"
             int[] faceVertexIndices = []
             color3f[] primvars:displayColor = [(0.88, 0.9, 0.87)]
             uniform token primvars:displayColor:interpolation = "constant"
-            point3f[] points = [
-
-            ]
+            point3f[] points = []
         }
 
         def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_YELLOW_LANE_CENTERLINES"
@@ -146,9 +144,7 @@ def Xform "World"
             int[] faceVertexIndices = []
             color3f[] primvars:displayColor = [(0.96, 0.76, 0.04)]
             uniform token primvars:displayColor:interpolation = "constant"
-            point3f[] points = [
-
-            ]
+            point3f[] points = []
         }
 
         def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_YELLOW_WAITING_BAYS"
