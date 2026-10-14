@@ -473,6 +473,12 @@ def _define_static_hoist_ropes(
         target_y = bay_scene_y_m(block, bay)
         center_x = target_x + spreader_offset_x
         center_y = target_y + spreader_offset_y
+        # Placement/prototype centering differs from the original source root.
+        # Calibrate each copy's rope datum from its actual placed spreader.
+        placed=stage.GetPrimAtPath(f'{PORT_PATH}/{rtg_name}/Model/AnimatedSpreader')
+        actual=UsdGeom.BBoxCache(SCENE_START_TIME,['default','render']).ComputeWorldBound(placed).ComputeAlignedBox()
+        center_x=actual.GetMidpoint()[0];center_y=actual.GetMidpoint()[1]
+        lower_z=actual.GetMax()[2]-.0025
 
         def rope_points(trolley_x: float, hoist_z: float) -> Vt.Vec3fArray:
             points = []
@@ -480,7 +486,7 @@ def _define_static_hoist_ropes(
                 points.extend(
                     (
                         Gf.Vec3f(
-                            center_x + upper_xy[0],
+                            center_x + trolley_x + upper_xy[0],
                             center_y + upper_xy[1],
                             STATIC_ROPE_UPPER_Z_M,
                         ),
@@ -500,6 +506,7 @@ def _define_static_hoist_ropes(
         curves.CreateWrapAttr(UsdGeom.Tokens.nonperiodic)
         curves.CreateCurveVertexCountsAttr(Vt.IntArray([2] * len(STATIC_ROPE_XY_OFFSETS)))
         points_attr = curves.CreatePointsAttr()
+        points_attr.Set(rope_points(TROLLEY_START_OFFSET_M,0.0))
         for frame, trolley_x, hoist_z in _animation_samples():
             points_attr.Set(rope_points(trolley_x, hoist_z), Usd.TimeCode(frame))
         curves.CreateWidthsAttr(Vt.FloatArray([STATIC_ROPE_WIDTH_M]))

@@ -3,15 +3,22 @@
 在已打开 `smart_port.usda` 的 Kit 中打开 Window → Script Editor，执行：
 
 ```python
-import sys
-sys.path.insert(0, r'D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts')
-import iecs_runtime
-iecs = iecs_runtime.start_iecs()
+import runpy
+launch = runpy.run_path(r'D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scripts/iecs_launch.py')['launch']
+iecs = launch()
 ```
 
 IECS 面板采用英文显示，提供五种标准流程和混合作业、暂停、继续、复位、1/5/10/20 倍率、
-聚焦任务。点击流程提交一单，反复点击可排队多单；空闲内部车辆按距离选车。
+聚焦任务。点击流程提交一单；实际设备演示限制为一次一单，忙时拒绝重复提交。
+Mixed Workload 自动依次运行卸船、装船、进场落箱、提箱出场、场内转栈五单，
+面板显示后续流程。空闲内部车辆按距离选车。
 外车使用 EXT 独立资源，进场任务从载箱车开始，出场任务载箱通过闸口。
+
+统一入口按绝对路径加载新增模块，避免 Kit 导入缓存导致找不到文件。
+重复执行 `launch()` 只显示现有面板，不重置任务。需要加载新代码并清空演示时，
+明确执行 `iecs = launch(restart=True)`。这不是断点恢复：应用重启后不恢复旧任务。
+Check Scene 检查箱子身份、位置、尺寸、朝向、载箱归属以及贝位元素；
+Resume 在检查失败时拒绝继续，不擅自修复或清空现场。
 
 按钮对照：Ship to Yard=卸船入场，Yard to Ship=堆场装船，
 Gate In / Drop Box=外车落箱，Gate Out / Pick Box=外车提箱，
@@ -49,3 +56,22 @@ Ship to Yard 已接入 STS_01 的原机械轴与吊具，从货船现有
 python -m pytest tests/test_iecs_core.py -q -p no:cacheprovider
 & 'D:/Software/kit-app-template/.packman/chk/python/3.12.13+nv3-windows-x86_64/python.exe' tmp/run_sts_usd_tool.py omniverse/scripts/verify_iecs_scene.py
 ```
+# Real Yard to Ship demo
+
+After reloading the IECS Python module, use **Reset Demo**, then **Yard to Ship**.
+The adapter selects an accessible row-1 top-level 40ft container in the primary
+RTG corridor. The real RTG puts it on the trailer; lane-directed transport takes
+it to STS_01; the real STS places it on the existing ShipContainer179 stack.
+No substitute container is spawned. All movement stays in a reversible session
+layer, without changing the production inventory JSON. This is a single-order
+kinematic demonstration, not a production vessel stow plan or full collision
+planner. Mixed Workload reuses the vacated ship slot after unloading.
+
+Gate In creates a declared incoming cargo instance on the external trailer at
+the gate, then the real RTG unloads it into an unoccupied yard slot. Gate Out
+and Yard Transfer select existing accessible top-level row-1 cargo, using the
+real RTG to load the truck. Departed external cargo is hidden only after exit.
+All of these are reversible visual demos, without production inventory writes.
+
+Headless verification: run `verify_iecs_load.py` with the project's USD runtime.
+

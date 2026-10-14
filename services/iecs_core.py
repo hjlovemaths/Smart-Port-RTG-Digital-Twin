@@ -8,6 +8,22 @@ import json
 import math
 import sqlite3
 from collections import deque
+# Kit may cache the services directory before a newly added sibling exists.
+# Resolve the calibration file explicitly instead of depending on that cache.
+import importlib.util
+import sys
+from pathlib import Path
+if 'iecs_geometry' not in sys.modules:
+    _geometry_path=Path(__file__).resolve().with_name('iecs_geometry.py')
+    _geometry_spec=importlib.util.spec_from_file_location('iecs_geometry',_geometry_path)
+    _geometry_module=importlib.util.module_from_spec(_geometry_spec)
+    sys.modules['iecs_geometry']=_geometry_module
+    try:
+        _geometry_spec.loader.exec_module(_geometry_module)
+    except Exception:
+        sys.modules.pop('iecs_geometry',None)
+        raise
+from iecs_geometry import TRUCK_LANE_X,YARD_ROW_ONE_X,GATE_STOP,GATE_EXIT_DISTANCE
 
 FLOWS = {'unload': '卸船入场', 'load': '堆场装船', 'gate_in': '外车进场落箱',
          'gate_out': '外车提箱出场', 'transfer': '场内转栈'}
@@ -25,7 +41,7 @@ def yard(block='2C', bay=40):
         raise ValueError('40FT 演示箱需要有效偶数贝位')
     y=lower+3.7+((bay-2)/2)*2.675+2.475
     return {'id':f'{block}{bay:03d}/R1/T1','kind':'yard', 'block':block,
-            'bay':bay,'point':[6.433333,y,.57], 'stop':[-3.75,y,.085]}
+            'bay':bay,'point':[YARD_ROW_ONE_X,y,.57], 'stop':[TRUCK_LANE_X,y,.085]}
 
 
 def quay(index=0):
@@ -36,11 +52,25 @@ def quay(index=0):
 
 def gate(index=0):
     return {'id':f'GATE/{index:03d}','kind':'gate',
-            'point':[151,388.4,.57], 'stop':[151,388.4,.085]}
+            'point':[GATE_STOP[0],GATE_STOP[1],.57], 'stop':list(GATE_STOP)}
 
 
 def route(start,end,source=None,target=None):
     """Work lanes always decrease Y. Reach an upper entrance before the stop."""
+    if target and target['kind']=='exit':
+        # Beyond the gate, keep driving east. Never re-enter the collector.
+        if end[0]<start[0] or abs(end[1]-start[1])>1e-6:
+            raise ValueError('Invalid outward gate exit segment')
+        return [list(start),list(end)]
+    if (source and target and source['kind']==target['kind']=='yard'
+            and source.get('block')==target.get('block')
+            and abs(start[0]-end[0])<1e-6
+            and abs(start[0]-source['stop'][0])<1e-6
+            and abs(end[0]-target['stop'][0])<1e-6
+            and end[1]<=start[1]):
+        # Same work lane, downstream destination: no exit/re-entry loop.
+        # The scheduler still reserves the road before executing this segment.
+        return [list(start),list(end)]
     points=[list(start)]
     def add(x,y):
         p=[x,y,.085]
@@ -101,6 +131,7 @@ class IECS:
         self.vehicles={}; self.orders={}; self.containers={}; self.reserved={}; self.equipment={}
         self.sequence=0
         self.transfer_adapter=None
+        self.motion_guard=None
         for i in range(1,21):
             home=[138.639, (65 if i<=10 else 160)+((i-1)%10)*5.4+2.2,.085]
             self.vehicles[f'ITT-{i:03d}']={'id':f'ITT-{i:03d}','number':f'{i:02d}',
@@ -188,9 +219,15 @@ class IECS:
             dest=o['path'][o['path_index']];length=distance(v['position'],dest)
             if length<1e-8:o['path_index']+=1;continue
             delta=[dest[i]-v['position'][i] for i in range(3)]
-            amount=min(remaining,length)
-            v['position']=[v['position'][i]+delta[i]*amount/length for i in range(3)]
-            v['heading']=math.degrees(math.atan2(delta[0],-delta[1]))
+            amount=min(remaining,length,.25) if self.motion_guard else min(remaining,length)
+            proposed=[v['position'][i]+delta[i]*amount/length for i in range(3)]
+            heading=math.degrees(math.atan2(delta[0],-delta[1]))
+            conflict=self.motion_guard(v,proposed,heading) if self.motion_guard else None
+            if conflict:
+                o['wait_reason']='Collision wait: '+str(conflict)
+                break
+            v['position']=proposed
+            v['heading']=heading
             remaining-=amount
             if amount>=length-1e-8:o['path_index']+=1
         if v['load']:
@@ -254,7 +291,12 @@ class IECS:
                 else:
                     o['step_name']='目标放箱';done=self._transfer(o,v,False,dt)
             elif step==4:
-                o['step_name']='空车归位 / 出闸';done=self._move(o,v,v['home'],dt,source=o['target'])
+                if o['flow']=='gate_out':
+                    o['step_name']='载箱直行出闸'
+                    end=[o['target']['stop'][0]+GATE_EXIT_DISTANCE,o['target']['stop'][1],.085]
+                    done=self._move(o,v,end,dt,source=o['target'],target={'kind':'exit'})
+                else:
+                    o['step_name']='空车归位 / 出闸';done=self._move(o,v,v['home'],dt,source=o['target'])
             if done:
                 o['step']+=1;self.event('step_completed',order=o['id'],step=step)
                 if o['step']==5:

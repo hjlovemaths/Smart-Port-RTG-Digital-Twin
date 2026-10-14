@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import pytest
+import sys
+sys.path.insert(0,str(Path(__file__).parents[1]/'services'))
 
 spec=importlib.util.spec_from_file_location('iecs_core',Path(__file__).parents[1]/'services/iecs_core.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
@@ -62,3 +64,43 @@ def test_invalid_speed_rejected():
     e=m.IECS()
     for speed in (0,float('nan'),21):
         with pytest.raises(ValueError):e.control('speed',speed)
+
+
+@pytest.mark.parametrize('block',list(m.BLOCKS))
+def test_forward_same_lane_yard_transfer_is_direct(block):
+    source=m.yard(block,30);target=m.yard(block,10)
+    assert m.route(source['stop'],target['stop'],source,target)==[source['stop'],target['stop']]
+
+
+def test_upstream_and_other_block_transfers_still_use_roads():
+    source=m.yard('3C',10);target=m.yard('3C',30)
+    path=m.route(source['stop'],target['stop'],source,target)
+    assert len(path)>2 and path[1][1]<path[0][1]
+    other=m.yard('2C',10)
+    assert len(m.route(source['stop'],other['stop'],source,other))>2
+
+
+def test_different_lane_cannot_take_forward_shortcut():
+    source=m.yard('3C',30);target=m.yard('3C',10)
+    target['stop'][0]=17.25
+    assert len(m.route(source['stop'],target['stop'],source,target))>2
+
+
+def test_gate_out_continues_outward_without_returning_to_collector():
+    e=m.IECS();oid=e.submit('gate_out');e.control('speed',20)
+    exit_positions=[]
+    for _ in range(5000):
+        o=e.orders[oid]
+        if o['step']==4:
+            v=e.vehicles[o['vehicle']]
+            exit_positions.append(v['position'][:])
+            assert v['load']==o['container']
+        e.tick(.25)
+        if o['status']=='completed':
+            exit_positions.append(e.vehicles[o['vehicle']]['position'][:]);break
+    assert o['status']=='completed' and len(exit_positions)>=2
+    assert all(b[0]>=a[0] for a,b in zip(exit_positions,exit_positions[1:]))
+    assert all(abs(p[1]-o['target']['stop'][1])<1e-6 for p in exit_positions)
+    assert exit_positions[-1][0]==o['target']['stop'][0]+12.
+    assert e.vehicles[o['vehicle']]['status']=='departed'
+    e.close()

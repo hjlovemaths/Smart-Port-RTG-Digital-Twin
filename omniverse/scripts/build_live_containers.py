@@ -196,6 +196,9 @@ def imported_container_model_available() -> bool:
 def _container_asset_reference_path(stage: Usd.Stage) -> str:
     """Use a project-relative asset path whenever the stage has a file path."""
 
+    if stage.GetEditTarget().GetLayer().anonymous:
+        return CONTAINER_ASSET_PATH.as_posix()
+
     identifier = stage.GetRootLayer().identifier
     if identifier and not identifier.startswith("anon:"):
         try:

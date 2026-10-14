@@ -5,6 +5,17 @@ from pxr import Usd,UsdGeom
 from iecs_runtime import Runtime,PROJECT
 
 stage=Usd.Stage.Open(str(PROJECT/'omniverse/scenes/smart_port.usda'))
+from sts_yard_delivery import GANTRY
+from yard_coordinate_mapping import RTG_TIRE_TRACK_OFFSETS_X_M,VISUAL_YARD_LAYOUT_CENTER_X_M
+painted=sorted(VISUAL_YARD_LAYOUT_CENTER_X_M+x for x in RTG_TIRE_TRACK_OFFSETS_X_M)
+for time in (Usd.TimeCode.Default(),Usd.TimeCode(1),Usd.TimeCode(60),Usd.TimeCode(370),Usd.TimeCode(925)):
+    cache=UsdGeom.BBoxCache(time,['default','render'])
+    xs=sorted(cache.ComputeWorldBound(p).ComputeAlignedBox().GetMidpoint()[0]
+        for p in Usd.PrimRange(stage.GetPrimAtPath(GANTRY))
+        if p.IsA(UsdGeom.Boundable) and 'black_tire_axis_X_rolls_Y' in p.GetName())
+    assert len(xs)==8
+    centers=(sum(xs[:4])/4,sum(xs[4:])/4)
+    assert all(abs(a-b)<.001 for a,b in zip(centers,painted)),(time,centers,painted)
 session_before=list(stage.GetSessionLayer().subLayerPaths)
 r=Runtime(stage,port=0,with_ui=False,subscribe=False,db_path=':memory:')
 try:

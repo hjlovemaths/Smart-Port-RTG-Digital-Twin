@@ -384,17 +384,19 @@ def Xform "World"
         {
             over "ANIM_CTRL_RTG_GANTRY_TRAVEL"
             {
-                double3 xformOp:translate = (-0.8, 16.5775, 0)
+                float3 xformOp:rotateXYZ = (0, 0, 180)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (-0.1567560012037, 16.5775, 0)
                 double3 xformOp:translate.timeSamples = {
-                    1: (-0.8, 16.5775, 0),
-                    60: (-0.8, -0.8100000000000023, 0),
-                    305: (-0.8, -0.8100000000000023, 0),
-                    320: (-0.8, -0.8100000000000023, 0),
-                    370: (-0.8, 20.590000000000003, 0),
-                    680: (-0.8, 20.590000000000003, 0),
-                    700: (-0.8, 20.590000000000003, 0),
-                    745: (-0.8, 7.215, 0),
-                    925: (-0.8, 7.215, 0),
+                    1: (-0.1567560012037, 16.5775, 0),
+                    60: (-0.1567560012037, -0.8100000000000023, 0),
+                    305: (-0.1567560012037, -0.8100000000000023, 0),
+                    320: (-0.1567560012037, -0.8100000000000023, 0),
+                    370: (-0.1567560012037, 20.590000000000003, 0),
+                    680: (-0.1567560012037, 20.590000000000003, 0),
+                    700: (-0.1567560012037, 20.590000000000003, 0),
+                    745: (-0.1567560012037, 7.215, 0),
+                    925: (-0.1567560012037, 7.215, 0),
                 }
 
                 over "ANIM_CTRL_RTG_TROLLEY_TRAVEL"
@@ -3534,6 +3536,7 @@ def Xform "World"
     def Xform "ShipDouble20YardModelLayer"
     {
         def Xform "Orange20A" (
+            active = false
             prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
         )
         {
@@ -3564,6 +3567,7 @@ def Xform "World"
         }
 
         def Xform "Orange20B" (
+            active = false
             prepend references = @../assets/resource/container/Yard_Container_20ft.usda@</Yard20Container>
         )
         {
