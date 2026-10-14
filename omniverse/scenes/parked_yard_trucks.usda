@@ -1,0 +1,739 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "ParkedYardTrucks"
+    {
+        custom string parking:role = "Empty trucks matching the live yard vehicle; cab faces collector road"
+        custom int parking:vehicleCount = 20
+
+        def Xform "Group1_Bay01" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 67.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay02" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 72.60000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay03" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 78, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay04" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 83.4, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay05" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 88.8, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay06" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 94.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay07" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 99.60000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay08" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 105.00000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay09" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 110.4, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group1_Bay10" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 115.8, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay01" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 162.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay02" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 167.6, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay03" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 173, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay04" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 178.39999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay05" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 183.79999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay06" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 189.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay07" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 194.6, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay08" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 200, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay09" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 205.39999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+
+        def Xform "Group2_Bay10" (
+            instanceable = true
+            prepend references = @../assets/resource/truck/RTG_Model_Lane_Truck.usdc@</root>
+        )
+        {
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 210.79999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            over "env_light" (
+                active = false
+            )
+            {
+            }
+        }
+    }
+
+    def "ParkedTruckNumbers"
+    {
+        def Xform "Truck01"
+        {
+            custom string vehicle:number = "01"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 67.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck02"
+        {
+            custom string vehicle:number = "02"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 72.60000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck03"
+        {
+            custom string vehicle:number = "03"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 78, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck04"
+        {
+            custom string vehicle:number = "04"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 83.4, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck05"
+        {
+            custom string vehicle:number = "05"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 88.8, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck06"
+        {
+            custom string vehicle:number = "06"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 94.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck07"
+        {
+            custom string vehicle:number = "07"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 99.60000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck08"
+        {
+            custom string vehicle:number = "08"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 105.00000000000001, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck09"
+        {
+            custom string vehicle:number = "09"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 110.4, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.68, 1.066), (-0.24, -2.68, 1.066), (-0.24, -2.415, 1.066), (-0.285, -2.415, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck10"
+        {
+            custom string vehicle:number = "10"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 115.8, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck11"
+        {
+            custom string vehicle:number = "11"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 162.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck12"
+        {
+            custom string vehicle:number = "12"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 167.6, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck13"
+        {
+            custom string vehicle:number = "13"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 173, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck14"
+        {
+            custom string vehicle:number = "14"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 178.39999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck15"
+        {
+            custom string vehicle:number = "15"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 183.79999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck16"
+        {
+            custom string vehicle:number = "16"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 189.2, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck17"
+        {
+            custom string vehicle:number = "17"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 194.6, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck18"
+        {
+            custom string vehicle:number = "18"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 200, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck19"
+        {
+            custom string vehicle:number = "19"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 205.39999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+                point3f[] points = [(-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.09, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.635, 1.066), (-0.09, -2.635, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066), (0.045, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.635, 1.066), (0.045, -2.635, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truck20"
+        {
+            custom string vehicle:number = "20"
+            float xformOp:rotateZ = -90
+            float3 xformOp:scale = (1, 1.22, 1)
+            double3 xformOp:translate = (138.63897479057312, 210.79999999999998, -0.05500000059604866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+            def Mesh "Digits"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+                point3f[] points = [(-0.285, -2.46, 1.066), (-0.045, -2.46, 1.066), (-0.045, -2.415, 1.066), (-0.285, -2.415, 1.066), (-0.09, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.415, 1.066), (-0.09, -2.415, 1.066), (-0.285, -2.68, 1.066), (-0.045, -2.68, 1.066), (-0.045, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.24, -2.9, 1.066), (-0.24, -2.635, 1.066), (-0.285, -2.635, 1.066), (-0.285, -2.9, 1.066), (-0.045, -2.9, 1.066), (-0.045, -2.855, 1.066), (-0.285, -2.855, 1.066), (0.045, -2.46, 1.066), (0.285, -2.46, 1.066), (0.285, -2.415, 1.066), (0.045, -2.415, 1.066), (0.24, -2.68, 1.066), (0.285, -2.68, 1.066), (0.285, -2.415, 1.066), (0.24, -2.415, 1.066), (0.24, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.635, 1.066), (0.24, -2.635, 1.066), (0.045, -2.9, 1.066), (0.285, -2.9, 1.066), (0.285, -2.855, 1.066), (0.045, -2.855, 1.066), (0.045, -2.9, 1.066), (0.09, -2.9, 1.066), (0.09, -2.635, 1.066), (0.045, -2.635, 1.066), (0.045, -2.68, 1.066), (0.09, -2.68, 1.066), (0.09, -2.415, 1.066), (0.045, -2.415, 1.066)]
+                color3f[] primvars:displayColor = [(0.012, 0.018, 0.025)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+    }
+}
+

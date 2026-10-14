@@ -47,6 +47,7 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./ground_traffic_network.usda@,
         @./sts_track_gauge.usda@,
         @./sts_elevation.usda@,
         @./sts_dimensions.usda@,
@@ -3731,7 +3732,7 @@ def "Render" (
                 bool omni:rtx:fog:zUp:enabled = 1
                 bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
                 bool omni:rtx:material:db:syncLoads = 1
-                token omni:rtx:post:dlss:execMode = "performance"
+                token omni:rtx:post:dlss:execMode = "auto"
                 bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
                 bool omni:rtx:post:registeredCompositing:invertToneMap = 1
                 bool omni:rtx:pt:adaptiveSampling:filterError = 0

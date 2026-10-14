@@ -14,6 +14,7 @@ from yard_coordinate_mapping import (
     BAY_GAP_M,
     BAY_LENGTH_M,
     INTER_YARD_ROAD_WIDTH_X_M,
+    RTG_TIRE_TRACK_OFFSETS_X_M,
     RTG_VISUAL_YARD_WIDTH_X_M,
     YARD_COLUMN_CENTERS_X,
     YARD_BLOCKS,
@@ -71,6 +72,9 @@ CAUSEWAY_EDGE_LINE_WIDTH_M = 0.16
 YARD_CROSS_ROAD_HALF_WIDTH_M = 3.7
 CROSS_ROAD_EDGE_LINE_WIDTH_M = 0.18
 CROSS_ROAD_EDGE_LINE_Z_M = 0.145
+CROSS_ROAD_CENTERLINE_OFFSET_M = 0.18
+CROSS_ROAD_CENTERLINE_WIDTH_M = 0.14
+CROSS_ROAD_CENTERLINE_Z_M = 0.16
 INTERSECTION_STREET_LIGHT_ASSET = (
     "../assets/resource/streetLight/Intersection_Street_Light.usdc"
 )
@@ -91,12 +95,24 @@ INTERSECTION_STREET_LIGHT_SCALE = (
 )
 INTERSECTION_STREET_LIGHT_HEAD_COUNT = 3
 PARKING_LIGHT_BASE_Z_M = INTERSECTION_STREET_LIGHT_BASE_Z_M
-# Put one row of lamps on the ground in the middle of every inter-yard gap.
-# The coastal road is included as the first one-sided strip.  Keeping the
-# poles at the road centres makes their footprint visibly belong to the gap,
-# instead of looking like an extra yard boundary or a cross-road fixture.
-YARD_LIGHT_X_OFFSETS_M = tuple(
-    (x_min + x_max) * 0.5 for x_min, x_max in YARD_ROAD_X_RANGES
+# Put one row of lamps at the midpoint of the *visible* clear gap between the
+# yellow tire guides. The RTG wheel axes are asymmetric around the yard origin,
+# so the nominal road-strip centers are offset from the actual yard openings.
+_FIRST_YARD_LEFT_TIRE_X = (
+    YARD_COLUMN_CENTERS_X[0] + min(RTG_TIRE_TRACK_OFFSETS_X_M)
+)
+YARD_LIGHT_X_OFFSETS_M = (
+    (COASTAL_GREEN_BELT_X_RANGE[1] + _FIRST_YARD_LEFT_TIRE_X) * 0.5,
+    *tuple(
+        (
+            left_x + max(RTG_TIRE_TRACK_OFFSETS_X_M)
+            + right_x + min(RTG_TIRE_TRACK_OFFSETS_X_M)
+        )
+        * 0.5
+        for left_x, right_x in zip(
+            YARD_COLUMN_CENTERS_X, YARD_COLUMN_CENTERS_X[1:]
+        )
+    ),
 )
 # At each side, the four lamps in 1C-3C are placed at both ends plus two
 # evenly spaced middle positions; 4C gets only its two end lamps.
@@ -282,11 +298,25 @@ def lane_marking_quads() -> tuple[list[tuple], list[tuple]]:
     # The rebuilt yard owns the two yellow RTG tire tracks and the dense white
     # bay separators.  Do not add the older longitudinal white road-edge lines
     # here: they sit outside the yellow tracks and visually widen each yard.
-    # Traffic-lane white and yellow centerlines are omitted as well; the road
-    # between yard blocks must remain clear, while the tire tracks and bay
-    # separators stay visible in their dedicated yard layer.
+    # The cross-roads are bidirectional.  Paint a paired yellow centre divider
+    # through each quay-to-yard road so the two travel directions read clearly
+    # in the overhead view without adding markings to the longitudinal gaps.
     white_quads = []
     yellow_centerline_quads = []
+    for center_y in BLOCK_APPROACH_LANE_CENTERS_Y:
+        for line_y in (
+            center_y - CROSS_ROAD_CENTERLINE_OFFSET_M,
+            center_y + CROSS_ROAD_CENTERLINE_OFFSET_M,
+        ):
+            yellow_centerline_quads.append(
+                rect(
+                    YARD_INLAND_EDGE_X,
+                    line_y - CROSS_ROAD_CENTERLINE_WIDTH_M * 0.5,
+                    110.5,
+                    line_y + CROSS_ROAD_CENTERLINE_WIDTH_M * 0.5,
+                    CROSS_ROAD_CENTERLINE_Z_M,
+                )
+            )
     return white_quads, yellow_centerline_quads
 
 
@@ -313,8 +343,11 @@ def cross_road_edge_quads() -> list[tuple]:
             if round(edge_y, 6) in last_bay_edges_y:
                 continue
             for column_center_x in YARD_COLUMN_CENTERS_X:
-                x_min = column_center_x - RTG_VISUAL_YARD_WIDTH_X_M * 0.5
-                x_max = column_center_x + RTG_VISUAL_YARD_WIDTH_X_M * 0.5
+                # Match the actual yellow tire guides, not a corridor centered
+                # on the RTG origin: the wheel axes are asymmetric around that
+                # origin, so centering by visual width leaves one end short.
+                x_min = column_center_x + min(RTG_TIRE_TRACK_OFFSETS_X_M)
+                x_max = column_center_x + max(RTG_TIRE_TRACK_OFFSETS_X_M)
                 quads.append(
                     rect(
                         x_min,

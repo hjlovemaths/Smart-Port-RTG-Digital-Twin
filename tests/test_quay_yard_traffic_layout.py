@@ -79,19 +79,19 @@ def test_inter_yard_gaps_have_ground_street_lights_and_crossroads_do_not():
             street_lights.group(1),
         )
     }
-    road_ranges = (
-        (-85.875, -72.375),
-        (-57.625, -51.375),
-        (-36.625, -30.375),
-        (-15.625, -9.375),
-        (5.375, 11.625),
-        (26.375, 32.625),
-        (47.375, 53.625),
-        (68.375, 74.625),
-    )
+    tire_offsets = (-4.416023299119, 10.333587785095)
     expected_gap_centres = {
-        round((x_min + x_max) * 0.5, 4)
-        for x_min, x_max in road_ranges
+        round((-85.875 + column_centers[0] + min(tire_offsets)) * 0.5, 4)
+    } | {
+        round(
+            (
+                left_x + max(tire_offsets)
+                + right_x + min(tire_offsets)
+            )
+            * 0.5,
+            4,
+        )
+        for left_x, right_x in zip(column_centers, column_centers[1:])
     }
     assert {round(x, 4) for x, _y, _z in translations} == expected_gap_centres
     cross_centres = (-5.375, 126.05, 256.30, 386.55)
@@ -155,15 +155,13 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
     assert len(targets) == 112 * 3
 
     column_centers = (-65.0, -44.0, -23.0, -2.0, 19.0, 40.0, 61.0, 82.0)
+    tire_offsets = (-4.416023299119, 10.333587785095)
     pole_x_by_side = (
-        -79.125,
-        -54.375,
-        -33.375,
-        -12.375,
-        8.375,
-        29.375,
-        50.375,
-        71.375,
+        (-85.875 + column_centers[0] + min(tire_offsets)) * 0.5,
+        *(
+            (left_x + max(tire_offsets) + right_x + min(tire_offsets)) * 0.5
+            for left_x, right_x in zip(column_centers, column_centers[1:])
+        ),
     )
     within_yard_offsets = (-3.15, 1.25, 5.65)
     block_specs = {
@@ -206,7 +204,7 @@ def test_yard_street_lights_map_to_their_adjacent_bay_area_codes():
         assert abs(float(target_y) - (first_bay_center_y + slot_index * bay_pitch)) < 0.0001
 
 
-def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
+def test_traffic_lane_markings_include_bidirectional_cross_road_centerlines():
     text = TRAFFIC.read_text(encoding="utf-8")
     assert 'def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_WHITE_LANE_MARKINGS"' in text
     assert 'def Mesh "SMART_PORT_QUAY_YARD_TRAFFIC_YELLOW_LANE_CENTERLINES"' in text
@@ -226,8 +224,34 @@ def test_traffic_lane_markings_are_omitted_but_bay_marks_stay_in_yard_layer():
     assert "[(0.96, 0.76, 0.04)]" in yellow_mesh.group(1)
     assert "faceVertexCounts = []" in white_mesh.group(1)
     assert "point3f[] points = []" in white_mesh.group(1)
-    assert "faceVertexCounts = []" in yellow_mesh.group(1)
-    assert "point3f[] points = []" in yellow_mesh.group(1)
+    assert "faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4]" in yellow_mesh.group(1)
+    point_block = re.search(r"point3f\[\] points = \[(.*?)\]", yellow_mesh.group(1), re.DOTALL)
+    assert point_block
+    points = [
+        tuple(float(value) for value in match)
+        for match in re.findall(
+            r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)",
+            point_block.group(1),
+        )
+    ]
+    quads = [points[index : index + 4] for index in range(0, len(points), 4)]
+    assert len(quads) == 8
+    expected_centres = {
+        round(center + offset, 4)
+        for center in (-5.375, 126.05, 256.30, 386.55)
+        for offset in (-0.18, 0.18)
+    }
+    actual_centres = {
+        round((min(point[1] for point in quad) + max(point[1] for point in quad)) * 0.5, 4)
+        for quad in quads
+    }
+    assert actual_centres == expected_centres
+    assert all(
+        min(point[0] for point in quad) == -101.75
+        and max(point[0] for point in quad) == 110.5
+        and all(point[2] == 0.16 for point in quad)
+        for quad in quads
+    )
 
 
 def test_horizontal_cross_roads_have_two_white_edge_lines():
@@ -256,22 +280,24 @@ def test_horizontal_cross_roads_have_two_white_edge_lines():
         )
     ]
     quads = [points[index : index + 4] for index in range(0, len(points), 4)]
-    for road_x_min, road_x_max in (
-        (-57.625, -51.375),
-        (-36.625, -30.375),
-        (-15.625, -9.375),
-        (5.375, 11.625),
-        (26.375, 32.625),
-        (47.375, 53.625),
-        (68.375, 74.625),
-    ):
-        assert all(
-            not (
-                max(point[0] for point in quad) > road_x_min
-                and min(point[0] for point in quad) < road_x_max
-            )
-            for quad in quads
+    expected_tire_corridors = {
+        (-69.416, -54.6664),
+        (-48.416, -33.6664),
+        (-27.416, -12.6664),
+        (-6.416, 8.3336),
+        (14.584, 29.3336),
+        (35.584, 50.3336),
+        (56.584, 71.3336),
+        (77.584, 92.3336),
+    }
+    actual_tire_corridors = {
+        (
+            round(min(point[0] for point in quad), 3),
+            round(max(point[0] for point in quad), 4),
         )
+        for quad in quads
+    }
+    assert actual_tire_corridors == expected_tire_corridors
 
 
 def test_traffic_layer_braces_and_coordinates_are_well_formed():

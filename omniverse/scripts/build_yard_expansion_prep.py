@@ -263,20 +263,18 @@ def _author_clean_bay_markings(
                     position - MARKING_WIDTH * 0.5,
                     position + MARKING_WIDTH * 0.5,
                 )
-            # The 1C/2C/3C block ends are open toward the cross-road.  Their
-            # final-bay numbers already have the separator before the last
-            # bay; do not add a second white bar at the block boundary.  Keep
-            # the short 4C terminal end line, which is the actual yard end.
-            if _block_name == "4C":
-                _append_rectangle(
-                    points,
-                    counts,
-                    indices,
-                    x_min,
-                    x_max,
-                    y_max - MARKING_WIDTH * 0.5,
-                    y_max + MARKING_WIDTH * 0.5,
-                )
+            # Close the final bay on every block with the same narrow marking
+            # used by the other bay separators. The cross-road layer omits its
+            # duplicate lower edge at 1C/2C/3C, so this is the sole end line.
+            _append_rectangle(
+                points,
+                counts,
+                indices,
+                x_min,
+                x_max,
+                y_max - MARKING_WIDTH * 0.5,
+                y_max + MARKING_WIDTH * 0.5,
+            )
 
     return _define_flat_mesh(
         output_stage, mesh_name, points, counts, indices, MARKING_COLOR
