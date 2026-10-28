@@ -1,0 +1,5296 @@
+#usda 1.0
+(
+    doc = "Hide the original flat reference feeder ship."
+)
+
+over "World"
+{
+    over "PortAndRTG"
+    {
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_00"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_01"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_02"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_03"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_04"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_05"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_06"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_07"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_08"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_09"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_10"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_11"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_12"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_13"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_14"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_15"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_16"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_above_stern_short_bulwark_post_17"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_aft_deck_dark_hatch_lid"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_aft_deck_low_hatch_coaming"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_above_water_stern_side_shell"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_stern_side_dark_recess_panel_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_stern_side_dark_recess_panel_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_stern_side_dark_recess_panel_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_stern_upper_chipped_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_port_stern_waterline_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_rounded_above_water_transom_wall"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_rounded_stern_main_deck_fill"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_above_water_stern_side_shell"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_stern_side_dark_recess_panel_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_stern_side_dark_recess_panel_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_stern_side_dark_recess_panel_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_stern_upper_chipped_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_starboard_stern_waterline_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_00"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_01"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_02"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_03"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_04"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_05"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_06"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_07"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_internal_cross_frame_08"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_00"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_01"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_02"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_03"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_04"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_05"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_06"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_07"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_above_stern_stern_low_floor_frame_08"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_fix_quay_continuous_scuffed_waterline__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_fix_quay_wet_black_band_top__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_fix_water_continuous_scuffed_waterline__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_fix_water_wet_black_band_top__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_blue_water_contact_edge__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_dark_wet_band_upper__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_28__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_29__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_30__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_31__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_32__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_33__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_35__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_extra_light_hull_scuff_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_quay_thick_dirty_waterline_forward__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_blue_water_contact_edge__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_dark_wet_band_upper__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_28__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_29__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_30__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_31__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_32__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_33__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_35__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_extra_light_hull_scuff_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_draft_visual_water_thick_dirty_waterline_forward__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_center_front_horizontal_chipped_line_0_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_center_front_horizontal_chipped_line_0_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_center_front_horizontal_chipped_line_0_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_center_front_horizontal_chipped_line_0_84__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_center_front_horizontal_chipped_line_1_08__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_top_rail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_accommodation_window_5"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_mid_rail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_outer_top_rail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bow_rail_post_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_bulbous_lower_stem"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_center_black_stem_shadow__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_center_stem_bright_weld__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_0_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_0_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_0_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_0_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_0_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_10_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_11_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_11_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_11_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_11_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_11_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_12_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_13_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_13_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_13_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_13_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_13_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_14_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_15_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_16_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_16_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_16_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_16_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_16_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_17_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_1_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_2_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_3_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_3_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_3_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_3_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_3_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_4_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_5_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_6_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_7_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_8_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_8_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_8_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_8_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_8_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L0_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L0_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L0_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L0_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L1_rib0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L1_rib1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L1_rib2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_container_wall_9_L1_rib3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_curved_accommodation_face"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_forecastle_deck_curved"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_hanging_chain_from_mast__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_lower_windlass_drum"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_lower_windlass_flange_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_lower_windlass_flange_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_mast_lower_platform"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_mast_lower_rail_loop__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_mast_top_antenna__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_mast_upper_platform"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_mast_upper_rail_loop__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_28__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_29__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_30__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_31__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_32__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_33__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_35__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_36__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_37__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_38__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_39__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_40__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_41__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_42__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_43__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_44__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_45__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_46__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_47__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_48__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_49__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_50__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_51__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_52__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_53__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_54__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_55__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_56__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_57__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_59__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_60__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_61__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_62__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_63__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_64__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_65__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_66__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_67__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_68__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_69__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_70__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_71__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_72__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_73__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_74__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_75__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_76__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_77__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_78__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_79__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_80__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_81__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_82__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_83__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_84__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_85__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_86__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_87__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_88__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_89__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_random_scrape_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_signal_mast"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_symmetric_bow_shell_left"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_symmetric_bow_shell_right"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_upper_windlass_drum"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_upper_windlass_flange_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_upper_windlass_flange_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_front_windlass_base"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_anchor_fluke_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_anchor_fluke_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_anchor_shank"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_anchor_stock"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_10"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_11"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_12"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_13"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_14"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_15"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_5"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_6"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_7"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_8"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_chain_ring_9"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_hawse_bottom_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_hawse_round_dark"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_hawse_side_lip_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_hawse_side_lip_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_hawse_top_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_horizontal_chipped_line_0_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_horizontal_chipped_line_0_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_horizontal_chipped_line_0_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_horizontal_chipped_line_0_84__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_left_front_horizontal_chipped_line_1_08__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_anchor_fluke_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_anchor_fluke_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_anchor_shank"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_anchor_stock"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_10"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_11"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_12"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_13"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_14"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_15"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_5"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_6"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_7"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_8"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_chain_ring_9"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_hawse_bottom_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_hawse_round_dark"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_hawse_side_lip_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_hawse_side_lip_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_hawse_top_lip"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_horizontal_chipped_line_0_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_horizontal_chipped_line_0_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_horizontal_chipped_line_0_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_horizontal_chipped_line_0_84__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_front_v3_right_front_horizontal_chipped_line_1_08__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_closed_stern_underbody_transom_plate"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_continuous_center_keel_bar"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_longitudinal_bottom_panel_seam__0_021"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_longitudinal_bottom_panel_seam__0_056"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_longitudinal_bottom_panel_seam__0_20"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_longitudinal_bottom_panel_seam__0_55"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_00"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_01"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_02"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_03"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_04"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_05"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_06"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_07"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_08"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_09"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_10"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_11"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_12"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_13"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_curved_floor_frame_14"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_lower_waterline_chipped_rub_rail"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_stern_propeller_blade_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_stern_propeller_blade_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_stern_propeller_blade_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_stern_propeller_blade_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_port_stern_propeller_disk"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_port_bottom_chine_edge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_port_middle_chine_edge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_port_plate"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_starboard_bottom_chine_edge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_starboard_middle_chine_edge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_reinforced_visible_lower_side_starboard_plate"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_rounded_bow_forefoot_bulb"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_00"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_01"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_02"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_03"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_04"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_05"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_06"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_07"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_08"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_09"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_10"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_11"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_12"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_13"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_curved_floor_frame_14"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_lower_waterline_chipped_rub_rail"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_stern_propeller_blade_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_stern_propeller_blade_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_stern_propeller_blade_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_stern_propeller_blade_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_starboard_stern_propeller_disk"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_stern_center_rudder_fin"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_lower_hull_v_shaped_underwater_shell"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_a_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_a_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_b_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_b_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_base_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_bollard_base_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_center_service_door_dark"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_deck_apron_plate"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_deck_equipment_box_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_deck_equipment_box_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_horizontal_weld_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_horizontal_weld_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_horizontal_weld_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_inner_back_ledge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_inner_quay_ledge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_inner_water_ledge"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_mooring_fairlead_slot_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_mooring_fairlead_slot_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_port_side_return_wall"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_rect_window_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_rect_window_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_rect_window_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_rect_window_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_scrape_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_starboard_side_return_wall"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_transom_high_wall"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_vertical_weld_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_vertical_weld_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_vertical_weld_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_mid_rail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_post_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_stern_enclosure_stern_wrap_top_rail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_black_bridge_mast"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_base_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_base_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_base_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_base_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_a_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_a_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_a_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_a_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_b_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_b_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_b_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bow_bollard_pair_b_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bridge_roof_rail_l__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bridge_roof_rail_q__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bridge_roof_rail_r__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_bridge_roof_rail_w__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_cross_frame_5"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_cargo_cell_long_frame_q"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_foredeck_crate_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_foredeck_crate_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_foredeck_crate_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_foredeck_crate_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_forward_accommodation_lower_block"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_forward_accommodation_main_block"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_forward_bridge_overhang"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_forward_bridge_window_band_front"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_lower_roof_rail_l__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_lower_roof_rail_q__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_lower_roof_rail_r__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_lower_roof_rail_w__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_mast_crossbar__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_mast_small_radar_bar"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_mast_top_antenna__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_port_windlass_drum"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_port_windlass_flange_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_port_windlass_flange_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_long_chipped_panel_line_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_long_chipped_panel_line_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_long_chipped_panel_line_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_long_chipped_panel_line_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_mid_guardrail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_rail_post_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_28__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_29__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_30__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_31__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_32__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_33__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_35__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_36__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_37__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_38__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_39__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_40__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_41__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_42__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_43__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_44__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_45__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_46__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_47__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_48__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_49__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_50__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_51__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_52__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_53__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_54__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_55__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_56__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_57__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_59__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_60__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_61__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_62__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_63__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_64__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_65__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_66__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_67__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_68__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_69__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_70__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_71__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_72__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_73__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_74__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_random_scrape_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_top_guardrail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_quay_vertical_panel_weld_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_00_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_01_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_02_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_03_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_04_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_05_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_06_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_07_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_08_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_09_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_10_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_11_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_12_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L0_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_body"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_roof_rib_0"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_roof_rib_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_roof_rib_2"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_roof_rib_3"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_roof_rib_4"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_side_label_1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_container_13_L1_side_label__1"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_high_quay_hull_side"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_high_water_hull_side"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_main_cargo_deck"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_reference_rounded_forecastle_deck"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_ship_name_quay_side__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_star_windlass_drum"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_star_windlass_flange_a"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_star_windlass_flange_b"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_long_chipped_panel_line_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_long_chipped_panel_line_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_long_chipped_panel_line_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_long_chipped_panel_line_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_mid_guardrail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_rail_post_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_0__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_10__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_11__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_12__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_13__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_14__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_15__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_16__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_17__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_18__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_19__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_1__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_20__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_21__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_22__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_23__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_24__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_25__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_26__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_27__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_28__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_29__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_2__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_30__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_31__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_32__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_33__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_34__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_35__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_36__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_37__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_38__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_39__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_3__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_40__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_41__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_42__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_43__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_44__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_45__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_46__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_47__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_48__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_49__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_4__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_50__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_51__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_52__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_53__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_54__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_55__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_56__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_57__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_58__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_59__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_5__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_60__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_61__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_62__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_63__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_64__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_65__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_66__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_67__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_68__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_69__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_6__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_70__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_71__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_72__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_73__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_74__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_7__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_8__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_random_scrape_9__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_water_top_guardrail__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_v2_windlass_base_plate"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_width_fix_quay_new_narrow_outer_waterline__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_width_fix_quay_new_narrow_wet_band__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_width_fix_water_new_narrow_outer_waterline__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+
+        over "CODEx_reference_feeder_ship_width_fix_water_new_narrow_wet_band__USD_MESH"
+        {
+            token visibility = "invisible"
+        }
+    }
+}
+

@@ -40,11 +40,9 @@ RAIN_MIST_LAYER_PATHS: tuple[str, ...] = ()
 RAIN_ANIMATION_INTERVAL_SECONDS = 1.0 / 60.0
 RAIN_CAMERA_FOLLOW_GRID_M = 10.0
 RAIN_EMITTER_MIN_Z_M = 20.0
-# Stop visibly above the road surface. With splashes disabled, ending exactly
-# at Z=0.15 m makes the last frame of a streak look like a rod planted in the
-# ground. The extra clearance is only a visual cap; it still never penetrates
-# the yard or water surface.
-RAIN_SURFACE_CLIP_Z_M = 0.55
+# The road tops are at Z=0.106..0.126 m. Clip individual streaks at the road,
+# then respawn only after their trailing end reaches it.
+RAIN_SURFACE_CLIP_Z_M = 0.13
 RAIN_STREAK_MAX_LENGTHS_M = (0.38, 0.52, 0.70, 0.92)
 RAIN_ANIMATION_PATH = RAIN_LAYER_PATHS[0]
 ENVIRONMENT_MODE_ATTRIBUTE = "smartPort:environmentMode"
@@ -57,7 +55,8 @@ DEFAULT_FOG_AMOUNT = "medium"
 WEATHER_BUILD_ID = "2026-08-14-rtg-weather-contrast-v9"
 # Keep the legacy bridge ABI marker: older installed RTG Control extensions
 # compare it on every update and otherwise reload this module every frame.
-RAIN_EFFECT_REVISION = "2026-09-07-bright-overcast-v11"
+RAIN_EFFECT_REVISION = "2026-10-19-rain-surface-impacts-v15"
+FOG_EFFECT_REVISION = "2026-10-26-depth-fog-v3"
 RAIN_AMOUNT_LABELS = {
     "light": "Light Rain",
     "medium": "Moderate Rain",
@@ -69,35 +68,29 @@ RAIN_AMOUNT_LABELS = {
 # different while keeping the same batched geometry and performance budget.
 RAIN_AMOUNT_PROFILES = {
     "light": {
-        "visible_layers": 1, "opacity": 0.24, "emission": 0.005,
+        "visible_layers": 1, "opacity": 0.24, "emission": 6.0,
         "speed_mps": 5.5, "rate_mm_24h": "<10", "wetness": 0.06,
         "drop_count": 100,
         "streak_length_m": (0.18, 0.38), "streak_width_m": (0.006, 0.010),
     },
     "medium": {
-        "visible_layers": 2, "opacity": 0.34, "emission": 0.008,
+        "visible_layers": 2, "opacity": 0.34, "emission": 8.0,
         "speed_mps": 6.5, "rate_mm_24h": "10-25", "wetness": 0.16,
         "drop_count": 350,
         "streak_length_m": (0.24, 0.52), "streak_width_m": (0.007, 0.012),
     },
     "heavy": {
-        "visible_layers": 3, "opacity": 0.44, "emission": 0.012,
+        "visible_layers": 3, "opacity": 0.44, "emission": 10.0,
         "speed_mps": 8.0, "rate_mm_24h": "25-50", "wetness": 0.28,
         "drop_count": 850,
         "streak_length_m": (0.32, 0.70), "streak_width_m": (0.009, 0.015),
     },
     "torrential": {
-        "visible_layers": 4, "opacity": 0.54, "emission": 0.018,
+        "visible_layers": 4, "opacity": 0.54, "emission": 12.0,
         "speed_mps": 9.5, "rate_mm_24h": "50-100; short burst >16 mm/h", "wetness": 0.42,
         "drop_count": 2000,
         "streak_length_m": (0.42, 0.92), "streak_width_m": (0.010, 0.018),
     },
-}
-RAIN_BACKGROUND_TEXTURE_LUMINANCE = {
-    "light": 0.86,
-    "medium": 0.76,
-    "heavy": 0.66,
-    "torrential": 0.56,
 }
 RAIN_COVERAGE_SCALES = {
     "light": 1.0,
@@ -115,9 +108,9 @@ RAIN_ATMOSPHERE_PROFILES = {
     "heavy": (0.82, 0.58, (0.30, 0.36, 0.40), 110.0, 0.85, 0.16),
     "torrential": (0.74, 0.44, (0.25, 0.31, 0.35), 45.0, 1.80, 0.30),
 }
-_RAIN_LAST_ANIMATION_UPDATE: dict[int, float] = {}
-_RAIN_FALL_DISTANCES: dict[int, float] = {}
-_RAIN_CAMERA_ANCHORS: dict[int, tuple[float, float]] = {}
+_RAIN_LAST_ANIMATION_UPDATE: dict[int, float] = globals().get('_RAIN_LAST_ANIMATION_UPDATE', {})
+_RAIN_FALL_DISTANCES: dict[int, float] = globals().get('_RAIN_FALL_DISTANCES', {})
+_RAIN_CAMERA_ANCHORS: dict[int, tuple[float, float]] = globals().get('_RAIN_CAMERA_ANCHORS', {})
 _ATMOSPHERE_OVERLAY_LAST_UPDATE: dict[int, float] = {}
 FOG_AMOUNT_LABELS = {
     "light": "Light Fog",
@@ -125,16 +118,18 @@ FOG_AMOUNT_LABELS = {
     "heavy": "Heavy Fog",
 }
 FOG_AMOUNT_PROFILES = {
-    # distance scale, density scale, height scale; intentionally separated
-    # enough to remain visible in a large yard camera.
-    "light": (1.20, 0.18, 0.12),
-    "medium": (0.65, 0.65, 0.45),
-    "heavy": (0.28, 2.00, 1.80),
+    # distance scale, density scale, height scale.  RTX Simple Fog becomes a
+    # flat white veil well before its density reaches the previous values;
+    # use distance bands as the primary grade cue and keep extinction low
+    # enough that the working RTG remains readable.
+    "light": (3.60, 0.38, 0.025),
+    "medium": (2.30, 0.90, 0.060),
+    "heavy": (1.35, 1.75, 0.115),
 }
 FOG_AMOUNT_BACKGROUND_COLORS = {
-    "light": (0.40, 0.48, 0.53),
-    "medium": (0.52, 0.58, 0.61),
-    "heavy": (0.70, 0.73, 0.73),
+    "light": (0.64, 0.68, 0.70),
+    "medium": (0.68, 0.71, 0.72),
+    "heavy": (0.72, 0.74, 0.75),
 }
 # RTX Simple Fog is not consistently evaluated on every live viewport
 # RenderProduct. This single camera-facing quad is a deliberately cheap
@@ -165,6 +160,12 @@ DAY_BACKGROUND_TEXTURE = (
     / "textures"
     / "day_harbor_sky_360.png"
 )
+RAIN_SKY_TEXTURE = DAY_BACKGROUND_TEXTURE.with_name("rain_overcast_sky_360.png")
+# Preserve pre-rain session opinions, including across a Script Editor reload.
+_RAIN_LOOK_RESTORE = globals().get("_RAIN_LOOK_RESTORE", {})
+_RAIN_PARTICLE_BATCHES = globals().get("_RAIN_PARTICLE_BATCHES", {})
+_RAIN_SURFACE_EFFECTS = globals().get("_RAIN_SURFACE_EFFECTS", {})
+_RAIN_LOCAL_LIGHTS = globals().get("_RAIN_LOCAL_LIGHTS", {})
 WEATHER_TEXTURE_BACKGROUND_MODES = frozenset(("rain", "fog"))
 DAY_BACKGROUND_FALLBACK_COLOR = (0.34, 0.55, 0.84)
 FOG_BACKGROUND_TEXTURE_LUMINANCE = 0.48
@@ -236,8 +237,8 @@ ENVIRONMENT_PRESETS = {
         label="雨天",
         sky_intensity=600.0,
         sky_exposure=-0.08,
-        sky_color=(0.78, 0.82, 0.86),
-        sun_intensity=800.0,
+        sky_color=(0.94, 0.97, 1.0),
+        sun_intensity=180.0,
         sun_color=(0.80, 0.84, 0.87),
         # Rain keeps road lighting and the working RTG on, not stationary RTGs.
         street_lights_visible=True,
@@ -255,8 +256,8 @@ ENVIRONMENT_PRESETS = {
         label="雾天",
         sky_intensity=520.0,
         sky_exposure=-0.05,
-        sky_color=(0.72, 0.77, 0.78),
-        sun_intensity=460.0,
+        sky_color=(0.94, 0.97, 1.0),
+        sun_intensity=140.0,
         sun_color=(0.78, 0.80, 0.79),
         street_lights_visible=True,
         background_color=(0.52, 0.57, 0.58),
@@ -437,8 +438,81 @@ def _asset_path(value: Path) -> Any:
         return value.as_posix()
 
 
+def _rain_look_override(stage: Any, path: str, name: str, value: Any, type_name: str) -> None:
+    """Remember the exact session default before temporarily changing the look."""
+    prim = stage.GetPrimAtPath(path)
+    if not prim:
+        return
+    saved = _RAIN_LOOK_RESTORE.setdefault(stage, {})
+    key = (path, name)
+    if key not in saved:
+        try:
+            spec = stage.GetSessionLayer().GetAttributeAtPath(f"{path}.{name}")
+            saved[key] = (True, spec.default) if spec and spec.HasInfo("default") else (False, None)
+        except AttributeError:  # lightweight stage doubles
+            attr = prim.GetAttribute(name)
+            saved[key] = (bool(attr), attr.Get() if attr else None)
+    _set_attribute(prim, name, value, type_name)
+
+
+def _restore_rain_look(stage: Any) -> None:
+    for (path, name), (authored, value) in _RAIN_LOOK_RESTORE.pop(stage, {}).items():
+        prim = stage.GetPrimAtPath(path)
+        if prim:
+            attr = prim.GetAttribute(name)
+            if attr:
+                attr.Set(value) if authored else attr.Clear()
+
+
+def _configure_rain_surface_and_lights(stage: Any, amount: str) -> None:
+    """Reuse existing texture samples/lights; author only on weather changes."""
+    wetness = float(RAIN_AMOUNT_PROFILES[amount]["wetness"])
+    base = "/World/PortRealism/Looks/asphalt"
+    # Preserve the existing aggregate/repair texture variation under the film.
+    darken = .82 - wetness * .35
+    rough_scale = .80 - wetness * .90
+    for suffix, scale in (("color", darken), ("roughness", rough_scale)):
+        _rain_look_override(stage, f"{base}/{suffix}", "inputs:scale", (scale, scale, scale, 1.0), "Float4")
+    # Roughness carries the water film without an additional clearcoat lobe.
+    _rain_look_override(stage, f"{base}/Surface", "inputs:clearcoat", 0.0, "Float")
+    _rain_look_override(stage, f"{WEATHER_ROOT_PATH}/Rain/WetRoadSheen", "visibility", "invisible", "Token")
+    _configure_weather_local_lights(stage)
+
+
+def _configure_weather_local_lights(stage: Any) -> None:
+    # Lights stay on for port operations, at daytime output. The previous
+    # night exposure produced blown-out pools and luminous rain streaks.
+    roots = (NIGHT_STREET_LIGHTS_PATH, RTG_LED_NIGHT_ROOT_PATHS[0])
+    try:
+        from pxr import Usd, UsdGeom
+        transforms = UsdGeom.XformCache()
+        anchor = _active_camera_ground_xy(stage)
+        local_lights = []
+        for root_path in roots:
+            root = stage.GetPrimAtPath(root_path)
+            if not root:
+                continue
+            for prim in Usd.PrimRange(root):
+                if prim.GetTypeName().endswith("Light"):
+                    _rain_look_override(stage, str(prim.GetPath()), "inputs:exposure", -0.8, "Float")
+                    if root_path == NIGHT_STREET_LIGHTS_PATH:
+                        # One centre emitter per three-head pole is sufficient
+                        # under the diffuse sky; night restores all 336 emitters.
+                        visibility = "inherited" if "_Head_02_" in prim.GetName() else "invisible"
+                        if visibility == "inherited":
+                            position = transforms.GetLocalToWorldTransform(prim).ExtractTranslation()
+                            near = math.hypot(position[0]-anchor[0], position[1]-anchor[1]) <= 70.
+                            visibility = "inherited" if near else "invisible"
+                        _rain_look_override(stage, str(prim.GetPath()), "visibility", visibility, "Token")
+                        if "_Head_02_" in prim.GetName():
+                            local_lights.append((prim.GetAttribute('visibility'), float(position[0]), float(position[1])))
+        _RAIN_LOCAL_LIGHTS[stage] = (None, local_lights)
+    except ImportError:
+        pass
+
+
 def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> None:
-    """Force a visible RTX background instead of relying on DomeLight display."""
+    """Match the visible weather sky to its diffuse lighting and reflections."""
 
     render_products = []
     try:
@@ -448,10 +522,18 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
     except (AttributeError, TypeError):
         pass
 
+    background_texture = RAIN_SKY_TEXTURE if preset.key in ("rain", "fog") else DAY_BACKGROUND_TEXTURE
     use_weather_texture = (
-        preset.key in WEATHER_TEXTURE_BACKGROUND_MODES
-        and DAY_BACKGROUND_TEXTURE.is_file()
+        (preset.key == "day" or preset.key in WEATHER_TEXTURE_BACKGROUND_MODES)
+        and background_texture.is_file()
     )
+    use_dome = preset.key in ("day", "rain", "fog") and use_weather_texture
+    if preset.key in ("rain", "fog"):
+        _rain_look_override(stage, DAY_SKY_PATH, "inputs:texture:file",
+                            _asset_path(RAIN_SKY_TEXTURE) if RAIN_SKY_TEXTURE.is_file() else "", "Asset")
+        _rain_look_override(stage, DAY_SUN_PATH, "inputs:angle", 12.0, "Float")
+        # Align this latlong cloud hemisphere with Kit's Z-up dome mapping.
+        _rain_look_override(stage, DAY_SKY_PATH, "xformOp:rotateXYZ", (-90.0, 0.0, 18.0), "Float3")
     texture_luminance_scale = {
         "day": 1.0,
         "rain": 0.70,
@@ -460,11 +542,18 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
         "fog": FOG_BACKGROUND_TEXTURE_LUMINANCE,
     }.get(preset.key, 1.0)
     for render_product in render_products:
-        if use_weather_texture:
+        if use_dome:
+            # Remove the saved backplate as well as its override; otherwise
+            # Kit can retain the screen-space image when settings synchronize.
+            _set_attribute(render_product, "omni:rtx:background:source:texture:path", "", "Asset")
+            _set_attribute(render_product, "omni:rtx:background:source:type", "domeLight", "Token")
+            _set_attribute(render_product, "omni:rtx:lights:visibilityOverride", "perLight", "Token")
+            _set_attribute(render_product, "omni:rtx:post:compositing:postTonemapBackgroundComposite", False, "Bool")
+        elif use_weather_texture:
             _set_attribute(
                 render_product,
                 "omni:rtx:background:source:type",
-                "texture",
+                "backplate",
                 "Token",
             )
             _set_attribute(
@@ -479,11 +568,12 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
                 texture_luminance_scale,
                 "Float",
             )
+            _set_attribute(render_product, "omni:rtx:background:source:texture:colorSpace", "sRGB", "Token")
+            _set_attribute(render_product, "omni:rtx:post:compositing:postTonemapBackgroundComposite", True, "Bool")
         elif preset.key == "day":
-            # Let RTX use the rendered DomeLight. This is what displays the
-            # authored harbor sky texture and avoids the black texture override
-            # seen with this Kit version.
-            _clear_attribute(render_product, "omni:rtx:background:source:type")
+            # Use a visible blue fallback only when the local cloud image is missing.
+            _set_attribute(render_product, "omni:rtx:background:source:type", "color", "Token")
+            _set_attribute(render_product, "omni:rtx:background:source:color", DAY_BACKGROUND_FALLBACK_COLOR, "Color3f")
         else:
             color = preset.background_color or (0.018, 0.045, 0.12)
             _set_attribute(
@@ -499,17 +589,28 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
                 "Color3f",
             )
 
+    # Modern viewport products own these settings. Writing their legacy carb
+    # aliases also causes Kit to author asynchronously into the root layer.
+    if render_products:
+        return
     # Viewports created after the stage was saved may use a transient render
     # product. Mirror the same override into the live RTX settings as a fallback.
     try:
         import carb.settings  # type: ignore
 
         settings = carb.settings.get_settings()
-        if use_weather_texture:
+        if use_dome:
+            settings.set_string("/rtx/background/source/texture/path", "")
+            settings.set_int("/rtx/background/source/type", 0)
+            settings.set_int("/rtx/raytracing/showLights", 0)
+            settings.set_bool("/rtx/post/backgroundZeroAlpha/postTonemapBackgroundComposite", False)
+        elif use_weather_texture:
             # RTX background override: 1 forces the assigned texture. This
             # keeps rain and fog on a textured overcast sky instead of a flat
             # color while the separate RTX fog layer controls visibility.
             settings.set_int("/rtx/background/source/type", 1)
+            settings.set_int("/rtx/background/source/texture/colorSpace", 0)
+            settings.set_bool("/rtx/post/backgroundZeroAlpha/postTonemapBackgroundComposite", True)
             settings.set_string(
                 "/rtx/background/source/texture/path",
                 DAY_BACKGROUND_TEXTURE.as_posix(),
@@ -519,18 +620,10 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
                 texture_luminance_scale,
             )
         elif preset.key == "day":
-            settings.set_int("/rtx/background/source/type", 0)
-            if DAY_BACKGROUND_TEXTURE.is_file():
-                settings.set_string(
-                    "/rtx/background/source/texture/path",
-                    DAY_BACKGROUND_TEXTURE.as_posix(),
-                )
-            else:
-                settings.set_int("/rtx/background/source/type", 2)
-                settings.set_float_array(
-                    "/rtx/background/source/color",
-                    list(DAY_BACKGROUND_FALLBACK_COLOR),
-                )
+            settings.set_int("/rtx/background/source/type", 2)
+            settings.set_float_array(
+                "/rtx/background/source/color", list(DAY_BACKGROUND_FALLBACK_COLOR)
+            )
         else:
             color = preset.background_color or (0.018, 0.045, 0.12)
             settings.set_int("/rtx/background/source/type", 2)
@@ -545,17 +638,18 @@ def _configure_viewport_background(stage: Any, preset: EnvironmentPreset) -> Non
 def _configure_fog_background(stage: Any, preset: EnvironmentPreset, fog_amount: str) -> None:
     """Separate fog levels through background, visibility, and direct light."""
 
-    if not preset.fog_enabled:
+    if preset.key != "fog":
         return
     amount = normalize_fog_amount(fog_amount)
     color = FOG_AMOUNT_BACKGROUND_COLORS[amount]
     sky_scale, sun_scale = {
-        "light": (1.08, 0.92),
-        "medium": (0.78, 0.48),
-        "heavy": (0.48, 0.12),
+        "light": (1.08, 0.65),
+        "medium": (1.00, 0.32),
+        "heavy": (0.94, 0.10),
     }[amount]
     try:
         environment = _valid_prim(stage, ENVIRONMENT_ROOT_PATH)
+        _set_attribute(environment, "smartPort:fogEffectRevision", FOG_EFFECT_REVISION, "String")
         distance_scale, density_scale, height_scale = FOG_AMOUNT_PROFILES[amount]
         _set_attribute(
             environment,
@@ -566,6 +660,17 @@ def _configure_fog_background(stage: Any, preset: EnvironmentPreset, fog_amount:
         _set_attribute(environment, "smartPort:fogDensityScale", density_scale, "Float")
         _set_attribute(environment, "smartPort:fogHeightScale", height_scale, "Float")
         _set_attribute(environment, "smartPort:fogTint", color, "Color3f")
+        # A featureless mist horizon should merge with distant geometry;
+        # the cloud dome still supplies diffuse illumination and reflections.
+        for product in stage.Traverse():
+            if product.GetTypeName() == "RenderProduct":
+                _set_attribute(product, "omni:rtx:background:source:type", "color", "Token")
+                # Simple Fog adds in-scattering to shaded geometry, whereas
+                # the constant sky only passes through tone mapping. Lift the
+                # sky towards white to avoid a dark stripe at the horizon.
+                sky_color = tuple(c + (1.0 - c) * 0.55 for c in color)
+                _set_attribute(product, "omni:rtx:background:source:color", sky_color, "Color3f")
+                _set_attribute(product, "omni:rtx:post:compositing:postTonemapBackgroundComposite", True, "Bool")
         _set_attribute(
             _valid_prim(stage, DAY_SKY_PATH),
             "inputs:intensity",
@@ -626,23 +731,6 @@ def _configure_rain_atmosphere(
             preset.sun_intensity * sun_scale,
             "Float",
         )
-        if DAY_BACKGROUND_TEXTURE.is_file():
-            background_luminance = RAIN_BACKGROUND_TEXTURE_LUMINANCE[amount]
-            for render_product in (
-                prim for prim in stage.Traverse() if prim.GetTypeName() == "RenderProduct"
-            ):
-                _set_attribute(
-                    render_product,
-                    "omni:rtx:background:source:type",
-                    "texture",
-                    "Token",
-                )
-                _set_attribute(
-                    render_product,
-                    "omni:rtx:background:source:texture:luminanceScale",
-                    background_luminance,
-                    "Float",
-                )
     except (AttributeError, RuntimeError, TypeError):
         pass
 
@@ -650,22 +738,14 @@ def _configure_rain_atmosphere(
         import carb.settings  # type: ignore
 
         settings = carb.settings.get_settings()
+        if any(p.GetTypeName() == "RenderProduct" for p in stage.Traverse()):
+            return
         settings.set_bool("/rtx/fog/enabled", True)
         settings.set_float_array("/rtx/fog/fogColor", list(background_color))
         settings.set_float("/rtx/fog/fogStartDist", 4.0 if amount == "torrential" else 12.0)
         settings.set_float("/rtx/fog/fogEndDist", visibility_m)
         settings.set_float("/rtx/fog/fogDistanceDensity", distance_density)
         settings.set_float("/rtx/fog/fogHeightDensity", height_density)
-        if DAY_BACKGROUND_TEXTURE.is_file():
-            settings.set_int("/rtx/background/source/type", 1)
-            settings.set_string(
-                "/rtx/background/source/texture/path",
-                DAY_BACKGROUND_TEXTURE.as_posix(),
-            )
-            settings.set_float(
-                "/rtx/background/source/texture/luminanceScale",
-                RAIN_BACKGROUND_TEXTURE_LUMINANCE[amount],
-            )
     except (AttributeError, ImportError, RuntimeError):
         pass
 
@@ -684,8 +764,6 @@ def _configure_render_product_fog(
     selected light/medium/heavy profile in the actual viewport.
     """
 
-    if not preset.fog_enabled:
-        return
     fog_amount = normalize_fog_amount(fog_amount)
     if preset.rain_visible:
         amount = normalize_rain_amount(rain_amount)
@@ -713,7 +791,7 @@ def _configure_render_product_fog(
             _set_attribute(
                 render_product,
                 "omni:rtx:fog:enabled",
-                True,
+                preset.fog_enabled,
                 "Bool",
             )
             _set_attribute(
@@ -760,7 +838,7 @@ def _configure_render_product_fog(
             )
             _set_attribute(
                 render_product,
-                "omni:rtx:fog:startDist",
+                "omni:rtx:fog:start:distance",
                 start_dist,
                 "Float",
             )
@@ -793,7 +871,7 @@ def _configure_atmosphere_overlay(
     mode = preset.key
     # RTX Real-Time 2.0 can treat this PreviewSurface veil as opaque.
     # Rain uses distance fog instead; never put a large mesh over the yard.
-    enabled = mode == "fog"
+    enabled = False
     if mode == "rain":
         amount = normalize_rain_amount(rain_amount)
         opacity = ATMOSPHERE_OVERLAY_OPACITIES[mode][amount]
@@ -930,9 +1008,11 @@ def _update_atmosphere_overlay_transform(stage: Any, elapsed_seconds: float) -> 
         return False
 
 
-def _configure_rtx_fog(preset: EnvironmentPreset, fog_amount: str = DEFAULT_FOG_AMOUNT) -> None:
+def _configure_rtx_fog(preset: EnvironmentPreset, fog_amount: str = DEFAULT_FOG_AMOUNT, stage: Any = None) -> None:
     """Apply low-cost RTX Simple Fog settings for rain and fog presets."""
 
+    if stage is not None and any(p.GetTypeName() == "RenderProduct" for p in stage.Traverse()):
+        return
     try:
         import carb.settings  # type: ignore
 
@@ -962,7 +1042,7 @@ def _configure_rtx_fog(preset: EnvironmentPreset, fog_amount: str = DEFAULT_FOG_
 
 
 def _active_camera_ground_xy(stage: Any) -> tuple[float, float]:
-    """Return active viewport camera XY for the local rain volume."""
+    """Center the local rain volume on the ground just ahead of the camera."""
 
     try:
         from omni.kit.viewport.utility import get_active_viewport  # type: ignore
@@ -977,9 +1057,82 @@ def _active_camera_ground_xy(stage: Any) -> tuple[float, float]:
             Usd.TimeCode.Default()
         )
         translate = matrix.ExtractTranslation()
-        return (float(translate[0]), float(translate[1]))
+        # A camera-centered emitter wastes half its drops behind the view and
+        # misses the box roofs in a typical RTG overview. Lead by 14 metres.
+        forward_x, forward_y = -float(matrix[2][0]), -float(matrix[2][1])
+        length = math.hypot(forward_x, forward_y)
+        distance = min(14., max(0., float(translate[2])-1.)*length/max(.15, abs(float(matrix[2][2]))))
+        lead = distance / length if length > .1 else 0.0
+        return (float(translate[0]) + forward_x*lead,
+                float(translate[1]) + forward_y*lead)
     except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
         return (0.0, 0.0)
+
+
+def _update_weather_local_lights(stage: Any, camera_anchor: tuple) -> None:
+    previous_anchor, local_lights = _RAIN_LOCAL_LIGHTS.get(stage, (None, ()))
+    if previous_anchor != camera_anchor:
+        for attr, x, y in local_lights:
+            visibility = 'inherited' if math.hypot(x-camera_anchor[0], y-camera_anchor[1]) <= 70. else 'invisible'
+            if attr.Get() != visibility:
+                attr.Set(visibility)
+        _RAIN_LOCAL_LIGHTS[stage] = (camera_anchor, local_lights)
+
+
+def _update_rain_point_batches(stage: Any, visible_count: int, fall_travel: float,
+                              wind_speed: float, camera_anchor: tuple, elapsed: float) -> None:
+    from rain_particle_motion import RainPointBatch
+    _update_weather_local_lights(stage, camera_anchor)
+    try:
+        from pxr import Sdf, Vt
+        pack = Vt.Vec3fArray.FromNumpy
+        block = Sdf.ChangeBlock
+    except ImportError:
+        pack = lambda array: array.tolist()
+        block = nullcontext
+        surfaces = None
+    else:
+        from rain_surface_effects import RainSurfaceEffects
+        if stage not in _RAIN_SURFACE_EFFECTS:
+            _RAIN_SURFACE_EFFECTS[stage] = RainSurfaceEffects(stage)
+        surfaces = _RAIN_SURFACE_EFFECTS[stage]
+        surfaces.refresh(camera_anchor, elapsed)
+    batches = _RAIN_PARTICLE_BATCHES.setdefault(stage, {})
+    pending = []
+    contacts = []
+    for layer_index, paths in enumerate(RAIN_LAYER_PHASE_PATHS[:visible_count]):
+        for phase_index, path in enumerate(paths):
+            if path not in batches:
+                prim = _valid_prim(stage, path)
+                attr = prim.GetAttribute("points")
+                if not attr or attr.Get() is None:
+                    continue
+                points = attr.Get()
+                batch = RainPointBatch(points, phase_index/3.0 + layer_index*.071,
+                                       surface_z=RAIN_SURFACE_CLIP_Z_M)
+                # Capture pre-rain session opinions for exact day/night restore.
+                _rain_look_override(stage, path, "points", points, "Point3fArray")
+                _rain_look_override(stage, path, "xformOp:translate", (0.0, 0.0, 0.0), "Double3")
+                _rain_look_override(stage, path, "extent", [(-25., -19., .12), (65., 40., 28.)], "Float3Array")
+                if surfaces:
+                    _rain_look_override(stage, path, "visibility", "invisible", "Token")
+                batches[path] = (attr, batch)
+            attr, batch = batches[path]
+            surface_key = (surfaces.version if surfaces else 0, camera_anchor, wind_speed)
+            if batch.surface_key != surface_key:
+                batch.set_surfaces(surfaces.roofs if surfaces else (), camera_anchor, wind_speed)
+                batch.surface_key = surface_key
+            points = batch.update(fall_travel, wind_speed)
+            pending.append((attr, points if surfaces else pack(points)))
+            contacts.append(batch.contacts)
+    # All prim resolution and buffer conversion occurs before the USD block.
+    with block():
+        if surfaces:
+            surfaces.update_motion([points for _, points in pending])
+            surfaces.update_splashes(contacts, elapsed, visible_count)
+        else:
+            for attr, points in pending:
+                attr.Set(points)
 
 
 def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
@@ -990,7 +1143,13 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
         if mode not in ("rain", "fog"):
             return False
         if mode == "fog":
-            return _update_atmosphere_overlay_transform(stage, elapsed_seconds)
+            # Distance/height fog is evaluated by RTX; no camera-facing mesh
+            # or per-frame USD geometry changes are needed.
+            anchor = _active_camera_ground_xy(stage)
+            anchor = tuple(round(v / RAIN_CAMERA_FOLLOW_GRID_M) * RAIN_CAMERA_FOLLOW_GRID_M for v in anchor)
+            with _session_edit_context(stage):
+                _update_weather_local_lights(stage, anchor)
+            return True
         elapsed = float(elapsed_seconds)
         stage_id = id(stage)
         last_update = _RAIN_LAST_ANIMATION_UPDATE.get(stage_id)
@@ -1052,60 +1211,7 @@ def update_weather_animation(stage: Any, elapsed_seconds: float) -> bool:
                     "TokenArray",
                 )
             visible_count = int(RAIN_AMOUNT_PROFILES[rain_amount]["visible_layers"])
-            pending_transforms = []
-            for layer_index, phase_paths in enumerate(RAIN_LAYER_PHASE_PATHS[:visible_count]):
-                # Three height phases per grade provide continuous rainfall.
-                # The travel limit uses that grade's longest streak, so no
-                # vertex can cross the ground/water clipping height.
-                fall_distance = (
-                    RAIN_EMITTER_MIN_Z_M
-                    - RAIN_STREAK_MAX_LENGTHS_M[layer_index]
-                    - RAIN_SURFACE_CLIP_Z_M
-                )
-                for phase_index, path in enumerate(phase_paths):
-                    phase_offset = phase_index / len(phase_paths) + layer_index * 0.071
-                    cycle = (
-                        fall_travel * (1.0 + layer_index * 0.025 + phase_index * 0.012)
-                        / fall_distance + phase_offset
-                    ) % 1.0
-                    gust = math.sin(
-                        elapsed * (1.15 + layer_index * 0.21)
-                        + phase_index * 0.83
-                    )
-                    travel_scale = fall_distance / 12.0
-                    lateral_x = (
-                        cycle * wind_speed * 0.82 * travel_scale
-                        + gust * wind_speed * 0.16
-                    )
-                    # The modeled harbor water lies on the negative-X side of
-                    # the yard shoreline; never drift a land rain batch back
-                    # over that edge where below-surface streaks are exposed.
-                    lateral_x = max(0.0, lateral_x)
-                    lateral_y = (
-                        cycle * wind_speed * 0.24 * travel_scale
-                        + gust * wind_speed * 0.05
-                    )
-                    translation = (
-                        lateral_x,
-                        lateral_y,
-                        -cycle * fall_distance,
-                    )
-                    rain_mesh = _valid_prim(stage, path)
-                    attribute = rain_mesh.GetAttribute("xformOp:translate")
-                    if attribute:
-                        pending_transforms.append((attribute, translation))
-                    else:
-                        _set_attribute(rain_mesh, "xformOp:translate", translation, "Double3")
-            # Resolve all USD objects before entering ChangeBlock. Coalesce
-            # notices so Hydra/Stage UI sees one batch instead of 12 changes.
-            try:
-                from pxr import Sdf  # type: ignore
-                change_block = Sdf.ChangeBlock()
-            except ImportError:
-                change_block = nullcontext()
-            with change_block:
-                for attribute, translation in pending_transforms:
-                    attribute.Set(translation)
+            _update_rain_point_batches(stage, visible_count, fall_travel, wind_speed, camera_anchor, elapsed)
         return True
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return False
@@ -1195,11 +1301,18 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
         _RAIN_LAST_ANIMATION_UPDATE.pop(id(stage), None)
         _RAIN_FALL_DISTANCES.pop(id(stage), None)
         _RAIN_CAMERA_ANCHORS.pop(id(stage), None)
+        _RAIN_PARTICLE_BATCHES.pop(stage, None)
+        _RAIN_LOCAL_LIGHTS.pop(stage, None)
+        surfaces = _RAIN_SURFACE_EFFECTS.pop(stage, None)
+        if surfaces:
+            surfaces.close()
     try:
         rain_root = _valid_prim(stage, RAIN_EFFECT_PATH)
         _set_attribute(rain_root, "smartPort:rainEffectRevision", RAIN_EFFECT_REVISION, "String")
         _set_attribute(rain_root, "smartPort:animationHz", 60, "Int")
         _set_attribute(rain_root, "smartPort:maxRainTriangles", 8000, "Int")
+        _set_attribute(rain_root, "smartPort:maxSplashTriangles", 2048, "Int")
+        _set_attribute(rain_root, "smartPort:splashCapacity", 128, "Int")
         _set_attribute(rain_root, "smartPort:visibleLayerCount", visible_count, "Int")
         _set_attribute(rain_root, "smartPort:coverageScale", coverage_scale, "Float")
         _set_attribute(rain_root, "smartPort:rainIntensity", float(profile["opacity"]), "Float")
@@ -1232,6 +1345,9 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
         )
         _set_attribute(shader, "inputs:opacity", float(profile["opacity"]), "Float")
         _set_attribute(shader, "inputs:emissiveColor", (float(profile["emission"]),) * 3, "Color3f")
+        # Small unlit fill stands in for unresolved refracted sky on subpixel
+        # drops. Otherwise their back faces appear as black needles in RTX.
+        _set_attribute(shader, "inputs:roughness", .65, "Float")
         wet_shader = _valid_prim(
             stage,
             f"{WEATHER_ROOT_PATH}/Looks/WetRoadMaterial/PreviewSurface",
@@ -1281,7 +1397,7 @@ def _configure_rain_layers(stage: Any, amount: str, enabled: bool) -> None:
                 _set_attribute_if_changed(
                     phase,
                     "visibility",
-                    visibility,
+                    "invisible" if stage in _RAIN_SURFACE_EFFECTS else visibility,
                     "Token",
                 )
 
@@ -1317,12 +1433,18 @@ def apply_weather_controls(
         _set_attribute(environment, FOG_AMOUNT_ATTRIBUTE, fog, "Token")
         mode = current_environment_mode(stage)
         _configure_rain_layers(stage, rain, mode == "rain")
-    _configure_rtx_fog(ENVIRONMENT_PRESETS[mode], fog)
+        if mode == "rain":
+            _configure_rain_surface_and_lights(stage, rain)
+        elif mode == "fog":
+            _configure_weather_local_lights(stage)
+    _configure_rtx_fog(ENVIRONMENT_PRESETS[mode], fog, stage)
     with _session_edit_context(stage):
         _configure_fog_background(stage, ENVIRONMENT_PRESETS[mode], fog)
         _configure_rain_atmosphere(stage, ENVIRONMENT_PRESETS[mode], rain)
         _configure_render_product_fog(stage, ENVIRONMENT_PRESETS[mode], fog, rain)
         _configure_atmosphere_overlay(stage, ENVIRONMENT_PRESETS[mode], rain, fog)
+    from smart_port_time_of_day import reapply_if_set
+    reapply_if_set(stage)
     return {
         "wind_speed_mps": wind,
         "rain_amount": rain,
@@ -1338,8 +1460,17 @@ def apply_weather_controls(
     }
 
 
+def sts_night_light_paths(stage: Any) -> tuple[str, ...]:
+    root = stage.GetPrimAtPath('/World/STSControls')
+    if not root:
+        return ()
+    return tuple(str(crane.GetPath()) + '/Gantry/' + assembly + '/NightWorkLights'
+                 for crane in root.GetChildren() for assembly in ('Fixed', 'Boom', 'Trolley')
+                 if stage.GetPrimAtPath(str(crane.GetPath()) + '/Gantry/' + assembly + '/NightWorkLights'))
+
+
 def _configure_rtg_floodlights(stage: Any, enabled: bool, work_rtg_only: bool = False) -> None:
-    """Keep LED fixtures visible and switch their night downlights.
+    """Keep RTG fixtures visible and switch RTG/STS night work lights.
 
     The model roots are explicitly restored in every preset so an older
     session-layer visibility edit cannot hide the installed hardware.
@@ -1362,6 +1493,9 @@ def _configure_rtg_floodlights(stage: Any, enabled: bool, work_rtg_only: bool = 
             visibility,
             "Token",
         )
+    for root_path in sts_night_light_paths(stage):
+        _set_attribute(stage.GetPrimAtPath(root_path), 'visibility',
+                       'inherited' if enabled or work_rtg_only else 'invisible', 'Token')
 
 
 def apply_environment_mode(stage: Any, mode: Any) -> str:
@@ -1370,6 +1504,8 @@ def apply_environment_mode(stage: Any, mode: Any) -> str:
     normalized = normalize_environment_mode(mode)
     preset = ENVIRONMENT_PRESETS[normalized]
     with _session_edit_context(stage):
+        if normalized not in ("rain", "fog") or current_environment_mode(stage) != normalized:
+            _restore_rain_look(stage)
         environment = _valid_prim(stage, ENVIRONMENT_ROOT_PATH)
         sky = _valid_prim(stage, DAY_SKY_PATH)
         sun = _valid_prim(stage, DAY_SUN_PATH)
@@ -1411,16 +1547,22 @@ def apply_environment_mode(stage: Any, mode: Any) -> str:
         )
         _configure_rtg_floodlights(
             stage,
-            preset.street_lights_visible and normalized != "rain",
-            work_rtg_only=normalized == "rain",
+            preset.street_lights_visible and normalized not in ("rain", "fog"),
+            work_rtg_only=normalized in ("rain", "fog"),
         )
         _set_attribute(_valid_prim(stage, RAIN_EFFECT_PATH), "visibility", "inherited" if preset.rain_visible else "invisible", "Token")
         _configure_rain_layers(stage, rain_amount, preset.rain_visible)
-    _configure_rtx_fog(preset, fog_amount)
+        if preset.rain_visible:
+            _configure_rain_surface_and_lights(stage, rain_amount)
+        elif normalized == "fog":
+            _configure_weather_local_lights(stage)
+    _configure_rtx_fog(preset, fog_amount, stage)
     with _session_edit_context(stage):
         _configure_fog_background(stage, preset, fog_amount)
         _configure_rain_atmosphere(stage, preset, rain_amount)
         _configure_render_product_fog(stage, preset, fog_amount, rain_amount)
         _configure_atmosphere_overlay(stage, preset, rain_amount, fog_amount)
     _hide_viewport_light_icons()
+    from smart_port_time_of_day import reapply_if_set
+    reapply_if_set(stage)
     return normalized

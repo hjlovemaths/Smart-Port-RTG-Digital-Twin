@@ -1523,13 +1523,21 @@ class TaskVisualPolicyTests(unittest.TestCase):
         )
         self.assertEqual(receiver.LIVE_TASK_TRUCK_ASSET_GROUND_Z_M, 0.14)
 
-    def test_imported_truck_cab_aligns_with_task_layout(self) -> None:
-        target_cab_y = -7.30
-        translated_asset_cab_y = (
-            receiver.LIVE_TASK_TRUCK_ASSET_CAB_CENTER_Y_M
-            + receiver._task_truck_imported_visual_translate_y(target_cab_y)
+    def test_imported_long_box_is_centered_on_the_actual_trailer(self) -> None:
+        shift = receiver._task_truck_imported_visual_translate_y(5.15, 40)
+        front, rear = (
+            value * receiver.LIVE_TASK_TRUCK_VISUAL_SCALE[1] + shift
+            for value in receiver.LIVE_TASK_TRUCK_ASSET_TRAILER_BOUNDS_Y_M
         )
-        self.assertAlmostEqual(translated_asset_cab_y, target_cab_y)
+        self.assertAlmostEqual((front + rear) * 0.5, receiver.TASK_TRUCK_LOADED_BOX_LOCAL_Y_M)
+        self.assertLessEqual(front, -5.15 * 0.5)
+        self.assertGreaterEqual(rear, 5.15 * 0.5)
+
+    def test_imported_short_box_uses_the_front_of_the_actual_trailer(self) -> None:
+        length = 2.475
+        shift = receiver._task_truck_imported_visual_translate_y(length, 20)
+        front = receiver.LIVE_TASK_TRUCK_ASSET_TRAILER_BOUNDS_Y_M[0] * receiver.LIVE_TASK_TRUCK_VISUAL_SCALE[1] + shift
+        self.assertAlmostEqual(-length * 0.5 - front, receiver.TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M)
 
     def test_demo_sequence_artifacts_are_disabled_without_touching_live_task_truck(self) -> None:
         class Prim:
@@ -1741,7 +1749,6 @@ class TaskVisualPolicyTests(unittest.TestCase):
                 receiver.INVENTORY_SYNC_PENDING,
             )
 
-            driver._active_inventory_task_key = None
             ready = driver._prepare_inventory_task(
                 object(),
                 dict(task, targetBayMap="000000"),

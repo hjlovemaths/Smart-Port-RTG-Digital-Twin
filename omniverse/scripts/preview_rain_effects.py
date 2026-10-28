@@ -13,11 +13,31 @@ from pathlib import Path
 import statistics
 import sys
 import time
+import types
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parents[1]
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+
+
+def reload_rain_runtime(weather, stage):
+    """Load project sources explicitly, including newly added Kit helpers."""
+    with weather._session_edit_context(stage):
+        weather._restore_rain_look(stage)
+        for effects in getattr(weather, '_RAIN_SURFACE_EFFECTS', {}).values():
+            effects.close()
+    getattr(weather, '_RAIN_SURFACE_EFFECTS', {}).clear()
+    getattr(weather, '_RAIN_PARTICLE_BATCHES', {}).clear()
+    for name in ('rain_particle_motion', 'rain_surface_effects'):
+        source = SCRIPT_DIR / (name + '.py')
+        module = sys.modules.get(name) or types.ModuleType(name)
+        module.__file__ = str(source)
+        sys.modules[name] = module
+        exec(compile(source.read_text(encoding='utf-8'), str(source), 'exec'), module.__dict__)
+    source = SCRIPT_DIR / 'smart_port_environment.py'
+    weather.__file__ = str(source)
+    exec(compile(source.read_text(encoding='utf-8'), str(source), 'exec'), weather.__dict__)
 
 
 def reload_rain_effects():
@@ -38,9 +58,7 @@ def reload_rain_effects():
     # Kit's fast-import hook can serve stale code even to importlib.reload.
     # Execute the known project source into the existing module so both the
     # bridge and receiver retain the same module reference, now with new code.
-    source = SCRIPT_DIR / "smart_port_environment.py"
-    weather.__file__ = str(source)
-    exec(compile(source.read_text(encoding="utf-8"), str(source), "exec"), weather.__dict__)
+    reload_rain_runtime(weather, stage)
     weather.apply_environment_mode(stage, mode)
     print(f"[Rain] Loaded {weather.RAIN_EFFECT_REVISION}")
     return weather, stage

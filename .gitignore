@@ -1,2 +1,12 @@
 .codex-backups/
 .cache/
+
+# Generated runtime data and local diagnostics
+__pycache__/
+.pytest_cache/
+tmp/
+outputs/
+services/logs/
+*.log
+*.blend1
+blender/converted/

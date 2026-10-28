@@ -25,6 +25,7 @@ from isaacsim import SimulationApp
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STAGE = PROJECT_ROOT / "omniverse" / "scenes" / "smart_port.usda"
+EXTENSIONS_DIR = PROJECT_ROOT / "omniverse" / "extensions"
 PHYSICS_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "rtg_isaac_physics.py"
 LIDAR_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "rtg_yard_lidar.py"
 SEA_MOTION_SCRIPT = PROJECT_ROOT / "omniverse" / "scripts" / "ship_sea_motion.py"
@@ -380,6 +381,10 @@ def main() -> None:
                   if experimental_multitick else []),
                 "--enable",
                 "omni.kit.window.script_editor",
+                "--ext-folder",
+                str(EXTENSIONS_DIR),
+                "--enable",
+                "smartport.agent_panel",
             ],
         },
         experience=str(FULL_EXPERIENCE if args.full_ui else BASE_EXPERIENCE),

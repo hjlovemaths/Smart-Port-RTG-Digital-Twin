@@ -629,6 +629,10 @@ class RtgGamepadManualController:
         stage = self._current_stage()
         if stage is None:
             return
+        # Kit may still route Space to its global timeline shortcut even while
+        # KitKeyboard is subscribed.  Manual mode depends on authored RTG poses
+        # staying frozen, so stop playback again as soon as that shortcut starts it.
+        self._pause_timeline_for_manual_mode()
         self._bind_stage(stage)
         now = time.monotonic()
         elapsed = min(max(now - self._last_update_at, 0.0), 0.15)
@@ -846,7 +850,12 @@ class RtgGamepadManualController:
                 if self._active_camera_mode == "GLOBAL"
                 else "GLOBAL"
             )
-            self._activate_camera(stage, next_mode)
+            # F is the quick camera toggle used during manual driving. Keep it
+            # to one viewport; the four-camera model grid remains available
+            # through the explicit End-key action.
+            self._activate_camera(
+                stage, next_mode, show_model_camera_grid=False
+            )
             command_triggered = True
         if self._active_camera_mode == "SPREADER_UNDERSIDE":
             if "LEFT" in actions:
@@ -882,6 +891,10 @@ class RtgGamepadManualController:
 
         self._rtg_controller = rtg_live_control.RTGController(stage)
         self._stage_id = id(stage)
+        # The authored RTG pose and the rebuilt yellow tire guides share the
+        # same wheel calibration. Reapply that measured lateral alignment at
+        # takeover so the live controller cannot replace it with an old fixed X.
+        self._rtg_controller.align_gantry_to_painted_tire_guides()
         self._lock_foot_paths = None
         self._spreader_geometry_paths = None
         self._live_container_root_paths = None
@@ -1068,7 +1081,13 @@ class RtgGamepadManualController:
             selected.append(path)
         return selected
 
-    def _activate_camera(self, stage: Any, mode: str) -> None:
+    def _activate_camera(
+        self,
+        stage: Any,
+        mode: str,
+        *,
+        show_model_camera_grid: bool = True,
+    ) -> None:
         """Select an RTG-attached operational view in the active viewport."""
 
         if mode == "GLOBAL":
@@ -1087,8 +1106,11 @@ class RtgGamepadManualController:
         except Exception as exc:  # noqa: BLE001 - preserve manual motion if UI changes
             self._log(f"Could not switch to {mode} view: {exc}")
         self._active_camera_mode = mode
-        self._set_spreader_camera_grid(mode == "SPREADER_UNDERSIDE", stage=stage)
-        label = "RTG side camera" if mode == "GLOBAL" else "trolley overhead"
+        self._set_spreader_camera_grid(
+            mode == "SPREADER_UNDERSIDE" and show_model_camera_grid,
+            stage=stage,
+        )
+        label = "RTG oblique overview" if mode == "GLOBAL" else "trolley overhead"
         self._log(f"Switched to {label} view.")
 
     def _set_spreader_camera_grid(self, enabled: bool, stage: Any = None) -> None:
@@ -1122,14 +1144,15 @@ class RtgGamepadManualController:
             self._log(f"Spreader model camera refresh unavailable: {exc}")
 
     def _ensure_user_side_view_camera(self, stage: Any) -> str:
-        """Author the menu's user camera as the RTG side view for manual mode."""
+        """Aim the Home camera at the primary RTG from an elevated oblique view."""
 
         from pxr import Gf, Sdf, Usd, UsdGeom
 
+        eye, target = self._user_side_view_camera_pose(stage)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             camera = UsdGeom.Camera.Define(stage, USER_SIDE_VIEW_CAMERA_PATH)
             camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
-            camera.CreateFocalLengthAttr(18.0)
+            camera.CreateFocalLengthAttr(40.0)
             camera.CreateHorizontalApertureAttr(36.0)
             camera.CreateVerticalApertureAttr(20.25)
             camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 2500.0))
@@ -1143,14 +1166,14 @@ class RtgGamepadManualController:
                 "omni:kit:centerOfInterest",
                 Sdf.ValueTypeNames.Vector3d,
                 custom=True,
-            ).Set(Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST))
+            ).Set(target)
             transform_attr = prim.GetAttribute("xformOp:transform")
             if not transform_attr:
                 transform_attr = xform.AddTransformOp().GetAttr()
             transform_attr.Set(
                 self._camera_matrix(
-                    Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_EYE),
-                    Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_TARGET),
+                    eye,
+                    target,
                     Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_UP),
                 )
             )
@@ -1158,6 +1181,48 @@ class RtgGamepadManualController:
                 ["xformOp:transform"]
             )
         return USER_SIDE_VIEW_CAMERA_PATH
+
+    def _user_side_view_camera_pose(self, stage: Any) -> tuple[Any, Any]:
+        """Frame the current primary RTG bounds instead of assuming a world origin."""
+
+        from pxr import Gf, Usd, UsdGeom
+
+        try:
+            rtg = stage.GetPrimAtPath(GANTRY_PATH)
+            if rtg and rtg.IsValid():
+                bounds = UsdGeom.BBoxCache(
+                    Usd.TimeCode.Default(),
+                    [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+                    useExtentsHint=False,
+                ).ComputeWorldBound(rtg).ComputeAlignedBox()
+                minimum = bounds.GetMin()
+                maximum = bounds.GetMax()
+                spans = tuple(
+                    float(maximum[index] - minimum[index]) for index in range(3)
+                )
+                if all(span > 0.01 for span in spans):
+                    center = (minimum + maximum) * 0.5
+                    horizontal_radius = 1.5 * max(spans[0], spans[1])
+                    diagonal = horizontal_radius / math.sqrt(2.0)
+                    elevation = max(spans[2] * 0.70, horizontal_radius * 0.34)
+                    eye = Gf.Vec3d(
+                        float(center[0]) + diagonal,
+                        float(center[1]) - diagonal,
+                        float(center[2]) + elevation,
+                    )
+                    target = Gf.Vec3d(
+                        float(center[0]),
+                        float(center[1]),
+                        float(center[2]) + spans[2] * 0.04,
+                    )
+                    return eye, target
+        except Exception as exc:  # noqa: BLE001 - retain a usable camera fallback
+            self._log(f"Could not frame RTG bounds for Home view: {exc}")
+
+        return (
+            Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_EYE),
+            Gf.Vec3d(*USER_SIDE_VIEW_CAMERA_CENTER_OF_INTEREST),
+        )
 
     @staticmethod
     def _camera_matrix(eye: Any, target: Any, up: Any) -> Any:

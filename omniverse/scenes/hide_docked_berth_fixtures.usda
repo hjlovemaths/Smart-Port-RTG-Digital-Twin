@@ -1,0 +1,443 @@
+#usda 1.0
+(
+    doc = "Remove 18 sets of yellow bollards, black fenders and mooring ropes from the yard waterfront."
+)
+
+over "World"
+{
+    over "PortAndRTG"
+    {
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_00" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_01" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_02" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_03" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_04" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_05" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_06" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_07" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_08" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_09" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_16" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_extra_black_fender_17" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_00" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_01" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_02" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_03" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_04" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_05" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_06" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_07" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_08" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_09" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_16" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_mooring_rope_to_ship_17" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_00" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_01" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_02" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_03" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_04" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_05" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_06" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_07" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_08" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_09" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_16" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_base_17" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_00" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_01" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_02" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_03" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_04" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_05" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_06" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_07" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_08" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_09" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_10" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_11" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_12" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_13" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_14" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_15" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_16" (
+            active = false
+        )
+        {
+        }
+
+        over "SMART_PORT_DOCKED_BERTH_FILL_yellow_bollard_post_17" (
+            active = false
+        )
+        {
+        }
+    }
+}
+

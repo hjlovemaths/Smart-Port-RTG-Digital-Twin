@@ -155,6 +155,27 @@ def _task_identity(task: Dict[str, Any]) -> str:
     return "anonymous-" + hashlib.sha1(material.encode("utf-8")).hexdigest()[:16]
 
 
+def _task_slot_height(task: Dict[str, Any], row: int, tier: int) -> Optional[float]:
+    raw = task.get("baySlotHeights")
+    value = None
+    if isinstance(raw, (list, tuple)) and len(raw) >= row:
+        values = raw[row - 1]
+        if isinstance(values, (list, tuple)) and len(values) >= tier:
+            value = values[tier - 1]
+    elif isinstance(raw, dict):
+        for key in (f"R{row:02d}_T{tier:02d}", f"R{row:02d}T{tier:02d}", f"{row}-{tier}"):
+            if key in raw:
+                value = raw[key]
+                break
+    if isinstance(value, dict):
+        value = value.get("height") or value.get("containerHeight") or value.get("cntr_height")
+    try:
+        height = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(height, 3) if 2.2 <= height <= 3.2 else None
+
+
 def _placeholder_container(
     block: str,
     bay_number: int,
@@ -423,14 +444,21 @@ class YardInventory:
         )
         details = parse_task_position(position)
         pattern = str(task.get("bayMap") or "").strip()
-        if details is None or not re.fullmatch(r"\d{6}", pattern):
+        if details is None or not re.fullmatch(r"[0-6]{6}", pattern):
             return set()
         block, raw_bay, source_row, source_tier = details
         size_ft = _task_size_ft(task, raw_bay)
         bay = normalize_bay_number(block, raw_bay, size_ft)
         key = bay_id(block, bay)
         existing = self.stacks.get(key)
-        if existing is not None and self.stack_pattern(existing) == pattern:
+        if existing is not None and existing["containerSizeFt"] == size_ft and self.stack_pattern(existing) == pattern:
+            changed = False
+            for row, items in enumerate(existing["rows"], start=1):
+                for tier, item in enumerate(items, start=1):
+                    height = _task_slot_height(task, row, tier)
+                    if height is not None and item.get("heightM") != height:
+                        item["heightM"] = height
+                        changed = True
             if (
                 work_type in {"UNLOAD", "SWITCH"}
                 and source_row is not None
@@ -438,33 +466,19 @@ class YardInventory:
                 and source_tier <= len(existing["rows"][source_row - 1])
             ):
                 current = existing["rows"][source_row - 1][source_tier - 1]
-                current.update(_task_container(task, size_ft))
-            return {key}
+                metadata = _task_container(task, size_ft)
+                if any(current.get(name) != value for name, value in metadata.items()):
+                    current.update(metadata)
+                    changed = True
+            if changed:
+                self._touch_stack(existing, "task-bay-map")
+            return {key} if changed else set()
 
-        slot_heights = task.get("baySlotHeights")
         rows: list[list[Dict[str, Any]]] = []
         for row in range(1, ROW_COUNT + 1):
             items = []
             for tier in range(1, int(pattern[row - 1]) + 1):
-                height_m = DEFAULT_CONTAINER_HEIGHT_M
-                if (
-                    isinstance(slot_heights, (list, tuple))
-                    and len(slot_heights) >= row
-                    and isinstance(slot_heights[row - 1], (list, tuple))
-                    and len(slot_heights[row - 1]) >= tier
-                ):
-                    raw_height = slot_heights[row - 1][tier - 1]
-                    if isinstance(raw_height, dict):
-                        raw_height = (
-                            raw_height.get("height")
-                            or raw_height.get("containerHeight")
-                        )
-                    try:
-                        parsed_height = float(raw_height)
-                    except (TypeError, ValueError):
-                        parsed_height = 0.0
-                    if 2.2 <= parsed_height <= 3.2:
-                        height_m = parsed_height
+                height_m = _task_slot_height(task, row, tier) or DEFAULT_CONTAINER_HEIGHT_M
                 item = _placeholder_container(
                     block,
                     bay,
@@ -515,6 +529,9 @@ class YardInventory:
         result["inventoryBayId"] = stack["bayId"]
         result["inventoryRevision"] = stack["revision"]
         return result
+
+    def task_is_settled(self, task: Dict[str, Any]) -> bool:
+        return _task_identity(task) in self.completed_tasks
 
     def settle_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Apply one successful task exactly once and return its transaction."""

@@ -6,6 +6,22 @@ This directory contains the OpenUSD content project used by the Smart Port RTG D
 
 Open `scenes/smart_port.usda` in Omniverse.
 
+## Agent panel
+
+The Smart Port Composer app and `scripts/launch_isaac_sim_project.py` load
+`smartport.agent_panel` and show **Smart Port Agent** automatically on startup.
+Use **Window > Smart Port Agent** to reopen the panel after closing it.
+
+The `smartport.agent_panel` Kit extension adds an in-Omniverse question and
+operation window backed by an OpenAI-compatible Chat Completions API. It can
+query the active stage and yard/bay inventory (including six-row box area maps),
+change the environment/time/weather, and move the primary
+RTG within the USD session layer. RTG movement requires operator confirmation
+and does not send PLC commands. See
+`extensions/smartport.agent_panel/docs/README.md` for loading and API setup.
+The [Agent interface catalog](docs/AGENT_INTERFACES.md) lists all 37 connected
+runtime tools, parameters and natural-language examples.
+
 ## Layout
 
 - `scenes/`: composed stages and environment layers.

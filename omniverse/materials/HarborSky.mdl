@@ -1,0 +1,66 @@
+mdl 1.7;
+import ::df::*;
+import ::math::*;
+import ::base::*;
+
+// Smooth deterministic noise, evaluated only when the dome is baked.
+float harbor_hash(float3 p) = let {
+    float n = math::sin(math::dot(p,float3(127.1,311.7,74.7)))*43758.5453;
+} in n-math::floor(n);
+float harbor_noise(float3 p) = let {
+    float3 i=math::floor(p);
+    float3 f=p-i;
+    float3 u=f*f*(float3(3.0)-2.0*f);
+    float a=math::lerp(harbor_hash(i),harbor_hash(i+float3(1,0,0)),u.x);
+    float b=math::lerp(harbor_hash(i+float3(0,1,0)),harbor_hash(i+float3(1,1,0)),u.x);
+    float c=math::lerp(harbor_hash(i+float3(0,0,1)),harbor_hash(i+float3(1,0,1)),u.x);
+    float d=math::lerp(harbor_hash(i+float3(0,1,1)),harbor_hash(i+float3(1,1,1)),u.x);
+} in math::lerp(math::lerp(a,b,u.y),math::lerp(c,d,u.y),u.z);
+float harbor_fbm(float3 p) =
+    .53*harbor_noise(p)+.27*harbor_noise(p*2.03+float3(13.2,7.1,2.8))+
+    .13*harbor_noise(p*4.11+float3(4.6,19.3,7.5))+
+    .07*harbor_noise(p*8.23+float3(17.4,3.1,11.8));
+float harbor_ease(float lo,float hi,float value) = let {
+    float t=math::clamp((value-lo)/(hi-lo),0.0,1.0);
+} in t*t*(3.0-2.0*t);
+
+export material HarborSky(
+    uniform float elevation = 65.0,
+    uniform float azimuth = -38.0,
+    uniform float twilight = 0.0,
+    uniform float daylight = 1.0,
+    uniform float cloud_phase = 0.0
+) = let {
+    base::texture_coordinate_info uvw = base::coordinate_source(base::texture_coordinate_object, 0);
+    float3 p = math::normalize(float3(uvw.position.x, uvw.position.z, -uvw.position.y));
+    uniform float el = math::radians(math::max(elevation, 0.5));
+    uniform float az = math::radians(azimuth);
+    uniform float3 sun = float3(math::sin(az)*math::cos(el), math::sin(el), math::cos(az)*math::cos(el));
+    float horizon = math::exp(-math::abs(p.y)*7.0);
+    float glow = math::pow(math::max(0.0, math::dot(math::normalize(float3(p.x,0.001,p.z)), math::normalize(float3(sun.x,0.001,sun.z)))), 3.0);
+    uniform float low_sun = math::clamp(1.0-elevation/25.0, 0.0, 1.0);
+    color zenith = math::lerp(color(0.5,1.1,2.2), color(0.35,0.65,1.25), low_sun*0.4);
+    color haze = math::lerp(color(2.1,2.5,2.8), color(2.9,1.65,0.75), low_sun*glow*0.7);
+    color physical = 0.55*math::lerp(zenith, haze, math::exp(-math::abs(p.y)*4.0));
+    color night = color(0.016,0.025,0.043) + horizon*color(0.018,0.022,0.028);
+    color dusk = night + 1.5*twilight*(color(0.035,0.06,0.13) + horizon*(color(0.20,0.10,0.07)+glow*color(0.5,0.16,0.035)));
+    color clear = math::lerp(dusk, physical, daylight);
+
+    // Project onto a high cloud deck: scale falls towards the horizon, while
+    // haze conceals the far edge. Periodic drift makes 00:00 and 24:00 match.
+    float3 drift=float3(.8*math::cos(cloud_phase),.8*math::sin(cloud_phase),0.0);
+    float3 q=float3(p.x,p.z,.35)/math::max(p.y+.12,.16)*2.1+drift;
+    float n=harbor_fbm(q);
+    float density=harbor_ease(.47,.66,n);
+    float cloud=density*harbor_ease(.015,.14,p.y)*.93;
+    float shade=harbor_ease(.53,.75,n);
+    float rim=math::pow(math::max(0.0,math::dot(p,sun)),6.0)*(1.0-shade);
+    color cloud_base=math::lerp(color(1.45,1.52,1.6),color(.55,.64,.76),shade);
+    color warm_cloud=math::lerp(color(.58,.42,.38),color(1.65,.88,.36),glow)*(.7+.3*rim);
+    color day_cloud=math::lerp(cloud_base,warm_cloud,low_sun*.78);
+    color night_cloud=color(.009,.014,.023)+horizon*color(.008,.009,.012);
+    color twilight_cloud=night_cloud+twilight*(color(.08,.06,.09)+glow*color(.6,.20,.055));
+    color lit_cloud=math::lerp(twilight_cloud,day_cloud,daylight);
+    color radiance=math::lerp(clear,lit_cloud,cloud);
+} in material(surface: material_surface(emission: material_emission(
+    emission: df::diffuse_edf(), intensity: radiance)));

@@ -1,0 +1,24 @@
+[package]
+version = "0.2.2"
+title = "Smart Port Agent Panel"
+description = "Ask questions about the Smart Port scene and operate approved scene tools through an Agent API."
+category = "Smart Port"
+readme = "docs/README.md"
+
+[dependencies]
+"omni.kit.menu.utils" = {}
+"omni.kit.uiapp" = {}
+"omni.ui" = {}
+"omni.usd" = {}
+"omni.kit.viewport.utility" = {}
+"omni.kit.viewport.window" = {}
+
+[[python.module]]
+name = "smartport.agent_panel.extension"
+
+# The font file alone is insufficient: Kit also needs the CJK glyph range at
+# renderer startup, including for native StringField/IME input.
+[settings.app.font]
+customFontPath = "C:/Windows/Fonts/simhei.ttf"
+customRegionFiles = ["${smartport.agent_panel}/data/chinese_glyphs.txt"]
+overresolutionSize = 32

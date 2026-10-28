@@ -1,0 +1,1259 @@
+{
+  "interface_count": 37,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_scene_status",
+        "description": "Read the active USD stage, current environment/time, and primary RTG positions.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_bay_inventory",
+        "description": "Read a yard bay's container inventory and box area map: six row heights, tier occupancy, container numbers and sizes. Resolves 40 ft stacks covering 20 ft bays. Use this for questions like 'What is the box area map on 4C41 Bay?'. Returns source mode and snapshot time; does not change the scene.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "bay_id": {
+              "type": "string",
+              "description": "Bay such as 4C41, 4C/041 or 3C/002"
+            }
+          },
+          "required": [
+            "bay_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_yard_inventory_summary",
+        "description": "Read recorded container counts and occupied bay maps for the yard or one block. Distinguishes live and simulation sources; does not change the scene.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "block": {
+              "type": "string",
+              "enum": [
+                "1C",
+                "2C",
+                "3C",
+                "4C"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_environment",
+        "description": "Set the Smart Port scene environment preset to day, night, rain, or fog.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "day",
+                "night",
+                "rain",
+                "fog"
+              ]
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_time_of_day",
+        "description": "Set the Smart Port 24-hour lighting clock. Hour must be between 0 and 24.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "hour": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 24
+            }
+          },
+          "required": [
+            "hour"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_weather",
+        "description": "Set wind speed and/or rain and fog grades in the active Smart Port scene.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "wind_speed_mps": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20
+            },
+            "rain_amount": {
+              "type": "string",
+              "enum": [
+                "light",
+                "medium",
+                "heavy",
+                "torrential"
+              ]
+            },
+            "fog_amount": {
+              "type": "string",
+              "enum": [
+                "light",
+                "medium",
+                "heavy"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "move_rtg_to_bay",
+        "description": "Move the primary RTG in the local USD scene to a yard bay, such as 1C/017.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "bay_id": {
+              "type": "string"
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            "duration_s": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 120
+            }
+          },
+          "required": [
+            "bay_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_rtg_axis_positions",
+        "description": "Set one or more primary RTG axes in the local USD scene using soft limits.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "gantry_m": {
+              "type": "number"
+            },
+            "trolley_m": {
+              "type": "number"
+            },
+            "hoist_m": {
+              "type": "number"
+            },
+            "duration_s": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 120
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_agent_capabilities",
+        "description": "List all connected runtime interfaces, allowed actions, parameters and runtime requirements.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_equipment_status",
+        "description": "Read RTG/STS positions, motion targets, limits and stop state without moving equipment.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "equipment": {
+              "type": "string",
+              "enum": [
+                "all",
+                "rtg",
+                "sts"
+              ]
+            },
+            "crane_id": {
+              "type": "string",
+              "description": "STS_01 through STS_07; specify the requested crane"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_tasks",
+        "description": "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Never starts a task.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_viewpoints",
+        "description": "List view presets and existing USD cameras, including camera paths for switch_viewport_camera.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_viewport_view",
+        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane or current task. For looking straight down at the spreader and container tops from BELOW the trolley platform, use target=trolley and view=under_trolley: a wide 110-degree camera that follows the trolley by default. This differs from the external top view above the RTG. Increase field_of_view_deg to widen the view without moving the camera. Other views support custom angles, distance and following a moving target. Changes only the viewport.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "enum": [
+                "port",
+                "rtg",
+                "trolley",
+                "spreader",
+                "bay",
+                "sts",
+                "task"
+              ]
+            },
+            "view": {
+              "type": "string",
+              "enum": [
+                "angled",
+                "front",
+                "back",
+                "left",
+                "right",
+                "top",
+                "under_trolley"
+              ]
+            },
+            "bay_id": {
+              "type": "string",
+              "description": "For example 4C41 or 4C/041"
+            },
+            "crane_id": {
+              "type": "string",
+              "description": "STS_01 through STS_07; specify the requested crane"
+            },
+            "distance_m": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 3000
+            },
+            "azimuth_deg": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "elevation_deg": {
+              "type": "number",
+              "minimum": -85,
+              "maximum": 90
+            },
+            "field_of_view_deg": {
+              "type": "number",
+              "minimum": 30,
+              "maximum": 140
+            },
+            "follow": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "target"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "switch_viewport_camera",
+        "description": "Switch the active viewport to an existing USD camera path, or RTG virtual camera C01-C33 by number. Stops Agent camera following.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_path": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "camera_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_sts_axis_positions",
+        "description": "Move a specified STS shore crane continuously using the existing speed limits and boom interlock. Query get_equipment_status for per-crane limits. Coordinates are local scene control metres; boom is degrees.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "crane_id": {
+              "type": "string",
+              "description": "STS_01 through STS_07; specify the requested crane"
+            },
+            "gantry_m": {
+              "type": "number"
+            },
+            "trolley_m": {
+              "type": "number"
+            },
+            "hoist_m": {
+              "type": "number"
+            },
+            "boom_deg": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 80
+            },
+            "park_for_luffing": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "crane_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_rtg_spreader_size",
+        "description": "Set the primary RTG telescopic spreader to 20 or 40 ft using the existing controller.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "size_ft": {
+              "type": "integer",
+              "enum": [
+                20,
+                40
+              ]
+            }
+          },
+          "required": [
+            "size_ft"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "stop_equipment",
+        "description": "Stop Agent RTG movement or active STS controllers. Also stops shared STS tasks to prevent their next tick restarting motion. Does not send real equipment commands.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "equipment": {
+              "type": "string",
+              "enum": [
+                "rtg",
+                "sts",
+                "all"
+              ]
+            },
+            "crane_id": {
+              "type": "string",
+              "description": "STS_01 through STS_07; specify the requested crane"
+            }
+          },
+          "required": [
+            "equipment"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "resume_sts_crane",
+        "description": "Release a specified STS crane's local stop latch. Its cancelled target is not restarted; issue a new movement command afterwards.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "crane_id": {
+              "type": "string",
+              "description": "STS_01 through STS_07; specify the requested crane"
+            }
+          },
+          "required": [
+            "crane_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_timeline",
+        "description": "Read, play, pause or stop the Kit animation timeline.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "play",
+                "pause",
+                "stop"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_sts_task",
+        "description": "Start the existing single-container unload or double-20-foot round-trip demonstration; inspect, pause, resume, reset or focus the current STS task.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start_unload",
+                "start_double20",
+                "pause",
+                "resume",
+                "reset",
+                "focus"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "submit_rtg_task",
+        "description": "Submit a LOAD, UNLOAD or SWITCH task to the existing PLC-free RTG simulator. Only simulation inventory is used. Position format is e.g. 3C55062 (bay 55, row 6, tier 2). Does not dispatch production tasks.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "work_type": {
+              "type": "string",
+              "enum": [
+                "LOAD",
+                "UNLOAD",
+                "SWITCH"
+              ]
+            },
+            "start_pos": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "end_pos": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "bay_map": {
+              "type": "string",
+              "pattern": "^[0-6]{6}$"
+            },
+            "container_size": {
+              "type": "integer",
+              "enum": [
+                20,
+                40
+              ]
+            },
+            "container_height": {
+              "type": "number",
+              "minimum": 2.2,
+              "maximum": 3.2
+            },
+            "container_type": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "task_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "container_no": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "vision_required": {
+              "type": "boolean"
+            },
+            "wait_for_previous": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "work_type"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_rtg_simulation",
+        "description": "Control the RTG simulator and deterministic scenario queue. Preview/status do not start it. Scenario reset_inventory defaults to false and affects simulation stock only.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "clear_task",
+                "preview_scenarios",
+                "start_scenarios",
+                "continue_scenarios",
+                "stop_scenarios",
+                "scenario_status"
+              ]
+            },
+            "task_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "block": {
+              "type": "string",
+              "enum": [
+                "1C",
+                "2C",
+                "3C",
+                "4C"
+              ]
+            },
+            "reset_inventory": {
+              "type": "boolean"
+            },
+            "bay_min": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 91
+            },
+            "bay_max": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 91
+            },
+            "inventory_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_iecs",
+        "description": "Use the existing integrated equipment scheduling simulator: unload/load/gate-in/gate-out/yard transfer, mixed workload, pause/resume/reset, speed, scene validation, inventory preview and task focus. Uses reversible demo layers.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "submit",
+                "mixed",
+                "pause",
+                "resume",
+                "reset",
+                "speed",
+                "check_scene",
+                "inventory_preview",
+                "focus",
+                "stop"
+              ]
+            },
+            "flow": {
+              "type": "string",
+              "enum": [
+                "unload",
+                "load",
+                "gate_in",
+                "gate_out",
+                "transfer"
+              ]
+            },
+            "speed": {
+              "type": "integer",
+              "enum": [
+                1,
+                5,
+                10,
+                20
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_live_twin",
+        "description": "Read status or start/stop the existing local TwinState receiver. Receives PLC/RCMS data to visualize the twin; never writes PLC commands. Stop simulation before starting a live receiver.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_sea_motion",
+        "description": "Read/start/stop/pause/resume sea and ship movement; set wave strength or quality; hold/release an existing moored ship.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "pause",
+                "resume",
+                "strength",
+                "quality",
+                "hold",
+                "release"
+              ]
+            },
+            "strength": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "smooth": {
+              "type": "boolean"
+            },
+            "ship_path": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_camera_display",
+        "description": "Start/stop RTSP camera popup, spreader RTSP grid, rendered model camera grid, or create/clean up virtual RTG cameras. RTSP uses the existing project configuration.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "display": {
+              "type": "string",
+              "enum": [
+                "rtsp_popup",
+                "spreader_rtsp_grid",
+                "model_grid",
+                "virtual_cameras"
+              ]
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "refresh"
+              ]
+            }
+          },
+          "required": [
+            "display",
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_info_panel",
+        "description": "Start/stop the existing device, container or alarm information overlay services.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "panel": {
+              "type": "string",
+              "enum": [
+                "device",
+                "container",
+                "alarm"
+              ]
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop"
+              ]
+            }
+          },
+          "required": [
+            "panel",
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "show_alarm",
+        "description": "Read, display or clear a local simulated RTG alarm. Does not acknowledge real equipment alarms.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "show",
+                "clear"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "error"
+              ]
+            },
+            "duration_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_gamepad",
+        "description": "Read/start/stop existing local gamepad manual mode or position it for a named pickup slot. Does not operate real equipment.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "position_for_pick"
+              ]
+            },
+            "controller_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "block": {
+              "type": "string",
+              "enum": [
+                "1C",
+                "2C",
+                "3C",
+                "4C"
+              ]
+            },
+            "bay": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 91
+            },
+            "row": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "tier": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "rtg_slot_operation",
+        "description": "Use existing inventory-backed RTG slot picking APIs: read target/alignment/calibration, move high, lower, lift, attach, detach, pick demo, calibrate, reset calibration or stop. Query bay inventory first to resolve the logical bay. Stage-only visualization.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "target",
+                "alignment",
+                "calibration_status",
+                "move",
+                "lower",
+                "lift",
+                "attach",
+                "detach",
+                "pick_demo",
+                "calibrate",
+                "reset_calibration",
+                "stop",
+                "scene_rows",
+                "scene_target",
+                "move_scene_row",
+                "stop_follow"
+              ]
+            },
+            "bay_id": {
+              "type": "string",
+              "description": "For example 4C41 or 4C/041"
+            },
+            "row": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "tier": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "duration_s": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 120
+            },
+            "high": {
+              "type": "boolean"
+            },
+            "apply_z": {
+              "type": "boolean"
+            },
+            "visual_row_from_right": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "reverse_world_x": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_rtg_physics",
+        "description": "Inspect/validate or enable/disable the existing RTG physics/visual controller and visual sync. Physics requires Isaac/PhysX. Target commands enforce the RTG soft limits.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "diagnose",
+                "validate",
+                "activate_visual",
+                "activate_physics",
+                "deactivate",
+                "set_targets",
+                "start_sync",
+                "stop_sync",
+                "freeze"
+              ]
+            },
+            "gantry_m": {
+              "type": "number"
+            },
+            "trolley_m": {
+              "type": "number"
+            },
+            "hoist_m": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_lidar",
+        "description": "Use existing RTX LiDAR services: start/stop/status/diagnose, position markers, scan volumes/debug/wireframe, diagnostic probe or save accumulated map/scan. RTX sensing requires Isaac Sim. Output is confined to the project point-cloud directory.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "diagnose",
+                "markers_on",
+                "markers_off",
+                "scan_volumes",
+                "debug_draw",
+                "wireframes",
+                "probe_on",
+                "probe_off",
+                "save_map",
+                "save_scan"
+              ]
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "yard",
+                "representative",
+                "trolley_bottom",
+                "spreader",
+                "all"
+              ]
+            },
+            "config": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,96}$"
+            },
+            "variant": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,96}$"
+            },
+            "far_range_m": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 600
+            },
+            "display_range_m": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "output_stem": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "capture_lidar",
+        "description": "Start an asynchronous yard/fleet/batched/multi-position point-cloud capture. Returns an operation ID; poll get_operation_status for completion and output files. Requires initialized RTX sensors in Isaac Sim.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "yard",
+                "fleet",
+                "batches",
+                "positions"
+              ]
+            },
+            "output_stem": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            "output_frame": {
+              "type": "string",
+              "enum": [
+                "world",
+                "sensor"
+              ]
+            },
+            "timeout_frames": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 3600
+            },
+            "warmup_frames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300
+            },
+            "min_scans": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "serial": {
+              "type": "boolean"
+            },
+            "bay_id": {
+              "type": "string",
+              "description": "For example 4C41 or 4C/041"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_operation_status",
+        "description": "Read background capture jobs and Agent RTG motion progress, results or errors.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "cancel_operation",
+        "description": "Cancel an Agent capture job or RTG motion by its operation ID.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "operation_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "reload_yard_inventory",
+        "description": "Explicitly reload the already-selected inventory and refresh the stage. May replace current inventory visuals; does not accept arbitrary file paths.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_livestream",
+        "description": "Start the existing viewport-only WebRTC stream with Kit UI preserved, restore the normal UI, or enable viewport interaction. Returns the local viewer URL. Does not publish credentials.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "start",
+                "restore_ui",
+                "enable_interaction",
+                "status"
+              ]
+            },
+            "resolution": {
+              "type": "string",
+              "enum": [
+                "1080p",
+                "2k"
+              ]
+            },
+            "target_fps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

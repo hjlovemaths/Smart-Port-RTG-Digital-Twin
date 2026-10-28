@@ -259,6 +259,21 @@ class STSController:
             session.subLayerPaths.remove(self.layer.identifier)
 
 
+def shared_sts_controller(stage, crane='STS_04'):
+    """Share one controller per crane between the UI and the Agent adapter."""
+    import builtins
+
+    pool = getattr(builtins, '_smart_port_sts_controller_pool', None)
+    if pool is None or pool['stage'] != stage:
+        pool = {'stage': stage, 'controllers': {}}
+        builtins._smart_port_sts_controller_pool = pool
+    controller = pool['controllers'].get(crane)
+    if controller is None or controller.closed:
+        controller = STSController(stage, crane)
+        pool['controllers'][crane] = controller
+    return controller
+
+
 class STSPanel:
     """Kit panel; imports remain lazy so the math/controller is testable with pxr."""
     def __init__(self, stage):
@@ -318,7 +333,7 @@ class STSPanel:
     def controller(self):
         self._sync_stage_context()
         if self.selected not in self.controllers:
-            self.controllers[self.selected] = STSController(self.stage, self.selected)
+            self.controllers[self.selected] = shared_sts_controller(self.stage, self.selected)
         return self.controllers[self.selected]
 
     def _sync_stage_context(self):
@@ -404,7 +419,7 @@ class STSPanel:
             import omni.timeline
             omni.timeline.get_timeline_interface().pause()
             if 'STS_01' not in self.controllers:
-                self.controllers['STS_01'] = STSController(self.stage, 'STS_01')
+                self.controllers['STS_01'] = shared_sts_controller(self.stage, 'STS_01')
             self.unload_task = UnloadTask(self.controllers['STS_01'])
             self.choice.model.get_item_value_model().set_value(self.cranes.index('STS_01'))
             self.task_status.text = self.unload_task.phase
@@ -422,7 +437,7 @@ class STSPanel:
             import omni.timeline
             omni.timeline.get_timeline_interface().pause()
             if 'STS_03' not in self.controllers:
-                self.controllers['STS_03'] = STSController(self.stage, 'STS_03')
+                self.controllers['STS_03'] = shared_sts_controller(self.stage, 'STS_03')
             self.unload_task = Double20RoundTripTask(self.controllers['STS_03'])
             self.choice.model.get_item_value_model().set_value(self.cranes.index('STS_03'))
             self.task_status.text = self.unload_task.phase

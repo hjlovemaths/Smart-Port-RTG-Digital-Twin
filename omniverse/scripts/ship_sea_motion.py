@@ -64,6 +64,7 @@ class SeaMotion:
                 if uv:
                     self.uv_translation=uv.CreateInput('translation',Sdf.ValueTypeNames.Float2)
                     self.uv_origin=self.uv_translation.Get() or Gf.Vec2f(0)
+                    self.uv_translation.Set(self.uv_origin)
                 cache=UsdGeom.XformCache()
                 if self.mesh:
                     self.water_matrix=cache.GetLocalToWorldTransform(sea)
@@ -102,6 +103,15 @@ class SeaMotion:
                     self._companions_by_source.setdefault(source_path,[]).append(
                         (op,factor,pivot)
                     )
+            # Cache Sdf specs once. Animation writes can then be committed as
+            # one change notice, without querying USD inside a ChangeBlock.
+            self._animation_specs={
+                str(op.GetAttr().GetPath()):self.layer.GetAttributeAtPath(op.GetAttr().GetPath())
+                for op,_,_ in (*self.ships.values(),*self.companions.values())
+            }
+            if self.uv_translation:
+                attr=self.uv_translation.GetAttr()
+                self._animation_specs[str(attr.GetPath())]=self.layer.GetAttributeAtPath(attr.GetPath())
         except Exception:
             self.close()
             raise
@@ -111,6 +121,8 @@ class SeaMotion:
         if path in self.ships and self.enabled:
             with Usd.EditContext(self.stage,self.layer):
                 self.ships[path][0].Set(Gf.Matrix4d(1))
+                for op,_factors,_pivot in self._companions_by_source.get(path,[]):
+                    op.Set(Gf.Matrix4d(1))
 
     def release(self,path):
         self.held.discard(path)
@@ -128,8 +140,8 @@ class SeaMotion:
         layers=self.stage.GetSessionLayer().subLayerPaths
         if not value:
             self.sub=None
-            # Identity matrices still leave authored dynamic prims/material
-            # opinions in the composed scene. Remove the entire override layer.
+            # Remove animation opinions; the static water look stays authored
+            # in the scene's finish layer and does not depend on this controller.
             if self.layer.identifier in layers:
                 layers.remove(self.layer.identifier)
             self._neutral=True
@@ -166,35 +178,41 @@ class SeaMotion:
         self._update_elapsed%=self.update_interval
         # Ease in from neutral when enabled, avoiding an initial teleport.
         gain=self.strength*min(1.,self.time/3.) if self.enabled else 0.
-        with Usd.EditContext(self.stage,self.layer):
-            if self.uv_translation and (self._uv_elapsed>=self.uv_interval or not active):
-                drift=self.time*self.strength if self.enabled else 0.
-                self.uv_translation.Set(self.uv_origin+Gf.Vec2f(.007*drift,.0025*drift))
-                self._uv_elapsed=0.
-            for index,(path,(op,parent,pivot)) in enumerate(self.ships.items()):
-                if path in self.held:
-                    continue
-                if active and index%self.batch_count!=self.batch_index:
-                    continue
-                z,dx,dy=wave(pivot[0],pivot[1],self.time)
-                rx=math.degrees(math.atan(dy))*gain
-                ry=-math.degrees(math.atan(dx))*gain
-                rot=(Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(1,0,0),rx))*
-                     Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(0,1,0),ry)))
-                left,right=self._ship_factors[path]
-                op.Set(left*rot*tr(pivot+Gf.Vec3d(0,0,z*gain))*right)
-                for companion_op,(comp_left,comp_right),comp_pivot in self._companions_by_source.get(path,[]):
-                    companion_op.Set(
-                        comp_left*rot*tr(comp_pivot+Gf.Vec3d(0,0,z*gain))*comp_right
-                    )
-            # Keep the large sea mesh static. Scrolling normal/roughness maps
-            # convey ripples without per-frame geometry/RTX invalidation.
+        updates=[]
+        if self.uv_translation and (self._uv_elapsed>=self.uv_interval or not active):
+            drift=self.time*self.strength if self.enabled else 0.
+            updates.append((self._animation_specs[str(self.uv_translation.GetAttr().GetPath())],self.uv_origin+Gf.Vec2f(.013*drift,.0045*drift)))
+            self._uv_elapsed=0.
+        for index,(path,(op,parent,pivot)) in enumerate(self.ships.items()):
+            if path in self.held:
+                continue
+            if active and index%self.batch_count!=self.batch_index:
+                continue
+            z,dx,dy=wave(pivot[0],pivot[1],self.time)
+            rx=math.degrees(math.atan(dy))*gain
+            ry=-math.degrees(math.atan(dx))*gain
+            rot=(Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(1,0,0),rx))*
+                 Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(0,1,0),ry)))
+            left,right=self._ship_factors[path]
+            updates.append((self._animation_specs[str(op.GetAttr().GetPath())],left*rot*tr(pivot+Gf.Vec3d(0,0,z*gain))*right))
+            for companion_op,(comp_left,comp_right),comp_pivot in self._companions_by_source.get(path,[]):
+                updates.append((self._animation_specs[str(companion_op.GetAttr().GetPath())],
+                                comp_left*rot*tr(comp_pivot+Gf.Vec3d(0,0,z*gain))*comp_right))
+        # Keep the large sea mesh static. Scrolling normal/roughness maps
+        # convey ripples without per-frame geometry/RTX invalidation.
+        with Sdf.ChangeBlock():
+            for spec,value in updates:
+                spec.default=value
         self._neutral=not active
         self.batch_index=(self.batch_index+1)%self.batch_count
 
     def set_quality(self, smooth):
-        self.update_interval=1./((30. if smooth else 12.)*self.batch_count)
-        self.uv_interval=1./(15. if smooth else 6.)
+        # Smooth must not divide the render frame rate by three: at 60 fps the
+        # old staggered scheduler could only update each ship at 20 Hz.
+        self.batch_count=1 if smooth else 3
+        self.batch_index=0
+        self.update_interval=1./(30. if smooth else 36.)
+        self.uv_interval=1./(30. if smooth else 6.)
 
     def close(self):
         self.closed=True
@@ -226,6 +244,7 @@ def start_sea_motion(stage=None):
     if stage is None:
         raise RuntimeError('Open smart_port.usda first')
     motion=SeaMotion(stage)
+    motion.set_quality(False)
     builtins._smart_port_sea_motion=motion
     panel=getattr(builtins,'_smart_port_sts_panel',None)
     if panel and panel.unload_task:
@@ -252,7 +271,7 @@ def show_sea_motion():
             quality=ui.Label('Eco: ships 12 Hz / ripples 6 Hz')
             def set_quality(smooth):
                 motion.set_quality(smooth)
-                quality.text=('Smooth: ships up to 30 Hz / ripples 15 Hz' if smooth
+                quality.text=('Smooth: ships up to 30 Hz / ripples 30 Hz' if smooth
                               else 'Eco: ships 12 Hz / ripples 6 Hz')
             with ui.HStack(height=26):
                 ui.Button('Eco',clicked_fn=lambda:set_quality(False))
@@ -264,9 +283,9 @@ def show_sea_motion():
                 slider.model.add_value_changed_fn(lambda m:setattr(motion,'strength',m.as_float))
             def toggle():
                 motion.enabled=not motion.enabled
-                toggle_button.text='Waves OFF - original scene restored' if not motion.enabled else 'Waves ON - click to disable'
+                toggle_button.text='Waves OFF - textured water stays' if not motion.enabled else 'Waves ON - click to disable'
             toggle_button=ui.Button('Waves ON - click to disable',clicked_fn=toggle,height=28)
-            ui.Label('Unload task: working ship held steady.\nClose window: restore original sea and ships.',word_wrap=True)
+            ui.Label('Unload task: working ship held steady.\nClose window: stop motion; textured water stays.',word_wrap=True)
     motion.window.set_visibility_changed_fn(lambda visible:None if visible else motion.close())
     return motion
 

@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (-257.4645476009071, 239.06870624755211, 4.775274104815365)
-                double3 target = (-254.09599856453582, 232.90350407604456, 3.047176541603223)
+                double3 position = (31.404925087893655, 522.8805818756364, 24.329143232942403)
+                double3 target = (-14.600026475166874, 463.28597670741345, 26.91223701770442)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -25,7 +25,7 @@
         }
         dictionary renderSettings = {
             float3 "rtx:background:source:color" = (0.34, 0.55, 0.84)
-            token "rtx:background:source:texture:path" = "D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png"
+            int "rtx:background:source:texture:colorSpace" = 0
             double "rtx:directLighting:sampledLighting:maxRayUnexposedIntensity" = 6399.9990234375
             double "rtx:fog:fogDistanceDensity" = 0.34
             double "rtx:fog:fogEndDist" = 5750
@@ -47,6 +47,19 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./port_operational_details.usda@,
+        @./bridge_lighting.usda@,
+        @./sts_work_lighting.usda@,
+        @./port_night_visibility.usda@,
+        @./supplemental_night_lighting.usda@,
+        @./waterfront_amenities.usda@,
+        @./port_service_areas.usda@,
+        @./sts_running_gear.usda@,
+        @./hide_docked_berth_fixtures.usda@,
+        @./hide_reference_feeder_ship_at_quay.usda@,
+        @./port_finish_realism.usda@,
+        @./port_structure_realism.usda@,
+        @./port_realism.usda@,
         @./ground_traffic_network.usda@,
         @./sts_track_gauge.usda@,
         @./sts_elevation.usda@,
@@ -386,9 +399,9 @@ def Xform "World"
             {
                 float3 xformOp:rotateXYZ = (0, 0, 180)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (-0.1567560012037, 16.5775, 0)
+                double3 xformOp:translate = (-0.1567560012037, 257.8375, 0)
                 double3 xformOp:translate.timeSamples = {
-                    1: (-0.1567560012037, 16.5775, 0),
+                    1: (-0.1567560012037, 257.8375, 0),
                     60: (-0.1567560012037, -0.8100000000000023, 0),
                     305: (-0.1567560012037, -0.8100000000000023, 0),
                     320: (-0.1567560012037, -0.8100000000000023, 0),
@@ -2873,9 +2886,9 @@ def Xform "World"
     {
         over "GantryTravelJoint"
         {
-            float drive:linear:physics:targetPosition = 16.5775
+            float drive:linear:physics:targetPosition = 257.8375
             float drive:linear:physics:targetPosition.timeSamples = {
-                1: 16.5775,
+                1: 257.8375,
                 60: -0.81,
                 305: -0.81,
                 320: -0.81,
@@ -3720,7 +3733,9 @@ def "Render" (
                 rel camera = </OmniverseKit_Persp>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
                 color3f omni:rtx:background:source:color = (0.34, 0.55, 0.84)
-                asset omni:rtx:background:source:texture:path = @D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png@
+                token omni:rtx:background:source:texture:colorSpace = "sRGB"
+                float omni:rtx:background:source:texture:luminanceScale = 1
+                asset omni:rtx:background:source:texture:path = @@
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
                 token omni:rtx:background:source:type = "domeLight"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
@@ -3736,6 +3751,7 @@ def "Render" (
                 bool omni:rtx:fog:zUp:enabled = 1
                 bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
                 bool omni:rtx:material:db:syncLoads = 1
+                bool omni:rtx:post:compositing:postTonemapBackgroundComposite = 0
                 token omni:rtx:post:dlss:execMode = "auto"
                 bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
                 bool omni:rtx:post:registeredCompositing:invertToneMap = 1
@@ -3816,10 +3832,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -7.234857401081186)
-    float3 xformOp:rotateXYZ = (76.1809, -3.9790393e-13, 208.65135)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -75.33023899455517)
+    float3 xformOp:rotateXYZ = (91.96507, -5.968559e-13, 142.33311)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (-257.4645476009071, 239.06870624755211, 4.775274104815365)
+    double3 xformOp:translate = (31.404925087893655, 522.8805818756364, 24.329143232942403)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

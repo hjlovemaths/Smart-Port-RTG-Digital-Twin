@@ -20,9 +20,12 @@ try:
         BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
         RTG_LATERAL_ALIGNMENT_X_M,
+        RTG_TIRE_TRACK_OFFSETS_X_M,
+        TRUCK_OPERATING_LANE_CENTER_X_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
         YARD_LAYOUT_START_Y_M,
+        VISUAL_YARD_LAYOUT_CENTER_X_M,
         bay_id_scene_y_m,
         bay_id_position_m,
         bay_scene_y_m,
@@ -35,9 +38,12 @@ except ModuleNotFoundError:
         BAY_LENGTH_M,
         GANTRY_HARD_LIMITS_M,
         RTG_LATERAL_ALIGNMENT_X_M,
+        RTG_TIRE_TRACK_OFFSETS_X_M,
+        TRUCK_OPERATING_LANE_CENTER_X_M,
         GANTRY_SOFT_LIMITS_M,
         YARD_TOTAL_LENGTH_M,
         YARD_LAYOUT_START_Y_M,
+        VISUAL_YARD_LAYOUT_CENTER_X_M,
         bay_id_scene_y_m,
         bay_id_position_m,
         bay_scene_y_m,
@@ -381,6 +387,7 @@ class RTGController:
         self._gantry_translate = self._gantry_prim.GetAttribute("xformOp:translate")
         if not self._gantry_translate:
             raise RuntimeError(f"Missing gantry translate op: {GANTRY_PATH}")
+        self._gantry_base_translate = self._gantry_translation_aligned_to_guides()
         self._trolley = self._drive_target(TROLLEY_JOINT_PATH)
         self._hoist = self._drive_target(HOIST_JOINT_PATH)
         self._trolley_translate = stage.GetPrimAtPath(TROLLEY_PATH).GetAttribute(
@@ -400,6 +407,44 @@ class RTGController:
         self._ropes = UsdGeom.BasisCurves.Get(stage, ROPE_SYSTEM_PATH)
         if not self._ropes:
             raise RuntimeError(f"Missing rope system: {ROPE_SYSTEM_PATH}")
+        self._trolley_visual_alignment_usd_x = self._trolley_alignment_to_truck_lane()
+
+    def _trolley_alignment_to_truck_lane(self) -> float:
+        """Keep PLC row stops on the boxes after the gantry's lateral pose changes.
+
+        Measure the four visible lock feet once. The engineering drive table
+        stays unchanged; only the rendered trolley's translation receives the
+        correction, so incoming PLC metres and manual position reports retain
+        their original meaning.
+        """
+        hoist = self.stage.GetPrimAtPath(HOIST_PATH)
+        cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render]
+        )
+        feet = [
+            cache.ComputeWorldBound(prim).ComputeAlignedBox().GetMidpoint()
+            for prim in Usd.PrimRange(hoist)
+            if prim.IsA(UsdGeom.Boundable)
+            and "RTG_SPREAD_REDRAW_red_corner_lock_foot_" in str(prim.GetPath())
+        ]
+        if len(feet) != 4:
+            return 0.0
+        current_x = sum(float(point[0]) for point in feet) / len(feet)
+        transforms = UsdGeom.XformCache(Usd.TimeCode.Default())
+        gantry_world = transforms.GetLocalToWorldTransform(self._gantry_prim)
+        parent_world = transforms.GetLocalToWorldTransform(self._gantry_prim.GetParent())
+        trolley_x_axis = gantry_world.TransformDir(Gf.Vec3d(1.0, 0.0, 0.0))
+        gantry_x_axis = parent_world.TransformDir(Gf.Vec3d(1.0, 0.0, 0.0))
+        current_gantry = self._gantry_translate.Get(Usd.TimeCode.Default())
+        current_trolley = self._trolley_translate.Get(Usd.TimeCode.Default())
+        if current_gantry is None or current_trolley is None or abs(trolley_x_axis[0]) < 1e-8:
+            return 0.0
+        reference_x = (
+            current_x
+            + float(trolley_x_axis[0]) * (TROLLEY_TRUCK_STOP_USD_X - float(current_trolley[0]))
+            + float(gantry_x_axis[0]) * (self._gantry_base_translate[0] - float(current_gantry[0]))
+        )
+        return (TRUCK_OPERATING_LANE_CENTER_X_M - reference_x) / float(trolley_x_axis[0])
 
     def _drive_target(self, joint_path: str):
         joint = UsdPhysics.PrismaticJoint.Get(self.stage, joint_path)
@@ -408,6 +453,62 @@ class RTGController:
         return UsdPhysics.DriveAPI.Get(
             joint.GetPrim(), UsdPhysics.Tokens.linear
         ).GetTargetPositionAttr()
+
+    def _gantry_translation_aligned_to_guides(self) -> Gf.Vec3d:
+        """Preserve the authored lateral pose and correct it to the painted tracks."""
+
+        translate = self._gantry_translate.Get(Usd.TimeCode.Default())
+        if translate is None:
+            translate = GANTRY_BASE_TRANSLATE
+
+        cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=False,
+        )
+        wheel_centers = sorted(
+            float(cache.ComputeWorldBound(prim).ComputeAlignedBox().GetMidpoint()[0])
+            for prim in Usd.PrimRange(self._gantry_prim)
+            if prim.IsA(UsdGeom.Boundable)
+            and "black_tire_axis_X_rolls_Y" in prim.GetName()
+        )
+        if len(wheel_centers) != 8:
+            # Keep the stage-authored lateral coordinate if this is a reduced
+            # RTG asset without the calibrated wheel-axis meshes.
+            return Gf.Vec3d(float(translate[0]), 0.0, float(translate[2]))
+
+        current_tracks = (
+            sum(wheel_centers[:4]) / 4.0,
+            sum(wheel_centers[4:]) / 4.0,
+        )
+        painted_tracks = tuple(
+            sorted(
+                VISUAL_YARD_LAYOUT_CENTER_X_M + offset
+                for offset in RTG_TIRE_TRACK_OFFSETS_X_M
+            )
+        )
+        corrections = tuple(
+            painted - current
+            for painted, current in zip(painted_tracks, current_tracks)
+        )
+        if abs(corrections[0] - corrections[1]) > 0.01:
+            raise RuntimeError(
+                "RTG wheel gauge does not match the painted tire guides; "
+                "a lateral translation cannot align both tracks"
+            )
+
+        parent = self._gantry_prim.GetParent()
+        parent_world = UsdGeom.XformCache(
+            Usd.TimeCode.Default()
+        ).GetLocalToWorldTransform(parent)
+        local_correction = parent_world.GetInverse().TransformDir(
+            Gf.Vec3d((corrections[0] + corrections[1]) * 0.5, 0.0, 0.0)
+        )
+        return Gf.Vec3d(
+            float(translate[0]) + float(local_correction[0]),
+            0.0,
+            float(translate[2]),
+        )
 
     def _spreader_translate_attr(self, prim_path: str):
         prim = self.stage.GetPrimAtPath(prim_path)
@@ -460,11 +561,17 @@ class RTGController:
             # moves the complete gantry hierarchy deterministically.
             self._gantry_translate.Set(
                 Gf.Vec3d(
-                    GANTRY_BASE_TRANSLATE[0],
-                    GANTRY_BASE_TRANSLATE[1] + controller_y,
-                    GANTRY_BASE_TRANSLATE[2],
+                    self._gantry_base_translate[0],
+                    self._gantry_base_translate[1] + controller_y,
+                    self._gantry_base_translate[2],
                 )
             )
+
+    def align_gantry_to_painted_tire_guides(self) -> None:
+        """Apply the computed lateral correction without moving the gantry axis."""
+
+        controller_y = float(self._gantry.Get() or 0.0)
+        self._set_gantry_controller_y(controller_y)
 
     def set_gantry(self, position_m: float) -> float:
         """Set gantry work-centre travel in metres from the 1C/001 start."""
@@ -512,7 +619,7 @@ class RTGController:
             self._trolley.Set(value)
             self._trolley_translate.Set(
                 Gf.Vec3d(
-                    TROLLEY_BASE_TRANSLATE[0] + value,
+                    TROLLEY_BASE_TRANSLATE[0] + value + getattr(self, "_trolley_visual_alignment_usd_x", 0.0),
                     TROLLEY_BASE_TRANSLATE[1],
                     TROLLEY_BASE_TRANSLATE[2],
                 )

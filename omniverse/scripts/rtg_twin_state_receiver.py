@@ -145,7 +145,7 @@ FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     ),
 }
 FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (1.0, 1.0, 1.0)
-LIVE_DRIVER_BUILD_ID = "2026-08-17-remote-mode-signal-link-v4"
+LIVE_DRIVER_BUILD_ID = "2026-10-28-authoritative-task-map-lock-foot-alignment-v3"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
@@ -591,7 +591,9 @@ LIVE_TASK_TRUCK_VISUAL_ASSET_PATH = (
 # skeletal-trailer centre at the origin. A small longitudinal stretch lets the
 # 40 ft task box sit entirely over the trailer while preserving its proportions.
 LIVE_TASK_TRUCK_VISUAL_SCALE = (1.0, 1.22, 1.0)
-LIVE_TASK_TRUCK_ASSET_CAB_CENTER_Y_M = -2.65 * LIVE_TASK_TRUCK_VISUAL_SCALE[1]
+# Measured load-bearing side-rail endpoints in RTG_Model_Lane_Truck.usdc.
+# Align the imported chassis to the load, rather than a procedural cab datum.
+LIVE_TASK_TRUCK_ASSET_TRAILER_BOUNDS_Y_M = (-2.125, 2.125)
 LIVE_TASK_TRUCK_ASSET_GROUND_Z_M = 0.14
 LIVE_TASK_TRUCK_WHITE_CAB_PART_NAMES = (
     "TrailerMainFrame",
@@ -3144,10 +3146,25 @@ def _task_truck_vertical_layout(
     )
 
 
-def _task_truck_imported_visual_translate_y(cab_center_y: float) -> float:
-    """Align the Blender lane-truck cab with the task-specific cab position."""
+def _task_truck_imported_visual_translate_y(
+    container_length_y: float, container_size_ft: int,
+) -> float:
+    """Align the actual imported trailer with the fixed truck-box anchor.
 
-    return float(cab_center_y) - LIVE_TASK_TRUCK_ASSET_CAB_CENTER_Y_M
+    A long box is centred on its load-bearing rails. A short box rides at
+    the front with the same clearance as the procedural fallback. Keeping
+    the box at local Y=0 preserves the calibrated RTG pickup/drop position.
+    """
+    front_y, rear_y = (
+        value * LIVE_TASK_TRUCK_VISUAL_SCALE[1]
+        for value in LIVE_TASK_TRUCK_ASSET_TRAILER_BOUNDS_Y_M
+    )
+    if container_size_ft == 20:
+        return (
+            TASK_TRUCK_LOADED_BOX_LOCAL_Y_M - float(container_length_y) * 0.5
+            - TASK_TRUCK_FRONT_CONTAINER_CLEARANCE_Y_M - front_y
+        )
+    return TASK_TRUCK_LOADED_BOX_LOCAL_Y_M - (front_y + rear_y) * 0.5
 
 
 def _task_truck_stop_y_for_box_center(
@@ -3722,8 +3739,10 @@ class OmniverseRtgTwinDriver:
         self._last_inventory_warning_at = 0.0
         self._inventory_stage_id: Optional[int] = None
         self._inventory_rendered_revisions: Dict[str, int] = {}
+        self._inventory_dirty_bays: set[str] = set()
         self._hidden_inventory_paths: set[str] = set()
         self._active_inventory_task_key: Optional[tuple[Any, ...]] = None
+        self._active_inventory_snapshot_key: Optional[str] = None
         self._latest_state: Optional[Dict[str, Any]] = None
         self._latest_lock = threading.Lock()
         self._subscription = None
@@ -3753,11 +3772,14 @@ class OmniverseRtgTwinDriver:
         self._spreader_task_target_size_ft: Optional[int] = None
         self._operation_state_machine: Optional[RtgOperationStateMachine] = None
         self._operation_task_key: Optional[tuple[Any, ...]] = None
+        self._operation_geometry_key: Optional[tuple[Any, ...]] = None
         self._status_overlay: Optional[RtgTwinStatusOverlay] = None
         self._last_status_overlay_at: float = 0.0
         self._floating_runinfo_text: Optional[str] = None
         self._floating_runinfo_clock_text: Optional[str] = None
         self._floating_runinfo_level_key: Optional[str] = None
+        self._runinfo_anchor_stage_id: Optional[int] = None
+        self._runinfo_anchor_local: Any = None
         self._floating_runinfo_bitmap_seq = 0
         self._last_runinfo_payload: Dict[str, Any] = {}
         # Keep the last successfully validated truck for the active LOAD /
@@ -3920,13 +3942,17 @@ class OmniverseRtgTwinDriver:
         self._cleared_completed_task_key = None
         self._inventory_stage_id = None
         self._inventory_rendered_revisions.clear()
+        self._inventory_dirty_bays.clear()
         self._hidden_inventory_paths.clear()
         self._active_inventory_task_key = None
+        self._active_inventory_snapshot_key = None
         self._spreader_task_key = None
         self._spreader_task_target_size_ft = None
         self._floating_runinfo_text = None
         self._floating_runinfo_clock_text = None
         self._floating_runinfo_level_key = None
+        self._runinfo_anchor_stage_id = None
+        self._runinfo_anchor_local = None
         self._floating_runinfo_bitmap_seq = 0
         self._last_runinfo_payload = {}
         self._validated_truck_runinfo = None
@@ -4913,6 +4939,44 @@ class OmniverseRtgTwinDriver:
         block, bay_text = stack_key.split("/", 1)
         return f"{YARD_INVENTORY_ROOT_PATH}/Bay_{block}_{int(bay_text):03d}"
 
+    @staticmethod
+    def _reset_scene_subtree(stage: Any, path: str) -> None:
+        """Clear session opinions and allow replacement over saved USD content."""
+        stage.RemovePrim(path)
+        prim = stage.GetPrimAtPath(path)
+        if prim:
+            if not prim.IsActive():
+                prim.SetActive(True)
+            for child in tuple(prim.GetAllChildren()):
+                if not child.IsActive():
+                    child.SetActive(True)
+
+    @staticmethod
+    def _remove_scene_subtree(stage: Any, path: str) -> None:
+        # RemovePrim only removes the current layer's spec. Saved definitions
+        # in live_containers.usda must also be suppressed in the session layer.
+        stage.RemovePrim(path)
+        prim = stage.GetPrimAtPath(path)
+        if prim:
+            prim.SetActive(False)
+
+    @staticmethod
+    def _mask_unwritten_children(stage: Any, path: str) -> None:
+        """Only show geometry authored by this rebuild, masking weaker leftovers."""
+        from pxr import UsdGeom
+
+        prim = stage.GetPrimAtPath(path)
+        if not prim:
+            return
+        session = stage.GetSessionLayer()
+        for child in tuple(prim.GetAllChildren()):
+            spec = session.GetPrimAtPath(child.GetPath())
+            if spec is None or not (spec.typeName or len(spec.properties)):
+                child.SetActive(False)
+            elif child.IsA(UsdGeom.Imageable) and "visibility" not in spec.properties:
+                # A saved picked/hidden box must not hide its fresh replacement.
+                UsdGeom.Imageable(child).CreateVisibilityAttr().Set(UsdGeom.Tokens.inherited)
+
     def _sync_inventory_scene(self, stage: Any) -> None:
         """Restore the complete persistent inventory when a stage is opened."""
 
@@ -4923,10 +4987,10 @@ class OmniverseRtgTwinDriver:
         from pxr import Sdf, Usd, UsdGeom
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            old = stage.GetPrimAtPath(YARD_INVENTORY_ROOT_PATH)
-            if old:
-                stage.RemovePrim(old.GetPath())
+            self._reset_scene_subtree(stage, YARD_INVENTORY_ROOT_PATH)
             root = UsdGeom.Xform.Define(stage, YARD_INVENTORY_ROOT_PATH).GetPrim()
+            UsdGeom.Imageable(root).MakeVisible()
+            self._mask_unwritten_children(stage, YARD_INVENTORY_ROOT_PATH)
             root.CreateAttribute("inventory:schema", Sdf.ValueTypeNames.String).Set(
                 "smart-port-yard-inventory/v1"
             )
@@ -4946,6 +5010,7 @@ class OmniverseRtgTwinDriver:
 
         self._inventory_stage_id = stage_id
         self._inventory_rendered_revisions.clear()
+        self._inventory_dirty_bays.clear()
         self._hidden_inventory_paths.clear()
         for stack in self._inventory.active_stacks():
             self._render_inventory_bay(stage, stack["bayId"])
@@ -4965,20 +5030,36 @@ class OmniverseRtgTwinDriver:
     def _prepare_inventory_task(
         self, stage: Any, task: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Reconcile one new task snapshot and return its inventory-backed view."""
+        """Let each authoritative task-map revision replace the cached bay view."""
 
         key = self._inventory_task_key(task)
-        if key != self._active_inventory_task_key:
-            self._restore_hidden_inventory(stage)
+        snapshot_key = json.dumps(
+            {name: task.get(name) for name in (
+                "bayMap", "targetBayMap", "baySlotHeights", "containerSize",
+                "containerHeight", "containerType",
+            )},
+            sort_keys=True, separators=(",", ":"), default=str,
+        )
+        new_task = key != self._active_inventory_task_key
+        if new_task or snapshot_key != self._active_inventory_snapshot_key:
+            if new_task:
+                self._restore_hidden_inventory(stage)
             changed: set[str] = set()
             sync_state = INVENTORY_SYNC_READY
             sync_reason: Optional[str] = None
             inventory_before = copy.deepcopy(self._inventory)
             try:
                 bay_map = str(task.get("bayMap") or "").strip()
-                has_authoritative_bay_map = bool(re.fullmatch(r"\d{6}", bay_map))
+                has_authoritative_bay_map = bool(re.fullmatch(r"[0-6]{6}", bay_map))
                 is_container_task = _is_container_work_task(task)
-                if (
+                if self._inventory.task_is_settled(task):
+                    # Repeated completion frames still carry the pre-operation
+                    # bayMap. Never undo an already committed transaction.
+                    pass
+                elif is_container_task and bay_map and not has_authoritative_bay_map:
+                    sync_state = INVENTORY_SYNC_PENDING
+                    sync_reason = "task bayMap must contain six row heights from 0 to 6"
+                elif (
                     is_container_task
                     and self._inventory_mode == INVENTORY_MODE_LIVE
                     and not self._inventory_full_sync_ready
@@ -4997,6 +5078,7 @@ class OmniverseRtgTwinDriver:
                     sync_state == INVENTORY_SYNC_READY
                     and self._inventory_mode == INVENTORY_MODE_LIVE
                     and _task_work_type(task) == WORK_TYPE_SWITCH
+                    and not self._inventory.task_is_settled(task)
                 ):
                     source_key = self._task_inventory_bay_key(
                         task,
@@ -5010,18 +5092,17 @@ class OmniverseRtgTwinDriver:
                         source_key
                         and target_key
                         and source_key != target_key
-                        and not self._inventory_full_sync_ready
                     ):
                         target_bay_map = str(
                             task.get("targetBayMap") or ""
                         ).strip()
-                        if not re.fullmatch(r"\d{6}", target_bay_map):
+                        if not re.fullmatch(r"[0-6]{6}", target_bay_map) and not self._inventory_full_sync_ready:
                             sync_state = INVENTORY_SYNC_PENDING
                             sync_reason = (
                                 "cross-bay SWITCH requires targetBayMap or "
                                 "a full authoritative inventory sync"
                             )
-                        else:
+                        elif re.fullmatch(r"[0-6]{6}", target_bay_map) and not self._inventory.task_is_settled(task):
                             target_task = dict(task)
                             target_task["workType"] = WORK_TYPE_LOAD
                             target_task["bayMap"] = target_bay_map
@@ -5048,8 +5129,21 @@ class OmniverseRtgTwinDriver:
                     )
                     active_key = self._task_inventory_bay_key(task, active_pos)
                     for stack_key in changed:
-                        if stack_key != active_key:
+                        if stack_key == active_key:
+                            # LiveTaskStack renders this bay now. Refresh its
+                            # hidden persistent copy before showing it again.
+                            self._inventory_dirty_bays.add(stack_key)
+                        else:
                             self._render_inventory_bay(stage, stack_key)
+                        old_stack = inventory_before.stacks.get(stack_key)
+                        new_stack = self._inventory.stacks.get(stack_key)
+                        old_map = self._inventory.stack_pattern(old_stack) if old_stack else "unknown"
+                        new_map = self._inventory.stack_pattern(new_stack) if new_stack else "removed"
+                        if old_map != new_map:
+                            self._log(
+                                f"task bay-map synchronized task={task.get('taskId') or '--'} "
+                                f"bay={stack_key} cached={old_map} authoritative={new_map}"
+                            )
                 elif sync_state != INVENTORY_SYNC_READY:
                     self._inventory = inventory_before
             except Exception as exc:  # noqa: BLE001 - stale data is recoverable
@@ -5060,6 +5154,7 @@ class OmniverseRtgTwinDriver:
             self._active_inventory_sync_state = sync_state
             self._active_inventory_sync_reason = sync_reason
             self._active_inventory_task_key = key
+            self._active_inventory_snapshot_key = snapshot_key
             if sync_state != INVENTORY_SYNC_READY:
                 self._warn_inventory(
                     f"task={task.get('taskId') or '--'} pending synchronization: "
@@ -5146,15 +5241,16 @@ class OmniverseRtgTwinDriver:
         root_path = self._inventory_stack_path(stack_key)
         stack = self._inventory.stacks.get(stack_key)
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            old = stage.GetPrimAtPath(root_path)
-            if old:
-                stage.RemovePrim(old.GetPath())
             if stack is None or not any(stack["rows"]):
+                self._remove_scene_subtree(stage, root_path)
                 self._inventory_rendered_revisions.pop(stack_key, None)
                 self._hidden_inventory_paths.discard(root_path)
+                self._inventory_dirty_bays.discard(stack_key)
                 return
 
+            self._reset_scene_subtree(stage, root_path)
             root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
+            UsdGeom.Imageable(root).MakeVisible()
             pattern = self._inventory.stack_pattern(stack)
             root.CreateAttribute("inventory:bayId", Sdf.ValueTypeNames.String).Set(
                 stack_key
@@ -5189,7 +5285,9 @@ class OmniverseRtgTwinDriver:
                 slot_heights,
                 include_truck_lane=False,
             )
+            self._mask_unwritten_children(stage, root_path)
             self._inventory_rendered_revisions[stack_key] = int(stack["revision"])
+            self._inventory_dirty_bays.discard(stack_key)
 
     def _hide_inventory_bay_for_task(
         self, stage: Any, task: Dict[str, Any]
@@ -5205,6 +5303,11 @@ class OmniverseRtgTwinDriver:
         self._hidden_inventory_paths.add(path)
 
     def _restore_hidden_inventory(self, stage: Any) -> None:
+        # Task maps can replace cached geometry while its persistent copy is
+        # hidden. Rebuild only those bays, then reveal the corrected inventory.
+        for stack_key in tuple(self._inventory_dirty_bays):
+            self._render_inventory_bay(stage, stack_key)
+            self._inventory_dirty_bays.discard(stack_key)
         for path in tuple(self._hidden_inventory_paths):
             prim = stage.GetPrimAtPath(path)
             if prim:
@@ -5246,24 +5349,29 @@ class OmniverseRtgTwinDriver:
             # under the same live stack.  Remove it even when the map key did
             # not change.
             self._remove_task_truck_lane(stage)
-            return stage.GetPrimAtPath(LIVE_TASK_STACK_PATH) is not None
+            return bool(key and stage.GetPrimAtPath(LIVE_TASK_STACK_PATH))
 
-        # Destroy the prior task before creating another map.  In particular,
-        # do not restore a previously carried source box after a new stack has
-        # reused the same Rxx_Txx prim name.
-        # This also clears stale task roots left in the session layer after a
-        # Script Editor reload, when this fresh driver has no in-memory key.
-        self._discard_task_visuals(stage, remove_stack=True)
+        # A new task discards prior task visuals. A map correction within the
+        # same task replaces only its stack, preserving the truck and phase.
+        previous_key = self._last_task_stack_key
+        same_task = bool(
+            previous_key and render_key
+            and previous_key[:2] + previous_key[3:8] == render_key[:2] + render_key[3:8]
+        )
+        if same_task:
+            # Replace the bay geometry, while its truck and in-flight operation
+            # retain their phase. Source transforms belong to the old meshes.
+            self._task_source_original_translates.clear()
+            self._task_source_has_moved = False
+        else:
+            self._discard_task_visuals(stage, remove_stack=True, restore_inventory=key is None)
         self._last_task_stack_key = render_key
 
         from pxr import Sdf, Usd, UsdGeom
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            old = stage.GetPrimAtPath(LIVE_TASK_STACK_PATH)
-            if old:
-                stage.RemovePrim(old.GetPath())
-
             if key is None:
+                self._remove_scene_subtree(stage, LIVE_TASK_STACK_PATH)
                 self._log(
                     "task bay-map visual skipped: missing or invalid task map "
                     f"task={task.get('taskId') or '--'} "
@@ -5271,6 +5379,7 @@ class OmniverseRtgTwinDriver:
                 )
                 return False
 
+            self._reset_scene_subtree(stage, LIVE_TASK_STACK_PATH)
             block, bay_number, pattern, container_size_ft = key
             source_row = None
             source_tier = None
@@ -5314,6 +5423,7 @@ class OmniverseRtgTwinDriver:
                 slot_heights_m,
                 include_truck_lane=False,
             )
+            self._mask_unwritten_children(stage, LIVE_TASK_STACK_PATH)
             root = stage.GetPrimAtPath(LIVE_TASK_STACK_PATH)
             if root:
                 UsdGeom.Imageable(root).MakeVisible()
@@ -5321,7 +5431,8 @@ class OmniverseRtgTwinDriver:
                 f"rendered live task stack {block}/{bay_number:03d} "
                 f"{container_size_ft}FT bayMap={pattern}"
             )
-            return bool(root and any(int(height) > 0 for height in pattern))
+            # An authoritative empty map must hide stale persistent boxes too.
+            return bool(root)
 
     def _task_stack_render_key(self, task: Dict[str, Any]) -> Optional[tuple[Any, ...]]:
         """Return a full task identity for the disposable live bay-map visual."""
@@ -5339,12 +5450,13 @@ class OmniverseRtgTwinDriver:
             repr(task.get("baySlotHeights")),
         )
 
-    def _discard_task_visuals(self, stage: Any, *, remove_stack: bool) -> None:
+    def _discard_task_visuals(self, stage: Any, *, remove_stack: bool, restore_inventory: bool = True) -> None:
         """Discard task-owned visuals without restoring a source box into a new map."""
 
         from pxr import Usd
 
-        self._restore_hidden_inventory(stage)
+        if restore_inventory:
+            self._restore_hidden_inventory(stage)
         paths = [
             TASK_ROUTE_INDICATOR_ROOT_PATH,
             LIVE_TASK_TRUCK_PATH,
@@ -5357,7 +5469,7 @@ class OmniverseRtgTwinDriver:
             for path in paths:
                 prim = stage.GetPrimAtPath(path)
                 if prim:
-                    stage.RemovePrim(prim.GetPath())
+                    self._remove_scene_subtree(stage, path)
 
         self._last_task_stack_key = None
         self._last_task_vehicle_key = None
@@ -5370,6 +5482,7 @@ class OmniverseRtgTwinDriver:
         self._task_flow_saw_locked = False
         self._operation_state_machine = None
         self._operation_task_key = None
+        self._operation_geometry_key = None
 
     @staticmethod
     def _remove_task_truck_lane(stage: Any) -> None:
@@ -5427,7 +5540,12 @@ class OmniverseRtgTwinDriver:
             self._remove_task_vehicle(stage)
             return
 
-        if key != self._last_task_vehicle_key:
+        if self._same_vehicle_task(self._last_task_vehicle_key, key):
+            # A corrected bay map does not mean the truck/task restarted.
+            self._last_task_vehicle_key = key
+            if work_type == WORK_TYPE_UNLOAD:
+                self._last_task_source_path = self._task_source_container_path(task)
+        elif key != self._last_task_vehicle_key:
             self._restore_task_source(stage)
             self._last_task_vehicle_key = key
             self._last_task_source_path = (
@@ -5479,6 +5597,10 @@ class OmniverseRtgTwinDriver:
         work_type = _task_work_type(task)
         task_id = str(task.get("taskId") or "")
         return work_type, block, bay_number, pattern, container_size_ft, task_id
+
+    @staticmethod
+    def _same_vehicle_task(old: Any, new: Any) -> bool:
+        return bool(old and new and old[:3] + old[4:] == new[:3] + new[4:])
 
     def _spreader_task_request(
         self, task: Dict[str, Any]
@@ -5568,7 +5690,10 @@ class OmniverseRtgTwinDriver:
             return
 
         _work_type, block, bay_number, _pattern, container_size_ft, task_id = key
-        if key != self._last_task_vehicle_key:
+        if self._same_vehicle_task(self._last_task_vehicle_key, key):
+            self._last_task_vehicle_key = key
+            self._last_task_source_path = self._task_source_container_path(task)
+        elif key != self._last_task_vehicle_key:
             self._remove_task_vehicle(stage)
             self._last_task_vehicle_key = key
             self._last_task_source_path = self._task_source_container_path(task)
@@ -5614,6 +5739,7 @@ class OmniverseRtgTwinDriver:
         self._task_flow_saw_locked = False
         self._operation_state_machine = None
         self._operation_task_key = None
+        self._operation_geometry_key = None
         self._task_source_has_moved = False
         self._task_source_original_translates.clear()
 
@@ -5650,16 +5776,31 @@ class OmniverseRtgTwinDriver:
                 )
             return simulated_phase
 
-        if self._operation_task_key != key:
+        geometry_key = self._task_stack_render_key(task)
+        if self._operation_task_key != key or self._operation_geometry_key != geometry_key:
+            previous_machine = self._operation_state_machine
+            previous_key = self._operation_task_key
             self._operation_task_key = key
+            self._operation_geometry_key = geometry_key
             self._operation_state_machine = self._build_operation_state_machine(
                 task, key
             )
+            same_operation = (
+                previous_machine is not None
+                and self._operation_state_machine is not None
+                and self._same_vehicle_task(previous_key, key)
+                and previous_machine.task.source == self._operation_state_machine.task.source
+                and previous_machine.task.target == self._operation_state_machine.task.target
+            )
+            if same_operation:
+                self._operation_state_machine.state = previous_machine.state
+                self._operation_state_machine.entered_at = previous_machine.entered_at
             # Reloading the Script Editor while a PLC task is already locked
             # resumes at the lift check.  Do not skip directly to trolley
             # travel: the current bay map may require more clearance first.
             if (
                 self._operation_state_machine is not None
+                and not same_operation
                 and _pose_spreader_locked(pose)
             ):
                 self._operation_state_machine.state = OperationState.HOIST_UP
@@ -5969,7 +6110,8 @@ class OmniverseRtgTwinDriver:
 
             imported_visual_created = self._create_imported_task_truck_visual(
                 stage,
-                cab_center_y=cab_center_y,
+                container_length_y=container_length_y,
+                container_size_ft=container_size_ft,
             )
             root.CreateAttribute(
                 "live:truckVisualSource", Sdf.ValueTypeNames.Token
@@ -6841,7 +6983,8 @@ class OmniverseRtgTwinDriver:
     def _create_imported_task_truck_visual(
         stage: Any,
         *,
-        cab_center_y: float,
+        container_length_y: float,
+        container_size_ft: int,
     ) -> bool:
         """Reference the compact lane truck exported from the Blender scene."""
 
@@ -6870,7 +7013,7 @@ class OmniverseRtgTwinDriver:
         translate_op.Set(
             Gf.Vec3d(
                 0.0,
-                _task_truck_imported_visual_translate_y(cab_center_y),
+                _task_truck_imported_visual_translate_y(container_length_y, container_size_ft),
                 -LIVE_TASK_TRUCK_ASSET_GROUND_Z_M,
             )
         )
@@ -7213,7 +7356,7 @@ class OmniverseRtgTwinDriver:
         pattern = str(task.get("bayMap") or "").strip()
         if not pattern:
             return None
-        if not re.fullmatch(r"\d{6}", pattern):
+        if not re.fullmatch(r"[0-6]{6}", pattern):
             return None
 
         work_type = _task_work_type(task)
@@ -7600,7 +7743,15 @@ class OmniverseRtgTwinDriver:
         attach = stage.GetPrimAtPath(RUNINFO_FLOATING_ATTACH_PATH.rstrip("/"))
         translate = Gf.Vec3d(*RUNINFO_FLOATING_LOCAL_TRANSLATE)
         rtg = stage.GetPrimAtPath(RUNINFO_FLOATING_ABOVE_RTG_PATH)
-        if rtg:
+        anchor = getattr(self, "_runinfo_anchor_local", None)
+        anchor_valid = getattr(self, "_runinfo_anchor_stage_id", None) == id(stage)
+        if attach and anchor is not None and anchor_valid:
+            # The RTG meshes are static in gantry space. Follow their cached
+            # overhead anchor instead of traversing the complete RTG twice
+            # per TCP frame to recompute a world bounding box.
+            matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(attach)
+            translate = matrix.Transform(anchor)
+        elif rtg:
             try:
                 cache = UsdGeom.BBoxCache(
                     Usd.TimeCode.Default(),
@@ -7616,6 +7767,10 @@ class OmniverseRtgTwinDriver:
                     + RUNINFO_FLOATING_ABOVE_GAP_M
                     + RUNINFO_FLOATING_PANEL_HEIGHT_M * 0.5,
                 )
+                if attach:
+                    matrix = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(attach)
+                    self._runinfo_anchor_local = matrix.GetInverse().Transform(translate)
+                    self._runinfo_anchor_stage_id = id(stage)
             except Exception:
                 pass
         if rtg is None and attach:
