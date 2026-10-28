@@ -1,6 +1,19 @@
 # Smart Port RTG Digital Twin
 
-智慧港口 RTG（轮胎式集装箱门式起重机）数字孪生项目。项目以 Blender 维护视觉源模型，以 OpenUSD/Omniverse 组织港区场景和实时渲染，并逐步接入 Isaac Sim、ROS2、WPF 客户端和 AI Agent。
+智慧港口 RTG（轮胎式集装箱门式起重机）数字孪生项目。项目以 Blender 维护视觉源模型，以 OpenUSD/Omniverse 组织港区场景和实时渲染，支持 RTG／岸桥作业演示、PLC/TwinState 数据驱动、箱区库存同步及中文 AI Agent 交互，并提供 Isaac Sim 物理与传感器原型。
+
+## 当前功能与文档
+
+| 功能 | 当前能力 | 详细说明 |
+|---|---|---|
+| 中文 Agent | 启动显示面板，DeepSeek／兼容 API，37 个受限运行接口 | [接口清单与口令](omniverse/docs/AGENT_INTERFACES.md)、[API 配置](omniverse/extensions/smartport.agent_panel/docs/README.md) |
+| 视角控制 | 港区、RTG、岸桥、贝位与跟随视角，小车平台下方正下视广角预设 | [相机参数](omniverse/docs/AGENT_INTERFACES.md) |
+| 设备与作业 | RTG 三轴、20／40 英尺吊具、岸桥轴运动与联锁、任务查询、作业演示和 IECS 流程 | [岸桥控制](omniverse/docs/sts_control.md)、[IECS 运行](omniverse/docs/IECS_RUN.md) |
+| 实时数据与库存 | PLC／任务消息转 TwinState，按最新有效任务箱区图校准库存并重绘 | [实时服务](services/README.md)、[库存与对位说明](omniverse/docs/RTG_LIVE_DIAGNOSTICS.md) |
+| 环境与画面 | 时间、昼夜、四档雨天、雾天、港区照明、海面与船舶运动、WebRTC | [时间与光照](doc/time_of_day.md)、[雨天](doc/rain_modes.md)、[雾天](doc/fog_modes.md) |
+| Isaac Sim | 可显式启用的物理原型、RTX LiDAR 与点云采集；需要对应运行环境 | [物理说明](omniverse/docs/RTG_ISAAC_PHYSICS.md)、[雷达排障](omniverse/docs/RTG_LIDAR_TROUBLESHOOTING.md) |
+
+设备运动与作业演示作用于数字场景。Agent 不向 PLC／RCMS 下发真实设备控制命令；实时模式接收外部数据来驱动画面。
 
 ## 项目定位
 
@@ -10,7 +23,7 @@
 - **OpenUSD / Omniverse**：数字世界与高真实感渲染中心，负责资产组合、场景分层、光照、天气和实时画面。
 - **Isaac Sim / ROS2**：后续物理仿真、传感器模拟、设备控制和消息通信层。
 - **WPF**：面向操作员的桌面控制中心和业务界面，而不是高精度模型的第二份维护端。
-- **AI Agent**：Omniverse 内现已加入可配置 API 的问答面板 MVP，可查询场景并调用受限工具调整环境/时间/天气及主 RTG 的 USD 姿态；后续可扩展到智能调度、异常分析和故障预测。
+- **AI Agent**：通过 Omniverse 面板用中文查询任务、设备与库存，切换相机、控制数字设备及调用仿真流程；接口限定在项目提供的 37 个工具内。智能调度优化、异常分析和故障预测仍属于后续方向。
 
 ## WPF 项目的定位
 
@@ -40,9 +53,9 @@ Omniverse / Isaac Sim     WPF 客户端
 1. **安装 Omniverse 开发环境**：准备 Omniverse/Kit、OpenUSD 和 RTX 运行环境。当前已完成。
 2. **创建第一个 USD 场景**：建立可组合的场景入口、环境层和资产层。当前入口为 `omniverse/scenes/smart_port.usda`，已完成基础搭建。
 3. **导入 RTG 模型**：从 Blender 导出 USD，确定中间 RTG 为正式动态设备，左右两台作为静态背景；大车、小车、吊具、绳索和大车附件的基础动画校验已经完成，碰撞代理和正式物理关节仍待完善。
-4. **实现白天、夜晚、雨雾环境**：建立天空、太阳、海面、材质和天气切换。白天与夜晚模式、道路灯和 RTG 横梁灯已经接入 RTG Control 移动控制面板；雨雾和性能分级仍需补充。
+4. **实现白天、夜晚、雨雾环境**：已有昼夜与时间控制、道路及设备照明、四档雨天、雾天和海面运动；继续完善不同渲染负载下的性能预算与传感器一致性。
 5. **接入 ROS2 控制**：把大车、小车、吊具、集装箱和传感器状态映射到 ROS2 Topic/Service/Action，并建立 WPF 到控制网关的命令与状态闭环。
-6. **扩展 AI Agent 智能调度**：Omniverse 面板已支持 API 问答、场景状态查询和受限场景操作；后续再连接任务调度、故障预测、异常诊断和自动优化。
+6. **扩展 AI Agent 智能调度**：Omniverse 面板已支持中文问答及 37 个运行接口，覆盖视角、设备、任务、库存、仿真与环境；后续完善调度优化、故障预测与异常诊断。
 
 ## 当前 RTG 资产
 
@@ -62,6 +75,46 @@ Omniverse / Isaac Sim     WPF 客户端
 如果希望场景加载后自动看到之前的海面波浪和船舶晃动效果，请使用
 `omniverse/scripts/launch_isaac_sim_project.py` 启动；该启动器默认开启海面运动。
 需要静态场景或传感器采集时，加上 `--disable-sea-motion`。
+
+## 使用中文 Agent
+
+Smart Port Composer 和 Isaac Sim 项目启动器会自动加载 `smartport.agent_panel` 并显示
+**Smart Port Agent**。关闭后可从 **Window > Smart Port Agent** 重新打开；仅在其他
+Kit 应用中打开 USD 文件时，还需要手动启用此扩展。
+
+1. 打开 `omniverse/scenes/smart_port.usda`。
+2. 在面板填写 **Chat Completions URL**、**Model** 和 **API Key**。项目预填的
+   DeepSeek 地址为 `https://api.deepseek.com/chat/completions`，模型为 `deepseek-flash`；
+   可按实际账号配置修改模型，也可接入兼容 Chat Completions 的服务。
+3. 点击 **Save URL / Model** 保存地址和模型，在底部输入中文后点击 **Send**。
+   API Key 仅保留在当前会话，也可在启动前设置 `DEEPSEEK_API_KEY`；
+   `SMARTPORT_AGENT_API_KEY` 的优先级更高。
+
+面板按钮保持英文，助手默认用简体中文回答；只有明确要求其他语言时才切换。
+中文字体与字符集在应用启动时加载，更新扩展后需完整重启 Kit 一次。
+如果仍看到问号，请确认 Windows 已安装 SimHei（`C:/Windows/Fonts/simhei.ttf`），
+并从应用启动时加载扩展，不能只在已启动的窗口中热加载字体。
+
+| 想做的事 | 可直接输入的中文口令 |
+|---|---|
+| 平台下方正看吊具和箱顶 | 从小车架平台下面正着往下看吊具和箱顶，使用广角并跟随小车。 |
+| 扩大下视范围 | 保持平台下方正下视，把视野角调到 130 度。 |
+| 查询任务 | 查看当前 RTG、岸桥和 IECS 任务及阶段。 |
+| 查询箱区 | 查看 4C41 贝位的箱区图、每排层数和库存来源。 |
+| 移动数字 RTG | 将 RTG 在 5 秒内移动到 4C03 贝位中心。 |
+| 移动数字岸桥 | 将 STS_04 的小车移动到 5 米，完成后报告位置。 |
+| 启动数据驱动 | 启动本机 TwinState receiver，接收 PLC 数据驱动 RTG。 |
+| 启动无 PLC 仿真 | 启动 RTG 虚拟仿真。 |
+| 查询接口 | 列出当前可以调用的接口和参数。 |
+
+运动和任务启动会弹出 **Confirm / Cancel**。接口返回 `running` 或 `moving`
+表示已启动，是否到达需要继续查询设备或操作状态。小车平台下方预设
+`target=trolley, view=under_trolley` 默认水平视野为 110 度，可调整到 30～140 度，
+随大车／小车移动，起升不会改变相机安装高度。
+
+实时模式需要先运行下文的 Twin Service；Agent 的“启动 TwinState receiver”只负责
+Kit 内接收器。无 PLC 仿真和 TwinState 驱动会占用同一套 RTG，切换前应明确停止
+当前驱动。完整参数和运行条件见 [Agent 接口清单](omniverse/docs/AGENT_INTERFACES.md)。
 
 ## 运行与调试指令
 
@@ -368,6 +421,9 @@ python services\rtg_twin_service.py --once --plc-json path\to\Yard_PLC_RTG_220.j
 真实模式每次启动都将本地文件视为可能过期的缓存：
 
 - 任务带有合法 `bayMap` 时，先用权威箱区图校准本次作业贝位，再允许结算。
+- 同一任务后续补发或修正箱区图、逐箱高度时，也会更新对应库存与现场渲染；
+  `000000` 会清除该贝位的旧箱子。任务六位图表示各排数量，逐箱高度以
+  `baySlotHeights` 为准；缺少逐箱高度时沿用有效数据或默认层高。
 - 缺少 `bayMap` 时标记为 `PENDING`，保留现场并阻止错误库存写入。
 - 跨贝 `SWITCH` 还需要 `targetBayMap`，或先同步一份权威全场快照。
 - 快照损坏、源箱不匹配或写盘失败时降级并限频告警，不会让 Kit 驱动崩溃；
@@ -481,8 +537,14 @@ start_viewport_only_livestream(target_fps=120)
 
 - `blender/`：Blender 源模型。
 - `omniverse/`：可直接打开的 Omniverse/OpenUSD 内容工程。
+- `omniverse/extensions/smartport.agent_panel/`：Agent 面板、接口目录和运行适配。
+- `services/`：PLC／任务消息接入与 TwinState 发布服务。
+- `tests/`：业务、库存、Agent 和 USD 场景回归测试。
 - `doc/`：智慧港口数字孪生平台方案文档。
-结合[方案 PDF](</D:/dnt/project/Smart Port RTG Digital Twin/doc/智慧港口数字孪生平台方案总结.pdf>)，你目前完成的是“视觉资产与 USD 场景基础”，接下来重点应转向 **SimReady、运动控制、ROS2 和实时数据**。
+- `tmp/`、`outputs/`：本地诊断、预览和采集结果，已从 Git 忽略；日志、缓存及 Python 字节码同样不提交。
+
+结合[方案 PDF](doc/智慧港口数字孪生平台方案总结.pdf)，工程已有视觉资产、USD 场景、
+数据驱动、作业演示与 Agent 交互。后续重点是完善物理吊装验证、ROS2 闭环与业务系统集成。
 
 | PDF 阶段 | 当前状态 | 还需要做 |
 |---|---|---|
@@ -490,7 +552,7 @@ start_viewport_only_livestream(target_fps=120)
 | 2. SimReady RTG | 物理原型已搭建 | 已有质量、三条 Prismatic Joint、Drive、限位和可逆激活脚本；碰撞代理和完整吊装验证待完成 |
 | 3. 港区环境 | 演示级已完成 | 已有白天/夜晚、道路灯、RTG 横梁灯、四档雨天和雾天效果；还需统一物理与传感器环境 |
 | 4. Isaac Sim + ROS2 | 部分开始 | 已有可显式启用的 Isaac Physics 原型；ROS2 控制、状态回传和传感器仿真待接入 |
-| 5. AI Agent | 未开始 | 调度、故障诊断、预测维护 |
+| 5. AI Agent | 中文问答及 37 个运行接口已接入 | 调度优化、故障诊断、预测维护 |
 | 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
 
 ## 最优先：把 RTG 做成 SimReady 设备
@@ -513,7 +575,7 @@ start_viewport_only_livestream(target_fps=120)
 - 添加吊具锁箱/解锁状态，集装箱不能再依靠“显示/隐藏动画”模拟装卸。
 - 车轮、卷筒和滑轮旋转可以后做；它们主要影响视觉，不是第一阶段控制闭环的必要条件。
 
-现有运动分析已经写在 [RTG_ANIMATION_ANALYSIS.md](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/docs/RTG_ANIMATION_ANALYSIS.md>)。
+现有运动分析见 [RTG_ANIMATION_ANALYSIS.md](omniverse/docs/RTG_ANIMATION_ANALYSIS.md)。
 
 ## 第二步：完成一次完整装卸循环
 
@@ -562,14 +624,13 @@ start_viewport_only_livestream(target_fps=120)
 
 目前已有白天天空、太阳光、夜间照明和较真实的海面：
 
-- [environment.usda](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/scenes/environment.usda>)
-- [天空纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/day_harbor_sky_360.png>)
-- [海面法线纹理](</D:/dnt/project/Smart Port RTG Digital Twin/omniverse/materials/textures/harbor_water_normal.png>)
+- [environment.usda](omniverse/scenes/environment.usda)
+- [天空纹理](omniverse/materials/textures/day_harbor_sky_360.png)
+- [海面法线纹理](omniverse/materials/textures/harbor_water_normal.png)
 
-仍需补充：
+已有四档雨天、雾天、湿地表面效果与天气控制，详见
+[雨天说明](doc/rain_modes.md)和[雾天说明](doc/fog_modes.md)。后续继续完善：
 
-- 雨天、雾天、湿地反射。
-- 在现有白天/夜晚预设上扩展雨天和雾天按钮。
 - Payload 按区域加载。
 - 重复 RTG、车辆、集装箱使用实例。
 - 为远处港区建立 LOD 或代理模型。
@@ -587,7 +648,7 @@ start_viewport_only_livestream(target_fps=120)
 - 防碰撞距离传感器。
 - 后续再增加激光雷达、OCR 和箱号识别。
 
-AI Agent 应放在控制系统稳定之后：
+中文 Agent 已能调用现有运行接口；后续智能能力按以下方向推进：
 
 - 第一阶段：规则调度，作为基准。
 - 第二阶段：RTG 作业路径与任务排序优化。

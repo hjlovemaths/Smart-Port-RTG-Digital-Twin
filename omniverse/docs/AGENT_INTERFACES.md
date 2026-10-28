@@ -2,24 +2,26 @@
 
 项目的交互式运行接口已整理为 **37 个 Agent 工具**。在 **Smart Port Agent**
 输入自然语言并点击 **Send** 即可，模型会选择对应接口，不需要输入 Python。
-界面和助手回复保持英文。更新后需要重启应用，重新加载工具目录。
+面板按钮保持英文，助手默认用简体中文回答。中文问答使用启动时加载的 SimHei
+字体与中文字符集；更新后需要完整重启应用，重新加载字体和工具目录。
 
 ## 可以直接复制的口令
 
-| 目的 | 英文口令 |
+| 目的 | 中文口令 |
 | --- | --- |
-| 看 RTG 斜视角 | `Show the RTG from an angled view.` |
-| 小车平台下方正看吊具和箱顶 | `Show a wide straight-down view from below the RTG trolley platform, following the trolley.` |
-| 下视镜头再调宽 | `Keep the under-trolley view and widen its field of view to 130 degrees.` |
-| 跟随吊具 | `Follow the RTG spreader from the right side.` |
-| 俯视指定贝位 | `Show a top view of bay 4C41.` |
-| 看岸桥 | `Show an angled view of STS_04.` |
-| 移动后切换视角 | `Move the RTG to 4C03 over 5 seconds, then show an angled RTG view.` |
-| 移动岸桥小车 | `Move the trolley of STS_04 to 5 metres.` |
-| 查看当前任务 | `Show the current RTG, STS and IECS tasks and their phases.` |
-| 查箱区图 | `What is the box area map on 4C41 Bay?` |
-| 查看所有能力 | `List all interfaces you can call.` |
-| 停止本地设备运动 | `Stop all equipment movement in the digital twin.` |
+| 看 RTG 斜视角 | `从斜视角看 RTG。` |
+| 小车平台下方正看吊具和箱顶 | `从小车平台下方正着往下看吊具和箱顶，使用广角并跟随小车。` |
+| 下视镜头再调宽 | `保持平台下方正下视，把视野角调到 130 度。` |
+| 跟随吊具 | `从右侧跟随 RTG 吊具。` |
+| 俯视指定贝位 | `俯视 4C41 贝位。` |
+| 看岸桥 | `从斜视角看 STS_04。` |
+| 移动后切换视角 | `将 RTG 在 5 秒内移动到 4C03 贝位中心，然后切换到 RTG 斜视角。` |
+| 移动岸桥小车 | `将 STS_04 的小车移动到 5 米。` |
+| 查看当前任务 | `查看当前 RTG、岸桥和 IECS 任务及阶段。` |
+| 查箱区图 | `查看 4C41 贝位的箱区图、各排层数及库存来源。` |
+| 启动数据驱动 | `启动本机 TwinState receiver，接收 PLC 数据驱动 RTG。` |
+| 查看所有能力 | `列出所有可以调用的接口。` |
+| 停止本地设备运动 | `停止数字孪生中的所有设备运动。` |
 
 运动和任务启动会显示 **Confirm / Cancel**。运动接口返回 `running` 或 `moving`
 表示已经开始；通过 `get_operation_status` 或 `get_equipment_status` 确认是否到达。
@@ -69,7 +71,7 @@
 
 所有参数的精确类型、范围及必填条件见
 [`agent_interfaces.json`](../extensions/smartport.agent_panel/docs/agent_interfaces.json)。
-也可以直接询问 Agent：`What parameters does set_sts_axis_positions accept?`
+也可以直接询问 Agent：`set_sts_axis_positions 接口接受哪些参数？`
 
 ## 使用顺序与运行条件
 

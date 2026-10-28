@@ -14,13 +14,20 @@ Use **Window > Smart Port Agent** to reopen the panel after closing it.
 
 The `smartport.agent_panel` Kit extension adds an in-Omniverse question and
 operation window backed by an OpenAI-compatible Chat Completions API. It can
-query the active stage and yard/bay inventory (including six-row box area maps),
-change the environment/time/weather, and move the primary
-RTG within the USD session layer. RTG movement requires operator confirmation
-and does not send PLC commands. See
+query tasks, equipment and yard/bay inventory (including six-row box area maps),
+switch viewport presets, move the primary RTG and STS cranes, and operate
+simulation, IECS, environment and sensor workflows through 37 runtime tools.
+Equipment movement requires operator confirmation and operates on the digital
+scene without sending PLC commands. Live TwinState mode receives external data;
+start the Twin Service separately before enabling its receiver. See
 `extensions/smartport.agent_panel/docs/README.md` for loading and API setup.
 The [Agent interface catalog](docs/AGENT_INTERFACES.md) lists all 37 connected
 runtime tools, parameters and natural-language examples.
+
+The panel labels remain English; questions and replies use Simplified Chinese
+by default. Restart Kit after updating the extension so its startup font atlas
+loads the bundled CJK glyph list and Windows SimHei font. API keys are held in
+memory only; the URL and model can be saved separately.
 
 ## Layout
 
