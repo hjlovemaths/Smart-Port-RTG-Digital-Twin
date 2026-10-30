@@ -755,6 +755,8 @@ _simulation: Optional[RtgSimulationDriver] = None
 
 def start_simulation() -> RtgSimulationDriver:
     """Start the PLC-free update loop."""
+    if getattr(builtins, "_SMART_PORT_RTG_PLC_CONTROL_ACTIVE", False):
+        raise RuntimeError("ZMQ PLC control owns the RTG; send ctr_sw_set=0 first")
     global _simulation
     if _simulation is None:
         _simulation = RtgSimulationDriver()

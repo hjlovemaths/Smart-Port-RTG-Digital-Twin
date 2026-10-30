@@ -12,6 +12,7 @@ readme = "docs/README.md"
 "omni.usd" = {}
 "omni.kit.viewport.utility" = {}
 "omni.kit.viewport.window" = {}
+"omni.kit.widget.viewport" = {}
 
 [[python.module]]
 name = "smartport.agent_panel.extension"

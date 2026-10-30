@@ -1,0 +1,24 @@
+{
+  "bind_host": "0.0.0.0",
+  "command_port": 5515,
+  "state_port": 5516,
+  "scene_port": 48720,
+  "publish_hz": 20,
+  "scene_stale_s": 0.6,
+  "motion": {
+    "watchdog_s": 0.6,
+    "max_dt": 0.1,
+    "gantry_speed_mps": 3.0,
+    "trolley_speed_mps": 3.0,
+    "hoist_speed_mps": 1.0,
+    "slow_speed_mps": 0.3,
+    "hoist_reference_m": 18.0,
+    "rope_pos_mode": "rope_length",
+    "hoist_positive_up": true,
+    "spreader_yaw_limit_deg": 5.0,
+    "spreader_shift_limit_m": 0.3,
+    "spreader_yaw_speed_deg_s": 1.0,
+    "spreader_shift_speed_mps": 0.05,
+    "spreader_jog_timeout_s": 10.0
+  }
+}

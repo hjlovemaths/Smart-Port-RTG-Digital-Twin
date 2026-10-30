@@ -221,8 +221,10 @@ def _start_carry_follow(stage: Any) -> None:
     if key in _CARRY_SUBSCRIPTIONS:
         return
     import omni.kit.app  # type: ignore
+    trim_controller = None
 
     def on_update(_event: Any) -> None:
+        nonlocal trim_controller
         state = _CARRIED_CONTAINERS.get(key)
         if state is None:
             stop_container_follow(stage)
@@ -233,6 +235,16 @@ def _start_carry_follow(stage: Any) -> None:
                 str(state["prim_path"]),
                 _container_center_from_rtg(stage),
             )
+            # Follow the independently trimmed spreader as well as the three
+            # travel axes; keep the box's original dimensions and orientation.
+            import rtg_live_control as live
+            from rtg_spreader_trim import CARRY_SUFFIX, SpreaderTrim, get_pose
+            container = stage.GetPrimAtPath(str(state["prim_path"]))
+            if any(get_pose(stage, live.HOIST_PATH)) or container.GetAttribute(
+                    "xformOp:transform:" + CARRY_SUFFIX):
+                if trim_controller is None:
+                    trim_controller = SpreaderTrim(stage, live.HOIST_PATH)
+                trim_controller.apply_to_carried_container(container)
         except Exception as error:
             print(f"[RTG Pick] carry follow skipped: {error}")
 

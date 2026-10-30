@@ -5420,6 +5420,8 @@ _manual_controller: Optional[RtgGamepadManualController] = getattr(
 def start_gamepad_manual_mode(controller_index: int = 0) -> RtgGamepadManualController:
     """Enable remote manual control and make the local gamepad pose-authoritative."""
 
+    if getattr(builtins, "_SMART_PORT_RTG_PLC_CONTROL_ACTIVE", False):
+        raise RuntimeError("ZMQ PLC control owns the RTG; send ctr_sw_set=0 first")
     global _manual_controller
     stop_gamepad_manual_mode()
     controller = RtgGamepadManualController(controller_index)

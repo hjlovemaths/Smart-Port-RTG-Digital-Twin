@@ -11,7 +11,7 @@ from .scene_runtime import current_sts_panel, current_tasks, existing_module, ie
 
 HANDLED_TOOLS = {
     "set_rtg_spreader_size", "resume_sts_crane", "control_timeline", "control_sts_task", "submit_rtg_task",
-    "control_rtg_simulation", "control_iecs", "control_live_twin", "control_sea_motion",
+    "control_rtg_simulation", "control_iecs", "control_live_twin", "control_plc_zmq", "control_sea_motion",
     "control_camera_display", "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
     "control_rtg_physics", "control_lidar", "capture_lidar", "reload_yard_inventory", "control_livestream",
 }
@@ -148,6 +148,11 @@ def _sea(owner, args):
 
 def _camera_display(owner, args):
     display, action = args["display"], args["action"]
+    if display == "work_views":
+        module = load("rtg_work_views")
+        if action in {"start", "refresh"}: return module.start_rtg_work_views(owner.stage)
+        if action == "stop": module.stop_rtg_work_views()
+        return module.get_rtg_work_views_status()
     if display == "virtual_cameras":
         module = load("rtg_virtual_cameras")
         if action in {"start", "refresh"}: module.create_rtg_virtual_cameras(owner.stage, align_labels=False, start_camera_popup=False)
@@ -327,6 +332,9 @@ def execute_project_interface(owner, name, args):
         if not status["running"]: raise RuntimeError("The RTG simulator did not start; the task is not executing. See the Kit log.")
         return {"submitted": True, "result": result, "simulation": status}
     if name == "control_iecs": return _iecs(owner, args)
+    if name == "control_plc_zmq":
+        from .plc_interface import control_plc_zmq
+        return control_plc_zmq(owner, args, load)
     if name == "control_live_twin":
         driver = getattr(builtins, "_smart_port_rtg_panel_facing_driver", None)
         if action == "start":

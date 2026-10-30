@@ -24,6 +24,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+import builtins
 import sys
 import time
 from typing import Any, Optional
@@ -220,8 +221,9 @@ _RTG_ANIMATION_STATES: dict[int, dict[str, Any]] = {}
 _RTG_TIMELINE_LOCK_SUBSCRIPTIONS: dict[int, Any] = {}
 _RTG_TIMELINE_LOCK_STATES: dict[int, dict[str, Any]] = {}
 _PHYSICS_SYNC_LAST_TICKS: dict[int, float] = {}
-_PHYSICS_SYNC_LAST_POSES: dict[int, tuple[float, float, float]] = {}
+_PHYSICS_SYNC_LAST_POSES: dict[int, tuple[float, ...]] = {}
 _ROPE_ATTACHMENT_PROFILES: dict[int, dict[str, Any]] = {}
+_ROPE_BINDINGS: dict[int, Any] = {}
 PHYSICS_VISUAL_SYNC_HZ = 30.0
 VISIBLE_ROPE_WIDTH_M = 0.065
 DEFAULT_RTG_GANTRY_M = 16.0
@@ -841,210 +843,24 @@ def freeze_rtg_animations(stage: Optional[Any] = None) -> dict[str, Any]:
     }
 
 
-def _rope_points(Gf: Any, delta: Any) -> list[Any]:
-    """Transform the authored rope endpoints by the current hoist delta."""
-
-    points: list[Any] = []
-    for upper, lower in ROPE_ENDPOINTS:
-        points.append(Gf.Vec3f(*upper))
-        lower_point = Gf.Vec3d(
-            lower[0],
-            lower[1],
-            lower[2] + LOWER_ROPE_VISIBLE_OFFSET_Z,
-        )
-        moved = delta.Transform(lower_point)
-        points.append(Gf.Vec3f(float(moved[0]), float(moved[1]), float(moved[2])))
-    return points
+def _get_rope_binding(stage: Any) -> Any:
+    key = id(stage)
+    if key not in _ROPE_BINDINGS:
+        from rtg_hoist_ropes import HoistRopeBinding
+        from rtg_live_control import _rope_points
+        _ROPE_BINDINGS[key] = HoistRopeBinding(
+            stage, HOIST_PATH, ROPE_SYSTEM_PATH, _rope_points(0.0))
+    return _ROPE_BINDINGS[key]
 
 
 def _capture_rope_attachment_profile(
-    stage: Any,
-    Gf: Any,
-    Usd: Any,
-    UsdGeom: Any,
+    stage: Any, Gf: Any, Usd: Any, UsdGeom: Any,
 ) -> Optional[dict[str, Any]]:
-    """Measure the dynamic spreader in trolley-local coordinates.
-
-    The authored dynamic rope used a legacy header point whose Z was below the
-    visible spreader.  The static RTGs instead use the spreader's real bounds.
-    Measure that same relationship here and normalize it back to the authored
-    hoist source pose so later hoist commands only add a delta once.
-    """
-
-    hoist = _valid_prim(stage, HOIST_PATH)
-    trolley = _valid_prim(stage, TROLLEY_PATH)
-    if hoist is None or trolley is None:
-        return None
     try:
-        cache = UsdGeom.BBoxCache(
-            Usd.TimeCode.Default(),
-            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render, UsdGeom.Tokens.proxy],
-            useExtentsHint=True,
-        )
-        spreader_range = Gf.Range3d()
-        header_range = Gf.Range3d()
-        anchor_points: list[tuple[float, float, float]] = []
-        green_marker_points: list[tuple[float, float, float]] = []
-        found_spreader = False
-        found_header = False
-        for prim in Usd.PrimRange(hoist):
-            name = prim.GetName().upper()
-            if not prim.IsA(UsdGeom.Boundable):
-                continue
-            aligned = cache.ComputeWorldBound(prim).ComputeAlignedRange()
-            if ROPE_ATTACHMENT_NAME_TOKEN in name:
-                header_range.UnionWith(aligned)
-                found_header = True
-            if any(token in name for token in ROPE_ANCHOR_NAME_TOKENS):
-                anchor_points.append(
-                    (float(aligned.GetMidpoint()[0]),
-                     float(aligned.GetMidpoint()[1]),
-                     float(aligned.GetMax()[2]))
-                )
-            if name in ROPE_GREEN_MARKER_NAMES:
-                midpoint = aligned.GetMidpoint()
-                green_marker_points.append(
-                    (
-                        float(midpoint[0]),
-                        float(midpoint[1]),
-                        float(midpoint[2]),
-                    )
-                )
-            if "SPREAD" in name:
-                spreader_range.UnionWith(aligned)
-                found_spreader = True
-        if not found_spreader and found_header:
-            spreader_range = header_range
-            found_spreader = True
-        if not found_spreader:
-            return None
-
-        trolley_world = UsdGeom.Xformable(trolley).ComputeLocalToWorldTransform(
-            Usd.TimeCode.Default()
-        )
-        trolley_inverse = trolley_world.GetInverse()
-        def local_bounds(world_range: Any) -> tuple[list[float], list[float], list[float]]:
-            minimum = world_range.GetMin()
-            maximum = world_range.GetMax()
-            local_corners = [
-                trolley_inverse.Transform(Gf.Vec3d(x, y, z))
-                for x in (minimum[0], maximum[0])
-                for y in (minimum[1], maximum[1])
-                for z in (minimum[2], maximum[2])
-            ]
-            return (
-                [float(point[0]) for point in local_corners],
-                [float(point[1]) for point in local_corners],
-                [float(point[2]) for point in local_corners],
-            )
-
-        local_x, local_y, _spreader_z = local_bounds(spreader_range)
-        _header_x, _header_y, header_z = local_bounds(
-            header_range if found_header else spreader_range
-        )
-        local_anchor_points: list[tuple[float, float, float]] = []
-        for world_x, world_y, world_z in anchor_points:
-            local_point = trolley_inverse.Transform(
-                Gf.Vec3d(world_x, world_y, world_z)
-            )
-            local_anchor_points.append(
-                (float(local_point[0]), float(local_point[1]), float(local_point[2]))
-            )
-        local_green_marker_points: list[tuple[float, float, float]] = []
-        for world_x, world_y, world_z in green_marker_points:
-            local_point = trolley_inverse.Transform(
-                Gf.Vec3d(world_x, world_y, world_z)
-            )
-            local_green_marker_points.append(
-                (float(local_point[0]), float(local_point[1]), float(local_point[2]))
-            )
-        current_hoist = _evaluated_local_transform(stage, HOIST_PATH, Usd, UsdGeom)
-        current_hoist_z = (
-            float(current_hoist.ExtractTranslation()[2])
-            if current_hoist is not None
-            else HOIST_AUTHORED_SOURCE_Z
-        )
-        # Store the measured point in the fixed authored source frame.  This
-        # remains correct even if the user reloads the module after moving the
-        # hoist to a different target.
-        source_lower_z = (
-            max(header_z)
-            + ROPE_YELLOW_HEADER_CLEARANCE_M
-            + HOIST_AUTHORED_SOURCE_Z
-            - current_hoist_z
-        )
-        source_anchor_points = [
-            (
-                x,
-                y,
-                z + HOIST_AUTHORED_SOURCE_Z - current_hoist_z,
-            )
-            for x, y, z in local_anchor_points
-        ]
-        source_green_marker_points = [
-            (
-                x,
-                y,
-                z + HOIST_AUTHORED_SOURCE_Z - current_hoist_z,
-            )
-            for x, y, z in local_green_marker_points
-        ]
-        return {
-            "center_x": (min(local_x) + max(local_x)) * 0.5,
-            "center_y": (min(local_y) + max(local_y)) * 0.5,
-            "source_lower_z": source_lower_z,
-            "source_anchor_points": source_anchor_points,
-            "source_green_marker_points": source_green_marker_points,
-        }
+        return _get_rope_binding(stage).profile()
     except Exception as error:
         print(f"[RTG Physics] rope profile capture skipped: {error}")
         return None
-
-
-def _rope_points_from_profile(
-    Gf: Any,
-    profile: dict[str, Any],
-    hoist_delta_z: float,
-) -> list[Any]:
-    """Build cable endpoints using the authored X/Y and measured header Z.
-
-    The visible rope endpoints must remain in the dynamic trolley's authored
-    local X/Y frame.  The yellow spreader header height, however, comes from
-    the live stage bounds because the loaded smart_port layer can place the
-    spreader higher than the older generated rope constants.
-    """
-
-    fallback_lower_z = (
-        float(profile.get("source_lower_z", LOWER_HEADER_SOURCE_Z))
-        + ROPE_GREEN_MARKER_CENTER_OFFSET_M
-        + LOWER_ROPE_VISIBLE_OFFSET_Z
-        + hoist_delta_z
-    )
-    green_marker_points = profile.get("source_green_marker_points") or []
-    points: list[Any] = []
-    for upper, lower in ROPE_ENDPOINTS:
-        points.append(Gf.Vec3f(*upper))
-        if green_marker_points:
-            marker_x, marker_y, marker_z = min(
-                green_marker_points,
-                key=lambda item: (item[0] - lower[0]) ** 2
-                + (item[1] - lower[1]) ** 2,
-            )
-            lower_point = (
-                float(marker_x),
-                float(marker_y),
-                float(marker_z + LOWER_ROPE_VISIBLE_OFFSET_Z + hoist_delta_z),
-            )
-        else:
-            lower_point = (
-                float(lower[0]),
-                float(lower[1]),
-                fallback_lower_z,
-            )
-        points.append(
-            Gf.Vec3f(*lower_point)
-        )
-    return points
 
 
 def _evaluated_local_transform(stage: Any, path: str, Usd: Any, UsdGeom: Any) -> Any:
@@ -1252,23 +1068,17 @@ def update_rtg_physics_visuals(
     *,
     force: bool = False,
 ) -> bool:
-    """Make the visible rope follow the evaluated PhysX hoist pose.
-
-    The rope curve is a visual BasisCurves prim, not a rigid body.  Its
-    authored timeline therefore cannot follow a prismatic joint by itself.
-    This function is intentionally lightweight and only updates 32 endpoint
-    points; it is safe to call from Kit's per-frame update stream.
-    """
-
+    """Follow evaluated hoist geometry without competing with the PLC writer."""
     resolved = _resolve_stage(stage)
+    # The PLC controller writes its calibrated pose and ropes atomically.
+    # An older visual-sync subscription may still be running from startup;
+    # neither its cached targets nor its rope writer may override that pose.
+    if getattr(builtins, "_SMART_PORT_RTG_PLC_CONTROL_ACTIVE", False):
+        return True
     key = id(resolved)
     now = time.perf_counter()
     last_tick = _PHYSICS_SYNC_LAST_TICKS.get(key)
-    if (
-        not force
-        and last_tick is not None
-        and now - last_tick < 1.0 / PHYSICS_VISUAL_SYNC_HZ
-    ):
+    if not force and last_tick is not None and now - last_tick < 1.0 / PHYSICS_VISUAL_SYNC_HZ:
         return True
     _PHYSICS_SYNC_LAST_TICKS[key] = now
     _apply_articulation_targets(resolved)
@@ -1276,91 +1086,24 @@ def update_rtg_physics_visuals(
     commanded = _ARTICULATION_TARGETS.get(key)
     if commanded is not None and len(commanded) >= 3:
         _set_visual_controller_transforms(resolved, commanded, Gf, Usd)
-    current = _evaluated_local_transform(resolved, HOIST_PATH, Usd, UsdGeom)
-    if current is None:
-        return False
-    baseline = _PHYSICS_SYNC_BASELINES.get(key)
-    if baseline is None:
-        baseline = current
-        _PHYSICS_SYNC_BASELINES[key] = current
-    current_z = float(current.ExtractTranslation()[2])
-    delta = Gf.Matrix4d().SetTranslate(
-        Gf.Vec3d(0.0, 0.0, current_z - HOIST_AUTHORED_SOURCE_Z)
-    )
-
-    # Some imported RTG assets expose a valid PhysX articulation but do not
-    # propagate the simulated hoist body transform to the visible controller
-    # prim.  Keep that visible prim and its rope endpoints on the same
-    # commanded absolute Z target.  If PhysX does propagate the pose, this is
-    # the same pose and therefore does not introduce a second visual motion.
-    if commanded is not None:
-        desired_hoist_z = float(commanded[2])
-        hoist = _valid_prim(resolved, HOIST_PATH)
-        if hoist is not None:
-            xformable = UsdGeom.Xformable(hoist)
-            for op in xformable.GetOrderedXformOps():
-                if op.GetOpType() != UsdGeom.XformOp.TypeTranslate:
-                    continue
-                value = op.Get()
-                if value is None:
-                    continue
-                if abs(float(value[2]) - desired_hoist_z) > 1e-5:
-                    _set_animation_attribute_constant(
-                        op.GetAttr(),
-                        Gf.Vec3d(
-                            float(value[0]), float(value[1]), desired_hoist_z
-                        ),
-                    )
-                break
-        delta = Gf.Matrix4d().SetTranslate(
-            Gf.Vec3d(
-                0.0,
-                0.0,
-                desired_hoist_z - HOIST_AUTHORED_SOURCE_Z,
-            )
-        )
     rope = _valid_prim(resolved, ROPE_SYSTEM_PATH)
     if rope is None:
         return False
     points = rope.GetAttribute("points")
     if not points:
         return False
-    translation = current.ExtractTranslation()
-    if commanded is not None:
-        translation = Gf.Vec3d(
-            float(translation[0]),
-            float(translation[1]),
-            float(commanded[2]),
-        )
-    pose = (
-        round(float(translation[0]), 5),
-        round(float(translation[1]), 5),
-        round(float(translation[2]), 5),
-    )
+    values = _get_rope_binding(resolved).points()
+    pose = tuple(round(float(c), 7) for point in values for c in point)
     if _PHYSICS_SYNC_LAST_POSES.get(key) == pose:
         return True
     with _session_edit_context(resolved):
-        profile = _ROPE_ATTACHMENT_PROFILES.get(key)
-        if profile is not None:
-            rope_values = _rope_points_from_profile(
-                Gf,
-                profile,
-                float(delta.ExtractTranslation()[2]),
-            )
-        else:
-            rope_values = _rope_points(Gf, delta)
-        points.Set(rope_values)
-        imageable = UsdGeom.Imageable(rope)
-        visibility = imageable.GetVisibilityAttr()
+        points.Set(values)
+        visibility = UsdGeom.Imageable(rope).GetVisibilityAttr()
         if visibility and visibility.IsValid():
-            _set_animation_attribute_constant(
-                visibility, UsdGeom.Tokens.inherited
-            )
+            _set_animation_attribute_constant(visibility, UsdGeom.Tokens.inherited)
         widths = rope.GetAttribute("widths")
         if widths and widths.IsValid():
-            _set_animation_attribute_constant(
-                widths, [float(VISIBLE_ROPE_WIDTH_M)]
-            )
+            _set_animation_attribute_constant(widths, [float(VISIBLE_ROPE_WIDTH_M)])
     _PHYSICS_SYNC_LAST_POSES[key] = pose
     return True
 
@@ -1420,6 +1163,7 @@ def stop_rtg_physics_visual_sync(stage: Optional[Any] = None) -> dict[str, Any]:
     _PHYSICS_SYNC_LAST_TICKS.pop(key, None)
     _PHYSICS_SYNC_LAST_POSES.pop(key, None)
     _ROPE_ATTACHMENT_PROFILES.pop(key, None)
+    _ROPE_BINDINGS.pop(key, None)
     if subscription is not None:
         unsubscribe = getattr(subscription, "unsubscribe", None)
         if unsubscribe:

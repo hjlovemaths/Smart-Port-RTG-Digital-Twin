@@ -1,13 +1,15 @@
-"""Dockable Kit chat panel backed by an OpenAI-compatible tool-calling API."""
+"""Viewport chat overlay backed by an OpenAI-compatible tool-calling API."""
 
 from __future__ import annotations
 
 import asyncio
+import builtins
 import json
 import os
 import queue
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -22,6 +24,8 @@ import omni.usd
 from omni.kit.menu.utils import MenuItemDescription
 
 from . import agent_api, runtime_catalog
+from .viewport_overlay import ViewportChatOverlay
+from .web_bridge import AgentWebBridge
 
 
 _EXTENSION_ID = "smartport.agent_panel"
@@ -29,10 +33,15 @@ _SETTING_ROOT = "/exts/smartport.agent_panel"
 _WINDOW_NAME = "Smart Port Agent"
 _SYSTEM_PROMPT = """You are the scene assistant for Smart Port RTG Digital Twin.
 默认使用简体中文回答，包括用户用英文提问时；只有用户明确要求其他语言时才切换。回答简洁易懂。保留接口名称、参数名、设备编号、贝位编号和单位的原始写法。工具调用结果中的技术标识保持原样，说明和操作结果使用中文。
+默认只直接回答用户所问的结果，通常一句话，必要时最多两句；用户明确要求详情或同时询问多项时再展开。不主动附带依据、来源、时间戳、坐标、任务编号、工作模式、库存模式等未被问到的字段。不在结尾追问或推荐其他查询。使用纯文本，不使用 Markdown 加粗标记、标题或项目列表。只有结果未知、数据过期、仅为模拟/上次记录、或操作失败时，才补充一句必要说明，不能为了简短把不确定数据说成实时事实。
+例如用户问“rtg所在贝位是哪里”，只回答“RTG_220 当前所在贝位为 2C/090。”；用户问工作模式时只回答“当前为维修模式。”。设备编号和结果必须来自本次工具查询，不能照抄示例。
 Use the provided tools to query the current USD scene, set day/night/rain/fog, set the time from 0 to 24 hours, adjust weather, and move the primary RTG in the current USD scene.
 You also have viewport/camera controls, smooth RTG motion, independent STS crane axes with boom interlocks, current task queries, STS and RTG simulation tasks, IECS scheduling, live twin visualization, sea motion, camera/info panels, gamepad mode, slot picking, physics, LiDAR captures, and local streaming. Use get_agent_capabilities to discover the complete current catalog instead of claiming a capability is missing. For view requests use set_viewport_view (target, view, optional bay_id/crane_id/follow) or switch_viewport_camera. To look straight down at the spreader and container tops from below the trolley platform, use target=trolley, view=under_trolley. This wide-angle preset follows the trolley by default and must not be replaced with the external top view. To widen it, increase field_of_view_deg (default 110, maximum 140); read list_viewpoints for the active preset when needed. For current tasks call get_current_tasks. For shore-crane motion use set_sts_axis_positions and query get_equipment_status for its current limits. Ask which crane if unspecified. Treat motion/job status 'running' or 'moving' as started, never completed; poll get_operation_status or get_equipment_status for actual arrival. Respect active task ownership, soft limits and STS boom interlocks. Do not stop/reset a competing task unless the user has requested that. RTX sensing/physics depend on the installed runtime; report a missing dependency clearly.
-For bay inventory, container distribution, row heights, or a box area map, call get_bay_inventory. For yard/block inventory totals or occupied bays, call get_yard_inventory_summary. A compact bay such as 4C41 means 4C/041. Report the returned logical bay and any 40 ft coverage relationship, the six-digit bay_map in R1-to-R6 order, row heights, and container counts. Use the returned source mode and timestamp; do not present a simulation or cached snapshot as verified current real-world stock, and do not call unrecorded bays empty when coverage is unknown. Do not claim inventory is unavailable without trying the inventory tools.
+For bay inventory, container distribution, row heights, or a box area map, call get_bay_inventory. For yard/block inventory totals or occupied bays, call get_yard_inventory_summary. A compact bay such as 4C41 means 4C/041. Report only the requested parts of the returned logical bay, any relevant 40 ft coverage relationship, six-digit bay_map in R1-to-R6 order, row heights, or counts. Use source mode and timestamp internally to assess reliability; include them only when requested or necessary to qualify simulation/stale/unknown data. Do not present simulation or cached stock as verified current real-world stock, or call unrecorded bays empty when coverage is unknown. Do not claim inventory is unavailable without trying the inventory tools.
 Only query the scene when the user explicitly asks about its current state. Only call modifying tools when the user explicitly asks to change the scene or equipment positions. Ask for clarification when the target position is unclear; do not guess.
+For RTG device work mode, query get_equipment_status(equipment="rtg") and read work_mode from the received TwinState workMode. 1=自动模式, 2=辅助模式, 3=远程手动, 4=本地模式, 5=维修模式, 0/invalid=未知. A running TwinState receiver does not imply automatic mode. Only report a current real mode when is_current is true; otherwise distinguish the last snapshot, stale/stopped receiver or simulation. Local gamepad/Agent/PLC control ownership is not the device workMode.
+For requests to start/query/stop the ZMQ PLC simulator, use control_plc_zmq. start launches the network service and connects the Kit adapter, while connect attaches to an existing external service. Poll get_operation_status until completed and report adapter.scene_ready separately from service readiness. Never claim startup enabled control or moved the RTG. If the scene is missing RTG nodes, ask the user to open smart_port.usda; do not replace their open scene. This is different from control_live_twin, which receives TwinState updates.
+For ZMQ plus physical simulation, collision, landing or twistlock picking, first start/connect control_plc_zmq and wait for scene_ready, then call control_plc_zmq(action="physics_on"). This explicitly arms local scene control and enables the cargo PhysX mode, without moving any axis. Check adapter.physics_enabled and armed afterwards. Do not substitute the legacy control_rtg_physics.activate_physics or press Play. physics_off disables cargo physics after landing and unlocking. If an existing service is connected, reuse it instead of trying to bind the ports again.
 All RTG position operations only edit the visualization in the current USD session layer. They never send commands to PLC, RCMS, or real equipment. Never claim that real equipment has moved.
 Only use capabilities in the tool allowlist. Do not execute or generate arbitrary Python, shell commands, file operations, network requests, or PLC controls."""
 _APPROVAL_TIMEOUT_SECONDS = 120.0
@@ -71,11 +80,29 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         self._chat_scroll: Any = None
         self._chat_content: Any = None
         self._chat_log: Any = None
+        self._approval_frame: Any = None
+        self._pending_approval: dict[str, Any] | None = None
+        self._approval_ui_dirty = False
         self._status_label: Any = None
         self._input_field: Any = None
         self._endpoint_field: Any = None
         self._model_field: Any = None
         self._key_field: Any = None
+        self._endpoint_model = ui.SimpleStringModel(
+            self._read_setting("endpoint", agent_api.DEFAULT_ENDPOINT)
+        )
+        self._model_model = ui.SimpleStringModel(
+            self._read_setting("model", agent_api.DEFAULT_MODEL)
+        )
+        self._key_model = ui.SimpleStringModel(
+            getattr(builtins, "_smart_port_agent_session_key", None)
+            or os.environ.get("SMARTPORT_AGENT_API_KEY")
+            or os.environ.get("DEEPSEEK_API_KEY", "")
+        )
+        self._input_model = ui.SimpleStringModel("")
+        self._last_status = "Ready"
+        self._overlay = ViewportChatOverlay(self)
+        self._web_bridge = AgentWebBridge()
 
         self._update_subscription = (
             omni.kit.app.get_app()
@@ -85,25 +112,40 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             )
         )
         self._menu_items = [
-            MenuItemDescription(name=_WINDOW_NAME, onclick_fn=self._toggle_window)
+            MenuItemDescription(name=_WINDOW_NAME, onclick_fn=self._toggle_window),
+            MenuItemDescription(name="RTG Work Views", onclick_fn=self._show_work_views),
         ]
         omni.kit.menu.utils.add_menu_items(self._menu_items, "Window")
         asyncio.ensure_future(self._show_panel_after_startup())
         carb.log_info(f"[{_EXTENSION_ID}] Started for project {self._project_root}")
 
+    def _show_work_views(self):
+        try:
+            import rtg_work_views
+            rtg_work_views.start_rtg_work_views()
+        except Exception as exc:
+            carb.log_error(f"[{_EXTENSION_ID}] RTG Work Views: {exc}")
+
     def on_shutdown(self) -> None:
         self._shutting_down = True
+        key_model = getattr(self, "_key_model", None)
+        if key_model is not None:
+            builtins._smart_port_agent_session_key = key_model.get_value_as_string()
+        if getattr(self, "_web_bridge", None) is not None:
+            self._web_bridge.closed = True
+        self._cancel_pending_approval("panel_closed")
         if self._runtime is not None:
             self._runtime.close()
             self._runtime = None
         if self._menu_items:
             omni.kit.menu.utils.remove_menu_items(self._menu_items, "Window")
             self._menu_items = []
+        self._clear_ui_references()
+        self._overlay.destroy()
         if self._window is not None:
             self._window.destroy()
             self._window = None
         self._update_subscription = None
-        self._clear_ui_references()
 
     @staticmethod
     def _find_project_root() -> Path:
@@ -122,70 +164,45 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             await omni.kit.app.get_app().next_update_async()
         if self._shutting_down:
             return
-        self._create_window()
-        if self._window is not None:
-            self._window.visible = True
-            self._window.deferred_dock_in("Stage")
+        self._overlay.update()
 
     def _toggle_window(self) -> None:
+        self._overlay.set_visible(not self._overlay.visible)
+
+    def _show_settings(self) -> None:
         self._create_window()
-        if self._window is not None:
-            self._window.visible = not self._window.visible
+        self._window.visible = True
 
     def _create_window(self) -> None:
         if self._window is not None:
             return
         self._window = ui.Window(
-            _WINDOW_NAME,
+            _WINDOW_NAME + " Settings",
             width=430,
-            height=760,
-            dockPreference=ui.DockPreference.RIGHT_TOP,
-            visible=True,
+            height=330,
+            visible=False,
         )
+        self._build_window_content()
+
+    def _build_window_content(self) -> None:
         with self._window.frame:
-            with ui.VStack(spacing=7, style={"margin": 10}):
-                ui.Label("SMART PORT / AGENT", height=26)
+            with ui.VStack(
+                name="agent_settings_content", spacing=7,
+                style={"VStack::agent_settings_content": {"margin": 10}},
+            ):
                 ui.Label("API Settings", height=20)
                 ui.Label("Chat Completions URL", height=18)
-                endpoint_model = ui.SimpleStringModel(
-                    self._read_setting("endpoint", agent_api.DEFAULT_ENDPOINT)
-                )
-                self._endpoint_field = ui.StringField(model=endpoint_model, height=26)
+                self._endpoint_field = ui.StringField(model=self._endpoint_model, height=26)
                 ui.Label("Model", height=18)
-                model_model = ui.SimpleStringModel(
-                    self._read_setting("model", agent_api.DEFAULT_MODEL)
-                )
-                self._model_field = ui.StringField(model=model_model, height=26)
+                self._model_field = ui.StringField(model=self._model_model, height=26)
                 ui.Label("API Key (current session only)", height=18)
-                key_model = ui.SimpleStringModel(
-                    os.environ.get("SMARTPORT_AGENT_API_KEY")
-                    or os.environ.get("DEEPSEEK_API_KEY", "")
-                )
                 self._key_field = ui.StringField(
-                    model=key_model, height=26, password_mode=True
+                    model=self._key_model, height=26, password_mode=True
                 )
 
                 with ui.HStack(height=28, spacing=6):
                     ui.Button("Save URL / Model", clicked_fn=self._save_settings)
-                    ui.Button("Clear Chat", clicked_fn=self._clear_conversation)
-                self._status_label = ui.Label("Not connected", height=36, word_wrap=True)
-
-                ui.Separator(height=5)
-                ui.Label("Chat & Scene Controls", height=22)
-                with ui.ScrollingFrame(height=ui.Fraction(1)) as self._chat_scroll:
-                    with ui.VStack(spacing=4) as self._chat_content:
-                        self._chat_log = ui.Label(
-                            self._format_chat(),
-                            word_wrap=True,
-                            alignment=ui.Alignment.LEFT_TOP,
-                            style=_conversation_text_style(),
-                        )
-                self._input_field = ui.StringField(
-                    height=74, multiline=True, style=_conversation_text_style()
-                )
-                with ui.HStack(height=32, spacing=6):
-                    ui.Button("Send", width=100, clicked_fn=self._send_message)
-                    ui.Label("Equipment movement requires confirmation", word_wrap=True)
+                    ui.Button("Close", clicked_fn=lambda: setattr(self._window, "visible", False))
 
                 ui.Separator(height=4)
                 ui.Label(
@@ -195,6 +212,9 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                 )
 
     def _clear_ui_references(self) -> None:
+        self._cancel_pending_approval("panel_closed")
+        self._approval_frame = None
+        self._approval_ui_dirty = False
         self._chat_scroll = None
         self._chat_content = None
         self._chat_log = None
@@ -211,14 +231,16 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             return fallback
 
     def _save_settings(self) -> None:
-        endpoint = self._endpoint_field.model.get_value_as_string().strip()
-        model = self._model_field.model.get_value_as_string().strip()
+        endpoint = self._endpoint_model.get_value_as_string().strip()
+        model = self._model_model.get_value_as_string().strip()
         try:
             agent_api.validate_endpoint(endpoint)
             if not model:
                 raise ValueError("Enter a model name")
             self._settings.set(f"{_SETTING_ROOT}/endpoint", endpoint)
             self._settings.set(f"{_SETTING_ROOT}/model", model)
+            # Keep the credential only in this Kit process across hot reloads.
+            builtins._smart_port_agent_session_key = self._key_model.get_value_as_string()
             self._set_status("URL / Model saved (API key not saved)")
         except Exception as exc:
             self._set_status(f"Configuration error: {exc}")
@@ -227,6 +249,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         if self._busy:
             self._set_status("A request is still in progress")
             return
+        self._cancel_pending_approval("chat_cleared")
         self._history = [{"role": "system", "content": _SYSTEM_PROMPT}]
         self._chat_lines = [
             ("Agent", "对话已清空。你可以询问视角、设备、任务、库存、环境或传感器。")
@@ -243,9 +266,9 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         prompt = self._input_field.model.get_value_as_string().strip()
         if not prompt:
             return
-        endpoint = self._endpoint_field.model.get_value_as_string().strip()
-        model = self._model_field.model.get_value_as_string().strip()
-        api_key = self._key_field.model.get_value_as_string().strip()
+        endpoint = self._endpoint_model.get_value_as_string().strip()
+        model = self._model_model.get_value_as_string().strip()
+        api_key = self._key_model.get_value_as_string().strip()
         if not api_key and not agent_api.is_loopback_endpoint(endpoint):
             self._set_status("Enter an API key or set DEEPSEEK_API_KEY before starting Kit")
             return
@@ -309,6 +332,8 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                 if not isinstance(tool_calls, list):
                     raise RuntimeError("API returned invalid tool_calls")
                 for raw_call in tool_calls:
+                    if self._shutting_down:
+                        return
                     if not isinstance(raw_call, dict):
                         continue
                     call_id = str(raw_call.get("id") or "")
@@ -410,10 +435,15 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             "arguments": arguments,
             "decision": threading.Event(),
             "approved": False,
+            "lock": threading.Lock(),
+            "expires_at": time.monotonic() + _APPROVAL_TIMEOUT_SECONDS,
         }
         self._ui_events.put(approval)
         if not approval["decision"].wait(_APPROVAL_TIMEOUT_SECONDS):
-            return False
+            self._decide_approval(approval, False, "timeout")
+        # Only the Kit main thread may remove widgets. Also notify it when the
+        # worker times out, including requests that have not been displayed yet.
+        self._ui_events.put({"kind": "approval_finished", "approval": approval})
         return bool(approval["approved"])
 
     def _dispatch_kit_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -434,6 +464,18 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         return {"ok": True, "result": command["result"]}
 
     def _on_update(self, _event: Any) -> None:
+        if getattr(self, "_web_bridge", None) is not None:
+            self._web_bridge.tick(self)
+        self._overlay.update()
+        if getattr(self, "_chat_scroll_pending", False):
+            self._chat_scroll_pending = False
+            if self._chat_scroll is not None:
+                self._chat_scroll.scroll_y = self._chat_scroll.scroll_y_max
+        approval = self._pending_approval
+        if approval is not None:
+            hidden = not self._overlay.visible
+            if approval["decision"].is_set() or time.monotonic() >= approval["expires_at"] or hidden:
+                self._resolve_approval(approval, False, "panel_closed" if hidden else "timeout")
         if getattr(self, "_runtime", None) is not None:
             try:
                 dt = _event.payload.get("dt", None) if _event is not None else None
@@ -465,10 +507,14 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             except queue.Empty:
                 break
             self._handle_ui_event(event)
+        # UI click handlers may hide controls, but must never destroy their
+        # container while omni.ui is dispatching that click. Rebuild only here,
+        # after the UI event has returned, once for the final pending request.
+        self._rebuild_approval_controls()
 
     def _execute_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         stage = omni.usd.get_context().get_stage()
-        if stage is None and name != "get_agent_capabilities":
+        if stage is None and name not in {"get_agent_capabilities", "control_plc_zmq", "get_operation_status", "cancel_operation"}:
             raise RuntimeError("No USD stage is open")
 
         if name in runtime_catalog.SCHEMAS or name in _MOVEMENT_TOOLS:
@@ -550,57 +596,106 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         kind = event.get("kind")
         if kind == "status":
             self._set_status(str(event.get("text", "")))
-        elif kind == "tool_start":
-            self._append_chat(
-                "Tool",
-                f"Calling {event.get('name')}: "
-                + json.dumps(event.get("arguments", {}), ensure_ascii=False),
-            )
-        elif kind == "tool_result":
-            self._append_chat(
-                "Tool Result",
-                json.dumps(event.get("result", {}), ensure_ascii=False, default=str),
-            )
+        elif kind in ("tool_start", "tool_result"):
+            # Keep tool details in the model history, out of the conversation UI.
+            return
         elif kind == "approval":
-            self._append_chat(
-                "Pending Approval",
-                f"{event.get('name')}: "
-                + json.dumps(event.get("arguments", {}), ensure_ascii=False)
-                + "\nThis changes only the local digital twin or its demonstration tasks. No PLC commands are sent.",
-            )
             self._append_approval_buttons(event)
-            self._set_status("Waiting for scene operation approval")
+        elif kind == "approval_finished":
+            approval = event["approval"]
+            if self._pending_approval is approval:
+                self._resolve_approval(approval, False, "timeout")
         elif kind == "complete":
+            self._cancel_pending_approval("request_finished")
             self._history = list(event.get("history", self._history))
             self._append_chat("Agent", str(event.get("answer", "")))
             self._set_status("Ready")
             self._busy = False
         elif kind == "failed":
+            self._cancel_pending_approval("request_finished")
             self._append_chat("Agent Error", str(event.get("error", "Request failed")))
             self._set_status("Request failed")
             self._busy = False
 
     def _append_approval_buttons(self, approval: dict[str, Any]) -> None:
-        if self._chat_content is None:
-            approval["approved"] = False
-            approval["decision"].set()
+        if approval["decision"].is_set():
             return
-        with self._chat_content:
-            with ui.HStack(height=30, spacing=6):
-                ui.Button(
-                    "Confirm",
-                    clicked_fn=lambda: self._resolve_approval(approval, True),
-                )
-                ui.Button(
-                    "Cancel",
-                    clicked_fn=lambda: self._resolve_approval(approval, False),
-                )
+        if time.monotonic() >= approval["expires_at"]:
+            self._decide_approval(approval, False, "timeout")
+            return
+        if self._approval_frame is None or self._shutting_down:
+            self._decide_approval(approval, False, "panel_closed")
+            return
+        if self._pending_approval is approval:
+            return
+        self._cancel_pending_approval("replaced")
+        self._pending_approval = approval
+        self._append_chat(
+            "Pending Approval",
+            f"{approval.get('name')}: "
+            + json.dumps(approval.get("arguments", {}), ensure_ascii=False)
+            + "\nThis changes only the local digital twin or its demonstration tasks. No PLC commands are sent.",
+        )
+        self._approval_ui_dirty = True
+        self._set_status("Waiting for scene operation approval")
 
     @staticmethod
-    def _resolve_approval(approval: dict[str, Any], approved: bool) -> None:
-        if not approval["decision"].is_set():
+    def _decide_approval(approval: dict[str, Any], approved: bool, reason: str) -> None:
+        with approval["lock"]:
+            if approval["decision"].is_set():
+                return
+            if time.monotonic() >= approval["expires_at"]:
+                approved, reason = False, "timeout"
             approval["approved"] = approved
+            approval["reason"] = reason
             approval["decision"].set()
+
+    def _resolve_approval(self, approval: dict[str, Any], approved: bool, reason: str | None = None) -> None:
+        self._decide_approval(approval, approved, reason or ("confirmed" if approved else "cancelled"))
+        # A late callback from an older request must never clear a newer one.
+        if self._pending_approval is not approval:
+            return
+        self._pending_approval = None
+        self._clear_approval_controls()
+        resolution = approval.get("reason")
+        text = ("已确认，正在执行。" if approval["approved"] else
+                "确认请求已超时，未执行。" if resolution == "timeout" else "已取消，未执行。")
+        self._append_chat("Approval", text)
+        self._set_status("Scene operation approved" if approval["approved"] else "Scene operation cancelled")
+
+    def _clear_approval_controls(self) -> None:
+        if self._approval_frame is not None:
+            self._approval_frame.visible = False
+            self._approval_frame.enabled = False
+            self._approval_frame.height = ui.Pixel(0)
+            self._approval_ui_dirty = True
+
+    def _rebuild_approval_controls(self) -> None:
+        if not self._approval_ui_dirty:
+            return
+        self._approval_ui_dirty = False
+        frame = self._approval_frame
+        if frame is None:
+            return
+        frame.clear()
+        approval = self._pending_approval
+        if approval is None or approval["decision"].is_set():
+            return
+        frame.enabled = True
+        frame.visible = True
+        frame.height = ui.Pixel(58)
+        with frame:
+            with ui.VStack(spacing=4):
+                ui.Label("Confirm scene operation", height=20)
+                with ui.HStack(height=30, spacing=6):
+                    ui.Button("Confirm", clicked_fn=lambda: self._resolve_approval(approval, True))
+                    ui.Button("Cancel", clicked_fn=lambda: self._resolve_approval(approval, False))
+
+    def _cancel_pending_approval(self, reason: str) -> None:
+        if self._pending_approval is not None:
+            self._resolve_approval(self._pending_approval, False, reason)
+        else:
+            self._clear_approval_controls()
 
     def _append_chat(self, speaker: str, text: str) -> None:
         self._chat_lines.append((speaker, text))
@@ -614,6 +709,8 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
     def _render_chat(self) -> None:
         if self._chat_log is not None:
             self._chat_log.text = self._format_chat()
+        # New wrapped text gets its final height on the next layout pass.
+        self._chat_scroll_pending = True
         try:
             if self._chat_scroll is not None:
                 self._chat_scroll.scroll_y = self._chat_scroll.scroll_y_max
@@ -621,6 +718,8 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             pass
 
     def _set_status(self, text: str) -> None:
+        self._last_status = text
         if self._status_label is not None:
             self._status_label.text = text
+            self._status_label.tooltip = text
 

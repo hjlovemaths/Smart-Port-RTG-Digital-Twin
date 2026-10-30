@@ -1,5 +1,14 @@
 # RTG Twin Service
 
+第三方需要主动控制数字 RTG 时，另用 [ZMQ PLC 协议接口](../omniverse/docs/RTG_PLC_ZMQ.md)：
+`rtg_plc_zmq_service.py` 默认在 5515 收指令、5516 发参数，配合 Kit 的
+`rtg_plc_scene_driver.py`。它与下述订阅外部 PLC 的 TwinState 链路分别使用，
+不要把两条驱动同时接到同一 RTG。
+最新协议 31 个命令的支持范围、速度单位和未实现项见 [控制命令核对表](../omniverse/docs/RTG_PLC_COMMAND_AUDIT.md)。
+需要着箱防穿透、对位闭锁和重力堆叠时，在控制合且各轴停止后发送项目扩展
+`sim_physics=1`，或运行 `python services/rtg_plc_zmq_client.py --physics on`。
+Kit 时间轴保持暂停；抓放顺序和 5516 反馈见上述 ZMQ 文档的物理作业模式。
+
 这个服务用于替代 WPF 页面做运行时桥接：
 
 ```text

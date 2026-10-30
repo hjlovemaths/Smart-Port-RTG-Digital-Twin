@@ -27,6 +27,8 @@ DEFAULT_STREAM_PORT = 47998
 DEFAULT_TARGET_FPS = 60
 DEFAULT_STREAM_WIDTH = 1920
 DEFAULT_STREAM_HEIGHT = 1080
+QHD_STREAM_WIDTH = 2560
+QHD_STREAM_HEIGHT = 1440
 PRIMARY_RTG_PATH = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 RTG_FOLLOW_TARGET_PATH = (
     f"{PRIMARY_RTG_PATH}/ANIM_CTRL_RTG_GANTRY_TRAVEL"
@@ -73,6 +75,34 @@ def _set_viewport_read_only(enabled: bool = True) -> None:
     settings.set("/persistent/app/viewport/pickingModeIncludeRef", True)
     settings.set("/exts/omni.kit.viewport.window/startup/cameraManipulator/enabled", True)
     settings.set("/exts/omni.kit.viewport.window/startup/selectionManipulator/enabled", True)
+
+    # Keep picking enabled for device/container information, but hide Kit's
+    # orange/yellow USD-selection contour in the streamed viewport.
+    outline_key = "/app/viewport/outline/enabled"
+    if read_only:
+        if not hasattr(builtins, "_rtg_stream_outline_before"):
+            builtins._rtg_stream_outline_before = settings.get(outline_key)
+        outline_visible = False
+    elif hasattr(builtins, "_rtg_stream_outline_before"):
+        previous_outline = builtins._rtg_stream_outline_before
+        outline_visible = True if previous_outline is None else bool(previous_outline)
+        del builtins._rtg_stream_outline_before
+    else:
+        outline_visible = None
+    if outline_visible is not None:
+        settings.set(outline_key, outline_visible)
+        try:
+            from omni.kit.actions.core import get_action_registry
+            from omni.kit.viewport.utility import get_active_viewport
+
+            viewport = get_active_viewport()
+            if viewport is not None:
+                get_action_registry().execute_action(
+                    "omni.kit.viewport.actions", "toggle_selection_hilight_visibility",
+                    viewport_api=viewport, visible=outline_visible,
+                )
+        except ImportError:
+            pass
 
     previous = getattr(builtins, "_rtg_viewport_read_only_sub", None)
     if previous is not None:
@@ -373,6 +403,20 @@ def _enable_extension(ext_id: str) -> None:
     manager.set_extension_enabled_immediate(ext_id, True)
 
 
+def enable_livestream_dynamic_resize(enabled: bool = True) -> None:
+    """Allow browser resolution changes and OS-adjusted app framebuffer sizes.
+
+    This only changes the primary-stream setting; it does not reopen the stage,
+    restart Kit, or change the current camera. Reconnect the web client once so
+    it refreshes the stream's advertised resize capability.
+    """
+    import carb.settings  # type: ignore
+
+    carb.settings.get_settings().set(
+        "/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize", bool(enabled)
+    )
+
+
 def _configure_livestream(
     http_port: int = DEFAULT_HTTP_PORT,
     signal_port: int = DEFAULT_SIGNAL_PORT,
@@ -380,6 +424,7 @@ def _configure_livestream(
     target_fps: int = DEFAULT_TARGET_FPS,
     width: int = DEFAULT_STREAM_WIDTH,
     height: int = DEFAULT_STREAM_HEIGHT,
+    allow_dynamic_resize: bool = True,
 ) -> None:
     import carb.settings  # type: ignore
 
@@ -388,10 +433,10 @@ def _configure_livestream(
     settings.set("/exts/omni.kit.livestream.app/primaryStream/signalPort", int(signal_port))
     settings.set("/exts/omni.kit.livestream.app/primaryStream/streamPort", int(stream_port))
     settings.set("/exts/omni.kit.livestream.app/primaryStream/targetFps", int(target_fps))
-    # Keep the configured stream size. Dynamic resize can negotiate 2048x1132
-    # on a 125% DPI desktop and then upscale the frame in the browser, making
-    # the in-scene HUD text look soft.
-    settings.set("/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize", False)
+    # Windowed Windows can clamp a 2560x1440 request to 2560x1421 because of
+    # native window decorations. Accept the actual framebuffer instead of
+    # dropping every frame after the client negotiated a different size.
+    enable_livestream_dynamic_resize(allow_dynamic_resize)
     settings.set("/app/window/width", int(width))
     settings.set("/app/window/height", int(height))
     settings.set("/exts/omni.services.transport.server.http/port", int(http_port))
@@ -644,12 +689,16 @@ def start_viewport_only_livestream(
     camera_path: str | None = None,
     hide_kit_ui: bool = True,
     read_only: bool = True,
+    allow_dynamic_resize: bool = True,
 ) -> str:
     """Enable WebRTC streaming and show only the RTX viewport in the stream."""
 
     import carb.settings  # type: ignore
 
-    _configure_livestream(http_port, signal_port, stream_port, target_fps, width, height)
+    _configure_livestream(
+        http_port, signal_port, stream_port, target_fps, width, height,
+        allow_dynamic_resize=allow_dynamic_resize,
+    )
 
     settings = carb.settings.get_settings()
     if hide_kit_ui:
@@ -862,10 +911,8 @@ def start_viewport_only_livestream_1080p(**kwargs: Any) -> str:
 
 
 def start_viewport_only_livestream_2k(**kwargs: Any) -> str:
-    """Deprecated compatibility alias; use the 1080p preset."""
-
-    print(
-        "[RTG Viewport Stream] start_viewport_only_livestream_2k() now uses "
-        "the 1080p/60 FPS preset"
-    )
-    return start_viewport_only_livestream_1080p(**kwargs)
+    """Request QHD (2560x1440) and allow browser/OS resolution renegotiation."""
+    kwargs.setdefault("width", QHD_STREAM_WIDTH)
+    kwargs.setdefault("height", QHD_STREAM_HEIGHT)
+    kwargs.setdefault("target_fps", DEFAULT_TARGET_FPS)
+    return start_viewport_only_livestream(**kwargs)

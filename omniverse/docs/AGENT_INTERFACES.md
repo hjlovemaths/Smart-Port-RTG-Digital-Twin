@@ -1,6 +1,6 @@
 # Agent 可调用接口
 
-项目的交互式运行接口已整理为 **37 个 Agent 工具**。在 **Smart Port Agent**
+项目的交互式运行接口已整理为 **38 个 Agent 工具**。在 **Smart Port Agent**
 输入自然语言并点击 **Send** 即可，模型会选择对应接口，不需要输入 Python。
 面板按钮保持英文，助手默认用简体中文回答。中文问答使用启动时加载的 SimHei
 字体与中文字符集；更新后需要完整重启应用，重新加载字体和工具目录。
@@ -11,6 +11,8 @@
 | --- | --- |
 | 看 RTG 斜视角 | `从斜视角看 RTG。` |
 | 小车平台下方正看吊具和箱顶 | `从小车平台下方正着往下看吊具和箱顶，使用广角并跟随小车。` |
+| 同时看作业与整体 | `打开 RTG 作业三视角，同时显示正下视、侧面抓放箱和整台 RTG 的斜视全景。` |
+| 关闭多视角 | `关闭 RTG 作业视角面板。` |
 | 下视镜头再调宽 | `保持平台下方正下视，把视野角调到 130 度。` |
 | 跟随吊具 | `从右侧跟随 RTG 吊具。` |
 | 俯视指定贝位 | `俯视 4C41 贝位。` |
@@ -18,14 +20,26 @@
 | 移动后切换视角 | `将 RTG 在 5 秒内移动到 4C03 贝位中心，然后切换到 RTG 斜视角。` |
 | 移动岸桥小车 | `将 STS_04 的小车移动到 5 米。` |
 | 查看当前任务 | `查看当前 RTG、岸桥和 IECS 任务及阶段。` |
+| 查询设备工作模式 | `当前 RTG 是维修模式、远程手动还是自动模式？请读取 TwinState 的 workMode。` |
 | 查箱区图 | `查看 4C41 贝位的箱区图、各排层数及库存来源。` |
 | 启动数据驱动 | `启动本机 TwinState receiver，接收 PLC 数据驱动 RTG。` |
+| 启动 ZMQ PLC 服务 | `启动 RTG 的 ZMQ PLC 服务，并连接当前 Kit 场景适配器。` |
+| 连接已有 ZMQ 服务 | `连接终端里已经启动的 ZMQ PLC 服务。` |
+| 查看 ZMQ 状态 | `查看 ZMQ 服务、适配器和控制合状态。` |
+| 停止 ZMQ 服务 | `停止 ZMQ PLC 服务并断开 Kit 适配器。` |
 | 查看所有能力 | `列出所有可以调用的接口。` |
 | 停止本地设备运动 | `停止数字孪生中的所有设备运动。` |
 
 运动和任务启动会显示 **Confirm / Cancel**。运动接口返回 `running` 或 `moving`
 表示已经开始；通过 `get_operation_status` 或 `get_equipment_status` 确认是否到达。
+
+工作模式取自接收的 `workMode`：0 未知、1 自动、2 辅助、3 远程手动、4 本地、5 维修。
+`get_equipment_status` 和 `get_current_tasks` 的 RTG 结果含 `work_mode`，没有任务也能查询。
+仅 `is_current=true` 可作为当前实时设备模式；接收器停止、超过 5 秒未更新或模拟数据会单独标记。
+该字段与本地手柄、Agent 或 PLC 场景控制权分别记录，启动 receiver 不代表自动模式。
 视角切换和状态查询立即执行。
+确认操作使用输入框上方的单一确认栏。点击 Confirm 或 Cancel 后立即收起；
+等待超过 120 秒、关闭面板或请求结束时自动清理，过期按钮不能再确认操作。
 
 ## 完整清单
 
@@ -57,7 +71,7 @@
 | 24 | `set_time_of_day` | `hour=0..24`，设置港区时间和光照。 |
 | 25 | `set_weather` | `wind_speed_mps=0..20`、`rain_amount=light/medium/heavy/torrential`、`fog_amount=light/medium/heavy`。 |
 | 26 | `control_sea_motion` | `status/start/stop/pause/resume/strength/quality/hold/release`；海浪强度 0..3、平滑质量、指定现有船舶的 `ship_path`。 |
-| 27 | `control_camera_display` | `display=rtsp_popup/spreader_rtsp_grid/model_grid/virtual_cameras`；`action=status/start/stop/refresh`。视频使用项目现有 RTSP 配置。 |
+| 27 | `control_camera_display` | `display=work_views/rtsp_popup/spreader_rtsp_grid/model_grid/virtual_cameras`；`action=status/start/stop/refresh`。work_views 为同面板正下视+侧面跟随+整台 RTG 斜视全景；视频使用项目现有 RTSP 配置。 |
 | 28 | `control_info_panel` | `panel=device/container/alarm`，`action=status/start/stop`，控制信息面板服务。 |
 | 29 | `show_alarm` | `action=status/show/clear`；可指定本地模拟报警内容、`severity=info/warning/error`、持续秒数。 |
 | 30 | `control_gamepad` | `status/start/stop/position_for_pick`；手柄索引 0..3；抓箱定位必须指定 `block/bay/row/tier`。 |
@@ -68,6 +82,7 @@
 | 35 | `get_operation_status` | 查询所有后台操作，或指定 `operation_id` 获取进度、完成状态、输出文件和错误。 |
 | 36 | `cancel_operation` | 指定 `operation_id`，取消 Agent RTG 运动或后台采集操作。 |
 | 37 | `control_livestream` | `action=start/restore_ui/enable_interaction/status`，启动本地 WebRTC 视窗或恢复交互。保留 Kit 界面；项目当前 `2k` 兼容别名实际使用 1080p 预设。 |
+| 38 | `control_plc_zmq` | `action=status/start/stop/connect/disconnect/physics_on/physics_off`。启动时优先复用已有服务；首次连接默认控制关闭。`physics_on` 申请本地控制合并开启 ZMQ 箱体碰撞、锁箱和重力模式，不发送速度；保持时间轴暂停。`physics_off` 要求先落箱解锁。异步操作需查询完成状态。停止只关闭 Agent 自己启动的服务。详见 [ZMQ 接口说明](RTG_PLC_ZMQ.md)。 |
 
 所有参数的精确类型、范围及必填条件见
 [`agent_interfaces.json`](../extensions/smartport.agent_panel/docs/agent_interfaces.json)。

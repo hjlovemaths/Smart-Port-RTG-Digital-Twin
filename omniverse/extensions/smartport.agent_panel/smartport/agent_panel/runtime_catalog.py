@@ -32,9 +32,9 @@ def tool(name, description, properties=None, required=()):
 
 TOOLS = (
     tool("get_agent_capabilities", "List all connected runtime interfaces, allowed actions, parameters and runtime requirements."),
-    tool("get_equipment_status", "Read RTG/STS positions, motion targets, limits and stop state without moving equipment.",
+    tool("get_equipment_status", "Read RTG/STS positions, motion targets, limits and stop state without moving equipment. RTG work_mode reports TwinState workMode: 1 automatic, 2 assisted, 3 remote manual, 4 local, 5 maintenance. Check is_current/state/source; stopped/stale snapshots are not the current real device mode. Local gamepad/control ownership is separate.",
          {"equipment": enum("all", "rtg", "sts"), "crane_id": CRANE}),
-    tool("get_current_tasks", "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Never starts a task."),
+    tool("get_current_tasks", "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Includes RTG work_mode even without a current task; check its freshness and source before reporting the current mode. Never starts a task."),
     tool("list_viewpoints", "List view presets and existing USD cameras, including camera paths for switch_viewport_camera."),
     tool("set_viewport_view", "Look at a port overview, RTG, trolley, spreader, bay, STS crane or current task. For looking straight down at the spreader and container tops from BELOW the trolley platform, use target=trolley and view=under_trolley: a wide 110-degree camera that follows the trolley by default. This differs from the external top view above the RTG. Increase field_of_view_deg to widen the view without moving the camera. Other views support custom angles, distance and following a moving target. Changes only the viewport.",
          {"target": enum("port", "rtg", "trolley", "spreader", "bay", "sts", "task"),
@@ -70,11 +70,13 @@ TOOLS = (
           "flow": enum("unload", "load", "gate_in", "gate_out", "transfer"), "speed": {"type": "integer", "enum": [1, 5, 10, 20]}}, ("action",)),
     tool("control_live_twin", "Read status or start/stop the existing local TwinState receiver. Receives PLC/RCMS data to visualize the twin; never writes PLC commands. Stop simulation before starting a live receiver.",
          {"action": enum("status", "start", "stop")}, ("action",)),
+    tool("control_plc_zmq", "Manage the local RTG ZMQ PLC simulator. start reuses a compatible existing service or launches the fixed service (command SUB 5515, state PUB 5516), then connects Kit. connect attaches only to an existing service. After start/connect completes, physics_on enables ZMQ cargo collision, landing/twistlock interlocks, gravity and stacking through sim_physics=1; it explicitly claims local control without velocity commands. Keep the timeline paused and all axes stopped. physics_off requires landing/unlocking cargo. Use physics_on for ZMQ picking/collision requests, not control_rtg_physics.activate_physics. status reports service, scene_ready, armed, physics_enabled and carried_container. stop/disconnect clear the adapter; stop only terminates an Agent-owned service. start/connect alone never arm control or stop competing drivers. Async actions return operation_id; poll completion. Never sends real PLC commands.",
+         {"action": enum("status", "start", "stop", "connect", "disconnect", "physics_on", "physics_off")}, ("action",)),
     tool("control_sea_motion", "Read/start/stop/pause/resume sea and ship movement; set wave strength or quality; hold/release an existing moored ship.",
          {"action": enum("status", "start", "stop", "pause", "resume", "strength", "quality", "hold", "release"),
           "strength": number(0, 3), "smooth": BOOL, "ship_path": TEXT}, ("action",)),
-    tool("control_camera_display", "Start/stop RTSP camera popup, spreader RTSP grid, rendered model camera grid, or create/clean up virtual RTG cameras. RTSP uses the existing project configuration.",
-         {"display": enum("rtsp_popup", "spreader_rtsp_grid", "model_grid", "virtual_cameras"), "action": enum("status", "start", "stop", "refresh")}, ("display", "action")),
+    tool("control_camera_display", "Start/stop camera displays. work_views shows three simultaneous docked views: auto-zoom under-trolley top-down, side-follow spreader/container, and an angled whole-RTG overview that follows gantry travel. Use this for multiple RTG views in one panel. Also supports RTSP popup/grid, four-corner model grid, and virtual cameras. RTSP uses existing project configuration.",
+         {"display": enum("rtsp_popup", "spreader_rtsp_grid", "model_grid", "virtual_cameras", "work_views"), "action": enum("status", "start", "stop", "refresh")}, ("display", "action")),
     tool("control_info_panel", "Start/stop the existing device, container or alarm information overlay services.",
          {"panel": enum("device", "container", "alarm"), "action": enum("status", "start", "stop")}, ("panel", "action")),
     tool("show_alarm", "Read, display or clear a local simulated RTG alarm. Does not acknowledge real equipment alarms.",
@@ -120,5 +122,6 @@ def needs_approval(name, arguments):
         or name == "control_gamepad" and action in {"start", "position_for_pick"}
         or name == "rtg_slot_operation" and action in {"move", "lower", "lift", "attach", "detach", "pick_demo", "calibrate", "reset_calibration", "move_scene_row"}
         or name == "control_rtg_physics" and action in {"activate_visual", "activate_physics", "deactivate", "set_targets", "freeze"}
+        or name == "control_plc_zmq" and action in {"physics_on", "physics_off"}
         or name == "capture_lidar" and arguments.get("mode") == "positions"
     )

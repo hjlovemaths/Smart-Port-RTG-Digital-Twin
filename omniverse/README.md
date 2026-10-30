@@ -10,10 +10,12 @@ Open `scenes/smart_port.usda` in Omniverse.
 
 The Smart Port Composer app and `scripts/launch_isaac_sim_project.py` load
 `smartport.agent_panel` and show **Smart Port Agent** automatically on startup.
-Use **Window > Smart Port Agent** to reopen the panel after closing it.
+The input sits at the bottom center of the main viewport; replies and operation
+confirmations appear at the bottom right. **Settings** opens the API configuration.
+Use **Window > Smart Port Agent** to hide or show both viewport cards.
 
 The `smartport.agent_panel` Kit extension adds an in-Omniverse question and
-operation window backed by an OpenAI-compatible Chat Completions API. It can
+operation overlay backed by an OpenAI-compatible Chat Completions API. It can
 query tasks, equipment and yard/bay inventory (including six-row box area maps),
 switch viewport presets, move the primary RTG and STS cranes, and operate
 simulation, IECS, environment and sensor workflows through 37 runtime tools.

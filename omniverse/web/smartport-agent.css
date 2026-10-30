@@ -1,0 +1,24 @@
+#web-agent {position:fixed;z-index:20;transform:translateX(-50%);box-sizing:border-box;padding:9px 10px;background:#20252b;border:1px solid #59657570;border-radius:8px;color:#e9eef4;font:14px system-ui,sans-serif}
+#web-agent[hidden],#web-agent-settings[hidden]{display:none}
+#web-agent header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px}
+#web-agent form{display:flex;gap:8px;margin:0}
+#web-agent input{min-width:0;flex:1}
+#web-agent input,#web-agent-settings input{box-sizing:border-box;background:#14191f;color:#fff;border:1px solid #536274;border-radius:4px;padding:7px;font:16px system-ui,sans-serif}
+#web-agent button,#web-agent-settings button{background:#414e5c;color:#fff;border:0;border-radius:4px;padding:5px 9px;cursor:pointer}
+#web-agent button:disabled{opacity:.5;cursor:wait}
+#web-agent-status{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+#web-agent-settings{position:fixed;z-index:30;inset:0;background:#080e1690;display:grid;place-items:center;font:14px system-ui,sans-serif;color:#edf3fa}
+#web-agent-settings form{box-sizing:border-box;width:min(430px,94vw);padding:22px;background:#202832;border:1px solid #586879;border-radius:10px;box-shadow:0 12px 60px #0009}
+#web-agent-settings h2{margin:0 0 18px;font-size:18px}
+#web-agent-settings label{display:block;margin:12px 0}
+#web-agent-settings input{display:block;width:100%;margin-top:6px}
+#web-agent-settings footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+#web-agent-settings p{font-size:12px;color:#bdcad8;line-height:1.5}
+#web-agent-settings [role=status]{min-height:20px;color:#ffe1a0}
+#web-navigation{position:fixed;left:12px;bottom:12px;z-index:15;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:6px 9px;border:1px solid #59657570;border-radius:7px;background:#20252bdf;color:#e9eef4;font:12px system-ui,sans-serif}
+#web-navigation button{border:1px solid #6a798b;border-radius:4px;padding:5px 8px;background:#354252;color:#fff;cursor:pointer;white-space:nowrap}
+#web-navigation output{color:#b5d9e8;white-space:nowrap}
+#web-navigation output[data-error]{color:#ffb7a0}
+#web-navigation{display:none}
+#remote-video{touch-action:none;user-select:none;outline:none}
+@media(max-width:850px){#web-navigation{top:10px;bottom:auto}#web-navigation span{display:none}}

@@ -9642,6 +9642,8 @@ def start_receiver(
 
 def start_live_driver(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> RtgTwinStateReceiver:
     """Start receiver and apply incoming states to the primary RTG."""
+    if getattr(builtins, "_SMART_PORT_RTG_PLC_CONTROL_ACTIVE", False):
+        raise RuntimeError("ZMQ PLC control owns the RTG; send ctr_sw_set=0 first")
     global _driver
     if _driver is not None:
         previous_driver = _driver

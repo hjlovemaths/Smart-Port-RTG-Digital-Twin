@@ -6,10 +6,11 @@
 
 | 功能 | 当前能力 | 详细说明 |
 |---|---|---|
-| 中文 Agent | 启动显示面板，DeepSeek／兼容 API，37 个受限运行接口 | [接口清单与口令](omniverse/docs/AGENT_INTERFACES.md)、[API 配置](omniverse/extensions/smartport.agent_panel/docs/README.md) |
+| 中文 Agent | 启动显示面板，DeepSeek／兼容 API，38 个受限运行接口 | [接口清单与口令](omniverse/docs/AGENT_INTERFACES.md)、[API 配置](omniverse/extensions/smartport.agent_panel/docs/README.md) |
 | 视角控制 | 港区、RTG、岸桥、贝位与跟随视角，小车平台下方正下视广角预设 | [相机参数](omniverse/docs/AGENT_INTERFACES.md) |
 | 设备与作业 | RTG 三轴、20／40 英尺吊具、岸桥轴运动与联锁、任务查询、作业演示和 IECS 流程 | [岸桥控制](omniverse/docs/sts_control.md)、[IECS 运行](omniverse/docs/IECS_RUN.md) |
 | 实时数据与库存 | PLC／任务消息转 TwinState，按最新有效任务箱区图校准库存并重绘 | [实时服务](services/README.md)、[库存与对位说明](omniverse/docs/RTG_LIVE_DIAGNOSTICS.md) |
+| 第三方 ZMQ 控制 | 5515 接收 RTG 运动指令，5516 发布参数与结果；可选箱面防撞、锁箱联锁及 PhysX 抓放箱 | [启动、协议与客户端](omniverse/docs/RTG_PLC_ZMQ.md)、[最新控制命令核对](omniverse/docs/RTG_PLC_COMMAND_AUDIT.md) |
 | 环境与画面 | 时间、昼夜、四档雨天、雾天、港区照明、海面与船舶运动、WebRTC | [时间与光照](doc/time_of_day.md)、[雨天](doc/rain_modes.md)、[雾天](doc/fog_modes.md) |
 | Isaac Sim | 可显式启用的物理原型、RTX LiDAR 与点云采集；需要对应运行环境 | [物理说明](omniverse/docs/RTG_ISAAC_PHYSICS.md)、[雷达排障](omniverse/docs/RTG_LIDAR_TROUBLESHOOTING.md) |
 
@@ -23,7 +24,7 @@
 - **OpenUSD / Omniverse**：数字世界与高真实感渲染中心，负责资产组合、场景分层、光照、天气和实时画面。
 - **Isaac Sim / ROS2**：后续物理仿真、传感器模拟、设备控制和消息通信层。
 - **WPF**：面向操作员的桌面控制中心和业务界面，而不是高精度模型的第二份维护端。
-- **AI Agent**：通过 Omniverse 面板用中文查询任务、设备与库存，切换相机、控制数字设备及调用仿真流程；接口限定在项目提供的 37 个工具内。智能调度优化、异常分析和故障预测仍属于后续方向。
+- **AI Agent**：通过 Omniverse 面板用中文查询任务、设备与库存，切换相机、控制数字设备及调用仿真流程；接口限定在项目提供的 38 个工具内。智能调度优化、异常分析和故障预测仍属于后续方向。
 
 ## WPF 项目的定位
 
@@ -55,7 +56,7 @@ Omniverse / Isaac Sim     WPF 客户端
 3. **导入 RTG 模型**：从 Blender 导出 USD，确定中间 RTG 为正式动态设备，左右两台作为静态背景；大车、小车、吊具、绳索和大车附件的基础动画校验已经完成，碰撞代理和正式物理关节仍待完善。
 4. **实现白天、夜晚、雨雾环境**：已有昼夜与时间控制、道路及设备照明、四档雨天、雾天和海面运动；继续完善不同渲染负载下的性能预算与传感器一致性。
 5. **接入 ROS2 控制**：把大车、小车、吊具、集装箱和传感器状态映射到 ROS2 Topic/Service/Action，并建立 WPF 到控制网关的命令与状态闭环。
-6. **扩展 AI Agent 智能调度**：Omniverse 面板已支持中文问答及 37 个运行接口，覆盖视角、设备、任务、库存、仿真与环境；后续完善调度优化、故障预测与异常诊断。
+6. **扩展 AI Agent 智能调度**：Omniverse 面板已支持中文问答及 38 个运行接口，覆盖视角、设备、任务、库存、仿真与环境；后续完善调度优化、故障预测与异常诊断。
 
 ## 当前 RTG 资产
 
@@ -79,14 +80,15 @@ Omniverse / Isaac Sim     WPF 客户端
 ## 使用中文 Agent
 
 Smart Port Composer 和 Isaac Sim 项目启动器会自动加载 `smartport.agent_panel` 并显示
-**Smart Port Agent**。关闭后可从 **Window > Smart Port Agent** 重新打开；仅在其他
+视口悬浮界面：底部中央输入，右下角显示返回和历史记录。可从
+**Window > Smart Port Agent** 隐藏或重新显示；仅在其他
 Kit 应用中打开 USD 文件时，还需要手动启用此扩展。
 
 1. 打开 `omniverse/scenes/smart_port.usda`。
-2. 在面板填写 **Chat Completions URL**、**Model** 和 **API Key**。项目预填的
+2. 点击输入区的 **Settings**，填写 **Chat Completions URL**、**Model** 和 **API Key**。项目预填的
    DeepSeek 地址为 `https://api.deepseek.com/chat/completions`，模型为 `deepseek-flash`；
    可按实际账号配置修改模型，也可接入兼容 Chat Completions 的服务。
-3. 点击 **Save URL / Model** 保存地址和模型，在底部输入中文后点击 **Send**。
+3. 点击 **Save URL / Model** 保存地址和模型，关闭设置窗口，在视口底部中央输入中文后点击 **Send**。
    API Key 仅保留在当前会话，也可在启动前设置 `DEEPSEEK_API_KEY`；
    `SMARTPORT_AGENT_API_KEY` 的优先级更高。
 
@@ -117,6 +119,12 @@ Kit 内接收器。无 PLC 仿真和 TwinState 驱动会占用同一套 RTG，�
 当前驱动。完整参数和运行条件见 [Agent 接口清单](omniverse/docs/AGENT_INTERFACES.md)。
 
 ## 运行与调试指令
+
+第三方主动控制数字 RTG 时，使用 [ZMQ PLC 接口](omniverse/docs/RTG_PLC_ZMQ.md)：
+先运行 `python services/rtg_plc_zmq_service.py`，再在 Kit 启动
+`rtg_plc_scene_driver.start_rtg_plc_driver()`。第三方以 PUB 连接 5515 发指令，
+以 SUB 连接 5516 订阅参数；默认端口方向按本项目需求，与原文档相反。
+此入口与下文外部 PLC/TwinState 数据接收模式分别使用，运动前需申请控制合。
 
 以下 Python 指令需要在 Omniverse Kit 的 Script Editor 中执行，并且应先打开
 `omniverse/scenes/smart_port.usda`。模拟任务和实时 PLC 接收器会写入同一套
@@ -498,6 +506,32 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 
 ### 5. 启动 viewport-only WebRTC 画面
 
+**无窗口 2K 启动（避免 Windows 标题栏导致 2560×1421）：**
+
+先保存场景并关闭当前 Kit，然后双击项目根目录的
+`start_webrtc_headless_2k.cmd`。它使用 `--no-window` 在后台打开
+`omniverse/scenes/smart_port.usda`，自动启动 `2560×1440 @ 60 FPS` 的
+WebRTC 服务。浏览器打开 `http://localhost:8011` 后自动连接 2K 视频流，
+页面只显示画面，隐藏网页标题、连接按钮与白色外边距。
+双击根目录的 `open_port_view.cmd` 可通过 Edge 独立画面窗口打开；
+在普通浏览器窗口中按 `F11` 可隐藏标签页和地址栏。
+需要原连接控制栏时，打开 `http://localhost:8011/?controls=1`；
+纯画面入口可用 `?resolution=1920x1080` 显式选择 1080p。
+Agent 输入框和返回区仍显示在推流画面中。本地没有 Kit 窗口；需要本地窗口时，
+退出该后台实例，再使用原来的 Composer 启动入口。
+WebRTC 模式默认隐藏黄色选中轮廓，鼠标仍可切换视角和点选对象。
+网页底部的 Agent 输入框使用浏览器原生文本输入，支持中文输入法；
+Settings 直接打开网页设置弹窗，中文文本通过同源接口交给 Kit 主线程。
+API Key 不会通过查询接口返回，也不会保存到浏览器或项目文件。
+
+HTTP / 信令 / 视频端口分别保持 `8011 / 49100 / 47998`。
+启动器发现 HTTP 或信令端口被占用时会停止，不会强制关闭已有 Kit 或丢弃未保存场景。
+运行记录位于 `.cache/webrtc-headless/latest.json`，其中包含 PID、日志和就绪状态路径。
+已准备好的命令可用 `python omniverse/scripts/launch_kit_webrtc.py --dry-run` 检查。
+自定义 Kit 安装位置可设置 `SMARTPORT_KIT_ROOT`，或传入 `--kit-root`。
+
+**在已打开的 Kit 中启动：**
+
 打开 `smart_port.usda` 后，在 Kit Script Editor 中将下面两行一起选中并一次执行：
 
 ```python
@@ -530,8 +564,10 @@ start_viewport_only_livestream(target_fps=120)
 ```
 
 120 FPS 会增加 WebRTC 编码压力；任务面板文字或堆场细线发糊时，应优先使用默认
-60 FPS。修改分辨率或帧率后建议完整退出并重新启动 Kit，避免旧的 primary stream
-占用端口或返回 `NVST_R_BUSY`。
+60 FPS。当前脚本默认允许网页动态调整分辨率，`start_viewport_only_livestream_2k()`
+请求 `2560×1440`。窗口模式仍可能受 Windows 可用客户区尺寸限制；需要完整的
+2K 画面时使用上方无窗口启动入口。更换启动方式前先断开网页连接并关闭已有 Kit，
+避免旧的 primary stream 占用端口或返回 `NVST_R_BUSY`。
 
 ## 目录
 
@@ -552,7 +588,7 @@ start_viewport_only_livestream(target_fps=120)
 | 2. SimReady RTG | 物理原型已搭建 | 已有质量、三条 Prismatic Joint、Drive、限位和可逆激活脚本；碰撞代理和完整吊装验证待完成 |
 | 3. 港区环境 | 演示级已完成 | 已有白天/夜晚、道路灯、RTG 横梁灯、四档雨天和雾天效果；还需统一物理与传感器环境 |
 | 4. Isaac Sim + ROS2 | 部分开始 | 已有可显式启用的 Isaac Physics 原型；ROS2 控制、状态回传和传感器仿真待接入 |
-| 5. AI Agent | 中文问答及 37 个运行接口已接入 | 调度优化、故障诊断、预测维护 |
+| 5. AI Agent | 中文问答及 38 个运行接口已接入 | 调度优化、故障诊断、预测维护 |
 | 展示端 | 尚未正式接入 | WPF/Unity/Web 与数字孪生数据联动 |
 
 ## 最优先：把 RTG 做成 SimReady 设备

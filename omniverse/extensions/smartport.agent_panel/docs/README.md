@@ -1,6 +1,6 @@
 # Smart Port Agent Panel
 
-This Kit extension adds a dockable chat window that talks to an OpenAI-compatible
+This Kit extension adds viewport chat controls that talk to an OpenAI-compatible
 Chat Completions API. The model can answer questions and call a small allowlist
 of tools for reading the active stage, changing its environment/time, and moving
 the primary RTG in the USD scene.
@@ -13,9 +13,45 @@ tools edit the current USD session only; they do not send commands to a PLC.
 ## Enable
 
 The Smart Port Composer app and `omniverse/scripts/launch_isaac_sim_project.py`
-load this extension automatically. The **Smart Port Agent** panel opens after
-the startup layout is ready. If you close it, reopen it from
-**Window > Smart Port Agent**.
+load this extension automatically. The **Smart Port Agent** overlay opens after
+the startup layout is ready:
+
+- The input and **Send** button sit at the bottom center of the main viewport.
+- Replies, conversation history and **Confirm / Cancel** appear
+  in a scrollable card at the bottom right.
+- **Settings** opens a separate window for the API URL, model and masked key.
+  Closing it keeps the chat and current-session configuration available.
+- **Clear** clears the conversation. **Window > Smart Port Agent** toggles both
+  viewport cards without losing the input draft or conversation.
+
+The cards follow viewport resizing. On narrow viewports the response card moves
+above the input to avoid covering it. Empty space keeps normal viewport controls.
+
+## Web model navigation
+
+The default page at `http://127.0.0.1:8011/` uses constrained model-view controls.
+After updating the client, use **Ctrl+F5** once to load the current scripts.
+
+| Input | Action |
+| --- | --- |
+| Left drag | Orbit with bounded pitch and a level horizon |
+| Middle drag or Shift + left drag | Pan across the ground plane |
+| Wheel, Ctrl + wheel, or +/- | Zoom toward/away from the RTG |
+| Arrow keys or WASD | Pan after focusing the scene |
+| Home | Restore the current equipment's view |
+
+The default RTG distance is limited to 14–160 m and pitch to 12–78 degrees. Panning tightens
+as you zoom in and stays within 35 m of the RTG, keeping the model in view.
+Camera height stays above the sea plane and roll is disabled.
+The controlled camera is stored in the USD session layer and follows RTG
+translation; these controls never move equipment. The Agent's input, settings,
+and streamed response card retain their own keyboard/mouse handling. Use left
+drag for orbiting to avoid conflicts with browser right-button gestures.
+
+After the Agent selects another subject (for example STS_01), mouse controls
+inherit that view's target, pivot, distance and lens. Distance limits scale to
+the selected equipment; reset stays at that subject. Manual navigation takes
+over the camera writer while retaining the selected equipment's translation.
 
 For another Kit app, enable it manually:
 
@@ -28,7 +64,7 @@ kit.exe --ext-folder "D:\path\to\Smart Port RTG Digital Twin\omniverse\extension
 ```
 
 The current stage should be `omniverse/scenes/smart_port.usda` for scene tools
-to work. Configure the API URL and model in the panel. Paste the API key into
+to work. Click **Settings** to configure the API URL and model. Paste the API key into
 the masked key field; it is not persisted when Kit closes.
 
 ## DeepSeek configuration
@@ -57,10 +93,10 @@ model names and API setup.
 
 ## Available tools
 
-The panel exposes 37 runtime interfaces, including viewport presets and camera
+The panel exposes 38 runtime interfaces, including viewport presets and camera
 following, smooth RTG motion, all seven STS cranes, current task queries,
 simulation and IECS workflows, sea motion, camera/info panels, slot picking,
-physics, LiDAR and local streaming. Read the
+physics, LiDAR, local streaming and ZMQ PLC simulator lifecycle. Read the
 [complete interface catalog and examples](../../../docs/AGENT_INTERFACES.md)
 or ask the Agent to list its capabilities. The exact tool schemas are in
 [`agent_interfaces.json`](agent_interfaces.json).
@@ -72,6 +108,9 @@ or ask the Agent to list its capabilities. The exact tool schemas are in
 - Set day, night, rain, or fog; set time from 0 to 24 hours.
 - Adjust wind, rain grade, and fog grade.
 - Move the primary RTG to a yard bay, or set one or more axes using soft limits.
+- Start/query/stop the local ZMQ PLC service and connect/disconnect its Kit adapter
+  with `control_plc_zmq`; startup leaves control disabled. The Agent only stops
+  its own service process. Use `connect` for a service started in a terminal.
 
 Motion commands report that movement has started; use equipment or operation
 status to confirm arrival. Shared task ownership and the STS boom interlock

@@ -16,6 +16,19 @@ sys.path.insert(0, str(ROOT / "omniverse/extensions/smartport.agent_panel"))
 from smartport.agent_panel import agent_api, project_interfaces, runtime_catalog, scene_runtime
 
 
+@pytest.mark.parametrize("filename", ["D:/scripts/rtg_driver.py", r"D:\scripts\rtg_driver.py"])
+def test_motion_module_lookup_handles_launcher_aliases_without_path_allocations(monkeypatch, filename):
+    module = SimpleNamespace(__file__=filename)
+    monkeypatch.setattr(scene_runtime, "sys", SimpleNamespace(modules={"launcher_alias": module}))
+
+    def no_paths(*args):
+        raise AssertionError("Module lookup must not allocate Path objects in motion frames")
+
+    monkeypatch.setattr(scene_runtime, "Path", no_paths)
+    assert scene_runtime.existing_module("rtg_driver") is module
+    assert scene_runtime.existing_module("different_driver") is None
+
+
 @pytest.mark.parametrize("name,args", [
     ("set_viewport_view", {"target": "bay"}),
     ("set_viewport_view", {"target": "sts"}),
@@ -66,6 +79,22 @@ def test_under_trolley_preset_defaults_to_a_following_vertical_camera():
 def test_every_advertised_runtime_tool_has_an_explicit_dispatch_adapter():
     assert set(runtime_catalog.SCHEMAS) == scene_runtime.CORE_TOOLS | project_interfaces.HANDLED_TOOLS
     assert len(agent_api.TOOLS) == len({item["function"]["name"] for item in agent_api.TOOLS})
+
+
+def test_work_views_dispatch_uses_fixed_display_api_without_equipment_control(runtime, monkeypatch):
+    calls = []
+    module = SimpleNamespace(
+        start_rtg_work_views=lambda stage: calls.append(("start", stage)) or {"running": True},
+        stop_rtg_work_views=lambda: calls.append(("stop", None)),
+        get_rtg_work_views_status=lambda: {"running": False})
+    monkeypatch.setattr(project_interfaces, "load", lambda name: module if name == "rtg_work_views" else pytest.fail(name))
+    monkeypatch.setattr(runtime, "_guard_manual", lambda *_: pytest.fail("Camera display must not acquire equipment"))
+    assert runtime.execute(None, "control_camera_display", {"display": "WORK_VIEWS", "action": "START"}) == {"running": True}
+    assert calls == [("start", None)]
+    runtime.execute(None, "control_camera_display", {"display": "work_views", "action": "status"})
+    assert len(calls) == 1
+    runtime.execute(None, "control_camera_display", {"display": "work_views", "action": "stop"})
+    assert calls[-1] == ("stop", None)
 
 
 def test_equipment_task_and_multi_position_capture_preserve_confirmation_boundary():
@@ -163,7 +192,7 @@ def test_physics_target_adapter_fills_untouched_axes(runtime, monkeypatch):
 def test_capabilities_can_be_read_without_loading_or_starting_service_modules(runtime, monkeypatch):
     monkeypatch.setattr(project_interfaces, "load", lambda _name: pytest.fail("Capability listing must not load services"))
     result = runtime.execute(None, "get_agent_capabilities", {})
-    assert result["interface_count"] == 37
+    assert result["interface_count"] == 38
     assert any(item["name"] == "get_current_tasks" for item in result["interfaces"])
 
 

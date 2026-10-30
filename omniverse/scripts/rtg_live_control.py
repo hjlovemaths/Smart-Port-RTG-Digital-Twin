@@ -404,9 +404,11 @@ class RTGController:
         )
         self._spreader_offset_m = self._read_spreader_offset()
         self._spreader_last_update_at = time.monotonic()
+        self._spreader_trim = None
         self._ropes = UsdGeom.BasisCurves.Get(stage, ROPE_SYSTEM_PATH)
         if not self._ropes:
             raise RuntimeError(f"Missing rope system: {ROPE_SYSTEM_PATH}")
+        self._rope_binding = None
         self._trolley_visual_alignment_usd_x = self._trolley_alignment_to_truck_lane()
 
     def _trolley_alignment_to_truck_lane(self) -> float:
@@ -429,6 +431,11 @@ class RTGController:
         ]
         if len(feet) != 4:
             return 0.0
+        # A new controller must not calibrate away an existing sideshift.
+        from rtg_spreader_trim import neutral_world_transform
+        world = UsdGeom.XformCache().GetLocalToWorldTransform(hoist)
+        neutral = neutral_world_transform(hoist)
+        feet = [neutral.Transform(world.GetInverse().Transform(point)) for point in feet]
         current_x = sum(float(point[0]) for point in feet) / len(feet)
         transforms = UsdGeom.XformCache(Usd.TimeCode.Default())
         gantry_world = transforms.GetLocalToWorldTransform(self._gantry_prim)
@@ -654,8 +661,34 @@ class RTGController:
                     HOIST_BASE_TRANSLATE[2] + visual_value,
                 )
             )
-            self._ropes.GetPointsAttr().Set(_rope_points(visual_value))
+            self.update_ropes()
         return actual
+
+    def update_ropes(self):
+        """Keep cable ends on fixed lifting-header anchors at the current pose."""
+        if getattr(self, "_rope_binding", None) is None:
+            from rtg_hoist_ropes import HoistRopeBinding
+            self._rope_binding = HoistRopeBinding(
+                self.stage, HOIST_PATH, ROPE_SYSTEM_PATH, _rope_points(0.0))
+        self._rope_binding.write()
+
+    def get_spreader_trim(self):
+        from rtg_spreader_trim import get_pose
+        return get_pose(self.stage, HOIST_PATH)
+
+    def _trim_controller(self):
+        if self._spreader_trim is None:
+            from rtg_spreader_trim import SpreaderTrim
+            self._spreader_trim = SpreaderTrim(self.stage, HOIST_PATH)
+        return self._spreader_trim
+
+    def set_spreader_trim(self, yaw_deg, shift_m):
+        if not math.isfinite(yaw_deg) or not math.isfinite(shift_m):
+            raise ValueError("Spreader trim must be finite")
+        trim = self._trim_controller()
+        trim.set_pose(yaw_deg, shift_m)
+        self.update_ropes()
+        return self.get_spreader_trim()
 
     def set_hoist_safe(self, height_m: float, *, carried_load: bool = False) -> float:
         """Set hoist height while keeping the spreader at least 0.5 m above ground."""

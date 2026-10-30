@@ -9,6 +9,7 @@ import importlib
 import math
 import sys
 import time
+import weakref
 from pathlib import Path
 from typing import Any
 
@@ -43,9 +44,12 @@ def existing_module(name):
     if module is not None:
         return module
     # Script Editor and the launcher can assign stable alternate module names.
+    # This also runs in each motion frame. Kit has thousands of modules;
+    # constructing a pathlib object for every filename stalls its main thread.
+    basename = name + ".py"
     for value in tuple(sys.modules.values()):
         filename = getattr(value, "__file__", None)
-        if filename and Path(filename).name == name + ".py":
+        if filename and str(filename).replace("\\", "/").rsplit("/", 1)[-1] == basename:
             return value
     return None
 
@@ -90,6 +94,59 @@ def auxiliary_rtg_motion(stage):
     return result
 
 
+WORK_MODE_LABELS = {0: "未知", 1: "自动模式", 2: "辅助模式", 3: "远程手动", 4: "本地模式", 5: "维修模式"}
+
+
+def rtg_work_mode(stage):
+    """Report the received device mode, never infer it from local controls."""
+    from datetime import datetime
+    status = stage.GetPrimAtPath("/World/LiveTwinState") if stage else None
+    raw = read_attr(status, "rtg:workMode")
+    try:
+        code = int(raw) if not isinstance(raw, bool) and raw is not None else None
+    except (TypeError, ValueError, OverflowError):
+        code = None
+    known = code in WORK_MODE_LABELS and code != 0
+    module = existing_module("rtg_twin_state_receiver")
+    receiver = getattr(module, "_receiver", None)
+    thread = getattr(receiver, "_thread", None)
+    stopping = getattr(receiver, "_stop_event", None)
+    running = bool(thread and thread.is_alive() and not (stopping and stopping.is_set()))
+    simulated = simulation_status(existing_module("rtg_simulation_driver"))["running"]
+    timestamp = read_attr(status, "rtg:lastTwinTimestampUtc")
+    applied = read_attr(status, "rtg:lastAppliedUnix")
+    now = time.time()
+    def age(value):
+        try:
+            value = float(value)
+            return now-value if math.isfinite(value) and value > 0 else None
+        except (TypeError, ValueError):
+            return None
+    ages = [age(applied)]
+    if running:
+        ages.append(age(getattr(receiver, "latest_state_at", None)))
+    source_age = None
+    if timestamp:
+        try:
+            parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                source_age = now-parsed.timestamp()
+                ages.append(source_age)
+        except (TypeError, ValueError, OverflowError):
+            pass
+    fresh = bool(ages and all(value is not None and -5 <= value <= 5 for value in ages))
+    source = "simulation" if simulated else "live" if running else "snapshot"
+    state = ("unknown" if not known else "simulation" if simulated and fresh else
+             "receiver_stopped" if not running else "current" if fresh else "stale")
+    return {"rtgName": read_attr(status, "rtg:rtgName"),
+            "workMode": code, "label": WORK_MODE_LABELS.get(code, "未知"),
+            "known": known, "is_current": state == "current", "state": state,
+            "source": source, "receiver_running": running,
+            "lastTwinTimestampUtc": timestamp, "lastAppliedUnix": applied,
+            "age_seconds": max(0, max(v for v in ages if v is not None)) if any(v is not None for v in ages) else None,
+            "freshness_limit_seconds": 5}
+
+
 def current_tasks(stage):
     status = stage.GetPrimAtPath("/World/LiveTwinState")
     fields = ("taskId", "taskState", "taskType", "workType", "operationState", "visualPhase",
@@ -97,6 +154,7 @@ def current_tasks(stage):
               "bayMap", "currentBayId", "inventoryMode", "inventorySyncState", "inventorySyncReason",
               "lastTwinTimestampUtc", "rtgName", "runinfo")
     rtg = {field: read_attr(status, "rtg:" + field) for field in fields}
+    rtg["work_mode"] = rtg_work_mode(stage)
     rtg["available"] = bool(status and rtg["taskId"])
     simulator = existing_module("rtg_simulation_driver")
     sim_status = simulation_status(simulator)
@@ -122,7 +180,14 @@ def current_tasks(stage):
 
 
 class SceneRuntime:
+    supports_plc_ownership = True
+
     def __init__(self, project_root, notify=None):
+        registry = getattr(builtins, "_smart_port_agent_scene_runtimes", None)
+        if registry is None:
+            registry = weakref.WeakSet()
+            builtins._smart_port_agent_scene_runtimes = registry
+        registry.add(self)
         self.project_root = Path(project_root)
         self.notify = notify or (lambda event: None)
         self.stage = None
@@ -186,6 +251,8 @@ class SceneRuntime:
         if task and not task.finished and (equipment == "rtg" or task.c.path.endswith("/" + str(crane_id))):
             raise ValueError("An STS task owns this equipment. Finish or explicitly reset it before manual movement.")
         if equipment == "rtg":
+            if getattr(builtins, "_SMART_PORT_RTG_PLC_CONTROL_ACTIVE", False) and not getattr(self, "plc_driver_owner", False):
+                raise ValueError("ZMQ PLC control owns the RTG. Disable sim_physics if enabled, then send ctr_sw_set=0 before another controller takes over.")
             if any(item["running"] for item in auxiliary_rtg_motion(self.stage).values()):
                 raise ValueError("An RTG slot-pick or visual animation owns the axes. Wait or stop_equipment before issuing another movement.")
             if simulation_status(existing_module("rtg_simulation_driver"))["running"]:
@@ -293,6 +360,7 @@ class SceneRuntime:
                                  "motion": self.operations.get(self.motion["id"]) if self.motion else None}
             except Exception as exc:
                 result["rtg"] = {"available": False, "error": str(exc)}
+            result["rtg"]["work_mode"] = rtg_work_mode(self.stage)
         if args.get("equipment", "all") in {"all", "sts"}:
             from sts_control import INITIAL, LIMITS
             root = self.stage.GetPrimAtPath("/World/STSControls")
@@ -337,6 +405,9 @@ class SceneRuntime:
     def stop_equipment(self, args):
         target = args["equipment"]
         if target in {"rtg", "all"}:
+            plc = getattr(builtins, "_smart_port_rtg_plc_scene_driver", None)
+            if plc is not None:
+                plc.disarm("agent_stop_equipment")
             self._cancel_motion()
             simulation = existing_module("rtg_simulation_driver")
             if simulation:
@@ -492,6 +563,20 @@ class SceneRuntime:
             pose = Gf.Matrix4d(1).SetLookAt(eye, center, up).GetInverse()
             if op.Get() != pose:
                 op.Set(pose)
+            # The browser's orbit controller must inherit this view's subject,
+            # pivot and lens rather than falling back to the primary RTG.
+            prim = camera.GetPrim()
+            target_path = {"rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST,
+                           "port": "/World/PortAndRTG"}.get(args["target"], "")
+            if args["target"] == "sts":
+                target_path = "/World/STSControls/" + args["crane_id"]
+                if self.stage.GetPrimAtPath(target_path + "/Gantry"):
+                    target_path += "/Gantry"
+            prim.CreateAttribute("smartport:navigationTarget", Sdf.ValueTypeNames.String, custom=True).Set(target_path)
+            prim.CreateAttribute("smartport:navigationCenter", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
+            prim.CreateAttribute("omni:kit:centerOfInterest", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
+            prim.CreateAttribute("smartport:navigationRadius", Sdf.ValueTypeNames.Double, custom=True).Set(
+                max(1.0, distance / 3.8) if under_trolley else radius)
         if str(viewport.camera_path) != CAMERA_PATH:
             viewport.camera_path = CAMERA_PATH
         return {"camera_path": CAMERA_PATH, "target": args["target"], "view": args.get("view", "angled"),

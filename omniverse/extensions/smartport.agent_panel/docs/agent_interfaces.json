@@ -1,5 +1,5 @@
 {
-  "interface_count": 37,
+  "interface_count": 38,
   "tools": [
     {
       "type": "function",
@@ -216,7 +216,7 @@
       "type": "function",
       "function": {
         "name": "get_equipment_status",
-        "description": "Read RTG/STS positions, motion targets, limits and stop state without moving equipment.",
+        "description": "Read RTG/STS positions, motion targets, limits and stop state without moving equipment. RTG work_mode reports TwinState workMode: 1 automatic, 2 assisted, 3 remote manual, 4 local, 5 maintenance. Check is_current/state/source; stopped/stale snapshots are not the current real device mode. Local gamepad/control ownership is separate.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -242,7 +242,7 @@
       "type": "function",
       "function": {
         "name": "get_current_tasks",
-        "description": "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Never starts a task.",
+        "description": "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Includes RTG work_mode even without a current task; check its freshness and source before reporting the current mode. Never starts a task.",
         "parameters": {
           "type": "object",
           "properties": {},
@@ -731,6 +731,34 @@
     {
       "type": "function",
       "function": {
+        "name": "control_plc_zmq",
+        "description": "Manage the local RTG ZMQ PLC simulator. start reuses a compatible existing service or launches the fixed service (command SUB 5515, state PUB 5516), then connects Kit. connect attaches only to an existing service. After start/connect completes, physics_on enables ZMQ cargo collision, landing/twistlock interlocks, gravity and stacking through sim_physics=1; it explicitly claims local control without velocity commands. Keep the timeline paused and all axes stopped. physics_off requires landing/unlocking cargo. Use physics_on for ZMQ picking/collision requests, not control_rtg_physics.activate_physics. status reports service, scene_ready, armed, physics_enabled and carried_container. stop/disconnect clear the adapter; stop only terminates an Agent-owned service. start/connect alone never arm control or stop competing drivers. Async actions return operation_id; poll completion. Never sends real PLC commands.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "stop",
+                "connect",
+                "disconnect",
+                "physics_on",
+                "physics_off"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "control_sea_motion",
         "description": "Read/start/stop/pause/resume sea and ship movement; set wave strength or quality; hold/release an existing moored ship.",
         "parameters": {
@@ -774,7 +802,7 @@
       "type": "function",
       "function": {
         "name": "control_camera_display",
-        "description": "Start/stop RTSP camera popup, spreader RTSP grid, rendered model camera grid, or create/clean up virtual RTG cameras. RTSP uses the existing project configuration.",
+        "description": "Start/stop camera displays. work_views shows three simultaneous docked views: auto-zoom under-trolley top-down, side-follow spreader/container, and an angled whole-RTG overview that follows gantry travel. Use this for multiple RTG views in one panel. Also supports RTSP popup/grid, four-corner model grid, and virtual cameras. RTSP uses existing project configuration.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -784,7 +812,8 @@
                 "rtsp_popup",
                 "spreader_rtsp_grid",
                 "model_grid",
-                "virtual_cameras"
+                "virtual_cameras",
+                "work_views"
               ]
             },
             "action": {
