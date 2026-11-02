@@ -374,8 +374,10 @@ class SceneRuntime:
                 offset = read_attr(prim, "sts:upperOffset", (0, 0, 0))
                 limits = dict(LIMITS, gantry=(read_attr(prim, "sts:gantryMin"), read_attr(prim, "sts:gantryMax")),
                               hoist=(LIMITS["hoist"][0], LIMITS["hoist"][1] + float(offset[2])))
-                result["sts"].append({"crane_id": name, "positions": dict(controller.state) if controller else dict(INITIAL),
-                                      "targets": dict(controller.targets) if controller else dict(INITIAL),
+                limits["trolley"] = (LIMITS["trolley"][0], LIMITS["trolley"][1] + 17.32 * (read_attr(prim,"sts:boomLengthScale",1.0)-1))
+                home = dict(INITIAL, hoist=INITIAL["hoist"]+read_attr(prim,"sts:raisedHomeOffset",0.0))
+                result["sts"].append({"crane_id": name, "positions": dict(controller.state) if controller else home,
+                                      "targets": dict(controller.targets) if controller else dict(home),
                                       "limits": controller.limits if controller else limits,
                                       "stopped": controller.stopped if controller else False,
                                       "park_hoist": controller.park_hoist if controller else 7.7 + float(offset[2]),

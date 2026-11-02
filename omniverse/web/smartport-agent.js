@@ -1,5 +1,5 @@
 // Browser-native IME controls. Scene operations still use the existing Agent.
-if (document.documentElement.classList.contains('smartport-video-only')) {
+if (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator')) {
   const host = document.createElement('section');
   host.id = 'web-agent'; host.hidden = true;
   host.innerHTML = `<header><span>SMART PORT / AGENT</span><button type="button" id="web-agent-open">Settings</button></header>
@@ -12,7 +12,30 @@ if (document.documentElement.classList.contains('smartport-video-only')) {
     <label>API Key<input name="api_key" type="password" autocomplete="new-password"></label>
     <p>API Key 仅保留在 Kit 当前会话；留空可保留已有 Key。</p>
     <div role="status"></div><footer><button type="button" id="web-agent-close">Close</button><button>Save</button></footer></form>`;
-  document.body.append(host, modal);
+  const responseCard=document.createElement('section'); responseCard.id='web-agent-response';
+  responseCard.innerHTML='<header><span>AGENT RESPONSE</span><button type="button" id="web-agent-clear">Clear</button></header><div class="conversation"></div><div class="approval" hidden><p></p><button type="button" data-approved="true">确认执行</button><button type="button" data-approved="false">取消</button></div>';
+  document.body.append(host, modal, responseCard);
+  responseCard.querySelector('#web-agent-clear').onclick=()=>api('clear',{}).then(poll).catch(e=>status.textContent=e.message);
+  responseCard.querySelectorAll('[data-approved]').forEach(button=>button.onclick=()=>{
+    if(!state?.approval)return;
+    api('approval',{id:state.approval.id,approved:button.dataset.approved==='true'}).then(poll).catch(e=>status.textContent=e.message);
+  });
+  let chatVersion='';
+  function renderResponse() {
+    const version=JSON.stringify(state.chat || []);
+    const conversation=responseCard.querySelector('.conversation');
+    if(version!==chatVersion){
+      const atEnd=conversation.scrollHeight-conversation.scrollTop-conversation.clientHeight<30;
+      conversation.replaceChildren();
+      for(const message of state.chat || []) {
+        const line=document.createElement('p');line.textContent=`${message.speaker}: ${message.text}`;conversation.append(line);
+      }
+      if(atEnd)conversation.scrollTop=conversation.scrollHeight;
+      chatVersion=version;
+    }
+    const approval=responseCard.querySelector('.approval');approval.hidden=!state.approval;
+    if(state.approval)approval.querySelector('p').textContent=`确认场景操作：${state.approval.name} ${JSON.stringify(state.approval.arguments)}`;
+  }
   const input = host.querySelector('input'), sendButton = host.querySelector('#web-agent-send');
   const status = host.querySelector('[role=status]'), settings = modal.querySelector('form');
   let composing = false, state = null, pollBusy = false, posting = false, initialized = false, draftTimer, localError = '';
@@ -20,7 +43,7 @@ if (document.documentElement.classList.contains('smartport-video-only')) {
   // browser editing, but do not also send these keystrokes to the 3D viewport.
   for (const name of ['keydown','keyup','keypress','beforeinput','input','compositionstart','compositionupdate','compositionend']) {
     document.addEventListener(name, event => {
-      if (host.contains(event.target) || modal.contains(event.target)) event.stopImmediatePropagation();
+      if (host.contains(event.target) || modal.contains(event.target) || responseCard.contains(event.target)) event.stopImmediatePropagation();
     }, true);
   }
   // Target listeners perform editing actions because document capture above
@@ -47,6 +70,9 @@ if (document.documentElement.classList.contains('smartport-video-only')) {
     const rect = video.getBoundingClientRect(), scale = rect.width / (video.videoWidth || 2560);
     host.style.left = `${rect.x + rect.width / 2}px`;
     host.style.bottom = `${innerHeight - rect.bottom + 14 * scale}px`;
+    responseCard.style.right=`${Math.max(10,innerWidth-rect.right+14*scale)}px`;
+    responseCard.style.bottom=`${innerHeight-rect.bottom+14*scale}px`;
+    responseCard.style.maxHeight=`${Math.max(120,rect.height-140)}px`;
     host.style.width = `${Math.min(rect.width - 20, Math.max(300, Math.min(560, (video.videoWidth || 2560) * .3) * scale))}px`;
   }
   function scheduleDraft(){clearTimeout(draftTimer); draftTimer=setTimeout(() => {
@@ -57,7 +83,7 @@ if (document.documentElement.classList.contains('smartport-video-only')) {
     try {
       state = await api('state');
       if(!initialized){input.value = state.draft || ''; initialized = true;}
-      host.hidden = false; layout();
+      host.hidden = false; renderResponse(); layout();
       status.textContent = localError || (state.status === 'URL / Model saved (API key not saved)'
         ? '配置已保存，Key 仅保留在当前会话' : state.status);
       sendButton.disabled = state.busy || posting;

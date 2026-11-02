@@ -31,6 +31,9 @@ def tool(name, description, properties=None, required=()):
 
 
 TOOLS = (
+    tool("get_vessel_structure", "Query ship bay/row/tier/valid slots using the current 6.6 TXT snapshot. Use for vessel structure, deck/hold row counts or a location such as 010404. H=hold, D=deck. These are structural slots, not actual onboard cargo. Missing bays/locations are not proof of empty cargo. Raw size codes C/D/1 are undefined; bay parity gives nominal 20/40ft. include_slots enables paginated locations.",
+         {"bay":number(1,999,True), "zone":enum("H","D"), "location":{"type":"string","pattern":"^[0-9]{6,7}$"},
+          "include_slots":BOOL,"offset":number(0,100000,True),"limit":number(1,200,True)}),
     tool("get_agent_capabilities", "List all connected runtime interfaces, allowed actions, parameters and runtime requirements."),
     tool("get_equipment_status", "Read RTG/STS positions, motion targets, limits and stop state without moving equipment. RTG work_mode reports TwinState workMode: 1 automatic, 2 assisted, 3 remote manual, 4 local, 5 maintenance. Check is_current/state/source; stopped/stale snapshots are not the current real device mode. Local gamepad/control ownership is separate.",
          {"equipment": enum("all", "rtg", "sts"), "crane_id": CRANE}),

@@ -38,10 +38,17 @@ def build_command(kit_root: Path, width: int, height: int, fps: int,
         "--/app/viewport/outline/enabled=false",
         "--/app/viewport/createCameraModelRep=false",
         "--/app/viewport/defaults/hud/visible=false",
-        "--/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize=true",
+        "--/exts/omni.kit.livestream.app/primaryStream/allowDynamicResize=false",
+        f"--/exts/omni.kit.livestream.app/primaryStream/width={width}",
+        f"--/exts/omni.kit.livestream.app/primaryStream/height={height}",
+        f"--/exts/omni.kit.livestream.app/spectatorStream/0/width={width}",
+        f"--/exts/omni.kit.livestream.app/spectatorStream/0/height={height}",
         f"--/exts/omni.kit.livestream.app/primaryStream/signalPort={signal_port}",
         f"--/exts/omni.kit.livestream.app/primaryStream/streamPort={stream_port}",
         f"--/exts/omni.kit.livestream.app/primaryStream/targetFps={fps}",
+        *[f"--/exts/omni.kit.livestream.app/spectatorStream/{i}/{key}={value}"
+          for i in range(3) for key,value in {'streamType':'webrtc','signalPort':49200+i*10,'streamPort':48000+i*2,'targetFps':30}.items()],
+        "--/smartport/webrtc/browserAgentOnly=true",
         f"--/exts/omni.services.transport.server.http/port={http_port}",
     ]
 

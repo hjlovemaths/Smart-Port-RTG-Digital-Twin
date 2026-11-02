@@ -42,6 +42,11 @@ class AgentWebBridge:
                 hud_settings.set(f"/persistent/app/viewport/{viewport.id}/hud/{item}/visible", False)
 
         app = main.get_app()
+        from pathlib import Path
+        scripts = str(Path(__file__).resolve().parents[5] / "omniverse/scripts")
+        if scripts not in sys.path: sys.path.insert(0,scripts)
+        from webrtc_auth import install_auth
+        install_auth(app)
         prefix = "/api/smartport-agent"
         app.router.routes[:] = [r for r in app.router.routes
                                 if not getattr(r, "path", "").startswith(prefix)]
@@ -81,12 +86,18 @@ class AgentWebBridge:
         async def navigate(payload: dict):
             return await execute("navigate", payload)
 
+        async def clear(payload: dict):
+            return await execute("clear", payload)
+
+        async def approval(payload: dict):
+            return await execute("approval", payload)
+
         async def view(payload: dict):
             return await execute("view", payload)
 
         app.add_api_route(prefix + "/state", state, methods=["GET"])
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
-        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view)):
+        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view), ("clear", clear), ("approval", approval)):
             app.add_api_route(prefix + "/" + name, endpoint, methods=["POST"])
         self.installed = True
 
@@ -100,6 +111,15 @@ class AgentWebBridge:
             if stage.GetPrimAtPath("/World/PortAndRTG/SMART_PORT_STATIC_RTG_YARD_M60"):
                 from .viewport_navigation import ensure_complete_rtg_instances
                 ensure_complete_rtg_instances(stage)
+                # Mount/reload the saved berth geometry without reopening the
+                # stage, including the imported 6.6 structure layer.
+                from pathlib import Path
+                scripts = str(Path(__file__).resolve().parents[5] / 'omniverse' / 'scripts')
+                if scripts not in sys.path:
+                    sys.path.insert(0, scripts)
+                import importlib
+                import large_vessel_layout
+                importlib.reload(large_vessel_layout).ensure_live_layout(stage)
                 self._rtg_visibility_stage = stage
         for _ in range(8):
             try:
@@ -142,12 +162,28 @@ class AgentWebBridge:
         if action == "view":
             # Use the existing validated view adapter, without an LLM roundtrip.
             return panel._execute_tool("set_viewport_view", payload)
+        if action == "clear":
+            panel._clear_conversation()
+            return {"ok":True}
+        if action == "approval":
+            pending=getattr(panel,"_pending_approval",None)
+            if not pending or payload.get("id")!=pending.get("web_id") or type(payload.get("approved")) is not bool:
+                raise ValueError("确认请求已失效")
+            panel._resolve_approval(pending,payload['approved'])
+            return {"ok":True}
         if action == "state":
             if payload.get("native_input") is True:
                 # Expire automatically when the browser card stops polling.
                 panel._web_input_lease_until = time.monotonic() + 5
             overlay = getattr(panel, "_overlay", None)
-            return {"busy": panel._busy, "status": panel._last_status,
+            pending=getattr(panel,"_pending_approval",None)
+            approval=None
+            if pending and not pending['decision'].is_set():
+                import secrets
+                pending.setdefault('web_id',secrets.token_urlsafe(16))
+                approval={"id":pending['web_id'],"name":pending.get('name'),"arguments":pending.get('arguments',{})}
+            return {"chat":[{"speaker":who,"text":text} for who,text in getattr(panel,"_chat_lines",[])][-48:],
+                    "approval":approval,"busy": panel._busy, "status": panel._last_status,
                     "endpoint": panel._endpoint_model.get_value_as_string(),
                     "model": panel._model_model.get_value_as_string(),
                     "key_configured": bool(panel._key_model.get_value_as_string()),

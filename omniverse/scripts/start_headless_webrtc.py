@@ -40,6 +40,9 @@ async def start() -> None:
         from rtg_webrtc_viewer import install_viewer_page
 
         install_viewer_page(Path(web_client.__file__).parent / "web")
+        from omni.services.core import main
+        from webrtc_auth import install_auth
+        install_auth(main.get_app())
         for _ in range(24):
             await app.next_update_async()
         window = omni.appwindow.get_default_app_window()

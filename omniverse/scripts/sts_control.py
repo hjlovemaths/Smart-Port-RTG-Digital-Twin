@@ -85,7 +85,7 @@ def cylinder_matrix(start, end, radius):
             _translate((start + end) * 0.5))
 
 
-def stay_endpoints(angle, width_scale=1.0, width_anchor=0.94, upper_offset=None, tower_offset=None):
+def stay_endpoints(angle, width_scale=1.0, width_anchor=0.94, upper_offset=None, tower_offset=None, boom_scale=1.0):
     """Stay attachments follow the fixed portal, not the moving front boom."""
     def rear_y(y):
         return width_anchor + (y - width_anchor) * width_scale
@@ -98,6 +98,7 @@ def stay_endpoints(angle, width_scale=1.0, width_anchor=0.94, upper_offset=None,
         for x in (-2.05, 2.05):
             end = Gf.Vec3d(x, y, 9.86)
             if y < 0:
+                end[1] = PIVOT[1] + (end[1] - PIVOT[1]) * boom_scale
                 end = boom_matrix(angle).Transform(end)
             else:
                 end[1] = rear_y(y)
@@ -114,6 +115,8 @@ class STSController:
             raise ValueError(f'Controlled crane missing: {self.path}. Load sts_controls.usda first.')
         self.limits = dict(LIMITS, gantry=(prim.GetAttribute('sts:gantryMin').Get(),
                                         prim.GetAttribute('sts:gantryMax').Get()))
+        self.boom_scale = prim.GetAttribute('sts:boomLengthScale').Get() or 1.0
+        self.limits['trolley'] = (LIMITS['trolley'][0], LIMITS['trolley'][1] + 17.32 * (self.boom_scale - 1))
         self.fixed_width_scale = prim.GetAttribute('sts:fixedWidthScale').Get() or 1.0
         anchor = prim.GetAttribute('sts:fixedWidthAnchor').Get()
         self.fixed_width_anchor = 0.94 if anchor is None else anchor
@@ -127,7 +130,9 @@ class STSController:
         self.limits['hoist'] = (LIMITS['hoist'][0], LIMITS['hoist'][1] + self.upper_offset[2])
         self.layer = Sdf.Layer.CreateAnonymous(f'{crane}_motion.usda')
         self.state = dict(INITIAL)
-        self.targets = dict(INITIAL)
+        self.raised_home = prim.GetAttribute("sts:raisedHomeOffset").Get() or 0.0
+        self.state["hoist"] += self.raised_home
+        self.targets = dict(self.state)
         self.spreader_size_ft = 40
         self.stopped = False
         self.closed = False
@@ -241,14 +246,14 @@ class STSController:
             # Boom has an authored pivot translation; rotate locally at that pivot.
             self._ops['Gantry/Boom'].Set(boom_matrix(s['boom'], self.boom_pivot))
             self._ops['Gantry/Trolley'].Set(_translate((0, INITIAL['trolley']-s['trolley'], 0)))
-            self._ops['Gantry/Trolley/Hoist'].Set(_translate((0, 0, s['hoist']-INITIAL['hoist'])))
+            self._ops['Gantry/Trolley/Hoist'].Set(_translate((0, 0, s['hoist']-INITIAL['hoist']-self.raised_home)))
             delta = SPREADER_20FT_END_DELTA if self.spreader_size_ft == 20 else 0.0
             self._ops['Gantry/Trolley/Hoist/STS_SpreaderEndFront'].Set(_translate((-delta, 0, 0)))
             self._ops['Gantry/Trolley/Hoist/STS_SpreaderEndRear'].Set(_translate((delta, 0, 0)))
             endpoints = rope_endpoints(s['trolley'], s['hoist'], self.spreader_size_ft,
                                        self.upper_offset)
             endpoints.extend(stay_endpoints(s['boom'], self.fixed_width_scale,
-                                            self.fixed_width_anchor, self.upper_offset, self.tower_offset))
+                                            self.fixed_width_anchor, self.upper_offset, self.tower_offset, self.boom_scale))
             for i, (start, end) in enumerate(endpoints):
                 self._ops[f'cable{i}'].Set(cylinder_matrix(start, end, 0.012 if i < 4 else 0.017))
 

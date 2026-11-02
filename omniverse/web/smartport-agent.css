@@ -22,3 +22,12 @@
 #web-navigation{display:none}
 #remote-video{touch-action:none;user-select:none;outline:none}
 @media(max-width:850px){#web-navigation{top:10px;bottom:auto}#web-navigation span{display:none}}
+
+#web-agent-response{position:fixed;z-index:20;box-sizing:border-box;width:clamp(240px,18vw,320px);height:340px;padding:10px;border:1px solid #59657570;border-radius:8px;background:#20252bef;color:#e9eef4;font:13px system-ui;display:flex;flex-direction:column}
+#web-agent-response header{display:flex;justify-content:space-between;align-items:center;font-size:12px;border-bottom:1px solid #536274;padding-bottom:7px}
+#web-agent-response button{background:#414e5c;color:white;border:0;border-radius:4px;padding:5px 8px;cursor:pointer}
+#web-agent-response .conversation{overflow:auto;flex:1;min-height:0;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
+#web-agent-response p{margin:8px 0;line-height:1.5}
+#web-agent-response .approval{border-top:1px solid #677b8c;padding-top:6px}
+#web-agent-response [hidden]{display:none}
+@media(max-width:850px){#web-agent-response{top:55px;bottom:auto!important;height:190px;width:min(300px,calc(100vw - 28px))}}

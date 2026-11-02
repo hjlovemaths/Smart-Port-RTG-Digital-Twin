@@ -192,7 +192,7 @@ def test_physics_target_adapter_fills_untouched_axes(runtime, monkeypatch):
 def test_capabilities_can_be_read_without_loading_or_starting_service_modules(runtime, monkeypatch):
     monkeypatch.setattr(project_interfaces, "load", lambda _name: pytest.fail("Capability listing must not load services"))
     result = runtime.execute(None, "get_agent_capabilities", {})
-    assert result["interface_count"] == 38
+    assert result["interface_count"] == 39
     assert any(item["name"] == "get_current_tasks" for item in result["interfaces"])
 
 

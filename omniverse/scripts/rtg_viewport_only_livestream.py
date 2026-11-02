@@ -758,6 +758,9 @@ def start_viewport_only_livestream(
     )
 
     settings = carb.settings.get_settings()
+    from spectator_stream import configure_spectator
+    configure_spectator(settings)
+    settings.set("/smartport/webrtc/browserAgentOnly", True)
     if hide_kit_ui:
         # Capture before hideUi mutates the existing viewport flags so the
         # normal docked layout can be restored accurately later.
@@ -814,6 +817,7 @@ def restore_kit_ui() -> None:
 
     settings = carb.settings.get_settings()
     _stop_editor_chrome_guard()
+    settings.set("/smartport/webrtc/browserAgentOnly", False)
     settings.set("/app/window/hideUi", False)
     settings.set("/app/docks/disabled", False)
     settings.set("/app/viewport/defaults/noTitleBar", False)

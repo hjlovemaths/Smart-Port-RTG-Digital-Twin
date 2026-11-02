@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from pxr import Gf, Sdf, Usd, UsdGeom
 
-SHIP = '/World/PortAndRTG/SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED'
+from large_vessel_layout import SHIP
 BOX = SHIP + '/Model/ShipContainer179'
 TRUCK = '/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft'
 TASK = '/World/STSUnloadTask'
@@ -24,6 +24,8 @@ class UnloadTask:
     def __init__(self, controller):
         self.c = controller
         self.stage = controller.stage
+        if self.stage.GetPrimAtPath(SHIP+'/StructureSlots'):
+            raise ValueError('当前显示的是6.6船图结构箱位，没有实际配载箱清单，不能把结构箱位当作货物启动装卸。')
         self.phase = 'Ready'
         self.attached = False
         self.finished = False

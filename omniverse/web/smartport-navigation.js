@@ -1,6 +1,6 @@
 // Model-view controls run before the SDK's document handlers, including when
 // its transparent cursor layer (rather than the video) receives the event.
-if(document.documentElement.classList.contains('smartport-video-only')) {
+if(document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator')) {
   const video = document.getElementById('remote-video');
   const bar = document.createElement('aside'); bar.id = 'web-navigation';
   bar.innerHTML = `<button type="button" aria-label="恢复港区视角">恢复视角</button><span title="左键拖动：环绕；中键或 Shift+左键：平移；滚轮或 +/-：缩放；方向键或 WASD：平移；Home：复位。">左键环绕 · 中键平移 · 滚轮缩放</span><output aria-live="polite"></output>`;
@@ -11,7 +11,7 @@ if(document.documentElement.classList.contains('smartport-video-only')) {
   let drag = null, focused = false, pending = {}, timer = null, busy = false;
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
-    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-navigation');
+    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation');
   }
   function scenePoint(e) {
     if(editing(e) || !document.getElementById('web-agent-settings')?.hidden) return false;

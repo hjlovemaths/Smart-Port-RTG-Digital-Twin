@@ -10,6 +10,7 @@ from .scene_runtime import current_sts_panel, current_tasks, existing_module, ie
 
 
 HANDLED_TOOLS = {
+    "get_vessel_structure",
     "set_rtg_spreader_size", "resume_sts_crane", "control_timeline", "control_sts_task", "submit_rtg_task",
     "control_rtg_simulation", "control_iecs", "control_live_twin", "control_plc_zmq", "control_sea_motion",
     "control_camera_display", "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
@@ -302,6 +303,9 @@ def _lidar(owner, args):
 
 def execute_project_interface(owner, name, args):
     if name not in HANDLED_TOOLS: raise ValueError(f"Unsupported runtime interface: {name}")
+    if name == "get_vessel_structure":
+        from vessel_structure_queries import query_vessel_structure
+        return query_vessel_structure(**args)
     stage, action = owner.stage, args.get("action")
     if name == "set_rtg_spreader_size":
         owner._guard_manual("rtg")

@@ -1,6 +1,6 @@
 # Agent 可调用接口
 
-项目的交互式运行接口已整理为 **38 个 Agent 工具**。在 **Smart Port Agent**
+项目的交互式运行接口已整理为 **39 个 Agent 工具**。在 **Smart Port Agent**
 输入自然语言并点击 **Send** 即可，模型会选择对应接口，不需要输入 Python。
 面板按钮保持英文，助手默认用简体中文回答。中文问答使用启动时加载的 SimHei
 字体与中文字符集；更新后需要完整重启应用，重新加载字体和工具目录。
@@ -123,3 +123,9 @@
 - 贝位与库存：`yard_queries.py`。
 - 面板分发与确认：`extension.py`。
 - 岸桥界面和 Agent 共享控制器：`omniverse/scripts/sts_control.py` 中的 `shared_sts_controller`。
+
+## 船图结构查询
+
+`get_vessel_structure` 读取 `vessel_structure.sample.json`（用户提供的船图结构 TXT 副本）。支持 bay、H/D 分区、location 筛选；include_slots/offset/limit 分页返回有效箱位。结构数据不表示实箱清单，未返回贝位不应判断为空。
+
+后续 6.6 接口可通过 `query_vessel_structure(provider=...)` 接入，provider 返回原始响应信封，沿用同一校验和查询逻辑。当前未配置在线接口。

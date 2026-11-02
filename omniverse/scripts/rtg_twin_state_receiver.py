@@ -166,6 +166,12 @@ def ensure_4c_feeder_ship_replacements(stage: Any) -> tuple[bool, int, int]:
     port = stage.GetPrimAtPath(port_path)
     if not port:
         return False, 0, 0
+    # The single large-vessel berth supersedes the two legacy feeder mounts.
+    # Do not recreate/transform them when TwinState is started or refreshed.
+    from large_vessel_layout import SHIP as large_ship, ensure_live_layout
+    if stage.GetPrimAtPath(large_ship):
+        ensure_live_layout(stage)
+        return False, 0, 0
     asset_path = FOUR_C_FEEDER_SHIP_ASSET_PATH.as_posix()
     if not FOUR_C_FEEDER_SHIP_ASSET_PATH.is_file():
         return False, 0, 0

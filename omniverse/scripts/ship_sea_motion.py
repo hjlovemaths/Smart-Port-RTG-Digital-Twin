@@ -71,9 +71,10 @@ class SeaMotion:
                     self.water_inv=self.water_matrix.GetInverse()
                     self.water_world=[self.water_matrix.Transform(Gf.Vec3d(p)) for p in self.mesh.GetPointsAttr().Get()]
                 sea_z=self.water_world[0][2] if self.water_world else -4.9478
-                for path in SHIPS:
+                from large_vessel_layout import SHIP as large_ship
+                for path in (large_ship, *SHIPS):
                     prim=stage.GetPrimAtPath(path)
-                    if not prim:
+                    if not prim or not prim.IsActive():
                         continue
                     xf=UsdGeom.Xformable(prim)
                     world=cache.GetLocalToWorldTransform(prim)
@@ -248,7 +249,8 @@ def start_sea_motion(stage=None):
     builtins._smart_port_sea_motion=motion
     panel=getattr(builtins,'_smart_port_sts_panel',None)
     if panel and panel.unload_task:
-        motion.hold(SHIPS[0])
+        from large_vessel_layout import SHIP as large_ship
+        motion.hold(large_ship if stage.GetPrimAtPath(large_ship) else SHIPS[0])
 
     def update(event):
         if omni.usd.get_context().get_stage()!=stage:

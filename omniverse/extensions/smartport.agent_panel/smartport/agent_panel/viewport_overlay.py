@@ -70,6 +70,9 @@ class ViewportChatOverlay:
             self._frame = viewport.get_frame("smartport.agent_panel.chat_overlay")
             self._build()
             self._frame.visible = self.visible
+        import carb.settings
+        browser_only = carb.settings.get_settings().get("/smartport/webrtc/browserAgentOnly")
+        self._frame.visible = self.visible and not bool(browser_only)
         if not self.visible:
             return
         # The browser-native IME card replaces only the streamed input card.

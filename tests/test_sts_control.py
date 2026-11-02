@@ -59,11 +59,12 @@ class STSTest(unittest.TestCase):
 
     def test_hoist_height_and_rope_attachment(self):
         before = self.bounds('Gantry/Trolley/Hoist').GetMin()[2]
+        initial_hoist = self.c.state['hoist']
         gantry = self.stage.GetPrimAtPath(self.c.path + '/Gantry')
         scale_z = UsdGeom.XformCache(Usd.TimeCode(1)).GetLocalToWorldTransform(gantry).TransformDir(Gf.Vec3d(0, 0, 1))[2]
         self.settle(hoist=7.7)
         self.assertAlmostEqual(self.bounds('Gantry/Trolley/Hoist').GetMin()[2],
-                               before + (7.7 - INITIAL['hoist']) * scale_z, places=4)
+                               before + (7.7 - initial_hoist) * scale_z, places=4)
         ends = rope_endpoints(self.c.state['trolley'], self.c.state['hoist'],
                               upper_offset=self.c.upper_offset)
         for i, (top, bottom) in enumerate(ends):
@@ -108,7 +109,7 @@ class STSTest(unittest.TestCase):
         for command in (dict(boom=45), dict(trolley=-8, hoist=7.7, boom=45)):
             with self.assertRaises(ValueError):
                 self.c.command(**command)
-            self.assertEqual(self.c.targets, INITIAL)
+            self.assertEqual(self.c.targets, dict(INITIAL, hoist=INITIAL["hoist"]+self.c.raised_home))
         self.settle(trolley=-8, hoist=self.c.park_hoist)
         self.settle(boom=45)
         for command in (dict(trolley=0), dict(hoist=2), dict(boom=0, trolley=4)):
@@ -144,7 +145,7 @@ class STSTest(unittest.TestCase):
         self.settle(gantry=3, trolley=4, hoist=5)
         after = UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(other.path+'/Gantry'))
         self.assertEqual(before, after)
-        self.assertEqual(other.state, INITIAL)
+        self.assertEqual(other.state, dict(INITIAL, hoist=INITIAL["hoist"]+other.raised_home))
         other.close()
 
 

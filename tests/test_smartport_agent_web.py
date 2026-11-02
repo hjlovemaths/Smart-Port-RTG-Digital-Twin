@@ -68,3 +68,9 @@ def test_invalid_endpoint_does_not_partially_change_settings(panel):
                                                   "model": "changed", "api_key": "changed"})
     assert panel._model_model.value == "deepseek-flash"
     assert panel._key_model.value == "private-test-key"
+
+def test_browser_response_contains_conversation_not_tool_history(panel):
+    panel._chat_lines=[('You','你好'),('Agent','港区就绪')]
+    result=AgentWebBridge.execute(panel,'state',{})
+    assert result['chat']==[{'speaker':'You','text':'你好'},{'speaker':'Agent','text':'港区就绪'}]
+    assert result['approval'] is None

@@ -14,7 +14,7 @@ from pathlib import Path
 from pxr import Gf, Sdf, Usd, UsdGeom, Vt
 
 
-SHIP = '/World/PortAndRTG/SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED'
+from large_vessel_layout import SHIP
 TRUCK = '/World/PortAndRTG/LIVE_internal_yard_truck_unified_40ft'
 TASK = '/World/STSUnloadTask'
 RTG_GANTRY = '/World/PortAndRTG/RTG_PRIMARY_DYNAMIC/ANIM_CTRL_RTG_GANTRY_TRAVEL'
@@ -59,6 +59,8 @@ class Double20RoundTripTask:
     def __init__(self, controller):
         self.c = controller
         self.stage = controller.stage
+        if self.stage.GetPrimAtPath(SHIP+'/StructureSlots'):
+            raise ValueError('当前为6.6结构箱位，请先接入实际配载箱清单再启动双20装卸。')
         self.phase = 'Ready'
         self.finished = False
         self.paused = False
@@ -99,6 +101,10 @@ class Double20RoundTripTask:
             raise
 
     def _find_pair(self):
+        large_pair = tuple(SHIP + '/Model/STS03_Double20/' + unit for unit in ('UnitA', 'UnitB'))
+        if all(self.stage.GetPrimAtPath(path) and self.stage.GetPrimAtPath(path).IsActive()
+               for path in large_pair):
+            return large_pair
         # The active scene uses the orange 2x20 pair as the first ship load.
         # Keep a fallback for older stages that only have the authored ship
         # replacement layer.

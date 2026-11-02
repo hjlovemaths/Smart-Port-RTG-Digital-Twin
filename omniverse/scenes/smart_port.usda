@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (31.404925087893655, 522.8805818756364, 24.329143232942403)
-                double3 target = (-14.600026475166874, 463.28597670741345, 26.91223701770442)
+                double3 position = (-1425.663879929297, 1431.082901122823, 1936.9081250707002)
+                double3 target = (39.199062347413474, 2049.7999999970198, -4.947800043715915)
             }
             dictionary Right = {
                 double3 position = (0, -500, 0)
@@ -47,6 +47,10 @@
     metersPerUnit = 1
     startTimeCode = 1
     subLayers = [
+        @./sts_spreader_home.usda@,
+        @./sts_boom_extension.usda@,
+        @./ship_structure_boxes.usda@,
+        @./large_sts_vessel.usda@,
         @./port_operational_details.usda@,
         @./bridge_lighting.usda@,
         @./sts_work_lighting.usda@,
@@ -3711,6 +3715,17 @@ def Xform "World"
             }
         }
     }
+
+    over "SmartPortAgent"
+    {
+        over "ViewportCamera"
+        {
+            float exposure:fStop = 5
+            float exposure:responsivity = 1.1026709
+            float exposure:time = 0.02
+        }
+    }
+
 }
 
 def "Render" (
@@ -3785,7 +3800,7 @@ def "Render" (
                 token omni:rtx:wireframe:mode = "instance"
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
-                uniform int2 resolution = (1343, 585)
+                uniform int2 resolution = (1809, 753)
             }
         }
     }
@@ -3832,10 +3847,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -75.33023899455517)
-    float3 xformOp:rotateXYZ = (91.96507, -5.968559e-13, 142.33311)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -2509.868267857269)
+    float3 xformOp:rotateXYZ = (39.313732, -8.81073e-13, -67.102165)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (31.404925087893655, 522.8805818756364, 24.329143232942403)
+    double3 xformOp:translate = (-1425.663879929297, 1431.082901122823, 1936.9081250707002)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

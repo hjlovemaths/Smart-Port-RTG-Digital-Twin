@@ -239,19 +239,35 @@ class ViewportNavigation:
             output = Path(__file__).resolve().parents[5] / "outputs" / f"rtg-visibility-{time.time_ns()}.png"
             output.parent.mkdir(parents=True, exist_ok=True)
             model = payload.get("model")
-            if model is not None and model not in ("M60", "M30", "P30", "P60", "P90"):
+            if model is not None and model not in ("M60", "M30", "P30", "P60", "P90", "large_vessel", "large_vessel_side", "large_vessel_bow", "large_vessel_stern"):
                 raise ValueError("Invalid RTG preview")
             async def capture():
+                # Allow a cancelled prior preview to restore its camera first.
+                await asyncio.sleep(0)
                 previous_camera = str(viewport.camera_path)
                 try:
                     if model:
                         from pxr import Gf, Usd, UsdGeom
                         from omni.kit.app import get_app
-                        root = stage.GetPrimAtPath(f"/World/PortAndRTG/SMART_PORT_STATIC_RTG_YARD_{model}")
+                        if model.startswith("large_vessel"):
+                            import importlib
+                            import large_vessel_layout
+                            importlib.reload(large_vessel_layout).ensure_live_layout(stage)
+                        preview_path = ("/World/PortAndRTG/SMART_PORT_LARGE_CONTAINER_SHIP" if model.startswith("large_vessel")
+                                        else f"/World/PortAndRTG/SMART_PORT_STATIC_RTG_YARD_{model}")
+                        root = stage.GetPrimAtPath(preview_path)
                         bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeWorldBound(root).ComputeAlignedRange()
                         center = bounds.GetMidpoint()
                         distance = max(25.0, bounds.GetSize().GetLength() * 1.15)
                         eye = center + Gf.Vec3d(.7, -.7, .4) * distance
+                        if model == "large_vessel_side":
+                            eye = center + Gf.Vec3d(-.85, .1, .32) * distance
+                        if model in ("large_vessel_bow", "large_vessel_stern"):
+                            bow = model.endswith("bow")
+                            deck_z = root.GetAttribute("ship:deckZ").Get()
+                            center = UsdGeom.XformCache().GetLocalToWorldTransform(root).Transform(
+                                Gf.Vec3d(0, 9 if bow else 238, deck_z + 2))
+                            eye = center + Gf.Vec3d(-.9, -.75 if bow else .75, .6) * 47
                         with Usd.EditContext(stage, stage.GetSessionLayer()):
                             camera = UsdGeom.Camera.Define(stage, "/World/RTGVisibilityPreviewCamera")
                             camera.CreateFocalLengthAttr(28)
@@ -263,12 +279,22 @@ class ViewportNavigation:
                             op = ops[0] if ops else xform.AddTransformOp()
                             op.Set(Gf.Matrix4d(1).SetLookAt(eye, center, Gf.Vec3d(0, 0, 1)).GetInverse())
                         viewport.camera_path = camera.GetPath()
-                        for _ in range(12):
-                            await get_app().next_update_async()
-                    await capture_viewport_to_file(viewport, str(output)).wait_for_result(completion_frames=4)
+                        # A headless viewport may render on demand. Waiting for
+                        # dozens of app updates can leave an offline preview
+                        # suspended, so allow a bounded wall-clock warmup.
+                        await asyncio.sleep(.8)
+                    await asyncio.wait_for(
+                        capture_viewport_to_file(viewport, str(output)).wait_for_result(completion_frames=4),
+                        timeout=10)
                 finally:
                     if model:
                         viewport.camera_path = previous_camera
+            # Repeated diagnostic requests must not compete for the camera.
+            for pending in asyncio.all_tasks(asyncio.get_event_loop()):
+                coroutine = pending.get_coro()
+                code = getattr(coroutine, 'cr_code', None)
+                if code is not None and code.co_name == 'capture' and code.co_filename == __file__:
+                    pending.cancel()
             asyncio.ensure_future(capture())
             return {"ok": True, "path": str(output)}
         if action in ("inspect_visibility", "restore_visibility"):

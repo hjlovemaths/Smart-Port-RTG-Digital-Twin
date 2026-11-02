@@ -1,70 +1,119 @@
-import re
+"""The three-crane berth shares one ship; other berths remain independent."""
 from pathlib import Path
-
+import sys
+import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENE = ROOT / "omniverse" / "scenes" / "smart_port.usda"
-REPLACEMENTS = ROOT / "omniverse" / "scenes" / "4c_ship_replacements.usda"
-RECEIVER = ROOT / "omniverse" / "scripts" / "rtg_twin_state_receiver.py"
-
-BERTHED_SHIPS = (
-    (REPLACEMENTS, "SMART_PORT_4C_FEEDER_SHIP_LEFT_IMPORTED", -246.2, 50.0, -90.0),
-    (REPLACEMENTS, "SMART_PORT_4C_FEEDER_SHIP_RIGHT_IMPORTED", -246.2, 120.0, -90.0),
-    (SCENE, "SMART_PORT_LOCAL_SHIP_4c40_shoreline_east_IMPORTED", -246.2, 190.0, -90.0),
-    (SCENE, "SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED", -246.2, 260.0, -90.0),
-    (SCENE, "SMART_PORT_REMOTE_CARGO_SHIP_01", -260.0, 330.0, -78.0),
-    (SCENE, "SMART_PORT_REMOTE_CARGO_SHIP_02", -275.0, 400.0, -105.0),
-    (SCENE, "SMART_PORT_REMOTE_CARGO_SHIP_03", -292.0, 460.0, -65.0),
-)
-
-COMMON_SHIP_SCALE = "(0.03883929, 0.027641999, 0.043764994)"
+sys.path.insert(0, str(ROOT / 'omniverse/scripts'))
+import large_vessel_layout as layout
 
 
-def _ship_body(path: Path, name: str) -> str:
-    text = path.read_text(encoding="utf-8")
-    match = re.search(
-        rf'def Xform "{re.escape(name)}"\s*\(.*?\)\s*\{{(.*?)\n\s*\}}',
-        text,
-        flags=re.DOTALL,
-    )
-    assert match, name
-    return match.group(1)
+class LayoutMathTests(unittest.TestCase):
+    def test_row_numbering_is_symmetric_about_zero(self):
+        positions=[layout.row_x(row) for row in layout.ROWS]
+        self.assertEqual(len(set(positions)),13)
+        self.assertEqual(layout.row_x(0),0)
+        self.assertAlmostEqual(layout.row_x(12),-layout.row_x(11))
+        self.assertTrue(all(a>b for a,b in zip(positions,positions[1:])))
+
+    def test_bridge_has_room_between_bays_43_and_45(self):
+        self.assertLess(layout.bay_y(43)+3.029,156.3)
+        self.assertGreater(layout.bay_y(45)-3.029,169.3)
+        self.assertEqual(layout.BAYS[-1],62)
+
+    def test_hold_and_deck_tier_heights_do_not_overlap(self):
+        self.assertLess(layout.tier_z(16)+2.591/2,layout.DECK_Z)
+        self.assertGreater(layout.tier_z(82)-2.591/2,layout.DECK_Z)
 
 
-def test_all_seven_cargo_ships_use_one_size_in_the_sts_quay_waters():
-    berth_positions = []
-    for path, name, x, y, rotation in BERTHED_SHIPS:
-        body = _ship_body(path, name)
-        assert f"xformOp:rotateZ = {rotation:g}" in body
-        assert f"xformOp:scale = {COMMON_SHIP_SCALE}" in body
-        translate = re.search(
-            r"xformOp:translate = \((-?[\d.]+), (-?[\d.]+), (-?[\d.]+)\)",
-            body,
-        )
-        assert translate
-        actual_x, actual_y, _actual_z = map(float, translate.groups())
-        assert actual_x == x
-        assert actual_y == y
-        assert actual_x < -241.75
-        berth_positions.append(actual_y)
+class ComposedVesselTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from pxr import Usd, UsdGeom
+        except ImportError:
+            raise unittest.SkipTest('Requires Kit USD Python')
+        cls.Usd,cls.UsdGeom=Usd,UsdGeom
+        cls.stage=Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
 
-    assert berth_positions == [50.0, 120.0, 190.0, 260.0, 330.0, 400.0, 460.0]
-    assert all(
-        following - previous >= 60.0
-        for previous, following in zip(berth_positions, berth_positions[1:])
-    )
+    def test_only_first_three_small_ships_are_replaced(self):
+        self.assertTrue(self.stage.GetPrimAtPath(layout.SHIP).IsActive())
+        for path in layout.REPLACED:
+            self.assertFalse(self.stage.GetPrimAtPath(path).IsActive(),path)
+        for name in ('SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED',
+                     'SMART_PORT_REMOTE_CARGO_SHIP_01','SMART_PORT_REMOTE_CARGO_SHIP_02'):
+            self.assertTrue(self.stage.GetPrimAtPath('/World/PortAndRTG/'+name).IsActive())
+
+    def test_hull_stays_offshore_and_covers_the_first_three_cranes(self):
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        b=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Hull')).ComputeAlignedBox()
+        self.assertLess(b.GetMax()[0],-241.75)
+        self.assertAlmostEqual(b.GetSize()[1],248.)
+        for home in (55.,130.,207.):
+            self.assertLess(b.GetMin()[1],home)
+            self.assertGreater(b.GetMax()[1],home)
+        other=cache.ComputeWorldBound(self.stage.GetPrimAtPath('/World/PortAndRTG/SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED')).ComputeAlignedBox()
+        self.assertGreater(other.GetMin()[1],b.GetMax()[1])
+
+    def test_boxes_keep_standard_dimensions_and_logical_locations(self):
+        # Exercise the original demo asset separately from a loaded 6.6 plan.
+        stage=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
+        stage.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        for suffix,length in (('/Model/ShipContainer179',12.192),('/Model/STS03_Double20/UnitA',6.058)):
+            p=stage.GetPrimAtPath(layout.SHIP+suffix)
+            self.assertTrue(p.IsInstance())
+            size=cache.ComputeWorldBound(p).ComputeAlignedBox().GetSize()
+            self.assertAlmostEqual(size[1],length,delta=.1)
+            self.assertAlmostEqual(size[0],2.438,delta=.1)
+            self.assertAlmostEqual(size[2],2.591,delta=.1)
+            self.assertTrue(p.GetAttribute('ship:location').Get())
+
+    def test_bay_plan_and_stern_dimensions(self):
+        stage=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
+        stage.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
+        for bay in layout.BAYS:
+            p=stage.GetPrimAtPath(layout.SHIP+f'/BayPlan/Bay{bay:02d}')
+            self.assertEqual(p.GetAttribute('ship:sizeFt').Get(),40 if bay==62 else 20)
+        aft=stage.GetPrimAtPath(layout.SHIP+'/BayPlan/Bay62')
+        self.assertEqual(list(aft.GetAttribute('ship:holdTiers').Get()),[])
+
+    def test_curved_ends_have_mooring_anchors_and_underwater_gear(self):
+        for name in ('Bow/CurvedGuardrails','Stern/CurvedGuardrails',
+                     'Bow/PortAnchor/HawseRim','Bow/StarboardAnchor/Shank',
+                     'Bow/WinchPort/Drum','Stern/WinchStarboard/Drum',
+                     'Stern/PropellerBlades','Stern/Rudder'):
+            self.assertTrue(self.stage.GetPrimAtPath(layout.SHIP+'/EndDetails/'+name),name)
+        mesh=self.UsdGeom.Mesh(self.stage.GetPrimAtPath(layout.SHIP+'/Hull/ContinuousTopsides'))
+        self.assertGreater(len(mesh.GetPointsAttr().Get()),500)
+        self.assertEqual(len(mesh.GetPointsAttr().Get()),len(mesh.GetNormalsAttr().Get()))
+        rail=self.UsdGeom.Mesh(self.stage.GetPrimAtPath(layout.SHIP+'/EndDetails/Bow/CurvedGuardrails'))
+        self.assertGreater(len(rail.GetPointsAttr().Get()),100)
+
+    def test_live_mount_is_idempotent_and_preserves_other_session_edits(self):
+        s=self.Usd.Stage.CreateInMemory()
+        self.UsdGeom.Xform.Define(s,'/World/PortAndRTG')
+        with self.Usd.EditContext(s,s.GetSessionLayer()):
+            self.UsdGeom.Xform.Define(s,'/KeepThisSessionEdit')
+        self.assertTrue(layout.ensure_live_layout(s))
+        self.assertTrue(layout.ensure_live_layout(s))
+        self.assertEqual(list(s.GetSessionLayer().subLayerPaths).count(layout.LAYER.as_posix()),1)
+        self.assertTrue(s.GetPrimAtPath('/KeepThisSessionEdit'))
+
+    def test_existing_sts_tasks_can_prepare_at_the_new_boxes(self):
+        from sts_control import STSController
+        from sts_unload_task import UnloadTask
+        from sts_double20_roundtrip_task import Double20RoundTripTask
+        for crane,task_type in (('STS_01',UnloadTask),('STS_03',Double20RoundTripTask)):
+            s=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
+            s.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
+            controller=STSController(s,crane)
+            try:
+                task=task_type(controller)
+                task.close()
+            finally:
+                controller.close()
 
 
-def test_near_ships_are_parallel_and_remote_ships_vary_distance_and_heading():
-    near_ships = BERTHED_SHIPS[:4]
-    remote_ships = BERTHED_SHIPS[4:]
-    assert {rotation for _path, _name, _x, _y, rotation in near_ships} == {-90.0}
-    assert len({x for _path, _name, x, _y, _rotation in remote_ships}) == 3
-    assert len({rotation for _path, _name, _x, _y, rotation in remote_ships}) == 3
-
-
-def test_live_driver_preserves_the_two_feeder_ship_berths():
-    text = RECEIVER.read_text(encoding="utf-8")
-    assert "(-246.2, 50.0, 1.3012471449582028)" in text
-    assert "(-246.2, 120.0, 1.3012471449582028)" in text
-    assert "rotate_op.Set((90.0, 0.0, -90.0))" in text
+if __name__=='__main__':
+    unittest.main()

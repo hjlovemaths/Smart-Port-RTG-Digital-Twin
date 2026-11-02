@@ -46,15 +46,44 @@ VIEWER_HEAD = """
     pointer-events: auto; cursor: pointer;
   }
 </style>
-<link rel="stylesheet" href="/static/smartport-agent.css?v=4">
-<script type="module" src="/static/smartport-agent.js?v=5"></script>
-<script type="module" src="/static/smartport-navigation.js?v=1"></script>
+<script>
+  if (new URLSearchParams(location.search).get('spectator') === '1') {
+    document.documentElement.classList.add('smartport-spectator');
+    const toggleSpectatorFullscreen = () => {
+      const operation = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+      operation.catch(error => console.warn('Fullscreen:', error));
+    };
+    document.addEventListener('DOMContentLoaded', () => {
+      const button = document.createElement('button');
+      button.id = 'spectator-fullscreen'; button.type = 'button'; button.textContent = '全屏';
+      button.setAttribute('aria-label', '切换观众画面全屏');
+      button.style.cssText = 'position:fixed;right:16px;top:16px;z-index:10000;padding:8px 14px;border:1px solid #8395a6;border-radius:6px;background:#18242de6;color:white;cursor:pointer;';
+      button.addEventListener('click', toggleSpectatorFullscreen);
+      document.addEventListener('fullscreenchange', () => {button.textContent = document.fullscreenElement ? '退出全屏' : '全屏';});
+      document.body.appendChild(button);
+    });
+    for (const event of ['pointerdown','pointerup','pointermove','mousedown','mouseup','mousemove','wheel','dblclick','contextmenu','keydown','keyup']) {
+      window.addEventListener(event, e => {
+        if (e.target.closest?.('.control-panel,input,select,button') || !document.getElementById('remote-video')) return;
+        if (event.startsWith('key') && (e.key === 'F11' || e.key === 'Escape')) { e.stopImmediatePropagation(); return; }
+        if (event === 'dblclick') { e.preventDefault(); e.stopImmediatePropagation(); toggleSpectatorFullscreen(); return; }
+        if (event.startsWith('key') && (e.ctrlKey || e.metaKey || e.altKey)) { e.stopImmediatePropagation(); return; }
+        e.preventDefault(); e.stopImmediatePropagation();
+      }, {capture:true, passive:false});
+    }
+  }
+</script>
+<link rel="stylesheet" href="/static/smartport-agent.css?v=5">
+<script type="module" src="/static/smartport-session.js?v=1"></script>
+<script type="module" src="/static/smartport-agent.js?v=7"></script>
+<script type="module" src="/static/smartport-navigation.js?v=4"></script>
 """
 
 
 def build_viewer_page(stock_html: str) -> str:
     """Keep the vendor's input and streaming implementation unchanged."""
     replacements = {
+        "fetch('/api/stream-config')": "fetch('/api/stream-config' + (new URLSearchParams(location.search).get('spectator') === '1' ? '?spectator=1' : ''))",
         "</head>": VIEWER_HEAD + "\n</head>",
         "<title>Omniverse Kit WebRTC Streaming</title>": "<title>Smart Port · 港区视图</title>",
         "resolutionSelect.value = '1920x1080';": """const viewOnly = document.documentElement.classList.contains('smartport-video-only');
@@ -80,6 +109,13 @@ def build_viewer_page(stock_html: str) -> str:
                     });
                 }""",
         "console.log('Stream configurations loaded');": """console.log('Stream configurations loaded');
+                    const spectator = new URLSearchParams(location.search).get('spectator') === '1';
+                    if (spectator) {
+                        const index = streamConfigurations.streams.findIndex(s => s.type === 'spectator');
+                        if (index < 0) { loadingInfo.textContent = '观众流尚未就绪'; return; }
+                        streamSelect.value = String(index);
+                        resolutionSelect.disabled = true;
+                    }
                     if (viewOnly && new URLSearchParams(location.search).get('autoconnect') !== '0') connect();""",
         """window.addEventListener('beforeunload', () => {
                     if (isConnected) {
@@ -122,7 +158,7 @@ def install_viewer_page(web_root: Path) -> Path:
         temporary.write_text(result, encoding="utf-8")
         temporary.replace(index)
     assets = Path(__file__).resolve().parents[1] / "web"
-    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-navigation.js"):
+    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-navigation.js", "smartport-session.js"):
         (web_root / name).write_bytes((assets / name).read_bytes())
     return index
 
