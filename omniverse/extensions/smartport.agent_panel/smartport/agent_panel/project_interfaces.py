@@ -396,7 +396,9 @@ def execute_project_interface(owner, name, args):
         elif action == "enable_interaction": module.enable_viewport_interaction()
         else:
             function = module.start_viewport_only_livestream_2k if args.get("resolution") == "2k" else module.start_viewport_only_livestream_1080p
-            return {"viewer_url": function(hide_kit_ui=False, target_fps=args.get("target_fps", 30)),
-                    "actual_resolution": "1920x1080", "note": "The project's legacy 2k alias currently uses its 1080p preset."}
+            qhd = args.get("resolution") == "2k"
+            return {"viewer_url": function(hide_kit_ui=True, target_fps=args.get("target_fps", 30)),
+                    "actual_resolution": "2560x1440" if qhd else "1920x1080",
+                    "hide_ui": True}
         return {"action": action, "completed": True}
     raise ValueError(f"Unimplemented runtime interface: {name}")

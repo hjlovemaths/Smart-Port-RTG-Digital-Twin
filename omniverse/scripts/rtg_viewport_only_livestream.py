@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import builtins
 import math
+import time
 from typing import Any
 
 
@@ -41,6 +42,62 @@ DEFAULT_FOLLOW_PITCH_DEGREES = 15.0
 VIEWPORT_RESTORE_HOTKEY_EXT_ID = "smartport.rtg_viewport_only_livestream"
 VIEWPORT_RESTORE_HOTKEY = "CTRL + SHIFT + F12"
 VIEWPORT_RESTORE_ACTION_ID = "restore_kit_ui"
+
+
+def _set_editor_menu_hidden(hidden: bool) -> None:
+    """Control the native menu, which is not an omni.ui Workspace window."""
+
+    try:
+        from omni.kit.mainwindow import get_main_window
+
+        main = get_main_window()
+        if main is None:
+            return
+        menu = main.get_main_menu_bar()
+        saved = "_rtg_editor_menu_visibility_before_stream"
+        if hidden:
+            if not hasattr(builtins, saved):
+                setattr(builtins, saved, bool(menu.visible))
+            if menu.visible:
+                menu.visible = False
+        elif hasattr(builtins, saved):
+            menu.visible = getattr(builtins, saved)
+            delattr(builtins, saved)
+    except (ImportError, AttributeError):
+        # Some Kit experiences have no main-window extension.
+        return
+
+
+def _stop_editor_chrome_guard() -> None:
+    sub = getattr(builtins, "_rtg_editor_chrome_sub", None)
+    if sub is not None:
+        sub.unsubscribe()
+    builtins._rtg_editor_chrome_sub = None
+
+
+def _start_editor_chrome_guard() -> None:
+    """Keep late-created/toggled menus out of a viewport-only stream."""
+
+    import carb.settings
+    import omni.kit.app
+
+    _stop_editor_chrome_guard()
+    _set_editor_menu_hidden(True)
+    settings = carb.settings.get_settings()
+    last_check = [0.0]
+
+    def on_update(*_args: Any) -> None:
+        now = time.monotonic()
+        if now - last_check[0] < 0.5:
+            return
+        last_check[0] = now
+        if settings.get("/app/window/hideUi"):
+            _set_editor_menu_hidden(True)
+
+    builtins._rtg_editor_chrome_sub = (
+        omni.kit.app.get_app().get_update_event_stream()
+        .create_subscription_to_pop(on_update)
+    )
 
 
 def _clear_viewport_selection() -> None:
@@ -712,8 +769,12 @@ def start_viewport_only_livestream(
     if hide_kit_ui:
         _install_viewport_restore_hotkey()
         _hide_non_viewport_windows()
+        _start_editor_chrome_guard()
         # Establish the exact capture geometry before the primary stream starts.
         _fit_viewport_to_main_window(int(width), int(height))
+    else:
+        _stop_editor_chrome_guard()
+        _set_editor_menu_hidden(False)
 
     for ext_id in (
         "omni.kit.livestream.webrtc",
@@ -752,9 +813,11 @@ def restore_kit_ui() -> None:
     import carb.settings  # type: ignore
 
     settings = carb.settings.get_settings()
+    _stop_editor_chrome_guard()
     settings.set("/app/window/hideUi", False)
     settings.set("/app/docks/disabled", False)
     settings.set("/app/viewport/defaults/noTitleBar", False)
+    _set_editor_menu_hidden(False)
     _remove_viewport_restore_hotkey()
     _stop_rtg_camera_follow()
     _set_viewport_read_only(False)

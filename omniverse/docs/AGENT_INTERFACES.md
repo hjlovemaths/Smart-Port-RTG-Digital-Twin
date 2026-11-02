@@ -81,7 +81,7 @@
 | 34 | `capture_lidar` | 异步采集 `mode=yard/fleet/batches/positions`；支持输出名称、坐标系、预热帧数和扫描数。多位置采集可指定 `bay_id`，不指定时保留当前大车位置。返回操作 ID。 |
 | 35 | `get_operation_status` | 查询所有后台操作，或指定 `operation_id` 获取进度、完成状态、输出文件和错误。 |
 | 36 | `cancel_operation` | 指定 `operation_id`，取消 Agent RTG 运动或后台采集操作。 |
-| 37 | `control_livestream` | `action=start/restore_ui/enable_interaction/status`，启动本地 WebRTC 视窗或恢复交互。保留 Kit 界面；项目当前 `2k` 兼容别名实际使用 1080p 预设。 |
+| 37 | `control_livestream` | `action=start/restore_ui/enable_interaction/status`，启动纯场景 WebRTC 或恢复交互。启动时隐藏 Kit 编辑器菜单和窗口，保留浏览器 Agent 与场景交互；`restore_ui` 显式恢复编辑器。`1080p` 为 1920×1080，`2k` 为 2560×1440。 |
 | 38 | `control_plc_zmq` | `action=status/start/stop/connect/disconnect/physics_on/physics_off`。启动时优先复用已有服务；首次连接默认控制关闭。`physics_on` 申请本地控制合并开启 ZMQ 箱体碰撞、锁箱和重力模式，不发送速度；保持时间轴暂停。`physics_off` 要求先落箱解锁。异步操作需查询完成状态。停止只关闭 Agent 自己启动的服务。详见 [ZMQ 接口说明](RTG_PLC_ZMQ.md)。 |
 
 所有参数的精确类型、范围及必填条件见
