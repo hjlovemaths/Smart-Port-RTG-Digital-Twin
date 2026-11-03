@@ -118,6 +118,10 @@ class ViewerAuth:
             try:port=self.accounts.spectator_port(session)
             except ValueError as error:return JSONResponse({'detail':str(error)},409)
             return JSONResponse({'streams':[{'name':'观众流 '+str((port-49200)//10+1),'type':'spectator','port':port,'streamType':'webrtc','allowDynamicResize':False,'spectatorIndex':(port-49200)//10}]})
+        if path.startswith('/api/speech/'):
+            if session['role']!='admin':return JSONResponse({'detail':'仅管理员可使用语音功能'},403)
+            from speech_web import handle_speech
+            return await handle_speech(r)
         if session['role']=='viewer':
             if path in ('/','/index.html'):
                 if r.query_params.get('spectator')!='1':return RedirectResponse('/?spectator=1',303)

@@ -712,6 +712,9 @@ class RTGController:
         now = time.monotonic()
         elapsed = _clamp(now - self._spreader_last_update_at, 0.0, 0.5)
         self._spreader_last_update_at = now
+        # A reversible transfer may have changed/restored the composed session
+        # endpoint since this controller instance last issued a command.
+        self._spreader_offset_m = self._read_spreader_offset()
         target = SPREADER_TELESCOPE_TRAVEL_M if size_ft == 20 else 0.0
         if smooth:
             offset = _move_toward(

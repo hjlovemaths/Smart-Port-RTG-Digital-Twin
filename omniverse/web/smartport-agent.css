@@ -31,3 +31,16 @@
 #web-agent-response .approval{border-top:1px solid #677b8c;padding-top:6px}
 #web-agent-response [hidden]{display:none}
 @media(max-width:850px){#web-agent-response{top:55px;bottom:auto!important;height:190px;width:min(300px,calc(100vw - 28px))}}
+
+.web-speech-controls{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:7px;font-size:12px}
+.web-speech-controls label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.web-speech-controls input[type=checkbox]{flex:none!important;width:15px;min-width:0!important;margin:0;accent-color:#52b9ff}
+.web-speech-controls [hidden]{display:none!important}
+.web-speech-controls .web-speech-status{flex-basis:100%;font-size:11px;color:#b9d7ea;line-height:1.4}
+.web-speech-controls button[aria-pressed=true]{background:#a63f43!important}
+
+/* Speech recognition is temporarily hidden; answer playback remains available. */
+.web-speech-controls [data-action="mic"],
+.web-speech-controls [data-action="cancel"],
+.web-speech-controls [data-action="file"],
+.web-speech-controls [data-action="upload"]{display:none!important}

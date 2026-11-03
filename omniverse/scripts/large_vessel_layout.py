@@ -1,5 +1,6 @@
 """Shared, metre-based vessel layout for the STS01--STS03 berth."""
 from pathlib import Path
+from yard_coordinate_mapping import BAY_LENGTH_M, BAY_GAP_M
 
 ROOT = Path(__file__).resolve().parents[2]
 LAYER = ROOT / "omniverse/scenes/large_sts_vessel.usda"
@@ -15,11 +16,38 @@ ROWS = (12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11)
 HOLD_TIERS = tuple(range(2, 17, 2))
 DECK_TIERS = tuple(range(82, 91, 2))
 BAYS = tuple(range(1, 60, 2)) + (62,)
-ROW_PITCH = 2.55
-TIER_PITCH = 2.64
+ROW_PITCH = 1.506287
+TIER_PITCH = .949853
 DECK_Z = 9.4
 SHIP_X = -262.8
 BEAM_M = 40.6
+
+# Fit the structure-view ship to the already compact yard containers. Keep the
+# original design asset independent so its legacy demonstration can still load.
+# The supplied top-view silhouette is 573 pixels long and 107 wide. Fit that
+# aspect ratio around the returned rows, rather than compressing length to the
+# yard bay pitch (the compact yard boxes have a different length/width ratio).
+STRUCTURE_REFERENCE_ASPECT = 573 / 107
+STRUCTURE_BEAM_M = BEAM_M * ROW_PITCH / 2.55
+STRUCTURE_LENGTH_M = STRUCTURE_BEAM_M * STRUCTURE_REFERENCE_ASPECT
+STRUCTURE_HULL_SCALE = (ROW_PITCH / 2.55, STRUCTURE_LENGTH_M / 248, TIER_PITCH / 2.64)
+STRUCTURE_BAY_PITCH = BAY_LENGTH_M + BAY_GAP_M
+STRUCTURE_BRIDGE_GAP = 19.7 * STRUCTURE_HULL_SCALE[1]
+STRUCTURE_STS_BAYS = {'STS_01': 5, 'STS_02': 29, 'STS_03': 55}
+STRUCTURE_Y_OFFSET = 17.5 * (1 - STRUCTURE_HULL_SCALE[1])
+STRUCTURE_SHIP_X = SHIP_X + BEAM_M / 2 - STRUCTURE_BEAM_M / 2
+STRUCTURE_DECK_Z = DECK_Z * STRUCTURE_HULL_SCALE[2]
+
+
+def structure_bay_y(bay):
+    if bay == 62:
+        return structure_bay_y(59) + 1.5 * STRUCTURE_BAY_PITCH
+    if bay != 62 and bay % 2 == 0:
+        if bay_y(bay + 1) - bay_y(bay - 1) > 6.5:
+            raise ValueError(f'40-foot bay {bay} crosses the bridge gap')
+        return (structure_bay_y(bay - 1) + structure_bay_y(bay + 1)) / 2
+    bay_y(bay)  # Validate the reference odd-bay range.
+    return 17.5 + ((bay - 1) // 2) * STRUCTURE_BAY_PITCH + (STRUCTURE_BRIDGE_GAP if bay >= 45 else 0)
 
 
 def bay_y(bay):
@@ -36,9 +64,9 @@ def row_x(row):
 
 def tier_z(tier):
     if tier in DECK_TIERS:
-        return DECK_Z + .2 + (tier - 82) / 2 * TIER_PITCH + 2.591 / 2
+        return DECK_Z + .2 + (tier - 82) / 2 * TIER_PITCH + TIER_PITCH / 2
     if tier in HOLD_TIERS:
-        return DECK_Z - (18 - tier) / 2 * TIER_PITCH + 2.591 / 2
+        return DECK_Z - .2 - (16 - tier) / 2 * TIER_PITCH - TIER_PITCH / 2
     raise ValueError("Unknown vessel tier")
 
 

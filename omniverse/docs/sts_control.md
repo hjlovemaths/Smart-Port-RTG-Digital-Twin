@@ -99,6 +99,10 @@ runpy.run_path(r"D:\dnt\project\Smart Port RTG Digital Twin\omniverse\scripts\st
 
 要回到静态岸桥，可在 Layers 面板静音 `sts_controls.usda`，并关闭控制面板。
 
+### 当前大船的前三台岸桥停位
+
+`ship_structure_boxes.usda` 随当前128.43长大船覆盖前三台岸桥的轨道Y停位：STS01=22.85（05贝），STS02=54.95（29贝），STS03≈99.92685（55贝）。根节点X、Z、旋转、模型层级及吊具控制不变；`sts:homeY` 与新停位同步，控制器大车坐标仍为相对该停位的位移。前三台行走分区按真实模型半宽约8.235及3米净距划分，独立移动到相邻极限时模型仍不接触。STS04–07原位置和限位保持。静音该船图层后恢复原泊位分布。
+
 ### 底部横梁与八轮行走机构
 
 - `sts_running_gear.usda` 为 7 台岸桥增加两侧连接横梁、四个加宽并外扩的立柱支承座。

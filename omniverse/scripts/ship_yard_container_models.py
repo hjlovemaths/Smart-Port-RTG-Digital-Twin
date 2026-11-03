@@ -38,16 +38,17 @@ def create_yard_prototypes(stage):
             bounds=Gf.Range3d()
             for p in parts:bounds.UnionWith(cache.ComputeWorldBound(p).ComputeAlignedRange())
             centre=bounds.GetMidpoint();size=bounds.GetSize()
-            scale=Gf.Vec3d(2.438/size[0],(6.058 if feet==20 else 12.192)/size[1],2.591/size[2])
+            scale=Gf.Vec3d(1) # Preserve the yard's actual compact geometry dimensions.
             parent_world=UsdGeom.XformCache().GetLocalToWorldTransform(parent)
             matrix=(parent_world*Gf.Matrix4d(1).SetTranslate(-centre)*Gf.Matrix4d(1).SetScale(scale))
             path=SHIP+f'/YardContainerPrototypes/C{feet}_{paint}'
             proto=UsdGeom.Xform.Define(stage,path).GetPrim()
             proto.SetSpecifier(Sdf.SpecifierClass)
+            proto.CreateAttribute('ship:displayDimensions',Sdf.ValueTypeNames.Double3,custom=True).Set(size)
             proto.CreateAttribute('ship:yardSourcePrim',Sdf.ValueTypeNames.String,custom=True).Set(str(source.GetPath()))
             # A distinct render namespace prevents old per-color vertex buffers
             # being reused after replacing the original red sample in live Kit.
-            relative_geometry='Geometry/Source_'+paint
+            relative_geometry='Geometry/YardNative_'+paint
             proto.CreateAttribute('ship:geometryPath',Sdf.ValueTypeNames.String,custom=True).Set(relative_geometry)
             geometry=UsdGeom.Xform.Define(stage,path+'/'+relative_geometry)
             geometry.AddTransformOp().Set(matrix)

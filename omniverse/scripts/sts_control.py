@@ -178,7 +178,14 @@ class STSController:
             self.close()
             raise
 
+    def _check_transfer_owner(self):
+        import builtins
+        task=getattr(builtins,'_smartport_ship_transfer_task',None)
+        if task and not task.closed and task.stage==self.stage and task.c.path==self.path and not getattr(task,'_commanding',False):
+            raise ValueError('船到堆场演示持有岸桥，请先复位演示')
+
     def command(self, **values):
+        self._check_transfer_owner()
         if self.closed:
             raise RuntimeError('STS controller is closed')
         if self.stopped:
@@ -200,6 +207,7 @@ class STSController:
         self.targets = target
 
     def set_spreader_size(self, size_ft):
+        self._check_transfer_owner()
         if self.closed:
             raise RuntimeError('STS controller is closed')
         if self.stopped:
@@ -489,7 +497,10 @@ class STSPanel:
         if current_stage is not self.stage:
             self._sync_stage_context()
             self._refresh()
+        import builtins
+        transfer=getattr(builtins,'_smartport_ship_transfer_task',None)
         for c in self.controllers.values():
+            if transfer and not transfer.closed and transfer.stage==self.stage and transfer.c is c:continue
             if self.unload_task and c == self.unload_task.c and self.unload_task.paused:
                 continue
             c.tick(event.payload.get('dt', 0.0))

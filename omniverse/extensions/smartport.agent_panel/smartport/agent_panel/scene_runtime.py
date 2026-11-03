@@ -175,7 +175,10 @@ def current_tasks(stage):
         iecs_status = {key: value for key, value in snapshot.items() if key in {
             "name", "simulation_time", "paused", "speed", "orders", "vehicles", "alarms", "reservations", "equipment", "mode"}}
         iecs_status.update(running=True, error=iecs.last_error, mixed_pending=list(iecs.mixed_pending))
-    return {"rtg": rtg, "rtg_simulation": sim_status, "rtg_auxiliary_motion": auxiliary_rtg_motion(stage), "sts": sts, "iecs": iecs_status,
+    transfer_module=existing_module("ship_to_yard_transfer")
+    transfer=transfer_module.active_task(stage) if transfer_module else None
+    reverse=transfer and transfer.plan.get('direction')=='yard_to_ship'
+    return {"ship_to_yard":transfer.summary() if transfer and not reverse else {"status":"idle"},"yard_to_ship":transfer.summary() if reverse else {"status":"idle"},"rtg": rtg, "rtg_simulation": sim_status, "rtg_auxiliary_motion": auxiliary_rtg_motion(stage), "sts": sts, "iecs": iecs_status,
             "note": "RTG attributes are the last received snapshot; its timestamp may be old. All commands here affect the digital scene only."}
 
 
@@ -203,6 +206,7 @@ class SceneRuntime:
         self.active_view = None
         self.camera_lens_signature = None
         self.owned_sts = {}
+        self.transfer_task = None
         self.last_tick = time.monotonic()
 
     def bind(self, stage):
@@ -241,6 +245,10 @@ class SceneRuntime:
         return dict(self.operations[identifier])
 
     def _guard_manual(self, equipment, crane_id=None):
+        transfer_module=existing_module('ship_to_yard_transfer')
+        transfer=transfer_module.active_task(self.stage) if transfer_module else None
+        if transfer and (equipment=='rtg' or not crane_id or transfer.c.path.endswith('/'+crane_id)):
+            raise ValueError('船舶与堆场搬运演示持有设备，请先查询任务并复位后再手动操作')
         if equipment == "rtg" and any(item["status"] == "running" and item["kind"] == "lidar_positions" for item in self.operations.values()):
             raise ValueError("A multi-position LiDAR capture owns the RTG; wait or cancel it first")
         iecs = iecs_runtime(self.stage)
@@ -299,6 +307,18 @@ class SceneRuntime:
         self.bind(stage)
         if stage is None:
             return
+        if self.transfer_task and not self.transfer_task.closed:
+            try:
+                was_finished=self.transfer_task.finished
+                self.transfer_task.tick(dt)
+                if not was_finished and self.transfer_task.finished:
+                    result=self.transfer_task.summary()
+                    text=(f"仿真装船完成：{result['source_location']} 已由RTG、集卡和{result['crane_id']}运至船上 {result['target_location']}。" if result.get('direction')=='yard_to_ship' else
+                          f"仿真搬运完成：船箱 {result['source_location']} 已由岸桥、集卡和RTG移至 {result['target_bay']} 第{result['target_row']}排第{result['target_tier']}层。")
+                    self.notify({'kind':'simulation_task_complete','text':text})
+            except Exception as error:
+                self.transfer_task.fail(error)
+                self.notify({'kind':'status','text':'演示暂停：'+str(error)})
         if self.motion:
             motion = self.motion
             try:
@@ -323,6 +343,8 @@ class SceneRuntime:
         for key, controller in tuple(self.owned_sts.items()):
             if controller.closed:
                 self.owned_sts.pop(key)
+            elif self.transfer_task and not self.transfer_task.closed and controller is self.transfer_task.c:
+                continue
             elif panel is None or controller not in panel.controllers.values():
                 controller.tick(dt)
         if self.follow:
@@ -406,6 +428,9 @@ class SceneRuntime:
 
     def stop_equipment(self, args):
         target = args["equipment"]
+        transfer_module=existing_module('ship_to_yard_transfer')
+        transfer=transfer_module.active_task(self.stage) if transfer_module else None
+        if transfer and (target in ('all','rtg') or not args.get('crane_id') or transfer.plan['crane_id']==args['crane_id']):transfer.pause()
         if target in {"rtg", "all"}:
             plc = getattr(builtins, "_smart_port_rtg_plc_scene_driver", None)
             if plc is not None:
@@ -652,6 +677,8 @@ class SceneRuntime:
         return execute_project_interface(self, name, args)
 
     def release(self):
+        if self.transfer_task and not self.transfer_task.closed:self.transfer_task.close()
+        self.transfer_task=None
         self._cancel_motion()
         for task in self.jobs.values():
             if not task.done(): task.cancel()

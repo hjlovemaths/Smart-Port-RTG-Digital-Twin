@@ -181,8 +181,8 @@ class AgentWebBridge:
             if pending and not pending['decision'].is_set():
                 import secrets
                 pending.setdefault('web_id',secrets.token_urlsafe(16))
-                approval={"id":pending['web_id'],"name":pending.get('name'),"arguments":pending.get('arguments',{})}
-            return {"chat":[{"speaker":who,"text":text} for who,text in getattr(panel,"_chat_lines",[])][-48:],
+                approval={"id":pending['web_id'],"name":pending.get('name'),"arguments":pending.get('arguments',{}),"summary":pending.get("summary")}
+            return {"chat_count":len(getattr(panel,"_chat_lines",[])),"chat":[{"speaker":who,"text":text} for who,text in getattr(panel,"_chat_lines",[])][-48:],
                     "approval":approval,"busy": panel._busy, "status": panel._last_status,
                     "endpoint": panel._endpoint_model.get_value_as_string(),
                     "model": panel._model_model.get_value_as_string(),

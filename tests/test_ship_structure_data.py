@@ -89,6 +89,28 @@ class StructureUsdTests(unittest.TestCase):
                 self.assertLess(b.GetMax()[0],-241.75)
                 self.assertGreater(b.GetMin()[0],-283.1)
 
+    def test_adjacent_returned_bays_match_yard_spacing_without_overlap(self):
+        from large_vessel_layout import STRUCTURE_BAY_PITCH
+        from yard_coordinate_mapping import BAY_LENGTH_M,BAY_GAP_M
+        self.assertAlmostEqual(STRUCTURE_BAY_PITCH,BAY_LENGTH_M+BAY_GAP_M)
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        cells={}
+        for group in self.stage.GetPrimAtPath(self.ship+'/StructureSlots').GetChildren():
+            for p in group.GetChildren():
+                if p.GetAttribute('ship:zone').Get()=='D':
+                    key=tuple(p.GetAttribute('ship:'+n).Get() for n in ('bay','row','tier'))
+                    cells[key]=cache.ComputeWorldBound(p).ComputeAlignedBox()
+        checked=set()
+        for (bay,row,tier),box in cells.items():
+            following=cells.get((bay+2,row,tier))
+            if following is None:continue
+            self.assertAlmostEqual(following.GetMidpoint()[1]-box.GetMidpoint()[1],STRUCTURE_BAY_PITCH,places=5)
+            gap=following.GetMin()[1]-box.GetMax()[1]
+            self.assertGreater(gap,0.)
+            self.assertLess(gap,.12)
+            checked.add((bay,bay+2))
+        self.assertEqual(checked,{(1,3),(3,5),(5,7),(7,9)})
+
     def test_visual_slots_cannot_be_started_as_confirmed_cargo(self):
         from sts_control import STSController
         from sts_unload_task import UnloadTask

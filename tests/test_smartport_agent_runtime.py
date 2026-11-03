@@ -106,6 +106,27 @@ def test_equipment_task_and_multi_position_capture_preserve_confirmation_boundar
     assert not runtime_catalog.needs_approval("capture_lidar", {"mode": "yard"})
 
 
+@pytest.mark.parametrize('source_size,current_size',[(20,40),(40,20)])
+def test_standalone_pick_checks_actual_source_size_before_descent(runtime,monkeypatch,tmp_path,source_size,current_size):
+    from smartport.agent_panel import yard_queries
+    calls=[]
+    fake=SimpleNamespace(
+        slot_target=lambda **kwargs:SimpleNamespace(slot=SimpleNamespace(container_size_ft=source_size)),
+        lower_to_slot=lambda **kwargs:calls.append(kwargs) or {'status':'started'},
+        move_to_slot=lambda **kwargs:None,lift_from_slot=lambda **kwargs:None)
+    monkeypatch.setattr(project_interfaces,'load',lambda _name:fake)
+    monkeypatch.setattr(runtime,'_guard_manual',lambda *_:None)
+    monkeypatch.setattr(yard_queries,'read_inventory_snapshot',lambda *_:(None,{'kind':'inventory_json_snapshot','inventory_file':str(tmp_path/'stock.json')}))
+    monkeypatch.setitem(sys.modules,'rtg_transfer_motion',SimpleNamespace(read_spreader_size_ft=lambda _stage:current_size))
+    args={'action':'lower','bay_id':'3C/001','row':2,'tier':1}
+    with pytest.raises(ValueError,match=f'源箱实际为{source_size}尺'):
+        project_interfaces.execute_project_interface(runtime,'rtg_slot_operation',args)
+    assert not calls
+    monkeypatch.setitem(sys.modules,'rtg_transfer_motion',SimpleNamespace(read_spreader_size_ft=lambda _stage:source_size))
+    assert project_interfaces.execute_project_interface(runtime,'rtg_slot_operation',args)['status']=='started'
+    assert len(calls)==1
+
+
 @pytest.fixture
 def runtime(monkeypatch):
     for name in ("_smart_port_sts_panel", "_smart_port_sts_controller_pool", "_iecs_runtime", "_smart_port_rtg_panel_facing_driver", "_SMART_PORT_RTG_REMOTE_MANUAL_ACTIVE"):
@@ -192,7 +213,7 @@ def test_physics_target_adapter_fills_untouched_axes(runtime, monkeypatch):
 def test_capabilities_can_be_read_without_loading_or_starting_service_modules(runtime, monkeypatch):
     monkeypatch.setattr(project_interfaces, "load", lambda _name: pytest.fail("Capability listing must not load services"))
     result = runtime.execute(None, "get_agent_capabilities", {})
-    assert result["interface_count"] == 39
+    assert result["interface_count"] == 45
     assert any(item["name"] == "get_current_tasks" for item in result["interfaces"])
 
 

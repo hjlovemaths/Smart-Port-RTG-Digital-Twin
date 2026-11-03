@@ -22,8 +22,8 @@ class LayoutMathTests(unittest.TestCase):
         self.assertEqual(layout.BAYS[-1],62)
 
     def test_hold_and_deck_tier_heights_do_not_overlap(self):
-        self.assertLess(layout.tier_z(16)+2.591/2,layout.DECK_Z)
-        self.assertGreater(layout.tier_z(82)-2.591/2,layout.DECK_Z)
+        self.assertLess(layout.tier_z(16)+layout.TIER_PITCH/2,layout.DECK_Z)
+        self.assertGreater(layout.tier_z(82)-layout.TIER_PITCH/2,layout.DECK_Z)
 
 
 class ComposedVesselTests(unittest.TestCase):
@@ -44,29 +44,112 @@ class ComposedVesselTests(unittest.TestCase):
                      'SMART_PORT_REMOTE_CARGO_SHIP_01','SMART_PORT_REMOTE_CARGO_SHIP_02'):
             self.assertTrue(self.stage.GetPrimAtPath('/World/PortAndRTG/'+name).IsActive())
 
-    def test_hull_stays_offshore_and_covers_the_first_three_cranes(self):
+    def test_hull_matches_reference_aspect_and_keeps_the_quay_edge(self):
         cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
         b=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Hull')).ComputeAlignedBox()
         self.assertLess(b.GetMax()[0],-241.75)
-        self.assertAlmostEqual(b.GetSize()[1],248.)
-        for home in (55.,130.,207.):
-            self.assertLess(b.GetMin()[1],home)
-            self.assertGreater(b.GetMax()[1],home)
+        self.assertAlmostEqual(b.GetSize()[1],248.*layout.STRUCTURE_HULL_SCALE[1])
+        self.assertAlmostEqual(b.GetSize()[0],layout.STRUCTURE_BEAM_M,places=5)
+        self.assertAlmostEqual(b.GetSize()[1]/b.GetSize()[0],573/107,places=5)
+        self.assertGreater(b.GetSize()[1],125.)
+        self.assertAlmostEqual(b.GetMax()[0],layout.SHIP_X+layout.BEAM_M/2,places=5)
+        self.assertLess(b.GetMin()[1],55.)
+        self.assertGreater(b.GetMax()[1],55.)
+        self.assertAlmostEqual(layout.structure_bay_y(1),17.5)
+        root=self.stage.GetPrimAtPath(layout.SHIP)
+        self.assertAlmostEqual(root.GetAttribute('ship:lengthMeters').Get(),b.GetSize()[1])
+        self.assertAlmostEqual(root.GetAttribute('xformOp:translate').Get()[2],-4.9478)
+        # Root scale must stay at one: ship boxes retain actual yard dimensions.
+        from pxr import Gf
+        world=self.UsdGeom.XformCache().GetLocalToWorldTransform(root)
+        for axis in ((1,0,0),(0,1,0),(0,0,1)):
+            self.assertAlmostEqual(world.TransformDir(Gf.Vec3d(*axis)).GetLength(),1.)
         other=cache.ComputeWorldBound(self.stage.GetPrimAtPath('/World/PortAndRTG/SMART_PORT_LOCAL_SHIP_4c40_shoreline_west_IMPORTED')).ComputeAlignedBox()
         self.assertGreater(other.GetMin()[1],b.GetMax()[1])
+
+    def test_full_reference_bays_fit_hull_and_clear_the_bridge(self):
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        hull=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Hull')).ComputeAlignedBox()
+        bridge=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Bridge/Deckhouse0')).ComputeAlignedBox()
+        root=self.stage.GetPrimAtPath(layout.SHIP+'/ReferenceBayLayout')
+        self.assertEqual([p.GetAttribute('ship:bay').Get() for p in root.GetChildren()],list(layout.BAYS))
+        transforms=self.UsdGeom.XformCache()
+        from pxr import Gf
+        centres={}
+        for p in root.GetChildren():
+            bay=p.GetAttribute('ship:bay').Get()
+            y=transforms.GetLocalToWorldTransform(p).Transform(Gf.Vec3d(0))[1]
+            half=(5.272 if bay==62 else 2.636)/2
+            self.assertGreater(y-half,hull.GetMin()[1])
+            self.assertLess(y+half,hull.GetMax()[1])
+            centres[bay]=y
+        self.assertLess(centres[43]+2.636/2,bridge.GetMin()[1])
+        self.assertGreater(centres[45]-2.636/2,bridge.GetMax()[1])
+        self.assertGreater(centres[62]-5.272/2,centres[59]+2.636/2)
+        # All visible source cells use exactly these reserved logical positions.
+        for group in self.stage.GetPrimAtPath(layout.SHIP+'/StructureSlots').GetChildren():
+            for p in group.GetChildren():
+                y=transforms.GetLocalToWorldTransform(p).Transform(Gf.Vec3d(0))[1]
+                self.assertAlmostEqual(y,centres[p.GetAttribute('ship:bay').Get()])
+
+    def test_full_design_asset_remains_available_without_structure_overlay(self):
+        stage=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
+        stage.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        b=cache.ComputeWorldBound(stage.GetPrimAtPath(layout.SHIP+'/Hull')).ComputeAlignedBox()
+        self.assertAlmostEqual(b.GetSize()[1],248.)
+
+    def test_compact_hatches_and_bridge_align_with_reserved_bays(self):
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        for first in range(1,60,4):
+            p=self.stage.GetPrimAtPath(layout.SHIP+f'/Hatches/Hatch_{first:02d}_{first+2:02d}/Cover1')
+            box=cache.ComputeWorldBound(p).ComputeAlignedBox()
+            self.assertAlmostEqual(box.GetMidpoint()[1],(layout.structure_bay_y(first)+layout.structure_bay_y(first+2))/2,places=5)
+            self.assertAlmostEqual(box.GetSize()[1],12.5*2.675/6.3,places=5)
+        stern=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Hatches/Stern62Cover')).ComputeAlignedBox()
+        self.assertAlmostEqual(stern.GetMidpoint()[1],layout.structure_bay_y(62))
+        self.assertGreaterEqual(stern.GetSize()[1],5.272)
+        self.assertTrue(self.stage.GetPrimAtPath(layout.SHIP+'/Deck/AfterCargoDeck'))
+
+    def test_first_three_cranes_share_this_vessel_and_keep_mesh_clearance(self):
+        baseline=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
+        baseline.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
+        cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
+        hull=cache.ComputeWorldBound(self.stage.GetPrimAtPath(layout.SHIP+'/Hull')).ComputeAlignedBox()
+        previous=None
+        for name,bay in layout.STRUCTURE_STS_BAYS.items():
+            p=self.stage.GetPrimAtPath('/World/STSControls/'+name)
+            old=baseline.GetPrimAtPath(p.GetPath())
+            a=p.GetAttribute('xformOp:translate').Get();b=old.GetAttribute('xformOp:translate').Get()
+            self.assertEqual((a[0],a[2]),(b[0],b[2]))
+            self.assertAlmostEqual(a[1],layout.structure_bay_y(bay))
+            self.assertAlmostEqual(p.GetAttribute('sts:homeY').Get(),a[1])
+            self.assertGreater(a[1],hull.GetMin()[1]);self.assertLess(a[1],hull.GetMax()[1])
+            box=cache.ComputeWorldBound(p).ComputeAlignedBox()
+            lo=p.GetAttribute('sts:gantryMin').Get();hi=p.GetAttribute('sts:gantryMax').Get()
+            self.assertLessEqual(lo,0);self.assertGreaterEqual(hi,0)
+            # Opposing independent extreme commands must still clear meshes.
+            if previous:self.assertGreaterEqual(box.GetMin()[1]+lo-previous,2.9999)
+            previous=box.GetMax()[1]+hi
+        transforms=self.UsdGeom.XformCache();base_transforms=self.UsdGeom.XformCache()
+        for n in range(4,8):
+            path=f'/World/STSControls/STS_{n:02d}'
+            self.assertEqual(transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(path)),base_transforms.GetLocalToWorldTransform(baseline.GetPrimAtPath(path)))
+            for key in ('homeY','gantryMin','gantryMax'):
+                self.assertEqual(self.stage.GetPrimAtPath(path).GetAttribute('sts:'+key).Get(),baseline.GetPrimAtPath(path).GetAttribute('sts:'+key).Get())
 
     def test_boxes_keep_standard_dimensions_and_logical_locations(self):
         # Exercise the original demo asset separately from a loaded 6.6 plan.
         stage=self.Usd.Stage.Open(str(ROOT/'omniverse/scenes/smart_port.usda'))
         stage.MuteLayer(layout.STRUCTURE_LAYER.as_posix())
         cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
-        for suffix,length in (('/Model/ShipContainer179',12.192),('/Model/STS03_Double20/UnitA',6.058)):
+        for suffix,length in (('/Model/ShipContainer179',5.272),('/Model/STS03_Double20/UnitA',2.636)):
             p=stage.GetPrimAtPath(layout.SHIP+suffix)
             self.assertTrue(p.IsInstance())
             size=cache.ComputeWorldBound(p).ComputeAlignedBox().GetSize()
             self.assertAlmostEqual(size[1],length,delta=.1)
-            self.assertAlmostEqual(size[0],2.438,delta=.1)
-            self.assertAlmostEqual(size[2],2.591,delta=.1)
+            self.assertAlmostEqual(size[0],1.369287,delta=.1)
+            self.assertAlmostEqual(size[2],.949853,delta=.1)
             self.assertTrue(p.GetAttribute('ship:location').Get())
 
     def test_bay_plan_and_stern_dimensions(self):

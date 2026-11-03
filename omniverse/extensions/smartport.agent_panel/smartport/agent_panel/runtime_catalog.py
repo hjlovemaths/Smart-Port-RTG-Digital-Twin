@@ -31,6 +31,18 @@ def tool(name, description, properties=None, required=()):
 
 
 TOOLS = (
+    tool("preview_yard_to_ship_transfer", "Read-only plan for a reversible RTG -> truck -> STS loading demo. Resolve actual SOURCE box size, never guess it from yard bay parity; returns size_ft and spreader_adjustment (current size, target, required). Specify source yard bay/row and optional tier (defaults to highest visible box), plus exact six-digit ship target location, e.g. 011090. Rejects buried source/target, absent 6.6 deck cells, unsupported landing, wrong size, uneven 40ft supports and unreachable STS. 20ft uses odd ship bays; 40ft uses an even bay spanning two returned odd bays. Target structural placeholders are replaced only in the demo layer, not verified vacant actual cargo slots. Returns plan_id before start.",
+      {"source_bay":BAY,"source_row":number(1,6,True),"source_tier":number(1,6,True),"target_location":{"type":"string","pattern":"^[0-9]{6}$"},"crane_id":CRANE},("source_bay","source_row","target_location")),
+    tool("start_yard_to_ship_transfer", "Start a previewed yard-to-vessel loading demo by plan_id after scene-operation approval. FIRST read current RTG spreader and continuously telescope to the source box size; no descent or locking until actual geometry confirms ready. Then parked truck drives to yard; RTG locks/lifts source onto trailer; truck follows roads and causeway to selected STS; STS locks/lifts/transfers/unlocks at specified ship location. Full original box parts move continuously without rescaling. No inventory-file or PLC writes. Returns immediately; status includes rtg_spreader_size_ft, required_size_ft and spreader_ready. Poll control_yard_to_ship_transfer once and report started if still running.",
+      {"plan_id":TEXT},("plan_id",)),
+    tool("control_yard_to_ship_transfer", "Status, pause/resume or reset the full reverse RTG/truck/STS loading demo. Reset restores original yard box parts, target ship placeholders, truck and equipment poses. Finished tasks reserve resources until reset. Resume/reset require approval. Mutually exclusive with ship-to-yard and other equipment tasks.",
+      {"action":enum("status","pause","resume","reset")},("action",)),
+    tool("preview_ship_to_yard_transfer", "Read-only plan for a reversible ship-to-yard kinematic DEMO: select the TOP returned deck slot in a ship bay and side row (port=left facing bow; row_from_side=1 is the outermost port/starboard row, not rowNo01), then place on top of a rendered yard stack. Resolves 40ft support covering odd bays, checks stack height and neighbors, chooses a reachable STS and a parked truck, returns plan_id. These vessel structure slots are NOT verified actual cargo. Use this before starting the complete STS/truck/RTG demonstration; do not chain the old fixed-box demos.",
+      {"source_bay":number(1,999,True),"source_side":enum("port","starboard"),"row_from_side":number(1,15,True),"target_bay":BAY,"target_row":number(1,6,True)},("source_bay","source_side","row_from_side","target_bay","target_row")),
+    tool("start_ship_to_yard_transfer", "Start a previously previewed ship-to-yard visual demonstration using plan_id. Parked truck drives to STS, STS lowers/locks/lifts/transfers onto trailer, truck follows roads/causeway to yard, primary RTG locks/lifts/stacks/unlocks. No teleport during carrying, PLC writes or inventory-file changes. Returns immediately; poll control_ship_to_yard_transfer status. Compact ship models normally need no normalization; permit task-only scale normalization only when explicitly authorized. Starting requires scene-operation approval.",
+      {"plan_id":TEXT,"allow_display_normalization":BOOL},("plan_id",)),
+    tool("control_ship_to_yard_transfer", "Read status, pause/resume or reset the complete ship/truck/RTG visual task. Reset restores source boxes, parked truck, crane poses and source display, without editing saved assets. A completed demonstration reserves its session poses until reset; reset before starting another demo. Resume/reset require approval.",
+      {"action":enum("status","pause","resume","reset")},("action",)),
     tool("get_vessel_structure", "Query ship bay/row/tier/valid slots using the current 6.6 TXT snapshot. Use for vessel structure, deck/hold row counts or a location such as 010404. H=hold, D=deck. These are structural slots, not actual onboard cargo. Missing bays/locations are not proof of empty cargo. Raw size codes C/D/1 are undefined; bay parity gives nominal 20/40ft. include_slots enables paginated locations.",
          {"bay":number(1,999,True), "zone":enum("H","D"), "location":{"type":"string","pattern":"^[0-9]{6,7}$"},
           "include_slots":BOOL,"offset":number(0,100000,True),"limit":number(1,200,True)}),
@@ -114,6 +126,8 @@ SCHEMAS = {item["function"]["name"]: item["function"]["parameters"] for item in 
 
 
 def needs_approval(name, arguments):
+    if name in {"start_ship_to_yard_transfer","start_yard_to_ship_transfer"}:return True
+    if name in {"control_ship_to_yard_transfer","control_yard_to_ship_transfer"}:return arguments.get("action") in {"resume","reset"}
     if name in {"move_rtg_to_bay", "set_rtg_axis_positions", "set_sts_axis_positions", "set_rtg_spreader_size", "submit_rtg_task", "reload_yard_inventory"}:
         return True
     action = arguments.get("action")

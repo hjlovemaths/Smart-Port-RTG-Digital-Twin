@@ -188,30 +188,9 @@ def build():
     cube(bridge+"/FunnelStripe",(-8,166.5,DECK_Z+15.2),(3.3,3.1,.6),orange)
 
     # Reusable detailed, corrugated standard-sized container prototypes.
-    prototypes={}
-    for feet,length in ((20,6.058),(40,12.192)):
-        for color,mat in enumerate(cargo_mats):
-            path=SHIP+f"/Prototypes/C{feet}_{color}"
-            proto=UsdGeom.Xform.Define(stage,path).GetPrim()
-            proto.SetSpecifier(Sdf.SpecifierClass)
-            cube(path+"/Body",(0,0,0),(2.40,length,2.55),mat)
-            for side in (-1,1):
-                pts=[];faces=[];n=int(length/.28)
-                for k in range(n*4+1):
-                    y=-length/2+k*length/(n*4)
-                    x=side*(1.20+(.019 if k%4 in (1,2) else 0))
-                    pts.extend([(x,y,-1.22),(x,y,1.22)])
-                for k in range(n*4):faces.append((2*k,2*k+1,2*k+3,2*k+2))
-                mesh(path+f"/Wall{'L' if side<0 else 'R'}",pts,faces,mat)
-                for end in (-1,1):
-                    for z in (-1.24,1.24):
-                        cube(path+f"/Corner_{side}_{end}_{z}".replace('-','M').replace('.','p'),
-                             (side*1.17,end*(length/2-.065),z),(.098,.13,.11),steel)
-            for end in (-1,1):
-                for x in (-.85,-.28,.28,.85):
-                    cube(path+f"/DoorBar_{end}_{x}".replace('-','M').replace('.','p'),
-                         (x,end*(length/2+.015),0),(.028,.035,2.25),steel)
-            prototypes[feet,color]=path
+    from ship_yard_container_models import create_yard_prototypes,PAINTS
+    native=create_yard_prototypes(stage)
+    prototypes={(feet,index):native[feet,paint] for feet in (20,40) for index,paint in enumerate(PAINTS)}
 
     rng=random.Random(20261102)
     count=0

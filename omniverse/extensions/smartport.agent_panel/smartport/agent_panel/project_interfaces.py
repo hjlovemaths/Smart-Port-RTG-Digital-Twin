@@ -10,6 +10,8 @@ from .scene_runtime import current_sts_panel, current_tasks, existing_module, ie
 
 
 HANDLED_TOOLS = {
+    "preview_yard_to_ship_transfer", "start_yard_to_ship_transfer", "control_yard_to_ship_transfer",
+    "preview_ship_to_yard_transfer", "start_ship_to_yard_transfer", "control_ship_to_yard_transfer",
     "get_vessel_structure",
     "set_rtg_spreader_size", "resume_sts_crane", "control_timeline", "control_sts_task", "submit_rtg_task",
     "control_rtg_simulation", "control_iecs", "control_live_twin", "control_plc_zmq", "control_sea_motion",
@@ -228,6 +230,13 @@ def _slot(owner, args):
         from dataclasses import asdict
         return asdict(module.slot_target(**kwargs))
     kwargs["stage"] = owner.stage
+    if action in {"lower","attach","pick_demo"}:
+        target=module.slot_target(**{key:value for key,value in kwargs.items() if key!='stage'})
+        required=target.slot.container_size_ft
+        from rtg_transfer_motion import read_spreader_size_ft
+        current=read_spreader_size_ft(owner.stage)
+        if current is None or abs(current-required)>1e-4:
+            raise ValueError(f'源箱实际为{required}尺，当前RTG吊具为{current}尺；请先调用set_rtg_spreader_size匹配{required}尺并确认到位，再下降或闭锁取箱')
     if action == "alignment": return module.debug_slot_alignment(**kwargs)
     if action == "calibrate": return module.calibrate_current_slot(**kwargs, apply_z=args.get("apply_z", False))
     if action == "attach":
@@ -303,6 +312,9 @@ def _lidar(owner, args):
 
 def execute_project_interface(owner, name, args):
     if name not in HANDLED_TOOLS: raise ValueError(f"Unsupported runtime interface: {name}")
+    if name in {"preview_ship_to_yard_transfer", "start_ship_to_yard_transfer", "control_ship_to_yard_transfer", "preview_yard_to_ship_transfer", "start_yard_to_ship_transfer", "control_yard_to_ship_transfer"}:
+        from .transfer_interfaces import execute_transfer
+        return execute_transfer(owner,name,args)
     if name == "get_vessel_structure":
         from vessel_structure_queries import query_vessel_structure
         return query_vessel_structure(**args)

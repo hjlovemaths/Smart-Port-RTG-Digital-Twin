@@ -85,6 +85,13 @@ def main() -> int:
             probe.settimeout(1)
             if probe.connect_ex(("127.0.0.1", port)) == 0:
                 parser.error(f"Port {port} is already in use. Save and close the running Kit app first.")
+    speech_python=PROJECT_ROOT / '.cache/local-speech/venv/Scripts/python.exe'
+    if speech_python.is_file():
+        try:
+            speech=subprocess.run([str(speech_python),str(PROJECT_ROOT/'services/local_speech/manage.py'),'start'],cwd=PROJECT_ROOT,capture_output=True,timeout=45,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            if speech.returncode:print('Local speech service was not started; the viewer will show its availability.')
+        except (OSError,subprocess.TimeoutExpired):
+            print('Local speech service is unavailable; continuing the WebRTC startup.')
     run_dir = PROJECT_ROOT / ".cache/webrtc-headless" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     run_dir.mkdir(parents=True)
     status_path = run_dir / "status.json"

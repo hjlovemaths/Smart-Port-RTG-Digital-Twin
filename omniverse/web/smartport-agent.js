@@ -15,7 +15,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
   const responseCard=document.createElement('section'); responseCard.id='web-agent-response';
   responseCard.innerHTML='<header><span>AGENT RESPONSE</span><button type="button" id="web-agent-clear">Clear</button></header><div class="conversation"></div><div class="approval" hidden><p></p><button type="button" data-approved="true">确认执行</button><button type="button" data-approved="false">取消</button></div>';
   document.body.append(host, modal, responseCard);
-  responseCard.querySelector('#web-agent-clear').onclick=()=>api('clear',{}).then(poll).catch(e=>status.textContent=e.message);
+  responseCard.querySelector('#web-agent-clear').onclick=()=>{speech.stop();api('clear',{}).then(poll).catch(e=>status.textContent=e.message);};
   responseCard.querySelectorAll('[data-approved]').forEach(button=>button.onclick=()=>{
     if(!state?.approval)return;
     api('approval',{id:state.approval.id,approved:button.dataset.approved==='true'}).then(poll).catch(e=>status.textContent=e.message);
@@ -34,7 +34,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
       chatVersion=version;
     }
     const approval=responseCard.querySelector('.approval');approval.hidden=!state.approval;
-    if(state.approval)approval.querySelector('p').textContent=`确认场景操作：${state.approval.name} ${JSON.stringify(state.approval.arguments)}`;
+    if(state.approval)approval.querySelector('p').textContent=state.approval.summary || `确认场景操作：${state.approval.name} ${JSON.stringify(state.approval.arguments)}`;
   }
   const input = host.querySelector('input'), sendButton = host.querySelector('#web-agent-send');
   const status = host.querySelector('[role=status]'), settings = modal.querySelector('form');
@@ -83,7 +83,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
     try {
       state = await api('state');
       if(!initialized){input.value = state.draft || ''; initialized = true;}
-      host.hidden = false; renderResponse(); layout();
+      host.hidden = false; renderResponse(); speech.update(state); layout();
       status.textContent = localError || (state.status === 'URL / Model saved (API key not saved)'
         ? '配置已保存，Key 仅保留在当前会话' : state.status);
       sendButton.disabled = state.busy || posting;
@@ -113,5 +113,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
     } catch(error){message.textContent=error.message;}
   };
   window.addEventListener('resize',layout); document.getElementById('remote-video')?.addEventListener('resize',layout);
+  const speech={update(){},stop(){}}; // Voice UI temporarily disabled; text chat remains active.
+  try{localStorage.removeItem("smartport-auto-speech");}catch{}
   setInterval(poll,700); poll();
 }
