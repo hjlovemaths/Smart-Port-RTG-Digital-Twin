@@ -26,7 +26,7 @@ UNDER_TROLLEY_EYE = (2.55, -5.0, 8.0)
 UNDER_TROLLEY_FOV_DEG = 110.0
 CORE_TOOLS = {"get_agent_capabilities", "get_equipment_status", "get_current_tasks", "list_viewpoints",
               "set_viewport_view", "switch_viewport_camera", "set_sts_axis_positions", "stop_equipment",
-              "get_operation_status", "cancel_operation"}
+              "get_operation_status", "cancel_operation", "control_transfer_camera"}
 
 
 def read_attr(prim, name, default=None):
@@ -207,6 +207,8 @@ class SceneRuntime:
         self.camera_lens_signature = None
         self.owned_sts = {}
         self.transfer_task = None
+        self.transfer_camera = None
+        self.transfer_camera_error = None
         self.last_tick = time.monotonic()
 
     def bind(self, stage):
@@ -319,6 +321,11 @@ class SceneRuntime:
             except Exception as error:
                 self.transfer_task.fail(error)
                 self.notify({'kind':'status','text':'演示暂停：'+str(error)})
+        if self.transfer_camera and not self.transfer_camera.closed:
+            try:self.transfer_camera.tick(dt)
+            except Exception as error:
+                self.transfer_camera_error=str(error);self.transfer_camera.close('error')
+                self.notify({'kind':'status','text':'自动镜头已停止，搬运继续：'+str(error)})
         if self.motion:
             motion = self.motion
             try:
@@ -468,6 +475,35 @@ class SceneRuntime:
             raise RuntimeError("No viewport is open. Open a Viewport window first.")
         return viewport
 
+    def transfer_camera_state(self):
+        result=self.transfer_camera.state() if self.transfer_camera else {'status':'idle','visible':False}
+        if self.transfer_camera_error:result['error']=self.transfer_camera_error
+        return result
+
+    def pause_transfer_camera(self,reason='manual'):
+        if self.transfer_camera:self.transfer_camera.pause(reason)
+
+    def control_transfer_camera(self,action):
+        if action=='status':return self.transfer_camera_state()
+        if action=='start':
+            from ship_to_yard_transfer import active_task
+            from transfer_cinema import TransferCinema
+            task=active_task(self.stage)
+            if not task:raise ValueError('请先启动船到堆场搬运任务')
+            if task.plan.get('direction')=='yard_to_ship':raise ValueError('电影视角当前支持船到堆场任务')
+            if self.transfer_camera:self.transfer_camera.close()
+            self.follow=self.follow_viewport=None
+            self.transfer_camera_error=None
+            self.transfer_camera=TransferCinema(self.stage,self._viewport(),task)
+        elif action=='pause':self.pause_transfer_camera('paused')
+        elif action=='resume':
+            if not self.transfer_camera:raise ValueError('没有可继续的自动镜头')
+            self.follow=self.follow_viewport=None;self.transfer_camera.resume()
+        elif action=='stop':
+            if self.transfer_camera:self.transfer_camera.close()
+        else:raise ValueError('无效的电影镜头操作')
+        return self.transfer_camera_state()
+
     def list_views(self):
         from pxr import UsdGeom
         cameras = [{"path": str(prim.GetPath()), "name": prim.GetName()} for prim in self.stage.Traverse() if prim.IsA(UsdGeom.Camera)]
@@ -612,6 +648,7 @@ class SceneRuntime:
                 "vertical_down": under_trolley}
 
     def set_view(self, args):
+        self.pause_transfer_camera('manual')
         result = self._apply_view(args)
         self.active_view = {**args, "view": result["view"], "field_of_view_deg": result["field_of_view_deg"]}
         self.follow = dict(args) if args.get("follow") else None
@@ -619,6 +656,7 @@ class SceneRuntime:
         return result
 
     def switch_camera(self, args):
+        self.pause_transfer_camera('manual')
         from pxr import UsdGeom
         viewport = self._viewport()
         if "camera_number" in args:
@@ -653,6 +691,7 @@ class SceneRuntime:
             result["agent_operations"] = [copy.deepcopy(item) for item in self.operations.values() if item["status"] in {"running", "cancelling"}]
             return result
         if name == "get_equipment_status": return self.equipment_status(args)
+        if name == "control_transfer_camera":return self.control_transfer_camera(args['action'])
         if name == "move_rtg_to_bay": return self.rtg_move(args, bay=True)
         if name == "set_rtg_axis_positions": return self.rtg_move(args)
         if name == "set_sts_axis_positions": return self.move_sts(args)
@@ -677,6 +716,8 @@ class SceneRuntime:
         return execute_project_interface(self, name, args)
 
     def release(self):
+        if self.transfer_camera:self.transfer_camera.close()
+        self.transfer_camera=None;self.transfer_camera_error=None
         if self.transfer_task and not self.transfer_task.closed:self.transfer_task.close()
         self.transfer_task=None
         self._cancel_motion()

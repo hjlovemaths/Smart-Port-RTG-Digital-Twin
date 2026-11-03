@@ -1,5 +1,5 @@
 {
-  "interface_count": 45,
+  "interface_count": 46,
   "tools": [
     {
       "type": "function",
@@ -344,10 +344,39 @@
             },
             "allow_display_normalization": {
               "type": "boolean"
+            },
+            "cinematic": {
+              "type": "boolean"
             }
           },
           "required": [
             "plan_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_transfer_camera",
+        "description": "Control event-driven cinematic viewing for an active ship-to-yard transfer: status/start/pause/resume/stop. Ship-to-yard start enables it by default unless cinematic=false. Shots follow actual pickup, truck handoff, roads/causeway, RTG pickup and landing; camera controls never change task execution. Manual viewing pauses the director; resume explicitly to continue. Completed tasks show a final 3-second shot then restore the previous camera. Currently supports ship-to-yard only.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "status",
+                "start",
+                "pause",
+                "resume",
+                "stop"
+              ]
+            }
+          },
+          "required": [
+            "action"
           ],
           "additionalProperties": false
         }

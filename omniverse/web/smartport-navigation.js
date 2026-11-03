@@ -11,7 +11,7 @@ if(document.documentElement.classList.contains('smartport-video-only') && !docum
   let drag = null, focused = false, pending = {}, timer = null, busy = false;
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
-    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation');
+    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#transfer-cinema');
   }
   function scenePoint(e) {
     if(editing(e) || !document.getElementById('web-agent-settings')?.hidden) return false;

@@ -123,6 +123,7 @@ class ViewerAuth:
             from speech_web import handle_speech
             return await handle_speech(r)
         if session['role']=='viewer':
+            if path=='/api/transfer-camera/state' and r.method=='GET':return None
             if path in ('/','/index.html'):
                 if r.query_params.get('spectator')!='1':return RedirectResponse('/?spectator=1',303)
                 return None

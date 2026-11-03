@@ -49,7 +49,7 @@ class AgentWebBridge:
         install_auth(app)
         prefix = "/api/smartport-agent"
         app.router.routes[:] = [r for r in app.router.routes
-                                if not getattr(r, "path", "").startswith(prefix)]
+                                if not getattr(r, "path", "").startswith(prefix) and getattr(r,'path','')!='/api/transfer-camera/state']
 
         async def execute(action, payload):
             if self.closed:
@@ -95,9 +95,16 @@ class AgentWebBridge:
         async def view(payload: dict):
             return await execute("view", payload)
 
+        async def cinema_state():
+            return await execute('cinema_state',{})
+
+        async def cinema(payload:dict):
+            return await execute('cinema',payload)
+
         app.add_api_route(prefix + "/state", state, methods=["GET"])
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
-        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view), ("clear", clear), ("approval", approval)):
+        app.add_api_route('/api/transfer-camera/state',cinema_state,methods=['GET'])
+        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view), ("clear", clear), ("approval", approval),('cinema',cinema)):
             app.add_api_route(prefix + "/" + name, endpoint, methods=["POST"])
         self.installed = True
 
@@ -133,6 +140,9 @@ class AgentWebBridge:
                     payload = command["payload"]
                     if command["action"] == "zoom":
                         payload = {"zoom": payload.get("steps")}
+                    runtime=getattr(panel,'_runtime',None)
+                    if runtime is not None and payload.get('action','move') in ('move','reset'):
+                        runtime.pause_transfer_camera('manual')
                     command["result"] = self.navigation.execute(payload)
                     if payload.get("action", "move") in ("move", "reset"):
                         # Manual viewing takes over from the Agent's camera
@@ -155,6 +165,10 @@ class AgentWebBridge:
     @staticmethod
     def execute(panel, action, payload):
         from . import agent_api
+        if action=='cinema_state':
+            runtime=getattr(panel,'_runtime',None)
+            return runtime.transfer_camera_state() if runtime is not None else {'status':'idle','visible':False}
+        if action=='cinema':return panel._execute_tool('control_transfer_camera',payload)
         if action == "work_mode":
             import omni.usd
             from .scene_runtime import rtg_work_mode

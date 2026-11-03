@@ -44,3 +44,9 @@
 .web-speech-controls [data-action="cancel"],
 .web-speech-controls [data-action="file"],
 .web-speech-controls [data-action="upload"]{display:none!important}
+
+#transfer-cinema{position:fixed;z-index:18;display:flex;flex-direction:column;gap:5px;max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:10px 13px;border:1px solid #647b8c70;border-radius:8px;background:#17232cde;color:#edf4f8;font:12px system-ui,sans-serif;backdrop-filter:blur(5px)}
+#transfer-cinema[hidden],#transfer-cinema [hidden]{display:none!important}
+#transfer-cinema strong{font-size:14px}#transfer-cinema .route{color:#b7cbd9}#transfer-cinema .detail{color:#d8ebf3}
+#transfer-cinema progress{width:100%;height:4px;accent-color:#60c2df}#transfer-cinema .controls{display:flex;gap:7px}
+#transfer-cinema button{border:1px solid #8097a750;border-radius:4px;padding:4px 8px;background:#354755;color:white;cursor:pointer}#transfer-cinema small:empty{display:none}

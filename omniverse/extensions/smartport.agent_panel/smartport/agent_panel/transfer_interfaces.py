@@ -36,11 +36,19 @@ def execute_transfer(owner,name,args):
   task=task_class(owner.stage,controller,current,args.get('allow_display_normalization',False))
   owner.transfer_task=task
   setattr(owner,preview_attribute,None)
-  return task.summary()
+  result=task.summary()
+  if not reverse and args.get('cinematic',True):
+   try:result['cinematic']=owner.control_transfer_camera('start')
+   except Exception as error:
+    owner.transfer_camera_error=str(error)
+    result['cinematic']={'status':'unavailable','error':str(error)}
+  return result
  action=args['action']
  if not task:return {'status':'idle'}
  if task.plan.get('direction','ship_to_yard')!=direction:raise ValueError('当前搬运任务方向不同，请先用get_current_tasks查询正在运行的任务')
  if action=='pause':task.pause()
  elif action=='resume':task.resume()
- elif action=='reset':task.close();owner.transfer_task=None
+ elif action=='reset':
+  if owner.transfer_camera:owner.transfer_camera.close()
+  task.close();owner.transfer_task=None
  return task.summary()

@@ -30,6 +30,9 @@ async def test_login_roles_and_logout(server):
   assert (await c.get('/?spectator=1')).status_code==200
   for path in ('navigate','send','settings','view'):
    assert (await c.post('/api/smartport-agent/'+path,json={})).status_code==403
+  assert (await c.get('/api/transfer-camera/state')).status_code==200
+  assert (await c.post('/api/transfer-camera/state',json={})).status_code==403
+  assert (await c.post('/api/smartport-agent/cinema',json={'action':'resume'})).status_code==403
   assert len((await c.get('/api/stream-config')).json()['streams'])==1
   token=c.cookies.get(COOKIE)
   assert (await c.post('/auth/logout')).status_code==303

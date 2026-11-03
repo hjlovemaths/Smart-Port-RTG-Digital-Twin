@@ -74,3 +74,13 @@ def test_browser_response_contains_conversation_not_tool_history(panel):
     result=AgentWebBridge.execute(panel,'state',{})
     assert result['chat']==[{'speaker':'You','text':'你好'},{'speaker':'Agent','text':'港区就绪'}]
     assert result['approval'] is None
+
+
+def test_cinema_state_is_read_only_and_controls_use_the_allowlisted_tool(panel):
+    assert AgentWebBridge.execute(panel,'cinema_state',{})=={'status':'idle','visible':False}
+    panel._runtime=SimpleNamespace(transfer_camera_state=lambda:{'status':'paused','visible':True,'title':'岸桥取箱'})
+    result=AgentWebBridge.execute(panel,'cinema_state',{})
+    assert result['title']=='岸桥取箱' and 'private-test-key' not in repr(result)
+    calls=[];panel._execute_tool=lambda name,args:calls.append((name,args)) or {'status':'running'}
+    AgentWebBridge.execute(panel,'cinema',{'action':'resume'})
+    assert calls==[('control_transfer_camera',{'action':'resume'})]
