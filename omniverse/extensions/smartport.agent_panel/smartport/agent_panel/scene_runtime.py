@@ -246,7 +246,21 @@ class SceneRuntime:
         self.jobs[identifier] = asyncio.ensure_future(run())
         return dict(self.operations[identifier])
 
-    def _guard_manual(self, equipment, crane_id=None):
+    def _guard_manual(self, equipment, crane_id=None, *, allow_truck_driver=False, allow_rtg_driver=False, allow_sts_driver=False):
+        driver=getattr(builtins,'_smartport_truck_driver',None)
+        if driver and not driver.closed and not allow_truck_driver:raise ValueError('驾驶员正在使用01号集卡，设备作业暂不可操作')
+        rtg_driver=getattr(builtins,'_smartport_rtg_driver',None)
+        if rtg_driver and not rtg_driver.closed and equipment=='rtg' and not allow_rtg_driver:
+            raise ValueError('RTG司机正在操作设备，请先退出RTG驾驶模式')
+        sts_driver=getattr(builtins,'_smartport_sts_driver',None)
+        if sts_driver and not sts_driver.closed and equipment=='sts' and (not crane_id or crane_id=='STS_01') and not allow_sts_driver:
+            raise ValueError('STS司机正在操作STS_01，请先退出驾驶模式')
+        sts_hoist=self.stage.GetPrimAtPath('/World/STSControls/STS_01/Gantry/Trolley/Hoist') if hasattr(self.stage,'GetPrimAtPath') else None
+        if equipment=='sts' and (not crane_id or crane_id=='STS_01') and not allow_sts_driver and read_attr(sts_hoist,'smartport:stsDriverHeldCargo',''):
+            raise ValueError('STS_01仍有闭锁箱子，请由STS司机落稳开锁后再启动其他作业')
+        held=read_attr(self.stage.GetPrimAtPath(HOIST),'smartport:rtgDriverHeldCargo','') if hasattr(self.stage,'GetPrimAtPath') else ''
+        if equipment=='rtg' and held and not (allow_truck_driver or allow_rtg_driver):
+            raise ValueError('RTG仍有闭锁箱子，请由RTG司机落稳开锁后再启动其他控制')
         transfer_module=existing_module('ship_to_yard_transfer')
         transfer=transfer_module.active_task(self.stage) if transfer_module else None
         if transfer and (equipment=='rtg' or not crane_id or transfer.c.path.endswith('/'+crane_id)):
@@ -317,6 +331,11 @@ class SceneRuntime:
                     result=self.transfer_task.summary()
                     text=(f"仿真装船完成：{result['source_location']} 已由RTG、集卡和{result['crane_id']}运至船上 {result['target_location']}。" if result.get('direction')=='yard_to_ship' else
                           f"仿真搬运完成：船箱 {result['source_location']} 已由岸桥、集卡和RTG移至 {result['target_bay']} 第{result['target_row']}排第{result['target_tier']}层。")
+                    if result.get('delivery_mode')=='quay':
+                        text=f"两箱运输仿真完成：同一辆集卡已将两只箱运到{result['crane_id']}，车上保留两箱等待岸桥交接。"
+                    if result.get('double20'):
+                        targets='；'.join(f"{p['target_bay']} 第{p['target_row']}排第{p['target_tier']}层" for p in result['containers'])
+                        text='双20仿真完成：两只箱已由RTG逐箱放到 '+targets+'，集卡已返场。'
                     self.notify({'kind':'simulation_task_complete','text':text})
             except Exception as error:
                 self.transfer_task.fail(error)
@@ -489,8 +508,7 @@ class SceneRuntime:
             from ship_to_yard_transfer import active_task
             from transfer_cinema import TransferCinema
             task=active_task(self.stage)
-            if not task:raise ValueError('请先启动船到堆场搬运任务')
-            if task.plan.get('direction')=='yard_to_ship':raise ValueError('电影视角当前支持船到堆场任务')
+            if not task:raise ValueError('请先启动船舶与堆场搬运任务')
             if self.transfer_camera:self.transfer_camera.close()
             self.follow=self.follow_viewport=None
             self.transfer_camera_error=None
@@ -680,6 +698,11 @@ class SceneRuntime:
         return {"camera_path": path, "following": False}
 
     def execute(self, stage, name, arguments):
+        driver=getattr(builtins,'_smartport_truck_driver',None)
+        rtg_driver=getattr(builtins,'_smartport_rtg_driver',None)
+        held=read_attr(stage.GetPrimAtPath(HOIST),'smartport:rtgDriverHeldCargo','') if hasattr(stage,'GetPrimAtPath') else ''
+        if name=='reload_yard_inventory' and (held or any(d and not d.closed for d in (driver,rtg_driver))):
+            raise ValueError('司机正在操作设备，请先退出驾驶模式再重载库存')
         self.bind(stage)
         args = agent_api.validate_tool_arguments(name, arguments)
         if name == "get_agent_capabilities":

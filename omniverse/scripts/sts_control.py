@@ -538,6 +538,8 @@ class STSPanel:
 def show_sts_controls():
     import builtins
     import omni.usd
+    driver=getattr(builtins,'_smartport_sts_driver',None)
+    if driver and not driver.closed:raise ValueError('STS司机正在操作岸桥，不能重置岸桥控制面板')
     old = getattr(builtins, '_smart_port_sts_panel', None)
     if old is not None:
         old.close()

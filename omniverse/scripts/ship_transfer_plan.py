@@ -32,7 +32,12 @@ def crane_state(stage,prim):
   value=prim.GetAttribute('sts:'+name).Get();return default if value is None else value
  return SimpleNamespace(path=str(prim.GetPath()),state=dict(INITIAL,hoist=INITIAL['hoist']+attr('raisedHomeOffset',0)),limits=dict(LIMITS,gantry=(attr('gantryMin',0),attr('gantryMax',0)),trolley=(-10,17+17.32*(attr('boomLengthScale',1)-1)),hoist=(.3,8+attr('upperOffset',(0,0,0))[2])),stopped=False)
 
-def plan_transfer(stage,source_bay=1,source_side='port',row_from_side=1,target_bay='3C/001',target_row=6):
+def plan_transfer(stage,source_bay=1,source_side='port',row_from_side=1,target_bay='3C/001',target_row=6,double20=False,second_target_bay=None,second_target_row=None):
+ if type(double20) is not bool:raise ValueError('double20必须为布尔值')
+ if double20:
+  from ship_double20_transfer import plan_double20
+  return plan_double20(stage,source_bay,source_side,row_from_side,target_bay,target_row,second_target_bay,second_target_row)
+ if second_target_bay is not None or second_target_row is not None:raise ValueError('两个目标堆位须明确开启double20双箱模式，不能忽略第二个落点')
  for required in (SHIP,YARD,PARK):
   if not stage.GetPrimAtPath(required):raise ValueError('场景缺少模型: '+required)
  if source_side not in ('port','starboard') or type(row_from_side) is not int or row_from_side<1:raise ValueError('请明确左舷/右舷及从外侧数第几排')
@@ -91,14 +96,10 @@ def plan_transfer(stage,source_bay=1,source_side='port',row_from_side=1,target_b
    candidates.append((abs(prim.GetAttribute('sts:homeY').Get()-pick[1]),prim.GetName()))
   except ValueError:continue
  if not candidates:raise ValueError('没有岸桥能在现有限位内覆盖源箱和集卡停位')
- source_park=box(stage,PARK)
- y0=source_park.GetMidpoint()[1]
- # Main roads and causeways are shared with build_ground_traffic_network.py.
- entry=next((y for y in (126.05,256.30,386.55,496.30) if y>target[1]+6),None)
- if entry is None:raise ValueError('目标缺少可用的顺向堆场入口')
- inbound=[[138.639, y0,truck_stop[2]],[118,y0,truck_stop[2]],[118,126.05,truck_stop[2]],[-238.15,126.05,truck_stop[2]],list(truck_stop)]
- outbound=[list(truck_stop),[-238.15,-5.375,truck_stop[2]],[-231.15,-5.375,truck_stop[2]],[-231.15,entry,truck_stop[2]],[-3.75,entry,truck_stop[2]],[-3.75,target[1],truck_stop[2]]]
+ from transfer_truck_geometry import loading_routes
+ inbound,outbound,route_info=loading_routes(stage,feet,dims[1],truck_stop,target[1])
  result={'simulation_only':True,'source_is_structure_slot':True,'source_location':source['location'],'source_path':path,'source_side':source_side,'source_row':row,'source_tier':source['tier'],'column_paths':column_paths,'size_ft':feet,'cargo_dimensions_m':list(dims),'source_pick_m':list(pick),'source_column_floor_z':lower,'target_bay':target_id,'target_row':target_row,'target_tier':tier,'target_center_m':list(target),'support_path':str(support.GetPath()),'support_bay':support.GetAttribute('live:bayId').Get(),'support_bounds':[list(base.GetMin()),list(base.GetMax())],'crane_id':min(candidates)[1],'truck_path':PARK,'truck_stop_m':list(truck_stop),'truck_route_empty':inbound,'truck_route_loaded':outbound,'yard_clear_z':max(7.,nearby_top+dims[2]+.5),'display_normalization_required':any(abs(source_box.GetSize()[i]-dims[i])>.02 for i in range(3)),'note':'用户指定结构示意箱的可复位运动演示，不代表真实配载；库存文件不修改。源列在任务准备时统一比例，途中不缩放。'}
+ result.update(route_info)
  if compact:result['note']='船上与堆场已统一紧凑显示比例，按原尺寸搬运，不临时缩放；这是结构示意箱的可复位仿真，不代表真实配载，不修改库存文件。'
  result['fingerprint']=hashlib.sha256(json.dumps(result,sort_keys=True,ensure_ascii=True).encode()).hexdigest()
  from rtg_transfer_motion import read_spreader_size_ft

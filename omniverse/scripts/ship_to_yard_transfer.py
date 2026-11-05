@@ -18,6 +18,17 @@ def active_task(stage):
 
 class ShipToYardTransfer:
  def __init__(self,stage,controller,plan,allow_display_normalization=True):
+  driver=getattr(builtins,'_smartport_truck_driver',None)
+  if driver and not driver.closed:raise ValueError('驾驶员正在使用01号集卡，请先退出驾驶模式')
+  rtg_driver=getattr(builtins,'_smartport_rtg_driver',None)
+  if rtg_driver and not rtg_driver.closed:raise ValueError('RTG司机正在操作设备，请先退出RTG驾驶模式')
+  sts_driver=getattr(builtins,'_smartport_sts_driver',None)
+  if sts_driver and not sts_driver.closed and sts_driver.controller.path==controller.path:raise ValueError('STS司机正在操作岸桥，请先退出驾驶模式')
+  sts_held=stage.GetPrimAtPath(controller.path+'/Gantry/Trolley/Hoist').GetAttribute('smartport:stsDriverHeldCargo')
+  if sts_held and sts_held.Get():raise ValueError('岸桥仍有闭锁箱子，请先落稳开锁')
+  from rtg_live_control import HOIST_PATH
+  held=stage.GetPrimAtPath(HOIST_PATH).GetAttribute('smartport:rtgDriverHeldCargo')
+  if held and held.Get():raise ValueError('RTG仍有闭锁箱子，请由RTG司机落稳开锁后再启动搬运演示')
   if active_task(stage):raise ValueError('已有船舶与堆场搬运演示，请先查询或复位')
   if plan['display_normalization_required'] and not allow_display_normalization:raise ValueError('源箱与堆场比例不一致，需允许任务层统一比例')
   self.stage=stage;self.c=controller;self.plan=plan;self.layer=Sdf.Layer.CreateAnonymous('ship_to_yard_transfer.usda')
@@ -32,7 +43,7 @@ class ShipToYardTransfer:
    self.spreader_initial_size_ft=self.rtg.current_size_ft
    self.spreader_preparing=not self.rtg.spreader_ready
    self.transport_initial_phase=self.phase
-   if self.spreader_preparing:self.change('RTG吊具切换至'+str(plan['size_ft'])+'尺')
+   if self.spreader_preparing:self.change('RTG吊具切换至'+str(plan.get('rtg_size_ft',plan['size_ft']))+'尺')
    builtins._smartport_ship_transfer_task=self
   except Exception:self.close();raise
  def prepare(self):
@@ -63,10 +74,10 @@ class ShipToYardTransfer:
   self.truck.GetPrim().CreateAttribute('vehicle:number',Sdf.ValueTypeNames.String).Set('01')
   self.truck_point=Gf.Vec3d(self.pivot);self.truck_heading=0.;self.set_route(p['truck_route_empty']);self.route[0]=Gf.Vec3d(self.pivot)
   self.set_truck(self.pivot,0)
-  self.rtg=VisualRTG(self.stage,p['size_ft']);self.rtg_high=max(p['yard_clear_z'],self.rtg.origin[2])
+  self.rtg=VisualRTG(self.stage,p.get('rtg_size_ft',p['size_ft']));self.rtg_high=max(p['yard_clear_z'],self.rtg.origin[2])
   self.pick=Gf.Vec3d(p['source_pick_m']);self.stop=Gf.Vec3d(p['truck_stop_m']);self.stop[2]=self.pivot[2]
   self.place=self.stop+Gf.Vec3d(0,0,self.height);self.target=Gf.Vec3d(p['target_center_m'])+Gf.Vec3d(0,0,self.height/2)
-  self.yard_stop=Gf.Vec3d(p['truck_route_loaded'][-1]);self.yard_stop[2]=self.pivot[2]
+  self.yard_stop=Gf.Vec3d(p['truck_route_loaded'][-1]);self.yard_stop[1]+=p['truck_load_offset_m'][0];self.yard_stop[2]=self.pivot[2]
   self.yard_pick=self.yard_stop+Gf.Vec3d(0,0,self.height)
   # Validate every upcoming pose before the first simulation tick.
   for point in (self.pick,self.place,Gf.Vec3d(self.pick[0],self.pick[1],25),Gf.Vec3d(self.place[0],self.place[1],25)):solve(self.stage,self.c,point)
@@ -76,15 +87,27 @@ class ShipToYardTransfer:
  def set_truck(self,point,heading):
   delta=tr(-self.pivot)*Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(0,0,1),heading))*tr(point)
   self.truck_op.Set(self.truck_world*delta);self.truck_point=Gf.Vec3d(point);self.truck_heading=heading
- def drive(self,dt):
-  remaining=dt*10.
+ def drive(self,dt,reverse=False):
+  remaining=dt*(2. if reverse else 6.)
   while remaining>1e-9 and self.route_index<len(self.route):
    d=self.route[self.route_index]-self.truck_point;length=d.GetLength()
    if length<1e-7:self.route_index+=1;continue
-   step=min(length,remaining);heading=math.degrees(math.atan2(d[1],d[0]))-180
+   step=min(length,remaining);heading=math.degrees(math.atan2(d[1],d[0]))-(0 if reverse else 180)
    self.set_truck(self.truck_point+d/length*step,heading);remaining-=step
    if length-step<1e-7:self.route_index+=1
   return self.route_index==len(self.route)
+ def truck_load_center(self):
+  offset=Gf.Rotation(Gf.Vec3d(0,0,1),self.truck_heading).TransformDir(Gf.Vec3d(self.plan['truck_load_offset_m']))
+  return self.truck_point+offset+Gf.Vec3d(0,0,self.height/2)
+ def begin_return(self):
+  self.delivery_done=True;self.change('集卡空车返回停车场');self.set_route(self.plan['truck_route_return'])
+ def tick_return(self,dt):
+  if self.phase=='集卡空车返回停车场':
+   if self.drive(dt):self.change('集卡倒车归位');self.set_route(self.plan['truck_route_parking'])
+  elif self.phase=='集卡倒车归位' and self.drive(dt,reverse=True):
+   self.set_truck(self.pivot,0);self.finished=True;self.status='completed'
+   text=('装船至'+self.plan['target_location'] if self.plan.get('direction')=='yard_to_ship' else self.plan['target_bay']+' 第'+str(self.plan['target_row'])+'排第'+str(self.plan['target_tier'])+'层')
+   self.change('完成：'+text+'；集卡已返回原停车位')
  def set_cargo(self,center,heading=0):
   self.cargo_op.Set(self.cargo_world*tr(-self.cargo_origin)*Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(0,0,1),heading))*tr(center))
  def sts_contact(self):
@@ -144,10 +167,11 @@ class ShipToYardTransfer:
    elif self.phase=='RTG开锁落箱' and self.wait>=1:
     self.set_cargo(self.target-Gf.Vec3d(0,0,self.height/2));self.lock(None);self.change('RTG吊具抬离箱顶');self.rtg.command(Gf.Vec3d(self.target[0],self.target[1],self.rtg_high))
    elif self.phase=='RTG吊具抬离箱顶' and rtg_ready:
-    self.finished=True;self.status='completed';self.change('完成：'+self.plan['target_bay']+' 第'+str(self.plan['target_row'])+'排第'+str(self.plan['target_tier'])+'层')
+    self.begin_return()
+   elif self.phase in ('集卡空车返回停车场','集卡倒车归位'):self.tick_return(dt)
    if self.attached=='sts':self.set_cargo(self.sts_contact()-Gf.Vec3d(0,0,self.height/2))
    elif self.attached=='rtg':self.set_cargo(self.rtg.contact()-Gf.Vec3d(0,0,self.height/2))
-   elif self.cargo_on_truck:self.set_cargo(self.truck_point+Gf.Vec3d(0,0,self.height/2),self.truck_heading-90)
+   elif self.cargo_on_truck:self.set_cargo(self.truck_load_center(),self.truck_heading-90)
  def pause(self):
   if self.finished or self.closed:return
   if not self.paused:self.saved_targets=dict(getattr(self,'active_sts_target',self.c.targets));self.c.hold();self.paused=True;self.status='paused'

@@ -17,7 +17,18 @@ def overlaps_xy(a,b,tolerance=.015):
     return all(a.GetMin()[i]<b.GetMax()[i]-tolerance and a.GetMax()[i]>b.GetMin()[i]+tolerance for i in (0,1))
 
 
-def plan_yard_to_ship(stage,source_bay,source_row,target_location,source_tier=None,crane_id=None):
+def plan_yard_to_ship(stage,source_bay,source_row,target_location=None,source_tier=None,crane_id=None,
+                      plan_type='single',second_source_bay=None,second_source_row=None,
+                      second_source_tier=None,second_target_location=None,delivery_mode='ship',
+                      _excluded_source_paths=(),_yard_only=False):
+    if plan_type=='cumulative_double20':
+        from yard_double20_transfer import plan_cumulative_double20
+        return plan_cumulative_double20(stage,source_bay,source_row,target_location,source_tier,crane_id,
+                                       second_source_bay,second_source_row,second_source_tier,second_target_location,delivery_mode)
+    if plan_type!='single':raise ValueError('未知装车计划类型')
+    if delivery_mode!='ship':raise ValueError('仅送到岸桥须使用 cumulative_double20 累积装车计划')
+    if any(v is not None for v in (second_source_bay,second_source_row,second_source_tier,second_target_location)):
+        raise ValueError('第二只箱的参数须使用 cumulative_double20 累积装车计划')
     for required in (YARD,PARK,SHIP+'/StructureSlots'):
         if not stage.GetPrimAtPath(required):raise ValueError('场景缺少模型: '+required)
     match=re.fullmatch(r'([1-4])[cC]/?(\d{1,3})',source_bay)
@@ -26,7 +37,7 @@ def plan_yard_to_ship(stage,source_bay,source_row,target_location,source_tier=No
     block=match[1]+'C';bay=int(match[2]);source_id=f'{block}/{bay:03d}'
     from yard_coordinate_mapping import bay_id_position_m
     bay_id_position_m(source_id,'center')
-    candidates=[];all_yard=list(yard_boxes(stage))
+    candidates=[];all_yard=[p for p in yard_boxes(stage) if str(p.GetPath()) not in _excluded_source_paths]
     for prim in all_yard:
         identifier=prim.GetAttribute('live:bayId').Get() or ''
         if not identifier.startswith(block+'/') or prim.GetAttribute('live:row').Get()!=source_row:continue
@@ -42,6 +53,18 @@ def plan_yard_to_ship(stage,source_bay,source_row,target_location,source_tier=No
         if overlaps_xy(bounds,obstacle) and obstacle.GetMax()[2]>bounds.GetMax()[2]+.015:
             raise ValueError('源箱上方还有箱子，须先搬走上层箱')
     feet=source.GetAttribute('live:containerSizeFt').Get();dims=bounds.GetSize()
+    if _yard_only:
+        nearby=max(cargo_bounds(stage,p).GetMax()[2] for p in all_yard if (p.GetAttribute('live:bayId').Get() or '').startswith(block+'/'))
+        clear=max(7.,nearby+dims[2]+.5)
+        if clear>9 or bounds.GetMax()[2]>9:raise ValueError('堆场起升净空超出RTG可视行程')
+        from rtg_transfer_motion import read_spreader_size_ft
+        current=read_spreader_size_ft(stage)
+        return dict(source_path=str(source.GetPath()),source_location=f"{source.GetAttribute('live:bayId').Get()} 第{source_row}排第{source.GetAttribute('live:tier').Get()}层",
+                    source_bay=source_id,resolved_source_bay=source.GetAttribute('live:bayId').Get(),source_row=source_row,
+                    source_tier=source.GetAttribute('live:tier').Get(),source_pick_m=list(Gf.Vec3d(bounds.GetMidpoint()[0],bounds.GetMidpoint()[1],bounds.GetMax()[2])),
+                    source_bounds=[list(bounds.GetMin()),list(bounds.GetMax())],cargo_dimensions_m=list(dims),size_ft=feet,yard_clear_z=clear,
+                    spreader_adjustment=dict(current_size_ft=current,target_size_ft=feet,required=current is None or abs(current-feet)>1e-4,before_pickup=True))
+    if target_location is None:raise ValueError('装船计划须指定六位船上目标箱位')
     if not re.fullmatch(r'\d{6}',target_location):raise ValueError('船上目标箱位须为6位编码，例如011090')
     ship_bay,row,tier=int(target_location[:2]),int(target_location[2:4]),int(target_location[4:])
     if tier<82 or tier%2:raise ValueError('当前装船演示仅支持甲板偶数层号82及以上，不支持穿过舱盖装入船舱')
@@ -92,13 +115,14 @@ def plan_yard_to_ship(stage,source_bay,source_row,target_location,source_tier=No
         except ValueError:continue
         available.append((abs(prim.GetAttribute('sts:homeY').Get()-target[1]),prim.GetName()))
     if not available:raise ValueError('没有岸桥能在现有限位内覆盖目标船箱位及集卡停位')
-    entry=next((y for y in (126.05,256.30,386.55,496.30) if y>bounds.GetMidpoint()[1]+6),None)
-    if entry is None:raise ValueError('源堆位缺少可用的集卡道路入口')
-    deck_z=quay[2];park=box(stage,PARK).GetMidpoint();yard_stop=Gf.Vec3d(-3.75,bounds.GetMidpoint()[1],deck_z)
+    from transfer_truck_geometry import loading_routes
+    yard_stop=Gf.Vec3d(-3.75,bounds.GetMidpoint()[1],quay[2])
+    empty_route,loaded_route,route_info=loading_routes(stage,feet,dims[1],quay,bounds.GetMidpoint()[1],reverse=True)
     nearby=max(cargo_bounds(stage,p).GetMax()[2] for p in all_yard if (p.GetAttribute('live:bayId').Get() or '').startswith(block+'/'))
     clear=max(7.,nearby+dims[2]+.5)
     if clear>9 or bounds.GetMax()[2]>9:raise ValueError('堆场起升净空超出RTG可视行程')
-    result={'direction':'yard_to_ship','simulation_only':True,'source_path':str(source.GetPath()),'source_location':f"{source.GetAttribute('live:bayId').Get()} 第{source_row}排第{source.GetAttribute('live:tier').Get()}层",'source_bay':source_id,'resolved_source_bay':source.GetAttribute('live:bayId').Get(),'source_row':source_row,'source_tier':source.GetAttribute('live:tier').Get(),'source_pick_m':list(Gf.Vec3d(bounds.GetMidpoint()[0],bounds.GetMidpoint()[1],bounds.GetMax()[2])),'source_bounds':[list(bounds.GetMin()),list(bounds.GetMax())],'cargo_dimensions_m':list(dims),'size_ft':feet,'target_location':target_location,'target_bay':ship_bay,'target_row':row,'target_tier':tier,'target_center_m':list(target),'target_placeholder_paths':targets,'target_supports':supports,'crane_id':min(available)[1],'yard_clear_z':clear,'yard_stop_m':list(yard_stop),'truck_stop_m':list(quay),'truck_route_empty':[list(park),[118,park[1],deck_z],[118,entry,deck_z],[-3.75,entry,deck_z],list(yard_stop)],'truck_route_loaded':[list(yard_stop),[-3.75,entry,deck_z],[-238.15,entry,deck_z],list(quay)],'display_normalization_required':False,'note':'可复位装船仿真：目标是6.6结构示意箱位，隐藏目标顶部占位模型并由搬运箱替换；不证明真实空舱，不修改库存文件或发送PLC命令。'}
+    result={'direction':'yard_to_ship','simulation_only':True,'source_path':str(source.GetPath()),'source_location':f"{source.GetAttribute('live:bayId').Get()} 第{source_row}排第{source.GetAttribute('live:tier').Get()}层",'source_bay':source_id,'resolved_source_bay':source.GetAttribute('live:bayId').Get(),'source_row':source_row,'source_tier':source.GetAttribute('live:tier').Get(),'source_pick_m':list(Gf.Vec3d(bounds.GetMidpoint()[0],bounds.GetMidpoint()[1],bounds.GetMax()[2])),'source_bounds':[list(bounds.GetMin()),list(bounds.GetMax())],'cargo_dimensions_m':list(dims),'size_ft':feet,'target_location':target_location,'target_bay':ship_bay,'target_row':row,'target_tier':tier,'target_center_m':list(target),'target_placeholder_paths':targets,'target_supports':supports,'crane_id':min(available)[1],'yard_clear_z':clear,'yard_stop_m':list(yard_stop),'truck_stop_m':list(quay),'truck_route_empty':empty_route,'truck_route_loaded':loaded_route,'display_normalization_required':False,'note':'可复位装船仿真：目标是6.6结构示意箱位，隐藏目标顶部占位模型并由搬运箱替换；不证明真实空舱，不修改库存文件或发送PLC命令。'}
+    result.update(route_info)
     result['fingerprint']=hashlib.sha256(json.dumps(result,sort_keys=True,ensure_ascii=True).encode()).hexdigest()
     from rtg_transfer_motion import read_spreader_size_ft
     current=read_spreader_size_ft(stage)

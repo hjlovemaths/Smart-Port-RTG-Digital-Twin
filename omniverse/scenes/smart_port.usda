@@ -63,6 +63,7 @@
         @./hide_reference_feeder_ship_at_quay.usda@,
         @./port_finish_realism.usda@,
         @./port_structure_realism.usda@,
+        @./quay_edge_guardrails.usda@,
         @./port_realism.usda@,
         @./ground_traffic_network.usda@,
         @./sts_track_gauge.usda@,

@@ -12,6 +12,9 @@
 | 实时数据与库存 | PLC／任务消息转 TwinState，按最新有效任务箱区图校准库存并重绘 | [实时服务](services/README.md)、[库存与对位说明](omniverse/docs/RTG_LIVE_DIAGNOSTICS.md) |
 | 第三方 ZMQ 控制 | 5515 接收 RTG 运动指令，5516 发布参数与结果；可选箱面防撞、锁箱联锁及 PhysX 抓放箱 | [启动、协议与客户端](omniverse/docs/RTG_PLC_ZMQ.md)、[最新控制命令核对](omniverse/docs/RTG_PLC_COMMAND_AUDIT.md) |
 | 环境与画面 | 时间、昼夜、四档雨天、雾天、港区照明、海面与船舶运动、WebRTC | [时间与光照](doc/time_of_day.md)、[雨天](doc/rain_modes.md)、[雾天](doc/fog_modes.md) |
+| 集卡驾驶员 | 独立驾驶员登录，01号集卡键盘驾驶、内外跟随视角、碰撞停车与落海复位 | [账号与驾驶操作](omniverse/docs/TRUCK_DRIVER.md) |
+| RTG驾驶员 | 独立RTG登录，140°下视跟随、F调视野、V切视角和键盘轴控制；可与集卡同时操作 | [RTG账号与操作](omniverse/docs/RTG_DRIVER.md) |
+| STS驾驶员 | STS_01独立登录、视角及键盘轴控制 | [STS账号与操作](omniverse/docs/STS_DRIVER.md) |
 | Isaac Sim | 可显式启用的物理原型、RTX LiDAR 与点云采集；需要对应运行环境 | [物理说明](omniverse/docs/RTG_ISAAC_PHYSICS.md)、[雷达排障](omniverse/docs/RTG_LIDAR_TROUBLESHOOTING.md) |
 
 设备运动与作业演示作用于数字场景。Agent 不向 PLC／RCMS 下发真实设备控制命令；实时模式接收外部数据来驱动画面。
@@ -505,6 +508,12 @@ C01-C33。需要重建当前会话相机时可再次调用 `create_rtg_virtual_c
 清理当前会话生成的相机使用 `cleanup_rtg_virtual_cameras()`。
 
 ### 5. 启动 viewport-only WebRTC 画面
+
+**多账号低负载启动：** 保存场景并关闭当前Kit后，运行根目录的
+`start_webrtc_balanced.cmd`，管理画面为 `1920×1080 @ 30 FPS`。
+浏览器打开 `http://localhost:8011/?resolution=1920x1080`。
+RTG与集卡司机仍各自使用独立的 `1280×720 @ 20 FPS` 画面和设备控制。
+此入口降低管理画面的像素数量和刷新频率，不改变原2K入口；具体显存降幅需在相同场景、相同登录账号数量下对比测量。
 
 **无窗口 2K 启动（避免 Windows 标题栏导致 2560×1421）：**
 

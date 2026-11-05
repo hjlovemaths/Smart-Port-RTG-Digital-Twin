@@ -24,6 +24,10 @@ class UnloadTask:
     def __init__(self, controller):
         self.c = controller
         self.stage = controller.stage
+        driver=getattr(builtins,'_smartport_sts_driver',None)
+        if driver and not driver.closed and driver.controller.path==controller.path:raise ValueError('STS司机正在操作该岸桥')
+        held=self.stage.GetPrimAtPath(controller.path+'/Gantry/Trolley/Hoist').GetAttribute('smartport:stsDriverHeldCargo')
+        if held and held.Get():raise ValueError('岸桥仍有闭锁箱子，请先落稳开锁')
         if self.stage.GetPrimAtPath(SHIP+'/StructureSlots'):
             raise ValueError('当前显示的是6.6船图结构箱位，没有实际配载箱清单，不能把结构箱位当作货物启动装卸。')
         self.phase = 'Ready'

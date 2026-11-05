@@ -1,5 +1,5 @@
 // A small shared phase cue; viewers can read it, only administrators can control.
-if(document.documentElement.classList.contains('smartport-video-only')) {
+if(document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-driver')) {
   const cue=document.createElement('aside');cue.id='transfer-cinema';cue.hidden=true;
   cue.innerHTML='<strong></strong><span class="route"></span><span class="detail"></span><progress max="10" value="0" aria-label="搬运流程进度"></progress><div class="controls" hidden><button type="button" data-action="pause">暂停镜头</button><button type="button" data-action="stop">退出镜头</button></div><small role="status"></small>';
   document.body.append(cue);
@@ -17,7 +17,7 @@ if(document.documentElement.classList.contains('smartport-video-only')) {
       current=await response.json();cue.hidden=!current.visible;if(cue.hidden)return;
       const paused=current.status==='paused';
       cue.querySelector('strong').textContent=`电影视角 · ${current.title}${paused?'（已暂停）':current.status==='task_paused'?'（任务暂停）':''}`;
-      cue.querySelector('.route').textContent=`船上 ${current.source} → ${current.destination}`;
+      cue.querySelector('.route').textContent=`${current.direction==='yard_to_ship'?'':'船上 '}${current.source} → ${current.destination}`;
       cue.querySelector('.detail').textContent=paused?(current.task_finished?'搬运已完成，保留手动视角':'手动查看中，可继续自动镜头'):current.detail;
       cue.querySelector('progress').value=current.step;cue.querySelector('progress').max=current.total;
       cue.querySelector('.controls').hidden=!admin;

@@ -24,6 +24,11 @@ class AgentWebBridge:
             return
         from omni.services.core import main
         from fastapi import HTTPException
+        from starlette.requests import Request
+        from starlette.responses import FileResponse,HTMLResponse
+        from starlette.routing import Route
+        import json
+        import re
         import carb.settings
 
         # Camera model representations are editor helpers, not port equipment.
@@ -49,14 +54,16 @@ class AgentWebBridge:
         install_auth(app)
         prefix = "/api/smartport-agent"
         app.router.routes[:] = [r for r in app.router.routes
-                                if not getattr(r, "path", "").startswith(prefix) and getattr(r,'path','')!='/api/transfer-camera/state']
+                                if not getattr(r, "path", "").startswith((prefix,'/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/'))
+                                and getattr(r,'path','') not in ('/api/transfer-camera/state','/driver','/rtg-driver','/sts-driver','/api/session/initial-view')
+                                and not getattr(r,'path','').startswith('/static/smartport-')]
 
         async def execute(action, payload):
             if self.closed:
                 raise HTTPException(503, "Agent is restarting")
             command = {"action": action, "payload": payload, "done": threading.Event(), "cancelled": False}
             self.commands.put(command)
-            if not await asyncio.to_thread(command["done"].wait, 5):
+            if not await asyncio.to_thread(command["done"].wait, 45 if action in ('driver_acquire','rtg_driver_acquire','sts_driver_acquire') else 5):
                 command["cancelled"] = True
                 raise HTTPException(503, "Kit is busy; please retry")
             if "error" in command:
@@ -104,6 +111,51 @@ class AgentWebBridge:
         app.add_api_route(prefix + "/state", state, methods=["GET"])
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
         app.add_api_route('/api/transfer-camera/state',cinema_state,methods=['GET'])
+        async def initial_view(request:Request):
+            session=request.scope.get('smartport_session')
+            if not session or session.get('role')!='admin':raise HTTPException(403,'仅管理员可初始化管理视口')
+            if session.get('initial_view_pending'):
+                result=await execute('admin_home',{})
+                session['initial_view_pending']=False
+                return result
+            return {'ok':True}
+        app.add_api_route('/api/session/initial-view',initial_view,methods=['POST'])
+        def driver_endpoint(action, role='driver', action_prefix='driver_'):
+            async def endpoint(request:Request):
+                session=request.scope.get('smartport_session')
+                if not session or session.get('role')!=role:raise HTTPException(403,'仅对应设备驾驶员可操作')
+                body=await request.body()
+                if len(body)>4096:raise HTTPException(400,'驾驶指令过长')
+                try:data=json.loads(body) if body else {}
+                except (ValueError,UnicodeDecodeError):raise HTTPException(400,'无效驾驶指令')
+                if not isinstance(data,dict):raise HTTPException(400,'驾驶指令须为对象')
+                client_id=data.pop('client_id',request.query_params.get('client_id',''))
+                if not isinstance(client_id,str) or not re.fullmatch(r'[A-Za-z0-9_-]{16,80}',client_id):
+                    raise HTTPException(400,'缺少有效驾驶页面标识，请重新进入驾驶页面')
+                owner=request.scope['smartport_session_token']+':'+client_id
+                return await execute(action_prefix+action,dict(owner=owner,session=session,data=data))
+            return endpoint
+        for action in ('acquire','input','release','state'):
+            app.add_api_route('/api/truck-driver/'+action,driver_endpoint(action),methods=['GET'] if action=='state' else ['POST'])
+            app.add_api_route('/api/rtg-driver/'+action,driver_endpoint(action,'rtg_driver','rtg_driver_'),methods=['GET'] if action=='state' else ['POST'])
+            app.add_api_route('/api/sts-driver/'+action,driver_endpoint(action,'sts_driver','sts_driver_'),methods=['GET'] if action=='state' else ['POST'])
+        async def driver_page(request:Request):
+            from omni.services.livestream.webrtc import extension as web_client
+            from rtg_webrtc_viewer import build_viewer_page
+            root=Path(web_client.__file__).parent/'web';backup=root/'index.smartport-original.html'
+            stock=(backup if backup.exists() else root/'index.html').read_text(encoding='utf-8')
+            return HTMLResponse(build_viewer_page(stock),headers={'Cache-Control':'no-store'})
+        app.router.routes.insert(0,Route('/driver',driver_page,methods=['GET']))
+        app.router.routes.insert(0,Route('/rtg-driver',driver_page,methods=['GET']))
+        app.router.routes.insert(0,Route('/sts-driver',driver_page,methods=['GET']))
+        # Project assets precede the vendor static mount; no installed files
+        # need changing to make the new driving page available.
+        for file in (Path(scripts).parent/'web').glob('smartport-*'):
+            if file.suffix not in ('.js','.css'):continue
+            def asset_endpoint(file=file):
+                async def response(request):return FileResponse(file,headers={'Cache-Control':'no-store'})
+                return response
+            app.router.routes.insert(0,Route('/static/'+file.name,asset_endpoint(),methods=['GET','HEAD']))
         for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view), ("clear", clear), ("approval", approval),('cinema',cinema)):
             app.add_api_route(prefix + "/" + name, endpoint, methods=["POST"])
         self.installed = True
@@ -161,10 +213,79 @@ class AgentWebBridge:
         except RuntimeError:
             # A viewport can disappear while Kit is closing/replacing a stage.
             self.navigation.stage = self.navigation.viewport = None
+        driver_module=sys.modules.get('truck_driver_runtime')
+        driver=driver_module.active_driver() if driver_module else None
+        if driver:
+            if driver.stage!=stage:driver.close()
+            else:
+                now=time.monotonic();previous=getattr(self,'_driver_last_tick',now)
+                self._driver_last_tick=now
+                try:driver.tick(min(.1,max(0.,now-previous)))
+                except Exception:
+                    import logging
+                    driver.close();logging.getLogger(__name__).exception('Truck driver stopped')
+        else:self._driver_last_tick=time.monotonic()
+        rtg_module=sys.modules.get('rtg_driver_runtime')
+        rtg_driver=rtg_module.active_rtg_driver() if rtg_module else None
+        if rtg_driver:
+            if rtg_driver.stage!=stage:rtg_driver.close()
+            else:
+                now=time.monotonic();previous=getattr(self,'_rtg_driver_last_tick',now)
+                self._rtg_driver_last_tick=now
+                try:rtg_driver.tick(min(.1,max(0.,now-previous)))
+                except Exception:
+                    import logging
+                    rtg_driver.close();logging.getLogger(__name__).exception('RTG driver stopped')
+        else:self._rtg_driver_last_tick=time.monotonic()
+        sts_module=sys.modules.get('sts_driver_runtime')
+        sts_driver=sts_module.active_sts_driver() if sts_module else None
+        if sts_driver:
+            if sts_driver.stage!=stage:sts_driver.close()
+            else:
+                now=time.monotonic();previous=getattr(self,'_sts_driver_last_tick',now);self._sts_driver_last_tick=now
+                try:sts_driver.tick(min(.1,max(0.,now-previous)))
+                except Exception:
+                    import logging
+                    sts_driver.close();logging.getLogger(__name__).exception('STS driver stopped')
+        else:self._sts_driver_last_tick=time.monotonic()
 
     @staticmethod
     def execute(panel, action, payload):
         from . import agent_api
+        if action=='admin_home':
+            import omni.usd
+            from omni.kit.viewport.utility import get_viewport_from_window_name,get_active_viewport
+            import rtg_viewport_only_livestream as stream
+            from pxr import Usd
+            stage=omni.usd.get_context().get_stage()
+            info=stream._ensure_rtg_follow_camera(stage)
+            if not info:raise ValueError('RTG初始视角尚未就绪')
+            path,transform,center=info;target=stream._rtg_follow_target_world(stage)
+            with Usd.EditContext(stage,stage.GetSessionLayer()):
+                transform.Set(stream._look_at_camera_matrix(stream._default_follow_eye(target),target));center.Set(target)
+            runtime=getattr(panel,'_runtime',None)
+            if runtime:
+                runtime.follow=runtime.follow_viewport=None;runtime.pause_transfer_camera('manual')
+            viewport=get_viewport_from_window_name('Viewport') or get_active_viewport()
+            if viewport is None:raise ValueError('管理员视口尚未就绪')
+            viewport.camera_path=path
+            stream._start_rtg_camera_follow()
+            return {'ok':True,'camera_path':path}
+        if action.startswith('sts_driver_'):
+            import omni.usd
+            from sts_driver_runtime import execute_sts_driver
+            return execute_sts_driver(panel,omni.usd.get_context().get_stage(),action[11:],payload['owner'],payload['session'],payload['data'])
+        if action.startswith('rtg_driver_'):
+            import omni.usd
+            from rtg_driver_runtime import execute_rtg_driver
+            return execute_rtg_driver(panel,omni.usd.get_context().get_stage(),action[11:],
+                                      payload['owner'],payload['session'],payload['data'])
+        if action.startswith('driver_'):
+            import omni.usd
+            from omni.kit.viewport.utility import get_active_viewport
+            from truck_driver_runtime import execute_driver
+            return execute_driver(panel,omni.usd.get_context().get_stage(),get_active_viewport(),action[7:],
+                                  payload['owner'],payload['session'],payload['data'])
         if action=='cinema_state':
             runtime=getattr(panel,'_runtime',None)
             return runtime.transfer_camera_state() if runtime is not None else {'status':'idle','visible':False}

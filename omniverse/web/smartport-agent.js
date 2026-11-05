@@ -1,5 +1,5 @@
 // Browser-native IME controls. Scene operations still use the existing Agent.
-if (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator')) {
+if (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator') && !document.documentElement.classList.contains('smartport-driver')) {
   const host = document.createElement('section');
   host.id = 'web-agent'; host.hidden = true;
   host.innerHTML = `<header><span>SMART PORT / AGENT</span><button type="button" id="web-agent-open">Settings</button></header>

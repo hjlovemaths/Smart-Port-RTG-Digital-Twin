@@ -41,6 +41,8 @@ class TransferTests(unittest.TestCase):
    matrix=UsdGeom.XformCache().GetLocalToWorldTransform(self.s.GetPrimAtPath(p['source_path']))
    self.assertAlmostEqual(abs(matrix.GetDeterminant()),1.,places=5,msg='cargo must not be scaled in transit')
    if self.t.phase=='停车场集卡出车':self.assertLess((center-source_initial).GetLength(),1e-5)
+   if self.t.cargo_on_truck:
+       self.assertLess(((self.t.cargo_world.GetInverse()*self.t.cargo_op.Get()).Transform(self.t.cargo_origin)-self.t.truck_load_center()).GetLength(),1e-5)
    last=center
    if i==50:
     self.t.pause();snapshot=(dict(self.c.state),self.t.truck_point,center)
@@ -53,6 +55,9 @@ class TransferTests(unittest.TestCase):
     self.c.resume();self.t.resume()
    if self.t.finished:break
   self.assertTrue(self.t.finished,self.t.summary())
+  self.assertIn('集卡空车返回停车场',self.t.history);self.assertIn('集卡倒车归位',self.t.history)
+  self.assertLess((self.t.truck_point-self.t.pivot).GetLength(),1e-8);self.assertEqual(self.t.truck_heading,0.)
+  self.assertLess((UsdGeom.XformCache().GetLocalToWorldTransform(self.t.truck)-self.t.truck_world).GetRow(3).GetLength(),1e-5)
   self.assertIn('岸桥对位闭锁',phases);self.assertIn('RTG对位闭锁',phases);self.assertIn('集卡经引桥运往堆场',phases)
   final=box(self.s,p['source_path']);self.assertLess((final.GetMidpoint()-Gf.Vec3d(p['target_center_m'])).GetLength(),1e-5)
   self.assertAlmostEqual(final.GetMin()[2],p['support_bounds'][1][2]+.005,places=5)

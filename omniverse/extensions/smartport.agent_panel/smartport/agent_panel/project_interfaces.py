@@ -24,12 +24,14 @@ def load(name):
     return existing_module(name) or importlib.import_module(name)
 
 
-def require_idle(owner):
+def require_idle(owner, *, allow_rtg_driver=False, allow_sts_driver=False):
     if owner.motion:
         raise ValueError("An Agent RTG movement is running. Wait for arrival or stop it before starting a task.")
-    owner._guard_manual("rtg")
+    owner._guard_manual("rtg",allow_rtg_driver=allow_rtg_driver)
+    active_sts=getattr(builtins,'_smartport_sts_driver',None)
     moving = [name for name, controller in sts_controllers(owner.stage).items()
-              if any(abs(controller.targets[axis] - controller.state[axis]) > 0.001 for axis in controller.state)]
+              if not (allow_sts_driver and active_sts and not active_sts.closed and controller is active_sts.controller)
+              and any(abs(controller.targets[axis] - controller.state[axis]) > 0.001 for axis in controller.state)]
     if moving:
         raise ValueError("Wait for or stop the moving STS cranes first: " + ", ".join(moving))
 
@@ -41,6 +43,7 @@ def _sts_task(owner, args):
     panel = current_sts_panel(owner.stage)
     if action.startswith("start_"):
         require_idle(owner)
+        owner._guard_manual('sts','STS_01' if action=='start_unload' else 'STS_03')
         if panel is None or panel._sub is None:
             panel = load("sts_control").show_sts_controls()
         if panel.unload_task:

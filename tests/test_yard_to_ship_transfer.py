@@ -44,6 +44,8 @@ class ReverseTransferTests(unittest.TestCase):
             self.assertLess((center-last).GetLength(),1.2,'Cargo must follow RTG, truck and STS continuously')
             self.assertAlmostEqual(abs(UsdGeom.XformCache().GetLocalToWorldTransform(self.t.cargo).GetDeterminant()),1.,places=5)
             if self.t.phase=='停车场集卡前往堆场':self.assertLess((center-initial.GetMidpoint()).GetLength(),1e-5)
+            if self.t.cargo_on_truck:
+                self.assertLess(((self.t.cargo_world.GetInverse()*self.t.cargo_op.Get()).Transform(self.t.cargo_origin)-self.t.truck_load_center()).GetLength(),1e-5)
             last=center
             if i==50:
                 self.t.pause();snapshot=(dict(self.c.state),Gf.Vec3d(self.t.truck_point),center)
@@ -54,6 +56,9 @@ class ReverseTransferTests(unittest.TestCase):
                 self.c.resume();self.t.resume()
             if self.t.finished:break
         self.assertTrue(self.t.finished,self.t.summary())
+        self.assertIn('集卡空车返回停车场',self.t.history);self.assertIn('集卡倒车归位',self.t.history)
+        self.assertLess((self.t.truck_point-self.t.pivot).GetLength(),1e-8);self.assertEqual(self.t.truck_heading,0.)
+        self.assertLess((UsdGeom.XformCache().GetLocalToWorldTransform(self.t.truck)-self.t.truck_world).GetRow(3).GetLength(),1e-5)
         self.assertIn('RTG源箱对位闭锁',phases);self.assertIn('集卡经引桥运往岸桥',phases);self.assertIn('岸桥船上开锁落箱',phases)
         final=box(self.s,cargo)
         self.assertLess((final.GetMidpoint()-Gf.Vec3d(p['target_center_m'])).GetLength(),1e-5)
@@ -79,6 +84,9 @@ class ReverseTransferTests(unittest.TestCase):
             self.t.tick(.1)
             if self.t.finished:break
         self.assertTrue(self.t.finished,self.t.summary())
+        self.assertIn('集卡空车返回停车场',self.t.history);self.assertIn('集卡倒车归位',self.t.history)
+        self.assertLess((self.t.truck_point-self.t.pivot).GetLength(),1e-8);self.assertEqual(self.t.truck_heading,0.)
+        self.assertLess((UsdGeom.XformCache().GetLocalToWorldTransform(self.t.truck)-self.t.truck_world).GetRow(3).GetLength(),1e-5)
         final=box(self.s,self.t.cargo.GetPath())
         self.assertAlmostEqual(final.GetSize()[1],p['cargo_dimensions_m'][1],places=5)
         self.assertAlmostEqual(final.GetMin()[2],p['target_supports'][0]['top_z'],places=4)

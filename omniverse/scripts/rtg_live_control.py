@@ -702,6 +702,7 @@ class RTGController:
         size_ft: int,
         *,
         smooth: bool = True,
+        dt_s: float | None = None,
     ) -> float | None:
         """Move both telescopic end carriages to the requested ISO box length."""
         if size_ft not in (20, 40):
@@ -710,7 +711,8 @@ class RTGController:
             return None
 
         now = time.monotonic()
-        elapsed = _clamp(now - self._spreader_last_update_at, 0.0, 0.5)
+        if dt_s is not None and (not math.isfinite(dt_s) or dt_s<0):raise ValueError('Spreader timestep must be finite and nonnegative')
+        elapsed = _clamp(now - self._spreader_last_update_at if dt_s is None else dt_s, 0.0, 0.5)
         self._spreader_last_update_at = now
         # A reversible transfer may have changed/restored the composed session
         # endpoint since this controller instance last issued a command.

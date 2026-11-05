@@ -14,6 +14,11 @@ MARKER = "<!-- smartport-video-only-viewer-v1 -->"
 VIEWER_HEAD = """
 <!-- smartport-video-only-viewer-v1 -->
 <script>
+  if (location.pathname === '/rtg-driver') document.documentElement.classList.add('smartport-rtg-driver');
+  if (location.pathname === '/sts-driver') document.documentElement.classList.add('smartport-sts-driver');
+  if (['/driver','/rtg-driver','/sts-driver'].includes(location.pathname)) {
+    document.documentElement.classList.add('smartport-driver','smartport-video-only');
+  }
   if (new URLSearchParams(location.search).get('controls') !== '1') {
     document.documentElement.classList.add('smartport-video-only');
   }
@@ -74,23 +79,36 @@ VIEWER_HEAD = """
   }
 </script>
 <link rel="stylesheet" href="/static/smartport-agent.css?v=8">
-<script type="module" src="/static/smartport-session.js?v=1"></script>
+<script type="module" src="/static/smartport-session.js?v=3"></script>
 <script type="module" src="/static/smartport-agent.js?v=10"></script>
 <script type="module" src="/static/smartport-navigation.js?v=5"></script>
-<script type="module" src="/static/smartport-cinema.js?v=1"></script>
+<script type="module" src="/static/smartport-cinema.js?v=2"></script>
+<script type="module" src="/static/smartport-driver.js?v=5"></script>
+<script type="module" src="/static/smartport-rtg-driver.js?v=4"></script>
+<script type="module" src="/static/smartport-sts-driver.js?v=2"></script>
 """
 
 
 def build_viewer_page(stock_html: str) -> str:
     """Keep the vendor's input and streaming implementation unchanged."""
     replacements = {
+        '// Fallback to default configuration using library default signaling port': """// Role pages must never steal the administrator's primary stream.
+                        if (document.documentElement.classList.contains('smartport-driver') ||
+                            new URLSearchParams(location.search).get('spectator') === '1') {
+                            streamConfigurations = {streams: []};
+                            connectButton.disabled = true;
+                            loadingInfo.textContent = '独立画面配置获取失败，请刷新页面重试';
+                            throw error;
+                        }
+                        // Fallback to default configuration using library default signaling port""",
         "fetch('/api/stream-config')": "fetch('/api/stream-config' + (new URLSearchParams(location.search).get('spectator') === '1' ? '?spectator=1' : ''))",
         "</head>": VIEWER_HEAD + "\n</head>",
         "<title>Omniverse Kit WebRTC Streaming</title>": "<title>Smart Port · 港区视图</title>",
         "resolutionSelect.value = '1920x1080';": """const viewOnly = document.documentElement.classList.contains('smartport-video-only');
                 const requestedResolution = new URLSearchParams(location.search).get('resolution');
                 const validResolution = Object.hasOwn(StreamResolution, requestedResolution);
-                resolutionSelect.value = validResolution ? requestedResolution : (viewOnly ? '2560x1440' : '1920x1080');
+                resolutionSelect.value = document.documentElement.classList.contains('smartport-driver') ? '1280x720' :
+                    (validResolution ? requestedResolution : (viewOnly ? '2560x1440' : '1920x1080'));
                 if (viewOnly) {
                     remoteVideo.removeAttribute('poster');
                     // The SDK maps input using the element's bounds. Keep
@@ -117,7 +135,10 @@ def build_viewer_page(stock_html: str) -> str:
                         streamSelect.value = String(index);
                         resolutionSelect.disabled = true;
                     }
-                    if (viewOnly && new URLSearchParams(location.search).get('autoconnect') !== '0') connect();""",
+                    if (viewOnly && new URLSearchParams(location.search).get('autoconnect') !== '0') {
+                        if (!document.documentElement.classList.contains('smartport-driver') || window.smartportDriverReady) connect();
+                        else window.addEventListener('smartport-driver-ready', () => connect(), {once:true});
+                    }""",
         """window.addEventListener('beforeunload', () => {
                     if (isConnected) {
                         AppStreamer.terminate();

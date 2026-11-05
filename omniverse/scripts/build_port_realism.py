@@ -101,19 +101,8 @@ def build():
     uv_mesh(prefix+'ROAD_SURFACE',asphalt)
     uv_mesh(prefix+'SHORE_APRON',concrete)
 
-    # Existing network paint sits at z=.245 even where roads are at .109;
-    # place those quads 6-7 mm above their surface instead of floating.
-    for name in ('WhiteTrafficLines','YellowTrafficDividers'):
-        path='/World/GROUND_TRAFFIC_NETWORK/'+name
-        mesh=UsdGeom.Mesh(source.GetPrimAtPath(path))
-        if mesh:
-            points=mesh.GetPointsAttr().Get()
-            adjusted=[]
-            for x,y,z in points:
-                if z > .24:
-                    z=.190 if x < -101.5 else .116
-                adjusted.append(Gf.Vec3f(x,y,z))
-            stage.OverridePrim(path).CreateAttribute('points',Sdf.ValueTypeNames.Point3fArray).Set(adjusted)
+    # Paint height belongs to build_ground_traffic_network.py. Do not freeze
+    # its points in this stronger layer: road/arrow edits must remain visible.
 
     def quads(name,faces,mat):
         mesh=UsdGeom.Mesh.Define(stage,BASE+'/'+name)
