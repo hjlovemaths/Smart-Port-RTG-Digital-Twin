@@ -83,8 +83,8 @@ VIEWER_HEAD = """
 <script type="module" src="/static/smartport-agent.js?v=10"></script>
 <script type="module" src="/static/smartport-navigation.js?v=5"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>
-<script type="module" src="/static/smartport-driver.js?v=5"></script>
-<script type="module" src="/static/smartport-rtg-driver.js?v=4"></script>
+<script type="module" src="/static/smartport-driver.js?v=7"></script>
+<script type="module" src="/static/smartport-rtg-driver.js?v=5"></script>
 <script type="module" src="/static/smartport-sts-driver.js?v=2"></script>
 """
 
@@ -108,7 +108,7 @@ def build_viewer_page(stock_html: str) -> str:
                 const requestedResolution = new URLSearchParams(location.search).get('resolution');
                 const validResolution = Object.hasOwn(StreamResolution, requestedResolution);
                 resolutionSelect.value = document.documentElement.classList.contains('smartport-driver') ? '1280x720' :
-                    (validResolution ? requestedResolution : (viewOnly ? '2560x1440' : '1920x1080'));
+                    (validResolution ? requestedResolution : '1920x1080');
                 if (viewOnly) {
                     remoteVideo.removeAttribute('poster');
                     // The SDK maps input using the element's bounds. Keep
@@ -136,8 +136,11 @@ def build_viewer_page(stock_html: str) -> str:
                         resolutionSelect.disabled = true;
                     }
                     if (viewOnly && new URLSearchParams(location.search).get('autoconnect') !== '0') {
-                        if (!document.documentElement.classList.contains('smartport-driver') || window.smartportDriverReady) connect();
-                        else window.addEventListener('smartport-driver-ready', () => connect(), {once:true});
+                        if (!document.documentElement.classList.contains('smartport-driver')) connect();
+                        else if (window.smartportDriverReady && window.smartportDriverTransport !== 'jpeg') connect();
+                        else window.addEventListener('smartport-driver-ready', () => {
+                            if (window.smartportDriverTransport !== 'jpeg') connect();
+                        }, {once:true});
                     }""",
         """window.addEventListener('beforeunload', () => {
                     if (isConnected) {

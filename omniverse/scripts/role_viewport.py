@@ -1,5 +1,5 @@
 """A private driver render context; never changes the administrator viewport."""
-import ctypes,time,queue,threading
+import ctypes,time,queue,threading,io
 from contextlib import contextmanager
 from pxr import Sdf,Usd,UsdUtils
 
@@ -7,6 +7,13 @@ DRIVER_SIGNAL_PORT=49230
 DRIVER_MEDIA_PORT=48006
 DRIVER_RESOLUTION=(1280,720)
 DRIVER_FPS=20
+
+
+def next_capture_deadline(previous,now,fps):
+    """Keep the frame clock anchored; skip missed slots without a catch-up burst."""
+    period=1/fps
+    if not previous:return now+period
+    return previous+(max(0,int((now-previous)/period))+1)*period
 
 
 def copy_bgra_frame(data,width,height,rgba=False):
@@ -79,19 +86,21 @@ def private_stage(source):
 
 class FrameStreamer:
     """Bounded latest-frame queue. GPU/NVENC waits never run on Kit's thread."""
-    def __init__(self,signal_port=None,media_port=None):
+    def __init__(self,signal_port=None,media_port=None,fps=None):
+        self.fps=DRIVER_FPS if fps is None else fps;self.upload_encode_ms=0.
         self.queue=queue.Queue(maxsize=1);self.stopping=threading.Event();self.finished=threading.Event()
         self.signal_port=DRIVER_SIGNAL_PORT if signal_port is None else signal_port
         self.media_port=DRIVER_MEDIA_PORT if media_port is None else media_port
         self.error='';self.frames=0;self.started=False
+        self.transport='webrtc';self._jpeg_sample=None
         self.thread=threading.Thread(target=self.run,name='smartport-driver-encoder',daemon=True)
         self.thread.start()
 
-    def submit(self,pixels):
+    def submit(self,pixels,rgba=False):
         if self.stopping.is_set():return
         try:self.queue.get_nowait()
         except queue.Empty:pass
-        try:self.queue.put_nowait(pixels)
+        try:self.queue.put_nowait((pixels,True) if rgba else pixels)
         except queue.Full:pass
 
     def run(self):
@@ -102,18 +111,39 @@ class FrameStreamer:
                 try:pixels=self.queue.get(timeout=.1)
                 except queue.Empty:continue
                 if self.stopping.is_set():break
+                started=time.monotonic()
+                if isinstance(pixels,tuple):
+                    pixels,_=pixels
+                    # The capture callback only owns/copies bytes. Colour
+                    # conversion and CUDA/NVENC work belong on this worker.
+                    red=pixels[:,:,0].copy()
+                    pixels[:,:,0]=pixels[:,:,2];pixels[:,:,2]=red
                 height,width,_=pixels.shape
-                if upload is None:upload=CudaFrames()
-                pointer=upload.upload(pixels)
-                if server is None:
-                    server=Server('webrtc')
-                    if not server.start(ServerConfig(width=width,height=height,target_fps=DRIVER_FPS,
-                            signal_port=self.signal_port,stream_port=self.media_port,
-                            allow_dynamic_resize=False,allow_static_resize=False)):
-                        raise RuntimeError('无法启动设备司机独立画面流')
+                if self.transport=='webrtc':
+                    if upload is None:upload=CudaFrames()
+                    pointer=upload.upload(pixels)
+                    if server is None:
+                        server=Server('webrtc')
+                        if not server.start(ServerConfig(width=width,height=height,target_fps=self.fps,
+                                signal_port=self.signal_port,stream_port=self.media_port,
+                                allow_dynamic_resize=False,allow_static_resize=False)):
+                            # Some Kit/NVST builds reject a second server even
+                            # when its ports and encoder capacity are available.
+                            server.close();server=None;upload.close();upload=None
+                            self.transport='jpeg'
+                            print('[Driver stream '+str(self.signal_port)+'] WebRTC unavailable; using JPEG frames',flush=True)
+                        else:self.started=True
+                    if self.transport=='webrtc':
+                        with upload.scope():server.stream_video_cuda_buffer(pointer,width*4,width,height)
+                if self.transport=='jpeg':
+                    from PIL import Image
+                    rgb=pixels[:,:,:3][:,:,::-1].copy()
+                    output=io.BytesIO()
+                    Image.fromarray(rgb).save(output,format='JPEG',quality=72,subsampling=2)
+                    self._jpeg_sample=(time.monotonic(),output.getvalue())
                     self.started=True
-                with upload.scope():server.stream_video_cuda_buffer(pointer,width*4,width,height)
                 self.frames+=1
+                self.upload_encode_ms=(time.monotonic()-started)*1000
         except Exception as error:
             self.error=str(error);print('[Driver stream '+str(self.signal_port)+'] '+self.error,flush=True)
         finally:
@@ -126,14 +156,24 @@ class FrameStreamer:
         self.stopping.set()
         # No join here: encoder/GPU shutdown must not freeze the admin stream.
 
+    @property
+    def jpeg_frame(self):
+        sample=self._jpeg_sample
+        if sample and not self.stopping.is_set() and time.monotonic()-sample[0]<.75:
+            return sample[1]
+        return None
+
 
 class DriverViewport:
-    def __init__(self,stage,camera,context_name='smartport_truck_driver',texture_name='SmartPortTruckDriverTexture',signal_port=None,media_port=None):
+    def __init__(self,stage,camera,context_name='smartport_truck_driver',texture_name='SmartPortTruckDriverTexture',signal_port=None,media_port=None,resolution=None,fps=None):
         import carb.settings
         import omni.kit.app
         import omni.usd
         self.closed=False;self.texture=None;self.error='';self.encoder=None
         self.pending=False;self.next_frame=0.
+        self.resolution=tuple(DRIVER_RESOLUTION if resolution is None else resolution)
+        self.fps=DRIVER_FPS if fps is None else fps
+        self.capture_ms=0.;self.capture_fps=0.;self.capture_count=0;self.capture_since=time.monotonic()
         self.settings=carb.settings.get_settings();self._camera=camera
         manager=omni.kit.app.get_app().get_extension_manager()
         if not manager.is_extension_enabled('omni.kit.livestream.webrtc'):
@@ -147,7 +187,7 @@ class DriverViewport:
         def attached(ok,error):
             if not ok:self.error=error or '无法创建独立驾驶场景'
         self.context.attach_stage_with_callback(self.cache_id.ToLongInt(),attached)
-        self.encoder=FrameStreamer(signal_port,media_port)
+        self.encoder=FrameStreamer(signal_port,media_port,fps=fps)
 
     @property
     def frames(self):return self.encoder.frames if self.encoder else 0
@@ -157,6 +197,7 @@ class DriverViewport:
 
     @camera_path.setter
     def camera_path(self,value):
+        if self._camera==str(value):return
         self._camera=str(value)
         if self.texture:self.texture.set_camera_path(str(value))
 
@@ -168,14 +209,16 @@ class DriverViewport:
             import omni.usd
             from omni.kit.hydra_texture import create_hydra_texture
             omni.usd.create_hydra_engine('rtx',self.context)
-            self.texture=create_hydra_texture(self.texture_name,*DRIVER_RESOLUTION,
-                self.context_name,self._camera,'rtx',is_async=True,is_async_low_latency=False,hydra_tick_rate=DRIVER_FPS)
-        if not self.texture or self.pending or time.monotonic()<self.next_frame:return
+            self.texture=create_hydra_texture(self.texture_name,*self.resolution,
+                self.context_name,self._camera,'rtx',is_async=True,is_async_low_latency=False,hydra_tick_rate=self.fps)
+        now=time.monotonic()
+        if not self.texture or self.pending or now+1e-6<self.next_frame:return
         try:aovs=self.texture.get_aov_info(aov_name='LdrColor',include_texture=True)
         except RuntimeError:return
         if not aovs or 'texture' not in aovs[0]:return
         from omni.kit.renderer_capture import acquire_renderer_capture_interface
-        self.pending=True;self.next_frame=time.monotonic()+1/DRIVER_FPS
+        self.pending=True;self.capture_started=now
+        self.next_frame=next_capture_deadline(self.next_frame,now,self.fps)
         acquire_renderer_capture_interface().capture_next_frame_rp_resource_callback(
             self.captured,aovs[0]['texture']['rp_resource'])
 
@@ -190,11 +233,21 @@ class DriverViewport:
             if format not in (format.RGBA8_UNORM,format.BGRA8_UNORM):raise ValueError('驾驶画面像素格式不受支持')
             # Core's WebRTC API consumes BGRA CUDA memory. Explicit conversion
             # also avoids the AOV plugin's red/blue swap on Windows DirectX.
-            self.encoder.submit(copy_bgra_frame(data,width,height,format==format.RGBA8_UNORM))
+            self.encoder.submit(copy_bgra_frame(data,width,height),rgba=format==format.RGBA8_UNORM)
+            now=time.monotonic();self.capture_ms=(now-self.capture_started)*1000
+            self.capture_count+=1
+            if now-self.capture_since>=1:
+                self.capture_fps=self.capture_count/(now-self.capture_since)
+                self.capture_count=0;self.capture_since=now
         except Exception as error:self.error=str(error)
 
     def ready(self):
         return bool(not self.closed and not self.error and self.encoder and not self.encoder.error and self.encoder.started and self.frames>0)
+
+    def stats(self):
+        return dict(transport=self.encoder.transport if self.encoder else None,
+                    resolution=list(self.resolution),target_fps=self.fps,capture_fps=round(self.capture_fps,1),
+                    capture_ms=round(self.capture_ms,1),upload_encode_ms=round(self.encoder.upload_encode_ms,1) if self.encoder else 0)
 
     def close(self):
         if self.closed:return

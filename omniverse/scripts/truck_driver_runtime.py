@@ -91,7 +91,27 @@ def collision_rects(prim,cache,bounds=None):
     return result
 
 
-class SceneObstacles:
+class DrivingSurface:
+    """Road height and water boundaries are needed in either collision mode."""
+    def __init__(self, stage, cache=None):
+        self.surfaces = [(-101.75, -10.25, 150., 500.)]
+        self.grounds = [((-101.75, -10.25, 108.75, 500.), .106), ((108.75, -10.25, 150., 500.), .085)]
+        decks = stage.GetPrimAtPath('/World/SMART_PORT_OFFSHORE_QUAY/Decks')
+        if decks:
+            cache = cache or UsdGeom.BBoxCache(Usd.TimeCode.Default(), ['default', 'render'])
+            for prim in decks.GetChildren():
+                bounds = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+                if not bounds.IsEmpty():
+                    rect = (bounds.GetMin()[0], bounds.GetMin()[1], bounds.GetMax()[0], bounds.GetMax()[1])
+                    self.surfaces.append(rect)
+                    self.grounds.append((rect, bounds.GetMax()[2]))
+
+    def supported(self,x,y):return any(a<=x<=c and b<=y<=d for a,b,c,d in self.surfaces)
+
+    def ground_z(self,x,y):return max((z for (a,b,c,d),z in self.grounds if a<=x<=c and b<=y<=d),default=.085)
+
+
+class SceneObstacles(DrivingSurface):
     def __init__(self,stage,deferred=False,center=None,dynamic_source=None,radius=24,snap=True):
         self.region=None if center is None else tuple(math.floor(v/16)*16+8 if snap else v for v in center)
         self.radius=radius
@@ -116,8 +136,8 @@ class SceneObstacles:
             if time.monotonic()>=deadline:break
 
     def _build(self,stage):
-        self.stage=stage;self.surfaces=[(-101.75,-10.25,150.,500.)]
-        self.grounds=[((-101.75,-10.25,108.75,500.),.106),((108.75,-10.25,150.,500.),.085)]
+        self.stage=stage
+        super().__init__(stage,self.bounds_cache)
         from rtg_live_control import GANTRY_PATH
         self.dynamic_roots=(GANTRY_PATH,'/World/STSControls')
         self.static={};self.dynamic=[]
@@ -125,13 +145,6 @@ class SceneObstacles:
         self.dynamic_cache=self.dynamic_source.dynamic_cache if self.dynamic_source else {}
         self.dynamic_source=None
         cache=self.bounds_cache
-        decks=stage.GetPrimAtPath('/World/SMART_PORT_OFFSHORE_QUAY/Decks')
-        if decks:
-            for prim in decks.GetChildren():
-                b=cache.ComputeWorldBound(prim).ComputeAlignedRange()
-                if not b.IsEmpty():
-                    rect=(b.GetMin()[0],b.GetMin()[1],b.GetMax()[0],b.GetMax()[1])
-                    self.surfaces.append(rect);self.grounds.append((rect,b.GetMax()[2]))
         iterator=Usd.PrimRange(stage.GetPseudoRoot(),Usd.TraverseInstanceProxies())
         iterator=iter(iterator)
         for prim in iterator:
@@ -212,10 +225,6 @@ class SceneObstacles:
         return (bounds.GetMin()[2]>=ground-.01 and bounds.GetMax()[2]<=ground+.10
                 and bounds.GetSize()[2]<=.10 and bounds.GetSize()[0]<=.20)
 
-    def supported(self,x,y):return any(a<=x<=c and b<=y<=d for a,b,c,d in self.surfaces)
-
-    def ground_z(self,x,y):return max((z for (a,b,c,d),z in self.grounds if a<=x<=c and b<=y<=d),default=.085)
-
     def invalidate_dynamic(self,path):
         for root in self.dynamic_groups:
             if path.startswith(root) or root.startswith(path.split('.')[0]):
@@ -235,7 +244,12 @@ class SceneObstacles:
             if b.IsEmpty() or b.GetMax()[2]<=.24 or b.GetMin()[2]>=1.15:continue
             entries.extend((rect,str(prim.GetPath())+'#'+str(i)) for i,rect in enumerate(collision_rects(prim,cache,b)))
         if self.dynamic_revisions.get(root_path,0)==revision:
-            self.dynamic_groups[root_path]=(root,envelope,found);self.dynamic_cache[root_path]=entries
+            grid={}
+            for rect,path in entries:
+                for x in range(math.floor(rect[0]/10),math.floor(rect[2]/10)+1):
+                    for y in range(math.floor(rect[1]/10),math.floor(rect[3]/10)+1):
+                        grid.setdefault((x,y),[]).append((rect,path))
+            self.dynamic_groups[root_path]=(root,envelope,found);self.dynamic_cache[root_path]=grid
 
     def dynamic_prims(self,root):
         cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render'])
@@ -266,9 +280,11 @@ class SceneObstacles:
             if bound.GetMin()[0]>x+6 or bound.GetMax()[0]<x-6 or bound.GetMin()[1]>y+6 or bound.GetMax()[1]<y-6:continue
             if root_path not in self.dynamic_cache:
                 for _ in self.warm_dynamic(root_path):pass
-            for rect,path in self.dynamic_cache.get(root_path,[]):
-                if rect[0]>x+5 or rect[2]<x-5 or rect[1]>y+5 or rect[3]<y-5:continue
-                result[path]=(rect,path)
+            for a in range(math.floor((x-6)/10),math.floor((x+6)/10)+1):
+                for b in range(math.floor((y-6)/10),math.floor((y+6)/10)+1):
+                    for rect,path in self.dynamic_cache.get(root_path,{}).get((a,b),[]):
+                        if rect[0]>x+5 or rect[2]<x-5 or rect[1]>y+5 or rect[3]<y-5:continue
+                        result[path]=(rect,path)
         for path in cargo_paths:
             prim=self.stage.GetPrimAtPath(path)
             if not prim or attr(prim,TRUCK_OWNER)==TRUCK:continue
@@ -288,7 +304,7 @@ class SceneObstacles:
 
 
 class TruckDriver:
-    def __init__(self,stage,viewport,owner,session,clock=time.monotonic,cab_stage=None,deferred_world=False):
+    def __init__(self,stage,viewport,owner,session,clock=time.monotonic,cab_stage=None,deferred_world=False,*,collision_enabled=True):
         if stage is None or viewport is None:raise ValueError('港区场景或驾驶视口尚未就绪，请稍后重试')
         if active_driver():raise ValueError('01号集卡已由另一驾驶会话占用')
         if active_task(stage):raise ValueError('自动搬运占用01号集卡，请先结束并复位搬运任务')
@@ -297,8 +313,10 @@ class TruckDriver:
         self.closed=False;self.view='cabin';self.last_input=clock();self.last_seen=clock();self.last_seq=-1
         self.notice='';self.notice_until=0.;self.last_collision_path=None;self.previous_camera=str(viewport.camera_path)
         self.layer=Sdf.Layer.CreateAnonymous('truck_driver_demo.usda');self.world=None
+        self.collision_enabled=collision_enabled
         stage.GetSessionLayer().subLayerPaths.insert(0,self.layer.identifier)
         try:
+            self.surface=DrivingSurface(stage)
             with Usd.EditContext(stage,self.layer):
                 source=stage.GetPrimAtPath(PARK);bounds=box(stage,PARK);self.origin=bounds.GetMidpoint();self.spawn_ground=bounds.GetMin()[2]
                 self.original_world=UsdGeom.XformCache().GetLocalToWorldTransform(source)
@@ -323,7 +341,11 @@ class TruckDriver:
                 self.apply()
             self.regional_world=deferred_world
             self.driving_ready=not deferred_world
-            self.world=SceneObstacles(stage,deferred=deferred_world,center=(self.engine.x,self.engine.y) if deferred_world else None);self.obstacles=[] if not self.world.ready else self.world.near(self.engine.x,self.engine.y);self.next_obstacles=clock()+.2
+            self.obstacles=[]
+            if collision_enabled:
+                self.world=SceneObstacles(stage,deferred=deferred_world,center=(self.engine.x,self.engine.y) if deferred_world else None)
+                if self.world.ready:self.obstacles=self.world.near(self.engine.x,self.engine.y)
+            self.next_obstacles=clock()+.2
             self.rebuilding_world=None;self.next_index_advance=0.
             self.checked_regions=[];self.local_checks=0;self.local_check_ms=0.;self.index_revision=0;self.last_index_change=''
             self.next_rebuild=clock()+2;self.world_dirty=False
@@ -341,7 +363,7 @@ class TruckDriver:
             manual=prim.GetAttribute('smartport:driverCargo') if prim else None
             if manual and manual.Get():self.next_obstacles=0.;continue
             if prim and helper_geometry(prim):continue
-            if any(name.startswith(p) for p in self.world.dynamic_roots):
+            if self.world and any(name.startswith(p) for p in self.world.dynamic_roots):
                 if path.IsPrimPath() or path.name.startswith(('xformOp','visibility')):
                     for world in [self.world,self.rebuilding_world,*self.checked_regions]:
                         if world:world.invalidate_dynamic(name)
@@ -352,28 +374,46 @@ class TruckDriver:
 
     def command(self,owner,payload):
         if owner!=self.owner:raise ValueError('01号集卡已由另一驾驶会话占用')
-        if set(payload)-{'throttle','steer','brake','view','reset','seq'}:raise ValueError('驾驶指令包含未知参数')
+        if set(payload)-{'throttle','steer','brake','view','reset','seq','collision_enabled'}:raise ValueError('驾驶指令包含未知参数')
         seq=payload.get('seq',self.last_seq+1)
         if type(seq) is not int or not 0<=seq<2**53:raise ValueError('驾驶指令序号无效')
         if seq<=self.last_seq:return self.state()
         if payload.get('view',self.view) not in ('cabin','follow'):raise ValueError('视角须为 cabin 或 follow')
         if 'reset' in payload and type(payload['reset']) is not bool:raise ValueError('复位参数须为布尔值')
+        collision_enabled=payload.get('collision_enabled',self.collision_enabled)
+        if type(collision_enabled) is not bool:raise ValueError('碰撞检测参数须为布尔值')
         self.engine.controls(payload.get('throttle',0),payload.get('steer',0),payload.get('brake',False))
+        if collision_enabled!=self.collision_enabled:
+            self.collision_enabled=collision_enabled
+            self.next_obstacles=0.
+            if not collision_enabled:
+                self.obstacles=[]
+                self.query_ms=0.
+                if self.last_collision_path is not None:
+                    self.notice='';self.notice_until=0.
+                self.last_collision_path=None
+                self.engine.hit=None
+                if self.engine.event=='collision':self.engine.event='ready'
         self.last_seq=seq
+        view_changed=self.view!=payload.get('view',self.view)
         self.view=payload.get('view',self.view);self.last_input=self.clock();self.last_seen=self.clock()
         if payload.get('reset'):
             self.engine.reset();self.notice='车辆已重置';self.notice_until=self.clock()+3;self.last_collision_path=None
-        with Usd.EditContext(self.stage,self.layer):self.apply()
+        # Motion is authored once by tick, rather than again for every input
+        # heartbeat. View changes and reset still take effect immediately.
+        if view_changed or payload.get('reset'):
+            with Usd.EditContext(self.stage,self.layer):self.apply()
         return self.state()
 
     def apply(self):
         e=self.engine;rotation=Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(0,0,1),math.degrees(e.heading)))
-        ground=self.world.ground_z(e.x,e.y) if self.world else self.spawn_ground
+        ground=(self.world or self.surface).ground_z(e.x,e.y)
         center=Gf.Vec3d(e.x,e.y,self.origin[2]+ground-self.spawn_ground)
-        self.truck_op.Set(self.original_world*tr(-self.origin)*rotation*tr(center))
+        pose=self.original_world*tr(-self.origin)*rotation*tr(center)
+        if self.truck_op.Get()!=pose:self.truck_op.Set(pose)
         from rtg_driver_cargo import sync_truck_cargo
         sync_truck_cargo(self.stage,ROOT+'/Truck')
-        self.cab.apply(self.view=='cabin',rotation*tr(center),e.steer)
+        self.cab.apply(self.view=='cabin',rotation*tr(center),e.wheel_angle/math.radians(28))
         forward=Gf.Vec3d(-math.cos(e.heading),-math.sin(e.heading),0)
         side=Gf.Vec3d(-forward[1],forward[0],0)
         if self.view=='cabin':
@@ -381,26 +421,44 @@ class TruckDriver:
             target=eye+forward*15+Gf.Vec3d(0,0,-.2)
         else:
             eye=center-forward*10+Gf.Vec3d(0,0,5);target=center+forward*1.5+Gf.Vec3d(0,0,.3)
-        self.camera_op.Set(Gf.Matrix4d(1).SetLookAt(eye,target,Gf.Vec3d(0,0,1)).GetInverse())
-        self.viewport.camera_path=CAMERA
+        camera_pose=Gf.Matrix4d(1).SetLookAt(eye,target,Gf.Vec3d(0,0,1)).GetInverse()
+        if self.camera_op.Get()!=camera_pose:self.camera_op.Set(camera_pose)
+        if str(self.viewport.camera_path)!=CAMERA:self.viewport.camera_path=CAMERA
 
     def tick(self,dt):
+        started=time.monotonic()
+        try:self._tick(dt)
+        finally:
+            self.update_ms=(time.monotonic()-started)*1000
+            self.update_interval_ms=dt*1000
+
+    def _tick(self,dt):
         if self.closed:return
         now=self.clock()
         if self.session.get('driver_released') or self.session.get('expires',0)<=time.time() or now-self.last_seen>10:
             self.close();return
         if getattr(self,'private_view',None):self.private_view.tick()
         if now-self.last_input>.35:self.engine.stop()
+        if not self.collision_enabled:
+            self.move(dt,now,self.world or self.surface,())
+            return
+        if self.world is None or (not self.world.ready and not self.world.covers(self.engine.x,self.engine.y)):
+            self.world=SceneObstacles(self.stage,deferred=True,center=(self.engine.x,self.engine.y),radius=16,snap=False)
+            self.rebuilding_world=None
+            self.world_dirty=False
+            self.driving_ready=self.world.ready
         # Prefetch with an overlap while the old region remains safe to drive.
         if not self.world_dirty and self.world.region and self.world.ready and self.rebuilding_world is None and (
-                self.world.radius==24 or not self.world.covers(self.engine.x,self.engine.y,margin=48)):
+                self.world.radius==24 or not self.world.covers(self.engine.x,self.engine.y,margin=24)):
             # Start expanding immediately after boot, with seconds of travel
             # already covered ahead. Reuse unchanged bounds and exact meshes.
             sign=-1 if self.engine.speed<-.1 or self.engine.throttle<0 else 1
             lead=min(16.,max(8.,abs(self.engine.speed)*2))
             center=(self.engine.x-sign*math.cos(self.engine.heading)*lead,
                     self.engine.y-sign*math.sin(self.engine.heading)*lead)
-            radii=(32+32*abs(math.cos(self.engine.heading)),32+32*abs(math.sin(self.engine.heading)))
+            # Cover turns as well as forward travel; a narrow corridor caused
+            # synchronous local scans when steering out of its side edge.
+            radii=(64,64)
             self.rebuilding_world=SceneObstacles(self.stage,deferred=True,center=center,dynamic_source=self.world,radius=radii)
         if self.world_dirty:
             # Inventory/replaced geometry is reflected during a driving session.
@@ -451,8 +509,13 @@ class TruckDriver:
                 self.local_checks+=1;self.remember_region(query_world)
             self.next_obstacles=0
         if now>=self.next_obstacles:
+            started=time.monotonic()
             self.obstacles=query_world.near(self.engine.x,self.engine.y);self.next_obstacles=now+.1
-        self.engine.step(dt,self.obstacles,query_world.supported)
+            self.query_ms=(time.monotonic()-started)*1000
+        self.move(dt,now,query_world,self.obstacles)
+
+    def move(self,dt,now,surface,obstacles):
+        self.engine.step(dt,obstacles,surface.supported)
         if self.engine.event in ('collision','water_reset'):
             self.last_collision_path=self.engine.hit if self.engine.event=='collision' else None
             self.notice=('碰撞停车：'+collision_label(self.engine.hit)+'，请转向或后退脱离') if self.engine.event=='collision' else '车辆落海，已重置到初始位置'
@@ -463,16 +526,25 @@ class TruckDriver:
         self.checked_regions=(self.checked_regions+[world])[-8:]
 
     def state(self):
+        index=self.rebuilding_world or self.world
+        collision_ready=not self.collision_enabled or (self.driving_ready and self.world is not None and self.world.ready)
+        video_ready=not getattr(self,'private_view',None) or self.private_view.ready()
         return dict(self.engine.state(),vehicle_id='01',view=self.view,status='closed' if self.closed else 'driving',
+                    update_ms=round(getattr(self,'update_ms',0.),2),
+                    update_interval_ms=round(getattr(self,'update_interval_ms',0.),2),
+                    collision_query_ms=round(getattr(self,'query_ms',0.),2),
+                    obstacle_count=len(self.obstacles),
+                    stream=self.private_view.stats() if getattr(self,'private_view',None) and hasattr(self.private_view,'stats') else None,
                     collision_path=self.engine.hit or (self.last_collision_path if self.clock()<self.notice_until else None),
                     input_seq=self.last_seq,
                     collision_strategy='exact_local_with_prefetch_v2',
-                    collision_scanned=(self.rebuilding_world or self.world).scanned,
+                    collision_enabled=self.collision_enabled,
+                    collision_scanned=index.scanned if index else 0,
                     collision_local_checks=self.local_checks,collision_index_revision=self.index_revision,
                     collision_local_check_ms=round(self.local_check_ms,1),
                     collision_last_change=self.last_index_change,
-                    stream_ready=self.driving_ready and self.world.ready and (self.private_view.ready() if getattr(self,'private_view',None) else True),
-                    startup_phase='collision_index' if not self.driving_ready or not self.world.ready else 'video' if getattr(self,'private_view',None) and not self.private_view.ready() else 'ready',
+                    stream_ready=collision_ready and video_ready,
+                    startup_phase='collision_index' if not collision_ready else 'video' if not video_ready else 'ready',
                     notice=self.notice if self.clock()<self.notice_until else '',camera_path=CAMERA)
 
     def close(self):
@@ -511,9 +583,9 @@ def execute_driver(panel,stage,viewport,action,owner,session,payload):
             runtime.bind(stage);require_idle(runtime,allow_rtg_driver=True,allow_sts_driver=True)
             session['driver_released']=False
             from role_viewport import DriverViewport
-            view=DriverViewport(stage,CAMERA)
+            view=DriverViewport(stage,CAMERA,resolution=(1920,1080),fps=30)
             try:
-                current=TruckDriver(stage,view,owner,session,cab_stage=view.stage,deferred_world=True)
+                current=TruckDriver(stage,view,owner,session,cab_stage=view.stage,deferred_world=True,collision_enabled=False)
                 current.private_view=view
             except Exception:
                 if current:current.close()

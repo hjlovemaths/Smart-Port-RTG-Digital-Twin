@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'omniverse/scripts'))
 sys.path.insert(0,str(ROOT/'omniverse/extensions/smartport.agent_panel'))
 from rtg_driver_runtime import RTGDriver,active_rtg_driver,CAMERA
-from rtg_live_control import RTGController,HOIST_PATH,TROLLEY_PATH
+from rtg_live_control import RTGController,GANTRY_PATH,HOIST_PATH,TROLLEY_PATH
 from role_viewport import private_stage
 from rtg_driver_cargo import world,TRUCK_OWNER,TRUCK,attr
 
@@ -73,6 +73,27 @@ class RTGDriverTests(unittest.TestCase):
                 self.assertAlmostEqual(math.degrees(2*math.atan(36/(2*focal))),fov,places=4)
         self.assertEqual(self.root.ExportToString(),root_before,'operator must not edit source layers')
 
+    def test_overview_frames_crane_and_follows_only_gantry(self):
+        self.step(view='overview',fov=50)
+        camera=self.camera_matrix()
+        to_camera=camera.GetInverse()
+        gantry=self.stage.GetPrimAtPath(GANTRY_PATH)
+        bounds=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render']).ComputeWorldBound(gantry).ComputeAlignedRange()
+        half_width=math.tan(math.radians(25))
+        for i in range(8):
+            x,y,z=to_camera.Transform(bounds.GetCorner(i))
+            self.assertLess(z,0)
+            self.assertLess(abs(x)/-z,half_width)
+            self.assertLess(abs(y)/-z,half_width*9/16)
+
+        self.step(trolley=1,hoist=1)
+        self.assertEqual(self.camera_matrix(),camera)
+        before=UsdGeom.XformCache().GetLocalToWorldTransform(gantry).ExtractTranslation()
+        self.step(gantry=1)
+        delta=UsdGeom.XformCache().GetLocalToWorldTransform(gantry).ExtractTranslation()-before
+        self.assertGreater(delta.GetLength(),0)
+        self.assertLess((self.camera_matrix().ExtractTranslation()-camera.ExtractTranslation()-delta).GetLength(),1e-8)
+
     def test_spreader_stops_on_box_roof_and_can_raise(self):
         body,_,_=self.contact_box();d=self.driver
         before=d.controller.get_positions()[2]
@@ -85,6 +106,41 @@ class RTGDriverTests(unittest.TestCase):
         self.step(hoist=-1)
         self.assertAlmostEqual(d.controller.get_positions()[2],before,places=4)
         self.assertIn('接触箱顶',d.state()['notice'])
+
+    def yard_obstacle(self,centre,dims):
+        with Usd.EditContext(self.stage,self.stage.GetSessionLayer()):
+            obstacle=UsdGeom.Cube.Define(self.stage,'/World/LiveContainers/DriverObstacle')
+            obstacle.CreateSizeAttr(1)
+            obstacle.AddTranslateOp().Set(centre)
+            obstacle.AddScaleOp().Set(dims)
+            obstacle.GetPrim().CreateAttribute('live:row',Sdf.ValueTypeNames.Int).Set(1)
+
+    def test_loaded_trolley_stops_at_neighbour_and_can_pass_above(self):
+        body,_,dims=self.contact_box();d=self.driver
+        centre=world(body).ExtractTranslation()
+        trolley=d.controller.get_positions()[1]
+        feet=d.cargo.geometry._foot_points()
+        d.controller.set_trolley_safe(trolley+.1)
+        direction=math.copysign(1,d.cargo.geometry._foot_points()[0][0]-feet[0][0])
+        d.controller.set_trolley_safe(trolley)
+        self.yard_obstacle(centre+Gf.Vec3d(direction*(dims[0]+.02),0,0),dims)
+        self.step(lock=True)
+        for _ in range(4):self.step(trolley=1)
+        blocked=world(body).ExtractTranslation()
+        self.assertAlmostEqual((blocked[0]-centre[0])*direction,.02,places=5)
+        self.assertIn('小车已停止',d.state()['notice'])
+        for _ in range(8):self.step(hoist=1)
+        self.step(trolley=1)
+        self.assertGreater((world(body).ExtractTranslation()[0]-blocked[0])*direction,.01)
+
+    def test_loaded_descent_stops_at_edge_outside_inset_lock_points(self):
+        body,_,dims=self.contact_box();d=self.driver
+        centre=world(body).ExtractTranslation()
+        self.yard_obstacle(centre+Gf.Vec3d(dims[0]-.04,0,-dims[2]-.05),dims)
+        self.step(lock=True)
+        self.step(hoist=-1)
+        self.assertAlmostEqual(world(body).ExtractTranslation()[2],centre[2]-.05,places=5)
+        self.assertIn('接触集装箱',d.state()['notice'])
 
     def test_descending_cargo_stops_on_truck_cab(self):
         from truck_driver_runtime import TruckDriver
@@ -153,7 +209,7 @@ class RTGDriverTests(unittest.TestCase):
         from smartport.agent_panel.scene_runtime import SceneRuntime
         runtime=SceneRuntime(ROOT);runtime.bind(self.stage);panel=SimpleNamespace(_runtime=runtime)
         # The real acquisition guards must allow truck-after-RTG.
-        with patch('role_viewport.DriverViewport',lambda stage,camera:PrivateView(stage)):
+        with patch('role_viewport.DriverViewport',lambda stage,camera,**options:PrivateView(stage)):
             execute_driver(panel,self.stage,None,'acquire','truck-page',{'expires':time.time()+1000},{})
         truck=active_driver();self.assertIsNotNone(truck)
         self.driver.close()

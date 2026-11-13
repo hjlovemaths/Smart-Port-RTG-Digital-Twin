@@ -159,8 +159,8 @@ class ViewerAuth:
             required_role='sts_driver' if path.startswith('/api/sts-driver/') else 'rtg_driver' if path.startswith('/api/rtg-driver/') else 'driver'
             if session['role']!=required_role:return JSONResponse({'detail':'仅对应设备驾驶员账号可操作'},403)
             if session.get('spectator_port'):session['lease_until']=time.time()+90
-            if path.endswith('/state') and r.method!='GET':return JSONResponse({},405)
-            if not path.endswith('/state') and r.method!='POST':return JSONResponse({},405)
+            method='GET' if path.endswith(('/state','/frame')) else 'POST'
+            if r.method!=method:return JSONResponse({},405,headers={'Allow':method})
             return None
         if session['role'] in ('driver','rtg_driver','sts_driver'):
             if path in ('/','/index.html'):return RedirectResponse(home,303)

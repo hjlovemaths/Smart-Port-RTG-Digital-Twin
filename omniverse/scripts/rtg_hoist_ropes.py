@@ -56,7 +56,9 @@ class HoistRopeBinding:
 
     def write(self):
         with Usd.EditContext(self.stage, self.stage.GetSessionLayer()):
-            self.rope.GetAttribute("points").Set(self.points())
+            attr=self.rope.GetAttribute("points");points=self.points()
+            current=attr.Get()
+            if current is None or list(current)!=points:attr.Set(points)
 
     def profile(self):
         return {"frame": str(self.hoist.GetPath()), "measured": self.measured,

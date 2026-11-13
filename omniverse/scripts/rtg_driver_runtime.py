@@ -1,7 +1,7 @@
 """Independent RTG operator lease, private cameras and bounded manual axes."""
 import builtins,math,time
 from pxr import Gf,Sdf,Usd,UsdGeom
-from rtg_live_control import RTGController,TROLLEY_PATH,HOIST_PATH
+from rtg_live_control import RTGController,GANTRY_PATH,TROLLEY_PATH,HOIST_PATH
 from rtg_spreader_trim import SpreaderTrim,neutral_world_transform
 from rtg_driver_cargo import DriverCargo
 from rtg_transfer_motion import read_spreader_size_ft
@@ -9,7 +9,7 @@ from rtg_transfer_motion import read_spreader_size_ft
 CAMERA='/World/RTGDriverDemo/Camera'
 ROLL_OP='xformOp:transform:rtgDriverRoll'
 ROLL_ATTR='smartport:rtgDriverRollDeg'
-VIEWS=('under','side','end')
+VIEWS=('under','side','end','overview')
 HOIST_SPEED_M_S=5.0
 
 
@@ -67,6 +67,7 @@ class RTGDriver:
         if sum(name in payload for name in ('size_ft','lock','zero'))>1:raise ValueError('请逐项操作尺型、锁具或回零')
         self.axes={k:0. if payload.get('brake') else float(v) for k,v in axes.items()}
         if self.axes['yaw'] or self.axes['roll']:self.returning=False
+        camera_changed=self.view!=view or self.fov!=float(fov)
         self.view=view;self.fov=float(fov);self.last_seq=seq
         self.last_input=self.last_seen=self.clock();self.braking=payload.get('brake',False)
         if self.braking:self.returning=False;self.size_target=None
@@ -85,7 +86,7 @@ class RTGDriver:
                 self.axes=dict.fromkeys(self.axes,0.);self.say(str(error));raise
         if self.cargo.locked and self.axes['gantry']:
             self.axes['gantry']=0.;self.say('载箱闭锁时禁止大车移动；可操作小车和起升')
-        self.apply_camera()
+        if camera_changed:self.apply_camera()
         return self.state()
 
     def say(self,message):self.notice=message;self.notice_until=self.clock()+8
@@ -105,29 +106,50 @@ class RTGDriver:
         with Usd.EditContext(self.stage,self.stage.GetSessionLayer()):
             attr=self.hoist.GetAttribute(ROLL_OP)
             if not attr:attr=UsdGeom.Xformable(self.hoist).AddTransformOp(UsdGeom.XformOp.PrecisionDouble,'rtgDriverRoll').GetAttr()
-            attr.Set(neutral*rigid*neutral.GetInverse())
-            self.hoist.CreateAttribute(ROLL_ATTR,Sdf.ValueTypeNames.Double).Set(self.roll)
-        self.controller.update_ropes()
+            pose=Gf.Matrix4d(1) if self.roll==0 else neutral*rigid*neutral.GetInverse()
+            changed=attr.Get()!=pose
+            if changed:attr.Set(pose)
+            roll_attr=self.hoist.CreateAttribute(ROLL_ATTR,Sdf.ValueTypeNames.Double)
+            if roll_attr.Get()!=self.roll:roll_attr.Set(self.roll)
+        if changed:self.controller.update_ropes()
 
     def apply_camera(self):
         transforms=UsdGeom.XformCache()
-        trolley=transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY_PATH))
-        up=trolley.TransformDir(Gf.Vec3d(1,0,0));up=Gf.Vec3d(up[0],up[1],0).GetNormalized()
-        if self.view=='under':
-            eye=trolley.Transform(Gf.Vec3d(2.55,-5.,8.))
-            target=eye-Gf.Vec3d(0,0,10)
+        up=Gf.Vec3d(0,0,1)
+        if self.view=='overview':
+            gantry=transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(GANTRY_PATH))
+            # Aim through the portal from just off the travel axis, high enough
+            # to see the spreader and container tops without losing the wheels.
+            target=gantry.Transform(Gf.Vec3d(-.25,-5.1,5.2))
+            across=gantry.TransformDir(Gf.Vec3d(1,0,0)).GetNormalized()
+            along=gantry.TransformDir(Gf.Vec3d(0,1,0)).GetNormalized()
+            eye=target+across*6.8+along*31+up*7.2
         else:
-            contact=transforms.GetLocalToWorldTransform(self.hoist).Transform(self.trim.pivot)
-            offset=trolley.TransformDir(Gf.Vec3d(1,0,0) if self.view=='side' else Gf.Vec3d(0,1,0))
-            offset=Gf.Vec3d(offset[0],offset[1],0).GetNormalized()
-            eye=contact+offset*7+Gf.Vec3d(0,0,1.8);target=contact-Gf.Vec3d(0,0,.3);up=Gf.Vec3d(0,0,1)
+            trolley=transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY_PATH))
+            if self.view=='under':
+                up=trolley.TransformDir(Gf.Vec3d(1,0,0));up=Gf.Vec3d(up[0],up[1],0).GetNormalized()
+                eye=trolley.Transform(Gf.Vec3d(2.55,-5.,8.))
+                target=eye-Gf.Vec3d(0,0,10)
+            else:
+                contact=transforms.GetLocalToWorldTransform(self.hoist).Transform(self.trim.pivot)
+                offset=trolley.TransformDir(Gf.Vec3d(1,0,0) if self.view=='side' else Gf.Vec3d(0,1,0))
+                offset=Gf.Vec3d(offset[0],offset[1],0).GetNormalized()
+                eye=contact+offset*7+up*1.8;target=contact-up*.3
         lens=self.fov
         with Usd.EditContext(self.camera_stage,self.camera_stage.GetSessionLayer()):
-            self.camera.CreateFocalLengthAttr(36/(2*math.tan(math.radians(lens)/2)))
-            self.camera_op.Set(Gf.Matrix4d(1).SetLookAt(eye,target,up).GetInverse())
-        self.private_view.camera_path=CAMERA
+            focal=36/(2*math.tan(math.radians(lens)/2))
+            if getattr(self,'_last_fov',None)!=lens:
+                self.camera.CreateFocalLengthAttr(focal);self._last_fov=lens
+            pose=Gf.Matrix4d(1).SetLookAt(eye,target,up).GetInverse()
+            if self.camera_op.Get()!=pose:self.camera_op.Set(pose)
+        if self.private_view.camera_path!=CAMERA:self.private_view.camera_path=CAMERA
 
     def tick(self,dt):
+        started=time.monotonic()
+        try:self._tick(dt)
+        finally:self.update_ms=(time.monotonic()-started)*1000
+
+    def _tick(self,dt):
         if self.closed:return
         now=self.clock()
         if self.session.get('driver_released') or self.session.get('expires',0)<=time.time() or now-self.last_seen>10:
@@ -142,28 +164,46 @@ class RTGDriver:
         moved=any(self.axes.values())
         if self.cargo.locked:self.axes['gantry']=0.
         if self.axes['gantry']:self.controller.set_gantry_safe(gantry+self.axes['gantry']*2*dt)
-        if self.axes['trolley']:self.controller.set_trolley_safe(trolley+self.axes['trolley']*1.2*dt)
+        if self.axes['trolley']:
+            target=trolley+self.axes['trolley']*1.2*dt
+            if self.cargo.locked:
+                target,contact=self.cargo.limit_trolley(trolley,target,now)
+                if contact:self.say(contact)
+            self.controller.set_trolley_safe(target)
         if self.axes['hoist']:
             target=hoist+self.axes['hoist']*HOIST_SPEED_M_S*dt
-            if self.axes['hoist']<0:
-                target,contact=self.cargo.limit_descent(hoist,target,now)
-                if contact:self.say(contact)
+            target,contact=self.cargo.limit_hoist(hoist,target,now)
+            if contact:self.say(contact)
             self.controller.set_hoist_safe(target)
-        if self.axes['roll']:self.roll=max(-5.,min(5.,self.roll+self.axes['roll']*1.5*dt))
+        previous_roll=self.roll
+        next_roll=max(-5.,min(5.,self.roll+self.axes['roll']*1.5*dt))
         yaw,shift=self.controller.get_spreader_trim()
         next_yaw=max(-5.,min(5.,yaw+self.axes['yaw']*dt))
         if self.returning:
-            next_yaw=yaw-max(-dt,min(dt,yaw));self.roll-=max(-1.5*dt,min(1.5*dt,self.roll))
+            next_yaw=yaw-max(-dt,min(dt,yaw));next_roll=self.roll-max(-1.5*dt,min(1.5*dt,self.roll))
             moved=True
-            if abs(next_yaw)<1e-6 and abs(self.roll)<1e-6:self.returning=False
+            if abs(next_yaw)<1e-6 and abs(next_roll)<1e-6:self.returning=False
+        check_trim=self.cargo.locked and (next_roll!=previous_roll or next_yaw!=yaw)
+        if check_trim:before=self.cargo.bounds_for(*self.cargo.held_box())
+        self.roll=next_roll
         if next_yaw!=yaw:self.controller.set_spreader_trim(next_yaw,shift)
         if moved and (self.roll or self.hoist.GetAttribute(ROLL_OP)):self.apply_roll()
+        if check_trim:
+            after=self.cargo.bounds_for(*self.cargo.held_box())
+            if self.cargo.limit_container_sweep(before,after,now)<1:
+                if next_yaw!=yaw:self.controller.set_spreader_trim(yaw,shift)
+                self.roll=previous_roll
+                if self.roll or self.hoist.GetAttribute(ROLL_OP):self.apply_roll()
+                self.returning=False
+                self.say('载箱接触旁边集装箱，吊具姿态调整已停止')
         self.cargo.update()
         self.apply_camera();self.private_view.tick()
 
     def state(self):
         g,t,h=self.controller.get_positions()
-        return dict(status='closed' if self.closed else 'driving',vehicle_id='RTG_PRIMARY',view=self.view,
+        return dict(status='closed' if self.closed else 'driving',vehicle_id='RTG_PRIMARY',view=self.view,available_views=VIEWS,
+                    update_ms=round(getattr(self,'update_ms',0.),2),
+                    stream=self.private_view.stats() if hasattr(self.private_view,'stats') else None,
                     fov=self.fov,gantry_m=g,trolley_m=t,hoist_m=h,roll_deg=self.roll,input_seq=self.last_seq,
                     yaw_deg=self.controller.get_spreader_trim()[0],returning_zero=self.returning,
                     spreader_size_ft=read_spreader_size_ft(self.stage),spreader_target_ft=self.size_target,
@@ -174,6 +214,7 @@ class RTGDriver:
     def close(self):
         if self.closed:return
         self.closed=True;self.axes=dict.fromkeys(self.axes,0.)
+        self.cargo.close()
         if self.private_view:self.private_view.close()
         if getattr(builtins,'_smartport_rtg_driver',None) is self:builtins._smartport_rtg_driver=None
 

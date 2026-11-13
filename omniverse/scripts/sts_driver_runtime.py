@@ -125,7 +125,8 @@ class STSDriver:
                     gantry_m=c.state['gantry'],trolley_m=c.state['trolley'],hoist_m=c.state['hoist'],
                     spreader_size_ft=c.spreader_size_ft,locked=self.cargo.locked,carried_container=self.cargo.held,
                     input_seq=self.last_seq,notice=self.notice if self.clock()<self.notice_until else '',
-                    stream_ready=self.private_view.ready(),simulation_only=True)
+                    stream_ready=self.private_view.ready(),
+                    stream=self.private_view.stats(),simulation_only=True)
 
     def close(self):
         if self.closed:return

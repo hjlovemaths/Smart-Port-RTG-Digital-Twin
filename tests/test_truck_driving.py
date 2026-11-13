@@ -51,3 +51,31 @@ def test_bad_controls_are_rejected_without_partially_changing_state(value):
     truck=TruckDriving((0,0,0),3,.7);truck.controls(.5,.2)
     with pytest.raises(ValueError):truck.controls(1,value)
     assert truck.throttle==.5 and truck.steer==.2
+
+
+def test_keyboard_steering_ramps_and_recentres_without_an_instant_full_lock():
+    truck=TruckDriving((0,0,0),3,.7);truck.controls(0,1)
+    truck.step(.05,[],lambda x,y:True)
+    assert math.degrees(truck.wheel_angle)==pytest.approx(1.75)
+    for _ in range(20):truck.step(.05,[],lambda x,y:True)
+    assert math.degrees(truck.wheel_angle)==pytest.approx(28)
+    truck.controls(0,0)
+    truck.step(.05,[],lambda x,y:True)
+    assert 0<truck.wheel_angle<math.radians(28)
+    for _ in range(20):truck.step(.05,[],lambda x,y:True)
+    assert truck.wheel_angle==0
+    truck.speed=8;truck.controls(1,1)
+    for _ in range(20):truck.step(.05,[],lambda x,y:True)
+    assert math.degrees(truck.wheel_angle)==pytest.approx(14)
+    truck.stop();assert truck.wheel_angle==0
+
+
+def test_optimised_collision_matches_polygon_sat_at_all_headings():
+    import random
+    from truck_driving import body_intersects_rect,corners
+    rng=random.Random(4021)
+    for _ in range(5000):
+        x,y,a=(rng.uniform(-10,10) for _ in range(3))
+        rx,ry=(rng.uniform(-10,10) for _ in range(2))
+        rect=(rx,ry,rx+rng.uniform(.001,10),ry+rng.uniform(.001,10))
+        assert body_intersects_rect(x,y,math.cos(a),math.sin(a),3,.7,rect)==intersects(corners(x,y,a,3,.7),rect)

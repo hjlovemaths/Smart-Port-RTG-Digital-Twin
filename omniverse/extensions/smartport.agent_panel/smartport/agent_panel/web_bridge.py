@@ -25,7 +25,7 @@ class AgentWebBridge:
         from omni.services.core import main
         from fastapi import HTTPException
         from starlette.requests import Request
-        from starlette.responses import FileResponse,HTMLResponse
+        from starlette.responses import FileResponse,HTMLResponse,Response
         from starlette.routing import Route
         import json
         import re
@@ -139,6 +139,29 @@ class AgentWebBridge:
             app.add_api_route('/api/truck-driver/'+action,driver_endpoint(action),methods=['GET'] if action=='state' else ['POST'])
             app.add_api_route('/api/rtg-driver/'+action,driver_endpoint(action,'rtg_driver','rtg_driver_'),methods=['GET'] if action=='state' else ['POST'])
             app.add_api_route('/api/sts-driver/'+action,driver_endpoint(action,'sts_driver','sts_driver_'),methods=['GET'] if action=='state' else ['POST'])
+        def driver_frame(role,attribute):
+            async def endpoint(request:Request):
+                import builtins
+                session=request.scope.get('smartport_session')
+                if not session or session.get('role')!=role:raise HTTPException(403,'仅对应设备驾驶员可查看画面')
+                client_id=request.query_params.get('client_id','')
+                if not re.fullmatch(r'[A-Za-z0-9_-]{16,80}',client_id):raise HTTPException(400,'驾驶页面标识无效')
+                owner=request.scope['smartport_session_token']+':'+client_id
+                driver=getattr(builtins,attribute,None)
+                if not driver or driver.closed or driver.owner!=owner:raise HTTPException(404,'驾驶会话已结束')
+                encoder=getattr(getattr(driver,'private_view',None),'encoder',None)
+                frame=encoder.jpeg_frame if encoder and encoder.transport=='jpeg' else None
+                if not frame:raise HTTPException(503,'画面尚未就绪')
+                if not getattr(encoder,'jpeg_served',False):
+                    encoder.jpeg_served=True
+                    print(f'[Driver stream {encoder.signal_port}] Serving JPEG frames over HTTP ({len(frame)} bytes)',flush=True)
+                return Response(frame,media_type='image/jpeg',headers={'Cache-Control':'no-store'})
+            return endpoint
+        for path,role,attribute in (
+                ('truck-driver','driver','_smartport_truck_driver'),
+                ('rtg-driver','rtg_driver','_smartport_rtg_driver'),
+                ('sts-driver','sts_driver','_smartport_sts_driver')):
+            app.add_api_route('/api/'+path+'/frame',driver_frame(role,attribute),methods=['GET'])
         async def driver_page(request:Request):
             from omni.services.livestream.webrtc import extension as web_client
             from rtg_webrtc_viewer import build_viewer_page

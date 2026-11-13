@@ -1,4 +1,5 @@
 // This page sends only STS commands; native streaming input remains disabled.
+import {startJpegFrames} from './smartport-jpeg.js';
 if (document.documentElement.classList.contains('smartport-sts-driver')) {
   const style=document.createElement('style');
   style.textContent=`#sts-driver-hud{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10020;width:min(900px,94vw);box-sizing:border-box;padding:16px 22px;background:#10202feb;border:1px solid #456278;border-radius:14px;color:#edf5ff;font:14px system-ui}#sts-driver-hud header{display:flex;flex-wrap:wrap;gap:12px;align-items:center}#sts-driver-hud strong{font-size:18px;font-variant-numeric:tabular-nums}#sts-driver-hud p{margin:9px 0 0;color:#aac1d5}#sts-driver-hud button{padding:7px 12px;background:#244b68;border:1px solid #5c7f99;border-radius:6px;color:white;cursor:pointer}#sts-driver-hud output{display:block;min-height:21px;margin-top:8px;color:#ffd08a}#web-agent,#web-agent-response,#web-navigation,#transfer-cinema{display:none!important}`;
@@ -9,14 +10,14 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
   const video=document.getElementById('remote-video');
   if(video){video.tabIndex=0;video.setAttribute('aria-label','STS司机独立画面');video.focus();}
   const keys=new Set(),views=['under','side','end'],labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向'};
-  let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true;
+  let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true,jpegView=null;
   const pending=[];
   const clientId=Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('');
   if(video?.requestVideoFrameCallback){
     const frame=()=>{lastVideoFrame=performance.now();if(!closed)video.requestVideoFrameCallback(frame);};video.requestVideoFrameCallback(frame);
   }
   const output=hud.querySelector('output'),retry=hud.querySelector('.retry');
-  function pictureReady(){return focused&&!document.hidden&&!!video&&video.readyState>=2&&!video.paused&&(!video.requestVideoFrameCallback||performance.now()-lastVideoFrame<750);}
+  function pictureReady(){return focused&&!document.hidden&&(jpegView?jpegView.ready():!!video&&video.readyState>=2&&!video.paused&&(!video.requestVideoFrameCallback||performance.now()-lastVideoFrame<750));}
   function render(state){
     hud.querySelector('.view').textContent=labels[state.view||view];
     hud.querySelector('.fov').textContent=`${state.fov??fov}°`;
@@ -52,6 +53,8 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
         try{state=await api('state');}catch(error){if(error.retryable)continue;throw error;}
         if(state.status==='idle')throw new Error('STS驾驶会话已结束，请重新进入');
       }
+      if(state.stream?.transport==='jpeg')jpegView=startJpegFrames('sts-driver',clientId);
+      window.smartportDriverTransport=state.stream?.transport||'webrtc';
       window.smartportDriverReady=true;window.dispatchEvent(new Event('smartport-driver-ready'));
     }catch(error){active=false;keys.clear();output.textContent=error.message;retry.hidden=false;}finally{busy=false;}
   }
@@ -95,6 +98,6 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
   window.addEventListener('blur',()=>{focused=false;stop();});window.addEventListener('focus',()=>{focused=true;});
   for(const name of ['waiting','emptied','pause','error'])video?.addEventListener(name,stop);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
-  window.addEventListener('pagehide',()=>{closed=true;keys.clear();navigator.sendBeacon('/api/sts-driver/release',JSON.stringify({client_id:clientId}));});
+  window.addEventListener('pagehide',()=>{closed=true;keys.clear();jpegView?.close();navigator.sendBeacon('/api/sts-driver/release',JSON.stringify({client_id:clientId}));});
   setInterval(flush,100);void acquire();
 }

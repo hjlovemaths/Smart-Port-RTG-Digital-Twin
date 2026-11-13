@@ -1,4 +1,5 @@
 // This page sends only RTG commands; native streaming input remains disabled.
+import {startJpegFrames} from './smartport-jpeg.js';
 if (document.documentElement.classList.contains('smartport-rtg-driver')) {
   const style=document.createElement('style');
   style.textContent=`#rtg-driver-hud{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10020;width:min(900px,94vw);box-sizing:border-box;padding:16px 22px;background:#10202feb;border:1px solid #456278;border-radius:14px;color:#edf5ff;font:14px system-ui}#rtg-driver-hud header{display:flex;flex-wrap:wrap;gap:12px;align-items:center}#rtg-driver-hud strong{font-size:18px;font-variant-numeric:tabular-nums}#rtg-driver-hud p{margin:9px 0 0;color:#aac1d5}#rtg-driver-hud button{padding:7px 12px;background:#244b68;border:1px solid #5c7f99;border-radius:6px;color:white;cursor:pointer}#rtg-driver-hud output{display:block;min-height:21px;margin-top:8px;color:#ffd08a}#web-agent,#web-agent-response,#web-navigation,#transfer-cinema{display:none!important}`;
@@ -8,16 +9,19 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
   document.body.append(hud);
   const video=document.getElementById('remote-video');
   if(video){video.tabIndex=0;video.setAttribute('aria-label','RTG司机独立画面');video.focus();}
-  const keys=new Set(),views=['under','side','end'],labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向'};
-  let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true;
+  const keys=new Set(),labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向',overview:'机外全景'};
+  let views=['under','side','end'];
+  let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true,jpegView=null;
+  let detailFov=140,overviewFov=50;
   const pending=[];
   const clientId=Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('');
   if(video?.requestVideoFrameCallback){
     const frame=()=>{lastVideoFrame=performance.now();if(!closed)video.requestVideoFrameCallback(frame);};video.requestVideoFrameCallback(frame);
   }
   const output=hud.querySelector('output'),retry=hud.querySelector('.retry');
-  function pictureReady(){return focused&&!document.hidden&&!!video&&video.readyState>=2&&!video.paused&&(!video.requestVideoFrameCallback||performance.now()-lastVideoFrame<750);}
+  function pictureReady(){return focused&&!document.hidden&&(jpegView?jpegView.ready():!!video&&video.readyState>=2&&!video.paused&&(!video.requestVideoFrameCallback||performance.now()-lastVideoFrame<750));}
   function render(state){
+    if(state.available_views?.includes('overview')&&!views.includes('overview'))views.push('overview');
     hud.querySelector('.view').textContent=labels[state.view||view];
     hud.querySelector('.fov').textContent=`${state.fov??fov}°`;
     hud.querySelector('.position').textContent=`大车 ${(state.gantry_m||0).toFixed(2)} m　小车 ${(state.trolley_m||0).toFixed(2)} m　起升 ${(state.hoist_m||0).toFixed(2)} m　倾角 ${(state.roll_deg||0).toFixed(1)}°　旋转 ${(state.yaw_deg||0).toFixed(1)}°`;
@@ -53,6 +57,8 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
         try{state=await api('state');}catch(error){if(error.retryable)continue;throw error;}
         if(state.status==='idle')throw new Error('RTG驾驶会话已结束，请重新进入');
       }
+      if(state.stream?.transport==='jpeg')jpegView=startJpegFrames('rtg-driver',clientId);
+      window.smartportDriverTransport=state.stream?.transport||'webrtc';
       window.smartportDriverReady=true;window.dispatchEvent(new Event('smartport-driver-ready'));
     }catch(error){active=false;keys.clear();output.textContent=error.message;retry.hidden=false;}finally{busy=false;}
   }
@@ -69,7 +75,12 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
     }catch(error){keys.clear();output.textContent=(error.status===400?'操作未完成：':'连接中断，RTG已停止。')+error.message;}finally{busy=false;}
   }
   function zoom(){fov=fov<=40?140:fov-10;void flush();}
-  function toggle(){view=views[(views.indexOf(view)+1)%views.length];void flush();}
+  function toggle(){
+    const next=views[(views.indexOf(view)+1)%views.length];
+    if(next==='overview'){detailFov=fov;fov=overviewFov;}
+    else if(view==='overview'){overviewFov=fov;fov=detailFov;}
+    view=next;void flush();
+  }
   function tool(command){if(!active||closed||!pictureReady())return;keys.clear();pending.length=0;pending.push(command);void flush();}
   hud.querySelector('.zoom').onclick=zoom;hud.querySelector('.view-toggle').onclick=toggle;retry.onclick=acquire;
   hud.querySelector('.zero').onclick=()=>tool({zero:true});
@@ -98,6 +109,6 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
   window.addEventListener('blur',()=>{focused=false;stop();});window.addEventListener('focus',()=>{focused=true;});
   for(const name of ['waiting','emptied','pause','error'])video?.addEventListener(name,stop);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
-  window.addEventListener('pagehide',()=>{closed=true;keys.clear();navigator.sendBeacon('/api/rtg-driver/release',JSON.stringify({client_id:clientId}));});
+  window.addEventListener('pagehide',()=>{closed=true;keys.clear();jpegView?.close();navigator.sendBeacon('/api/rtg-driver/release',JSON.stringify({client_id:clientId}));});
   setInterval(flush,100);void acquire();
 }

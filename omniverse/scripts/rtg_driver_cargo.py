@@ -4,8 +4,10 @@ Only session-layer kinematics are used. PLC/PhysX/timeline ownership is never
 changed. Poses and attachments survive an operator logout at their last pose.
 """
 import itertools,math
-from pxr import Gf,Sdf,Usd,UsdGeom
-from rtg_live_control import HOIST_PATH
+from pxr import Gf,Sdf,Tf,Usd,UsdGeom
+from rtg_live_control import (HOIST_PATH,TROLLEY_PATH,HOIST_SOFT_LIMITS,HOIST_USD_PER_ENGINEERING_M,
+                              trolley_actual_to_usd,trolley_usd_to_actual)
+from rtg_plc_contact import sweep_box
 from rtg_plc_interaction import PlcInteraction,rigid_pose,ALIGNMENT_TOLERANCE
 
 ROOT='/World/LiveContainers'
@@ -84,7 +86,34 @@ class DriverCargo:
         self.held=attr(stage.GetPrimAtPath(HOIST_PATH),HELD,'') or None
         self.relative={};self.last_matrix=None
         self.contact_refresh=-1e9
+        self.truck_geometry={}
+        self.subscription=Tf.Notice.Register(Usd.Notice.ObjectsChanged,self.geometry_changed,stage)
         if self.held:self.capture(self.held)
+
+    def geometry_changed(self,notice,sender):
+        from ship_transfer_plan import PARK
+        for path in [*notice.GetResyncedPaths(),*notice.GetChangedInfoOnlyPaths()]:
+            name=str(path.GetPrimPath())
+            for root in (TRUCK,PARK):
+                if name==root and path.IsPropertyPath() and path.name.startswith(('xformOp','visibility')):continue
+                if name==root or name.startswith(root+'/') or root.startswith(name+'/'):
+                    self.truck_geometry.clear();return
+
+    def close(self):
+        if self.subscription:self.subscription.Revoke();self.subscription=None
+
+    def truck_shapes(self,truck):
+        """Cache local geometry only; truck pose/visibility is read each step."""
+        path=str(truck.GetPath())
+        if path not in self.truck_geometry:
+            cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render'])
+            deck=Gf.Range3d();cabs=[]
+            for prim in Usd.PrimRange(truck,Usd.TraverseInstanceProxies()):
+                if not prim.IsA(UsdGeom.Boundable):continue
+                if 'trailer_side_rail' in prim.GetName():deck.UnionWith(cache.ComputeRelativeBound(prim,truck).ComputeAlignedRange())
+                if 'white_cab_body' in prim.GetName():cabs.append(cache.ComputeRelativeBound(prim,truck))
+            self.truck_geometry[path]=(deck,cabs)
+        return self.truck_geometry[path]
 
     @property
     def locked(self):return bool(self.held)
@@ -151,10 +180,7 @@ class DriverCargo:
         for path in (TRUCK,PARK):
             truck=self.stage.GetPrimAtPath(path)
             if not truck or UsdGeom.Imageable(truck).ComputeVisibility()=='invisible':continue
-            cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render']);deck=Gf.Range3d()
-            for prim in Usd.PrimRange(truck,Usd.TraverseInstanceProxies()):
-                if prim.IsA(UsdGeom.Boundable) and 'trailer_side_rail' in prim.GetName():
-                    deck.UnionWith(cache.ComputeRelativeBound(prim,truck).ComputeAlignedRange())
+            deck,_=self.truck_shapes(truck)
             if deck.IsEmpty():continue
             matrix=world(truck);mid=deck.GetMidpoint();mid[2]=deck.GetMax()[2]
             centre=matrix.Transform(mid)-Gf.Vec3d(0,0,.075)
@@ -201,28 +227,70 @@ class DriverCargo:
         if gap>.045:details.append('最高承重点距车面约%.1f厘米'%(gap*100))
         return '开锁失败：集卡承重点 %d/4；%s'%(count,'，'.join(details) or '请检查箱子姿态及承载面')
 
-    def limit_descent(self,start,target,now):
-        """Stop at the first downward contact, allowing upward escape.
-
-        Inventory stays fixed during manual control. Refresh it periodically;
-        truck bounds are measured on each step because the driver may move it.
-        """
-        from rtg_plc_contact import box_bounds,sweep_box
-        from rtg_live_control import HOIST_USD_PER_ENGINEERING_M
-        from rtg_plc_interaction import corners
-        from ship_transfer_plan import PARK
+    def refresh_motion_contacts(self,now):
         if now-self.contact_refresh>.3:
             self.refresh_contacts();self.contact_refresh=now
+
+    def held_box(self):
+        body=self.stage.GetPrimAtPath(self.held)
+        if not body:raise ValueError('闭锁箱子不存在，RTG已停止')
+        if body.IsA(UsdGeom.Cube):
+            half=UsdGeom.Cube(body).GetSizeAttr().Get()/2
+            local=Gf.Range3d(Gf.Vec3d(-half),Gf.Vec3d(half))
         else:
-            self.geometry.decks={};self.add_truck_decks()
-        g=self.geometry
-        feet=g._foot_points()
+            cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render'])
+            local=cache.ComputeUntransformedBound(body).ComputeAlignedRange()
+        if local.IsEmpty():raise ValueError('闭锁箱子几何不可用，RTG已停止')
+        # Read the proposed hoist pose even if the visible box has not yet been updated.
+        pose=self.relative[self.held]*world(self.stage.GetPrimAtPath(HOIST_PATH))
+        return local,pose
+
+    @staticmethod
+    def bounds_for(local,pose):
+        box=Gf.BBox3d(local,pose).ComputeAlignedRange()
+        return tuple(box.GetMin()),tuple(box.GetMax())
+
+    def limit_container_sweep(self,before,after,now,*,lifting=False):
+        self.refresh_motion_contacts(now)
+        fraction=1.
+        for path,record in self.geometry.records.items():
+            if path==self.held:continue
+            if 'bounds' not in record:record['bounds']=self.geometry._bounds(record)
+            bounds=record['bounds']
+            hit=sweep_box(before,after,bounds)
+            if hit is None:continue
+            # Let the operator lift out of a box side that was already intersected.
+            if (lifting and hit==0 and before[0][2]<bounds[1][2]-1e-7
+                    and before[0][2]+before[1][2]>=bounds[0][2]+bounds[1][2]):
+                continue
+            fraction=min(fraction,hit)
+        return fraction
+
+    def limit_trolley(self,start,target,now):
+        start_usd,target_usd=trolley_actual_to_usd(start),trolley_actual_to_usd(target)
+        if abs(target_usd-start_usd)<1e-9:return start,None
+        parent=self.stage.GetPrimAtPath(TROLLEY_PATH).GetParent()
+        delta=world(parent).TransformDir(Gf.Vec3d(target_usd-start_usd,0,0))
+        local,pose=self.held_box()
+        before=self.bounds_for(local,pose)
+        after=tuple(tuple(edge[i]+delta[i] for i in range(3)) for edge in before)
+        fraction=self.limit_container_sweep(before,after,now)
+        if fraction==1:return target,None
+        return trolley_usd_to_actual(start_usd+(target_usd-start_usd)*fraction),'载箱接触旁边集装箱，小车已停止，请先起升'
+
+    def limit_hoist(self,start,target,now):
+        """Limit vertical travel by box volume, with corner supports for the trailer."""
+        from ship_transfer_plan import PARK
+        target=max(HOIST_SOFT_LIMITS[0],min(HOIST_SOFT_LIMITS[1],target))
         parent=self.stage.GetPrimAtPath(HOIST_PATH).GetParent()
         dz=world(parent).TransformDir(Gf.Vec3d(0,0,(target-start)*HOIST_USD_PER_ENGINEERING_M))[2]
-        if dz>=-1e-9:return target,None
+        if abs(dz)<1e-9 or (dz>0 and not self.locked):return target,None
+        g=self.geometry
         limit=1.;message=None
         # Individual lock feet let a partially aligned spreader stop on a roof.
         if not self.locked:
+            self.refresh_motion_contacts(now)
+            feet=g._foot_points()
             for record in g.records.values():
                 bounds=g._bounds(record)
                 for point in feet:
@@ -232,37 +300,33 @@ class DriverCargo:
                         if -.002<=gap<=-dz and max(0.,gap/-dz)<limit:
                             limit=max(0.,gap/-dz);message='吊具已接触箱顶，下降已停止'
         else:
-            body=self.stage.GetPrimAtPath(self.held)
-            if not body:raise ValueError('闭锁箱子不存在，RTG已停止')
-            record=g._read_record(body) if body.IsA(UsdGeom.Cube) else self.visual_record(body)
-            if not record:raise ValueError('闭锁箱子几何不可用，RTG停止下降')
-            matrix=world(body)
-            if body.IsA(UsdGeom.Cube):
-                unit=UsdGeom.Cube(body).GetSizeAttr().Get();local=Gf.Range3d(Gf.Vec3d(-unit/2),Gf.Vec3d(unit/2))
-            else:local=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render']).ComputeUntransformedBound(body).ComputeAlignedRange()
+            local,matrix=self.held_box()
+            bounds=self.bounds_for(local,matrix)
+            end=tuple((edge[0],edge[1],edge[2]+dz) for edge in bounds)
+            limit=self.limit_container_sweep(bounds,end,now,lifting=dz>0)
+            if dz>0:
+                return start+(target-start)*limit,'载箱上方有集装箱，起升已停止' if limit<1 else None
+            if limit<1:message='箱子已接触集装箱，下降已停止'
+            g.decks={};self.add_truck_decks()
             lo,hi=local.GetMin(),local.GetMax()
-            bounds=box_bounds([matrix.Transform(Gf.Vec3d(x,y,z)) for x in (lo[0],hi[0]) for y in (lo[1],hi[1]) for z in (lo[2],hi[2])])
             # Use four inset corner castings for trailer support, matching unlock.
             sx=matrix.TransformDir(Gf.Vec3d(1,0,0)).GetLength();sy=matrix.TransformDir(Gf.Vec3d(0,1,0)).GetLength()
             if sx<1e-9 or sy<1e-9:raise ValueError('闭锁箱子比例无效')
             points=[matrix.Transform(Gf.Vec3d(x,y,lo[2])) for x in (lo[0]+.158/sx,hi[0]-.158/sx) for y in (lo[1]+.17/sy,hi[1]-.17/sy)]
-            for other in list(g.records.values())+list(g.decks.values()):
-                if other['path']==self.held:continue
+            for other in g.decks.values():
                 inv=other['pose'].GetInverse();sx,sy,sz=other['size']
                 for point in points:
                     local=inv.Transform(point);gap=local[2]-sz/2
                     if abs(local[0])<=sx/2+.015 and abs(local[1])<=sy/2+.015 and -.002<=gap<=-dz:
                         fraction=max(0.,gap/-dz)
                         if fraction<limit:
-                            limit=fraction;message='箱子已接触集卡承载面，下降已停止' if other['path'] in g.decks else '箱子已接触箱顶，下降已停止'
-            end=(tuple(bounds[0][i]+(dz if i==2 else 0) for i in range(3)),tuple(bounds[1][i]+(dz if i==2 else 0) for i in range(3)))
+                            limit=fraction;message='箱子已接触集卡承载面，下降已停止'
             for path in (TRUCK,PARK):
                 truck=self.stage.GetPrimAtPath(path)
                 if not truck or UsdGeom.Imageable(truck).ComputeVisibility()=='invisible':continue
-                cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render'])
-                for prim in Usd.PrimRange(truck,Usd.TraverseInstanceProxies()):
-                    if not prim.IsA(UsdGeom.Boundable) or 'white_cab_body' not in prim.GetName():continue
-                    b=cache.ComputeWorldBound(prim).ComputeAlignedRange()
+                _,cabs=self.truck_shapes(truck);truck_matrix=world(truck)
+                for local in cabs:
+                    b=Gf.BBox3d(local.GetRange(),local.GetMatrix()*truck_matrix).ComputeAlignedRange()
                     hit=sweep_box(bounds,end,(tuple(b.GetMin()),tuple(b.GetMax())))
                     if hit is not None and hit<limit:limit=hit;message='箱子碰到集卡车头，下降已停止'
         return start+(target-start)*limit,message

@@ -1,5 +1,9 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
+function runDriver(name,scope){
+  const source=fs.readFileSync(`omniverse/web/${name}.js`,'utf8');
+  vm.runInNewContext(source.replace(/^import \{startJpegFrames\} from '\.\/smartport-jpeg\.js';$/m,''),scope);
+}
 async function main(){
   const events={},requests=[],intervals=[],nodes={};let hold=false,pending,readyEvents=0,clock=1000;
   const node=()=>({textContent:'',hidden:false,style:{},append(){},setAttribute(){},focus(){},querySelector(s){return nodes[s]??=node();}});
@@ -13,10 +17,10 @@ async function main(){
     fetch:async(url,options)=>{
       assert(url.startsWith('/api/rtg-driver/'),'RTG page must never send truck/admin commands');
       const action=url.split('/').pop().split('?')[0],body=options.body?JSON.parse(options.body):{};requests.push({url,action,body,method:options.method});
-      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'under',fov:body.fov??140,stream_ready:action!=='acquire',input_seq:-1})};
+      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'under',fov:body.fov??140,available_views:['under','side','end','overview'],stream_ready:action!=='acquire',input_seq:-1})};
       if(action==='input'&&hold){hold=false;return await new Promise(resolve=>pending=()=>resolve(response));}return response;
     }};
-  vm.runInNewContext(fs.readFileSync('omniverse/web/smartport-rtg-driver.js','utf8'),scope);
+  runDriver('smartport-rtg-driver',scope);
   const settle=()=>new Promise(resolve=>setImmediate(resolve));for(let i=0;i<5;i++)await settle();
   const key=(type,code,repeat=false)=>{let consumed=false;events[type]({code,key:code,repeat,target:{closest:()=>null},preventDefault(){consumed=true;},stopImmediatePropagation(){}});assert(consumed);};
   assert.equal(requests[0].action,'acquire');assert.equal(readyEvents,1);
@@ -30,7 +34,11 @@ async function main(){
   hold=true;intervals[0]();await settle();key('keydown','KeyV');pending();await settle();await intervals[0]();
   assert.equal(requests.at(-1).body.view,'side','late replies must preserve requested view');
   key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'end');
-  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'under');
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'overview');assert.equal(requests.at(-1).body.fov,50);
+  key('keydown','KeyF');await settle();assert.equal(requests.at(-1).body.fov,40);
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'under');assert.equal(requests.at(-1).body.fov,140);
+  for(let i=0;i<3;i++){key('keydown','KeyV');await settle();}
+  assert.equal(requests.at(-1).body.view,'overview');assert.equal(requests.at(-1).body.fov,40);
   for(const [code,field,value] of [['KeyH','zero',true],['Digit1','size_ft',20],['Digit2','size_ft',40],['KeyK','lock',true],['KeyU','lock',false]]){
     key('keydown',code);await settle();assert.equal(requests.at(-1).body[field],value);
     await intervals[0]();assert.equal(requests.at(-1).body[field],undefined,'tool actions must not repeat on the input heartbeat');
@@ -46,6 +54,6 @@ async function main(){
   events.pagehide();assert.equal(requests.at(-1).action,'release');assert.equal(requests.at(-1).body.client_id,requests[0].body.client_id);
   console.log('RTG web: axes, rotation, size/lock/zero actions, FOV/views, focus/video loss and scoped release passed.');
   // Shared video-only class must not cause the truck module to acquire a truck.
-  const count=requests.length;vm.runInNewContext(fs.readFileSync('omniverse/web/smartport-driver.js','utf8'),scope);assert.equal(requests.length,count);
+  const count=requests.length;runDriver('smartport-driver',scope);assert.equal(requests.length,count);
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,12 +1,48 @@
 """Exercise the actual endpoint factory with authenticated ASGI requests."""
-import ast,asyncio,json,re,sys
+import ast,asyncio,builtins,json,re,sys
 from pathlib import Path
+from types import SimpleNamespace
 import httpx,pytest
+from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse,Response
+from starlette.routing import Route
 from starlette.exceptions import HTTPException
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'omniverse/scripts'))
 from webrtc_auth import Accounts,ViewerAuth,COOKIE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('role','path'), [('driver','truck-driver'),('rtg_driver','rtg-driver'),('sts_driver','sts-driver')])
+async def test_jpeg_frame_get_reaches_route_only_for_lease_owner(tmp_path,monkeypatch,role,path):
+    source=Path('omniverse/extensions/smartport.agent_panel/smartport/agent_panel/web_bridge.py')
+    factory=next(n for n in ast.walk(ast.parse(source.read_text(encoding='utf-8'))) if isinstance(n,ast.FunctionDef) and n.name=='driver_frame')
+    namespace=dict(Request=Request,re=re,HTTPException=HTTPException,Response=Response)
+    exec(compile(ast.Module(body=[factory],type_ignores=[]),str(source),'exec'),namespace)
+    route='/api/'+path+'/frame'
+    attr='_test_smartport_driver'
+    app=Starlette(routes=[Route(route,namespace['driver_frame'](role,attr),methods=['GET'])])
+    accounts=Accounts(tmp_path/'accounts.json');accounts.initialize('admin','AdminTestPassword!','viewer','ViewerTestPassword!')
+    accounts.set_driver('operator','DriverTestPassword!',role)
+    server=ViewerAuth(app,accounts)
+    base='http://test:8011';client_id='operator-page-123456'
+    url=route+'?client_id='+client_id
+    frame=b'\xff\xd8\xff\xd9'
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server),base_url=base,headers={'origin':base}) as client:
+        assert (await client.get(url)).status_code==401
+        await client.post('/auth/login',data={'username':'operator','password':'DriverTestPassword!'})
+        encoder=SimpleNamespace(transport='jpeg',jpeg_frame=frame,signal_port=49240)
+        owner=client.cookies.get(COOKIE)+':'+client_id
+        monkeypatch.setattr(builtins,attr,SimpleNamespace(closed=False,owner=owner,private_view=SimpleNamespace(encoder=encoder)),raising=False)
+        response=await client.get(url)
+        assert response.status_code==200 and response.headers['content-type']=='image/jpeg' and response.content==frame
+        assert response.headers['cache-control']=='no-store'
+        assert (await client.get(route+'?client_id=another-page-123456')).status_code==404
+        assert (await client.post(url)).status_code==405
+        encoder.jpeg_frame=None
+        assert (await client.get(url)).status_code==503
+        await client.post('/auth/login',data={'username':'admin','password':'AdminTestPassword!'})
+        assert (await client.get(url)).status_code==403
 
 
 @pytest.mark.asyncio

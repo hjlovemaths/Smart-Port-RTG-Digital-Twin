@@ -3,7 +3,7 @@ const fs=require('node:fs');const vm=require('node:vm');
 
 async function main(){
   const events={},requests=[],intervals=[],nodes={};let pending=null,hold=false,statePolls=0,readyEvents=0,abortRequest=null;
-  const node=()=>({textContent:'',hidden:false,style:{},append(){},setAttribute(){},focus(){},
+  const node=()=>({textContent:'',hidden:false,style:{},attributes:{},append(){},setAttribute(name,value){this.attributes[name]=value;},focus(){},
     querySelector(selector){return nodes[selector]??=(node());}});
   const video=Object.assign(node(),{readyState:2,paused:false,addEventListener(name,fn){events['video:'+name]=fn;}});
   const document={documentElement:{classList:{contains:name=>name==='smartport-driver'}},head:node(),body:node(),
@@ -19,12 +19,13 @@ async function main(){
       // Cold-start state requests can time out while Kit initializes RTX.
       // Retain the acquire lease and retry rather than abandoning startup.
       if(action==='state'&&statePolls===1){abortRequest();throw options.signal.reason;}
-      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'cabin',speed_kmh:0,input_seq:-1,
+      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'cabin',speed_kmh:0,input_seq:-1,collision_enabled:body.collision_enabled??false,
         stream_ready:action==='acquire'?false:action==='state'?statePolls>=2:true})};
       if(action==='input'&&hold){hold=false;return await new Promise(resolve=>pending=()=>resolve(response));}
       return response;
     }};
-  vm.runInNewContext(fs.readFileSync('omniverse/web/smartport-driver.js','utf8'),scope);
+  const source=fs.readFileSync('omniverse/web/smartport-driver.js','utf8');
+  vm.runInNewContext(source.replace(/^import \{startJpegFrames\} from '\.\/smartport-jpeg\.js';$/m,''),scope);
   const settle=()=>new Promise(resolve=>setImmediate(resolve));for(let i=0;i<6;i++)await settle();
   const key=(type,code,key=code)=>{
     let consumed=false;
@@ -34,6 +35,10 @@ async function main(){
   assert.equal(requests[0].action,'acquire');assert.equal(requests[0].body.client_id.length,32);
   assert.equal(statePolls,2);assert.equal(readyEvents,1,'connect only after the private stream is ready');
   assert(requests.filter(r=>r.action==='state').every(r=>r.method==='GET'&&r.body.client_id===requests[0].body.client_id));
+  const collisionSwitch=nodes['.collision-switch'];
+  assert.equal(collisionSwitch.hidden,false);assert.equal(collisionSwitch.attributes['aria-checked'],'false');
+  collisionSwitch.onclick();await settle();assert.equal(requests.at(-1).body.collision_enabled,true);
+  collisionSwitch.onclick();await settle();assert.equal(requests.at(-1).body.collision_enabled,false);
   assert(key('keydown','KeyW','w'));await settle();assert.equal(requests.at(-1).body.throttle,1);
   key('keyup','KeyW','w');await settle();assert.equal(requests.at(-1).body.throttle,0);
   hold=true;intervals[0]();await settle();

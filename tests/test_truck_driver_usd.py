@@ -57,6 +57,42 @@ class DriverUsdTests(unittest.TestCase):
         session['driver_released']=True;driver.tick(.1)
         self.assertTrue(driver.closed);self.assertIsNone(active_driver());self.assertEqual(viewport.camera_path,'/OmniverseKit_Persp')
 
+    def test_collision_switch_skips_index_until_enabled_and_keeps_water_reset(self):
+        stage=Usd.Stage.CreateInMemory()
+        body=UsdGeom.Cube.Define(stage,PARK+'/Body');body.CreateSizeAttr(1)
+        body.AddTranslateOp().Set(Gf.Vec3d(0,0,.6));body.AddScaleOp().Set(Gf.Vec3f(6.4,1.3,1))
+        wall=UsdGeom.Cube.Define(stage,'/World/SolidWall');wall.CreateSizeAttr(1)
+        wall.AddTranslateOp().Set(Gf.Vec3d(-4,0,.7));wall.AddScaleOp().Set(Gf.Vec3f(.5,5,1))
+        now=[0.]
+        driver=TruckDriver(stage,SimpleNamespace(camera_path='/OmniverseKit_Persp'),'owner',
+                           {'expires':time.time()+1000},lambda:now[0],deferred_world=True,collision_enabled=False)
+
+        def drive(frames):
+            for _ in range(frames):
+                now[0]+=.1;driver.command('owner',{'throttle':1});driver.tick(.1)
+
+        self.assertFalse(driver.state()['collision_enabled'])
+        self.assertTrue(driver.state()['stream_ready'])
+        drive(30)
+        self.assertLess(driver.engine.x,-8)
+        self.assertIsNone(driver.world,'collision indexing must not run with the switch off')
+
+        with self.assertRaisesRegex(ValueError,'布尔值'):
+            driver.command('owner',{'collision_enabled':1})
+        driver.command('owner',{'reset':True,'collision_enabled':True})
+        drive(60)
+        self.assertTrue(driver.state()['collision_enabled'])
+        self.assertIn('SolidWall',driver.engine.hit or '')
+        self.assertGreater(driver.engine.x,-1)
+
+        self.assertFalse(driver.command('owner',{'collision_enabled':False})['collision_enabled'])
+        self.assertIsNone(driver.state()['collision_path'])
+        drive(30)
+        self.assertLess(driver.engine.x,-8)
+        driver.engine.x=-160;driver.tick(.1)
+        self.assertEqual(driver.engine.event,'water_reset')
+        self.assertEqual((driver.engine.x,driver.engine.y,driver.engine.heading),driver.engine.spawn)
+
     def test_collision_index_can_build_across_frames_with_vehicle_stopped(self):
         now=[0.]
         driver=TruckDriver(self.stage,SimpleNamespace(camera_path='/OmniverseKit_Persp'),'owner',
@@ -70,8 +106,9 @@ class DriverUsdTests(unittest.TestCase):
         while not driver.world.ready:
             driver.world.advance(.003);steps+=1
         self.assertGreater(steps,1)
-        while not driver.driving_ready:
-            driver.command('owner',{});driver.tick(.1)
+        for _ in range(600):
+            if driver.driving_ready:break
+            now[0]+=.1;driver.command('owner',{});driver.tick(.1)
         self.assertTrue(driver.state()['stream_ready'])
         # Renderer metadata must not invalidate and rebuild physical geometry.
         UsdGeom.Xform.Define(self.stage,'/Render/DriverMetadata')

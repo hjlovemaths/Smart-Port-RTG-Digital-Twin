@@ -6,6 +6,7 @@ from pxr import Gf,Usd,UsdGeom
 class DriverCab:
     def __init__(self,stage,truck,root):
         self.stage=stage;self.layer=stage.GetEditTarget().GetLayer();self.windows=[]
+        self.last_inside=None;self.last_pose=None;self.last_steer=None
         for prim in Usd.PrimRange(truck,Usd.TraverseInstanceProxies()):
             if any(name in prim.GetName() for name in ('white_cab_body','front_black_windshield','side_window')):
                 self.windows.append(prim)
@@ -34,6 +35,11 @@ class DriverCab:
 
     def apply(self,inside,pose,steer):
         with Usd.EditContext(self.stage,self.layer):
-            self.op.Set(pose);self.steer_op.Set(steer*70)
-            UsdGeom.Imageable(self.root).CreateVisibilityAttr().Set('inherited' if inside else 'invisible')
-            for prim in self.windows:UsdGeom.Imageable(prim).CreateVisibilityAttr().Set('invisible' if inside else 'inherited')
+            if pose!=self.last_pose:
+                self.op.Set(pose);self.last_pose=Gf.Matrix4d(pose)
+            if steer!=self.last_steer:
+                self.steer_op.Set(steer*70);self.last_steer=steer
+            if inside!=self.last_inside:
+                UsdGeom.Imageable(self.root).CreateVisibilityAttr().Set('inherited' if inside else 'invisible')
+                for prim in self.windows:UsdGeom.Imageable(prim).CreateVisibilityAttr().Set('invisible' if inside else 'inherited')
+                self.last_inside=inside
