@@ -9,7 +9,7 @@ ROOT='/World/STSControls/'+CRANE
 TROLLEY=ROOT+'/Gantry/Trolley'
 HOIST=TROLLEY+'/Hoist'
 CAMERA='/World/STSDriverDemo/Camera'
-VIEWS=('under','side','end')
+VIEWS=('under','side','end','oblique')
 
 def active_sts_driver(stage=None):
     item=getattr(builtins,'_smartport_sts_driver',None)
@@ -84,18 +84,51 @@ class STSDriver:
     def contact(self):return sum(self.contact_points(),Gf.Vec3d(0))/4
 
     def apply_camera(self):
-        trolley=UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY))
-        contact=self.contact();up=trolley.TransformDir(Gf.Vec3d(1,0,0));up=Gf.Vec3d(up[0],up[1],0).GetNormalized()
-        if self.view=='under':
-            up=Gf.Vec3d(-up[1],up[0],0)
-            trolley_origin=trolley.ExtractTranslation();eye=Gf.Vec3d(contact[0],contact[1],trolley_origin[2]+8*abs(trolley[2][2]));target=eye-Gf.Vec3d(0,0,10)
+        trolley = UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY))
+        contact = self.contact()
+        vertical = Gf.Vec3d(0, 0, 1)
+        across = trolley.TransformDir(Gf.Vec3d(1, 0, 0))
+        across = Gf.Vec3d(across[0], across[1], 0).GetNormalized()
+        up = vertical
+        if self.view == 'under':
+            direction = vertical
+            up = Gf.Vec3d(across[1], -across[0], 0)
         else:
-            offset=trolley.TransformDir(Gf.Vec3d(1,0,0) if self.view=='side' else Gf.Vec3d(0,1,0));offset=Gf.Vec3d(offset[0],offset[1],0).GetNormalized()
-            eye=contact+offset*10+Gf.Vec3d(0,0,2);target=contact-Gf.Vec3d(0,0,.3);up=Gf.Vec3d(0,0,1)
-        with Usd.EditContext(self.camera_stage,self.camera_stage.GetSessionLayer()):
-            self.camera.CreateFocalLengthAttr(36/(2*math.tan(math.radians(self.fov)/2)))
-            self.camera_op.Set(Gf.Matrix4d(1).SetLookAt(eye,target,up).GetInverse())
-        self.private_view.camera_path=CAMERA
+            local = {'side': (1, 0, 0), 'end': (0, 1, 0), 'oblique': (1, 1, 0)}[self.view]
+            horizontal = trolley.TransformDir(Gf.Vec3d(*local))
+            horizontal = Gf.Vec3d(horizontal[0], horizontal[1], 0).GetNormalized()
+            elevation = math.pi / 4 if self.view == 'oblique' else math.atan2(2.3, 10)
+            direction = horizontal * math.cos(elevation) + vertical * math.sin(elevation)
+        desired = Gf.Matrix4d(1).SetLookAt(direction, Gf.Vec3d(0), up).GetInverse()
+        desired_rotation = Gf.Transform(desired).GetRotation().GetQuat()
+        now = self.clock()
+        if not hasattr(self, '_camera_rotation'):
+            self._camera_radius = max(.1, trolley.ExtractTranslation()[2] + 8 * abs(trolley[2][2]) - contact[2])
+            self._camera_rotation = desired_rotation
+            self._camera_view = self.view
+            self._camera_started = now
+            self._camera_from = desired_rotation
+            self._camera_to = desired_rotation
+        # Evaluate the previous arc first so another V press starts at the
+        # currently displayed orientation, even during an unfinished orbit.
+        progress = min(1., max(0., (now - self._camera_started) / .4))
+        eased = progress * progress * (3 - 2 * progress)
+        self._camera_rotation = Gf.Slerp(eased, self._camera_from, self._camera_to)
+        if self._camera_view != self.view:
+            self._camera_from = self._camera_rotation
+            self._camera_to = desired_rotation
+            self._camera_started = now
+            self._camera_view = self.view
+        rotation = Gf.Matrix4d(1).SetRotate(self._camera_rotation)
+        eye = contact + rotation.TransformDir(vertical) * self._camera_radius
+        pose = rotation.SetTranslateOnly(eye)
+        with Usd.EditContext(self.camera_stage, self.camera_stage.GetSessionLayer()):
+            focal = 36 / (2 * math.tan(math.radians(self.fov) / 2))
+            if self.camera.GetFocalLengthAttr().Get() != focal:
+                self.camera.CreateFocalLengthAttr(focal)
+            if self.camera_op.Get() != pose:
+                self.camera_op.Set(pose)
+        self.private_view.camera_path = CAMERA
 
     def tick(self,dt):
         if self.closed:return

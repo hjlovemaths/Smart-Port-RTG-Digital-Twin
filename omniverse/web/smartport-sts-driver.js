@@ -5,11 +5,11 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
   style.textContent=`#sts-driver-hud{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10020;width:min(900px,94vw);box-sizing:border-box;padding:16px 22px;background:#10202feb;border:1px solid #456278;border-radius:14px;color:#edf5ff;font:14px system-ui}#sts-driver-hud header{display:flex;flex-wrap:wrap;gap:12px;align-items:center}#sts-driver-hud strong{font-size:18px;font-variant-numeric:tabular-nums}#sts-driver-hud p{margin:9px 0 0;color:#aac1d5}#sts-driver-hud button{padding:7px 12px;background:#244b68;border:1px solid #5c7f99;border-radius:6px;color:white;cursor:pointer}#sts-driver-hud output{display:block;min-height:21px;margin-top:8px;color:#ffd08a}#web-agent,#web-agent-response,#web-navigation,#transfer-cinema{display:none!important}`;
   document.head.append(style);
   const hud=document.createElement('aside');hud.id='sts-driver-hud';
-  hud.innerHTML='<header><span>STS · <b class="view">吊具下方</b></span><strong class="fov">140°</strong><button type="button" class="zoom">视野角 F</button><button type="button" class="view-toggle">切换视角 V</button></header><p>W / S 大车　A / D 小车　Q / E 升降　空格 停止</p><p class="tools"><button type="button" class="size20">20尺 1</button> <button type="button" class="size40">40尺 2</button> <button type="button" class="lock">闭锁 K</button> <button type="button" class="unlock">开锁 U</button> <span class="spreader"></span></p><p class="position"></p><output role="status">正在进入STS驾驶模式…</output><button type="button" class="retry" hidden>重新进入驾驶</button>';
+  hud.innerHTML='<header><span>STS · <b class="view">吊具下方</b></span><strong class="fov">140°</strong><button type="button" class="zoom">放大 F</button><button type="button" class="zoom-out">缩小 G</button><button type="button" class="view-toggle">切换视角 V</button></header><p>A / D 大车左 / 右　W / S 小车前 / 后　Q / E 升降　空格 停止</p><p class="tools"><button type="button" class="size20">20尺 1</button> <button type="button" class="size40">40尺 2</button> <button type="button" class="lock">闭锁 K</button> <button type="button" class="unlock">开锁 U</button> <span class="spreader"></span></p><p class="position"></p><output role="status">正在进入STS驾驶模式…</output><button type="button" class="retry" hidden>重新进入驾驶</button>';
   document.body.append(hud);
   const video=document.getElementById('remote-video');
   if(video){video.tabIndex=0;video.setAttribute('aria-label','STS司机独立画面');video.focus();}
-  const keys=new Set(),views=['under','side','end'],labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向'};
+  const keys=new Set(),views=['under','side','end','oblique'],labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向',oblique:'斜下看吊具'};
   let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true,jpegView=null;
   const pending=[];
   const clientId=Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('');
@@ -61,7 +61,7 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
   async function flush(){
     if(!active||busy||closed)return;busy=true;
     const pressed=code=>Number(keys.has(code));
-    const command={gantry:pressed('KeyW')-pressed('KeyS'),trolley:pressed('KeyD')-pressed('KeyA'),
+    const command={gantry:pressed('KeyD')-pressed('KeyA'),trolley:pressed('KeyW')-pressed('KeyS'),
       hoist:pressed('KeyQ')-pressed('KeyE'),brake:keys.has('Space'),view,fov};
     if(!pictureReady()||command.brake){command.brake=true;keys.clear();pending.length=0;}
     else if(pending.length)Object.assign(command,pending.shift());
@@ -71,9 +71,11 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
     }catch(error){keys.clear();output.textContent=(error.status===400?'操作未完成：':'连接中断，STS已停止。')+error.message;}finally{busy=false;}
   }
   function zoom(){fov=fov<=10?140:fov-10;void flush();}
+  function zoomOut(){fov=fov>=140?10:fov+10;void flush();}
   function toggle(){view=views[(views.indexOf(view)+1)%views.length];void flush();}
   function tool(command){if(!active||closed||!pictureReady())return;keys.clear();pending.length=0;pending.push(command);void flush();}
   hud.querySelector('.zoom').onclick=zoom;hud.querySelector('.view-toggle').onclick=toggle;retry.onclick=acquire;
+  hud.querySelector('.zoom-out').onclick=zoomOut;
   hud.querySelector('.size20').onclick=()=>tool({size_ft:20});hud.querySelector('.size40').onclick=()=>tool({size_ft:40});
   hud.querySelector('.lock').onclick=()=>tool({lock:true});hud.querySelector('.unlock').onclick=()=>tool({lock:false});
   function consume(event){event.preventDefault();event.stopImmediatePropagation();}
@@ -84,6 +86,7 @@ if (document.documentElement.classList.contains('smartport-sts-driver')) {
     consume(event);
     if(name==='keyup')keys.delete(event.code);
     else if(!event.repeat&&event.code==='KeyF')zoom();
+    else if(!event.repeat&&event.code==='KeyG')zoomOut();
     else if(!event.repeat&&event.code==='KeyV')toggle();
     else if(!event.repeat&&event.code==='Digit1')tool({size_ft:20});
     else if(!event.repeat&&event.code==='Digit2')tool({size_ft:40});

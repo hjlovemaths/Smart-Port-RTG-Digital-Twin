@@ -86,6 +86,7 @@ class DriverCargo:
         self.held=attr(stage.GetPrimAtPath(HOIST_PATH),HELD,'') or None
         self.relative={};self.last_matrix=None
         self.contact_refresh=-1e9
+        self.contacts_dirty=True
         self.truck_geometry={}
         self.subscription=Tf.Notice.Register(Usd.Notice.ObjectsChanged,self.geometry_changed,stage)
         if self.held:self.capture(self.held)
@@ -94,6 +95,10 @@ class DriverCargo:
         from ship_transfer_plan import PARK
         for path in [*notice.GetResyncedPaths(),*notice.GetChangedInfoOnlyPaths()]:
             name=str(path.GetPrimPath())
+            if name.startswith(ROOT) and not (self.held and (name==self.held or name.startswith(self.held+'_') or name.startswith(self.held+'/'))):
+                self.contacts_dirty=True
+            if name in ('/','/World') or name in getattr(self.geometry,'records',{}):
+                if name!=self.held:self.contacts_dirty=True
             for root in (TRUCK,PARK):
                 if name==root and path.IsPropertyPath() and path.name.startswith(('xformOp','visibility')):continue
                 if name==root or name.startswith(root+'/') or root.startswith(name+'/'):
@@ -174,6 +179,10 @@ class DriverCargo:
             record=self.visual_record(prim)
             if record:g.records[path]=record
         self.add_truck_decks()
+        for record in g.records.values():
+            record['bounds']=g._bounds(record)
+        self.truck_records=[record for record in g.records.values() if attr(self.stage.GetPrimAtPath(record['path']),TRUCK_OWNER)]
+        self.contacts_dirty=False
 
     def add_truck_decks(self):
         from ship_transfer_plan import PARK
@@ -228,8 +237,16 @@ class DriverCargo:
         return '开锁失败：集卡承重点 %d/4；%s'%(count,'，'.join(details) or '请检查箱子姿态及承载面')
 
     def refresh_motion_contacts(self,now):
-        if now-self.contact_refresh>.3:
+        if self.contacts_dirty:
             self.refresh_contacts();self.contact_refresh=now
+        # Truck cargo can move independently of the static yard inventory.
+        for record in self.truck_records:
+            prim=self.stage.GetPrimAtPath(record['path'])
+            if attr(prim,TRUCK_OWNER):
+                current=self.geometry._read_record(prim) if prim.IsA(UsdGeom.Cube) else self.visual_record(prim)
+                if current:
+                    record.update(current)
+                    record['bounds']=self.geometry._bounds(record)
 
     def held_box(self):
         body=self.stage.GetPrimAtPath(self.held)
@@ -292,7 +309,7 @@ class DriverCargo:
             self.refresh_motion_contacts(now)
             feet=g._foot_points()
             for record in g.records.values():
-                bounds=g._bounds(record)
+                bounds=record['bounds']
                 for point in feet:
                     if (bounds[0][0]-.005<=point[0]<=bounds[1][0]+.005 and
                         bounds[0][1]-.005<=point[1]<=bounds[1][1]+.005):

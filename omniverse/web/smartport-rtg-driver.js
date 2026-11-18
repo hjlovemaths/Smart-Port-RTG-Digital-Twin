@@ -5,14 +5,13 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
   style.textContent=`#rtg-driver-hud{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10020;width:min(900px,94vw);box-sizing:border-box;padding:16px 22px;background:#10202feb;border:1px solid #456278;border-radius:14px;color:#edf5ff;font:14px system-ui}#rtg-driver-hud header{display:flex;flex-wrap:wrap;gap:12px;align-items:center}#rtg-driver-hud strong{font-size:18px;font-variant-numeric:tabular-nums}#rtg-driver-hud p{margin:9px 0 0;color:#aac1d5}#rtg-driver-hud button{padding:7px 12px;background:#244b68;border:1px solid #5c7f99;border-radius:6px;color:white;cursor:pointer}#rtg-driver-hud output{display:block;min-height:21px;margin-top:8px;color:#ffd08a}#web-agent,#web-agent-response,#web-navigation,#transfer-cinema{display:none!important}`;
   document.head.append(style);
   const hud=document.createElement('aside');hud.id='rtg-driver-hud';
-  hud.innerHTML='<header><span>RTG · <b class="view">吊具下方</b></span><strong class="fov">140°</strong><button type="button" class="zoom">视野角 F</button><button type="button" class="view-toggle">切换视角 V</button></header><p>W / S 大车　A / D 小车　Q / E 升降　Z / C 倾斜　J / L 旋转　空格 停止</p><p class="tools"><button type="button" class="zero">姿态回零 H</button> <button type="button" class="size20">20尺 1</button> <button type="button" class="size40">40尺 2</button> <button type="button" class="lock">闭锁 K</button> <button type="button" class="unlock">开锁 U</button> <span class="spreader"></span></p><p class="position"></p><output role="status">正在进入RTG驾驶模式…</output><button type="button" class="retry" hidden>重新进入驾驶</button>';
+  hud.innerHTML='<header><span>RTG · <b class="view">小车架底部</b></span><strong class="fov">140°</strong><button type="button" class="zoom">放大 F</button><button type="button" class="zoom-out">缩小 G</button><button type="button" class="view-toggle">切换视角 V</button></header><p>W / S 大车　A / D 小车　Q / E 升降　Z / C 倾斜　J / L 旋转　空格 停止</p><p class="tools"><button type="button" class="zero">姿态回零 H</button> <button type="button" class="size20">20尺 1</button> <button type="button" class="size40">40尺 2</button> <button type="button" class="lock">闭锁 K</button> <button type="button" class="unlock">开锁 U</button> <span class="spreader"></span></p><p class="position"></p><output role="status">正在进入RTG驾驶模式…</output><button type="button" class="retry" hidden>重新进入驾驶</button>';
   document.body.append(hud);
   const video=document.getElementById('remote-video');
   if(video){video.tabIndex=0;video.setAttribute('aria-label','RTG司机独立画面');video.focus();}
-  const keys=new Set(),labels={under:'吊具下方',side:'吊具侧向',end:'吊具端向',overview:'机外全景'};
+  const keys=new Set(),labels={under:'小车架底部',side:'吊具侧向',end:'吊具端向',oblique:'斜下看吊具',overview:'机外全景'};
   let views=['under','side','end'];
   let active=false,busy=false,closed=false,seq=0,view='under',fov=140,lastVideoFrame=0,focused=true,jpegView=null;
-  let detailFov=140,overviewFov=50;
   const pending=[];
   const clientId=Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('');
   if(video?.requestVideoFrameCallback){
@@ -21,7 +20,7 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
   const output=hud.querySelector('output'),retry=hud.querySelector('.retry');
   function pictureReady(){return focused&&!document.hidden&&(jpegView?jpegView.ready():!!video&&video.readyState>=2&&!video.paused&&(!video.requestVideoFrameCallback||performance.now()-lastVideoFrame<750));}
   function render(state){
-    if(state.available_views?.includes('overview')&&!views.includes('overview'))views.push('overview');
+    if(state.available_views)views=state.available_views.filter(name=>Object.hasOwn(labels,name));
     hud.querySelector('.view').textContent=labels[state.view||view];
     hud.querySelector('.fov').textContent=`${state.fov??fov}°`;
     hud.querySelector('.position').textContent=`大车 ${(state.gantry_m||0).toFixed(2)} m　小车 ${(state.trolley_m||0).toFixed(2)} m　起升 ${(state.hoist_m||0).toFixed(2)} m　倾角 ${(state.roll_deg||0).toFixed(1)}°　旋转 ${(state.yaw_deg||0).toFixed(1)}°`;
@@ -75,14 +74,10 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
     }catch(error){keys.clear();output.textContent=(error.status===400?'操作未完成：':'连接中断，RTG已停止。')+error.message;}finally{busy=false;}
   }
   function zoom(){fov=fov<=40?140:fov-10;void flush();}
-  function toggle(){
-    const next=views[(views.indexOf(view)+1)%views.length];
-    if(next==='overview'){detailFov=fov;fov=overviewFov;}
-    else if(view==='overview'){overviewFov=fov;fov=detailFov;}
-    view=next;void flush();
-  }
+  function zoomOut(){fov=fov>=140?40:fov+10;void flush();}
+  function toggle(){view=views[(views.indexOf(view)+1)%views.length];void flush();}
   function tool(command){if(!active||closed||!pictureReady())return;keys.clear();pending.length=0;pending.push(command);void flush();}
-  hud.querySelector('.zoom').onclick=zoom;hud.querySelector('.view-toggle').onclick=toggle;retry.onclick=acquire;
+  hud.querySelector('.zoom').onclick=zoom;hud.querySelector('.zoom-out').onclick=zoomOut;hud.querySelector('.view-toggle').onclick=toggle;retry.onclick=acquire;
   hud.querySelector('.zero').onclick=()=>tool({zero:true});
   hud.querySelector('.size20').onclick=()=>tool({size_ft:20});hud.querySelector('.size40').onclick=()=>tool({size_ft:40});
   hud.querySelector('.lock').onclick=()=>tool({lock:true});hud.querySelector('.unlock').onclick=()=>tool({lock:false});
@@ -94,6 +89,7 @@ if (document.documentElement.classList.contains('smartport-rtg-driver')) {
     consume(event);
     if(name==='keyup')keys.delete(event.code);
     else if(!event.repeat&&event.code==='KeyF')zoom();
+    else if(!event.repeat&&event.code==='KeyG')zoomOut();
     else if(!event.repeat&&event.code==='KeyV')toggle();
     else if(!event.repeat&&event.code==='KeyH')tool({zero:true});
     else if(!event.repeat&&event.code==='Digit1')tool({size_ft:20});

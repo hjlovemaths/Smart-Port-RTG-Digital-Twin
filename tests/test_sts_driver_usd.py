@@ -14,6 +14,7 @@ class View:
     def __init__(self,stage):self.stage=private_stage(stage);self.closed=False;self.camera_path=''
     def tick(self):pass
     def ready(self):return not self.closed
+    def stats(self):return {}
     def close(self):self.closed=True
 
 class STSDriverTests(unittest.TestCase):
@@ -49,14 +50,49 @@ class STSDriverTests(unittest.TestCase):
         self.assertLess((m.TransformDir(Gf.Vec3d(0,0,-1))-Gf.Vec3d(0,0,-1)).GetLength(),1e-7)
         trolley=UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY))
         old_up=trolley.TransformDir(Gf.Vec3d(1,0,0)).GetNormalized()
-        self.assertLess((m.TransformDir(Gf.Vec3d(0,1,0))-Gf.Vec3d(-old_up[1],old_up[0],0)).GetLength(),1e-7)
-        self.step(hoist=1);self.assertLess((self.camera_matrix().ExtractTranslation()-eye).GetLength(),1e-6)
+        self.assertLess((m.TransformDir(Gf.Vec3d(0,1,0))-Gf.Vec3d(old_up[1],-old_up[0],0)).GetLength(),1e-7)
+        right=m.TransformDir(Gf.Vec3d(1,0,0))
+        up=m.TransformDir(Gf.Vec3d(0,1,0))
+        root=UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(self.driver.controller.path))
+        gantry=UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(self.driver.controller.path+'/Gantry'))
+        self.assertGreater(Gf.Dot(root.TransformDir(Gf.Vec3d(-1,0,0)),right),0)
+        self.assertGreater(Gf.Dot(gantry.TransformDir(Gf.Vec3d(0,-1,0)),up),0)
+        contact=self.driver.contact()
+        self.step(hoist=1)
+        self.assertLess((self.camera_matrix().ExtractTranslation()-eye-(self.driver.contact()-contact)).GetLength(),1e-6)
         self.step(trolley=1);self.assertGreater((self.camera_matrix().ExtractTranslation()-eye).GetLength(),.01)
-        for view in ('under','side','end'):
+        for view in ('under','side','end','oblique'):
             for fov in (140,70,40,10):
                 self.step(view=view,fov=fov)
                 focal=self.driver.camera.GetFocalLengthAttr().Get()
                 self.assertAlmostEqual(math.degrees(2*math.atan(36/(2*focal))),fov,places=4)
+        self.step(view='oblique')
+        for _ in range(5):self.step()
+        camera=self.camera_matrix()
+        direction=camera.TransformDir(Gf.Vec3d(0,0,-1))
+        self.assertAlmostEqual(direction[2],-math.sqrt(.5),places=6)
+        expected=(self.driver.contact()-camera.ExtractTranslation()).GetNormalized()
+        self.assertLess((direction-expected).GetLength(),1e-7)
+        eye=camera.ExtractTranslation();contact=self.driver.contact()
+        self.step(hoist=1,trolley=1)
+        self.assertLess((self.camera_matrix().ExtractTranslation()-eye-(self.driver.contact()-contact)).GetLength(),1e-6)
+
+    def test_view_switch_keeps_orbit_radius_and_focal_length(self):
+        d=self.driver
+        self.step(fov=30)
+        radius=(self.camera_matrix().ExtractTranslation()-d.contact()).GetLength()
+        focal=d.camera.GetFocalLengthAttr().Get()
+        for view in ('side','end','oblique','under','side'):
+            before=self.camera_matrix()
+            d.command('owner',{'view':view})
+            self.assertTrue(Gf.IsClose(before,self.camera_matrix(),1e-8))
+            for _ in range(5):
+                self.step(view=view)
+                matrix=self.camera_matrix()
+                self.assertAlmostEqual((matrix.ExtractTranslation()-d.contact()).GetLength(),radius,places=6)
+                self.assertEqual(d.camera.GetFocalLengthAttr().Get(),focal)
+                direction=matrix.TransformDir(Gf.Vec3d(0,0,-1))
+                self.assertLess((direction-(d.contact()-matrix.ExtractTranslation()).GetNormalized()).GetLength(),1e-7)
     def test_axes_limits_deadman_owner_and_size(self):
         d=self.driver;before=dict(d.controller.state)
         self.step(gantry=1,trolley=1,hoist=1)

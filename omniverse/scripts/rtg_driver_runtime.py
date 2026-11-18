@@ -9,8 +9,9 @@ from rtg_transfer_motion import read_spreader_size_ft
 CAMERA='/World/RTGDriverDemo/Camera'
 ROLL_OP='xformOp:transform:rtgDriverRoll'
 ROLL_ATTR='smartport:rtgDriverRollDeg'
-VIEWS=('under','side','end','overview')
+VIEWS=('under','side','end','oblique','overview')
 HOIST_SPEED_M_S=5.0
+GANTRY_SPEED_M_S=1.0
 
 
 def active_rtg_driver(stage=None):
@@ -114,35 +115,74 @@ class RTGDriver:
         if changed:self.controller.update_ropes()
 
     def apply_camera(self):
-        transforms=UsdGeom.XformCache()
-        up=Gf.Vec3d(0,0,1)
-        if self.view=='overview':
-            gantry=transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(GANTRY_PATH))
-            # Aim through the portal from just off the travel axis, high enough
-            # to see the spreader and container tops without losing the wheels.
-            target=gantry.Transform(Gf.Vec3d(-.25,-5.1,5.2))
-            across=gantry.TransformDir(Gf.Vec3d(1,0,0)).GetNormalized()
-            along=gantry.TransformDir(Gf.Vec3d(0,1,0)).GetNormalized()
-            eye=target+across*6.8+along*31+up*7.2
-        else:
-            trolley=transforms.GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY_PATH))
-            if self.view=='under':
-                up=trolley.TransformDir(Gf.Vec3d(1,0,0));up=Gf.Vec3d(up[0],up[1],0).GetNormalized()
-                eye=trolley.Transform(Gf.Vec3d(2.55,-5.,8.))
-                target=eye-Gf.Vec3d(0,0,10)
-            else:
-                contact=transforms.GetLocalToWorldTransform(self.hoist).Transform(self.trim.pivot)
-                offset=trolley.TransformDir(Gf.Vec3d(1,0,0) if self.view=='side' else Gf.Vec3d(0,1,0))
-                offset=Gf.Vec3d(offset[0],offset[1],0).GetNormalized()
-                eye=contact+offset*7+up*1.8;target=contact-up*.3
-        lens=self.fov
-        with Usd.EditContext(self.camera_stage,self.camera_stage.GetSessionLayer()):
-            focal=36/(2*math.tan(math.radians(lens)/2))
-            if getattr(self,'_last_fov',None)!=lens:
-                self.camera.CreateFocalLengthAttr(focal);self._last_fov=lens
-            pose=Gf.Matrix4d(1).SetLookAt(eye,target,up).GetInverse()
-            if self.camera_op.Get()!=pose:self.camera_op.Set(pose)
-        if self.private_view.camera_path!=CAMERA:self.private_view.camera_path=CAMERA
+        trolley = UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY_PATH))
+        contact = UsdGeom.XformCache().GetLocalToWorldTransform(self.hoist).Transform(self.trim.pivot)
+        vertical = Gf.Vec3d(0, 0, 1)
+        across = trolley.TransformDir(Gf.Vec3d(1, 0, 0))
+        across = Gf.Vec3d(across[0], across[1], 0).GetNormalized()
+        if self.view == 'under':
+            # This is a trolley-mounted operator camera, independent of hoist travel.
+            eye = trolley.Transform(Gf.Vec3d(2.55, -5., 8.))
+            pose = Gf.Matrix4d(1).SetLookAt(eye, eye - vertical * 10, across).GetInverse()
+            self.write_camera(pose)
+            return
+        up = vertical
+        local = {'side': (1, 0, 0), 'end': (0, 1, 0), 'oblique': (1, 1, 0), 'overview': (1, 3, 0)}[self.view]
+        horizontal = trolley.TransformDir(Gf.Vec3d(*local))
+        horizontal = Gf.Vec3d(horizontal[0], horizontal[1], 0).GetNormalized()
+        elevation = math.pi / 4 if self.view == 'oblique' else math.atan2(2.3, 10)
+        direction = horizontal * math.cos(elevation) + vertical * math.sin(elevation)
+        desired = Gf.Matrix4d(1).SetLookAt(direction, Gf.Vec3d(0), up).GetInverse()
+        desired_rotation = Gf.Transform(desired).GetRotation().GetQuat()
+        now = self.clock()
+        if not hasattr(self, '_camera_rotation'):
+            # Frame the full spreader at 70 degrees with room around its ends.
+            # The platform-to-hoist gap can approach zero when raised, so it
+            # cannot define a reliable orbit distance.
+            cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ['default', 'render'])
+            bounds = cache.ComputeUntransformedBound(self.hoist).ComputeAlignedRange()
+            hoist_world = UsdGeom.XformCache().GetLocalToWorldTransform(self.hoist)
+            radius = max((hoist_world.Transform(bounds.GetCorner(i)) - contact).GetLength() for i in range(8))
+            vertical_half_angle = math.atan(math.tan(math.radians(70) / 2) * 9 / 16)
+            self._camera_radius = max(10., radius * 1.2 / math.sin(vertical_half_angle))
+            self._camera_rotation = desired_rotation
+            self._camera_view = self.view
+            self._camera_started = now
+            self._camera_from = desired_rotation
+            self._camera_to = desired_rotation
+        # Evaluate the previous arc first so another V press starts at the
+        # currently displayed orientation, even during an unfinished orbit.
+        progress = min(1., max(0., (now - self._camera_started) / .4))
+        eased = progress * progress * (3 - 2 * progress)
+        self._camera_rotation = Gf.Slerp(eased, self._camera_from, self._camera_to)
+        if self._camera_view != self.view:
+            self._camera_from = self._camera_rotation
+            self._camera_to = desired_rotation
+            self._camera_started = now
+            self._camera_view = self.view
+        rotation = Gf.Matrix4d(1).SetRotate(self._camera_rotation)
+        orbit_direction = rotation.TransformDir(vertical)
+        # Keep the camera below the upper rope anchors/platform, including
+        # while the hoist rises and throughout a spherical view transition.
+        ceiling = trolley.Transform(Gf.Vec3d(2.55, -5., 8.))[2] - .25
+        max_height = max(-.8, min(.8, (ceiling - contact[2]) / self._camera_radius))
+        if orbit_direction[2] > max_height:
+            horizontal = Gf.Vec3d(orbit_direction[0], orbit_direction[1], 0)
+            if horizontal.GetLength() < 1e-8:
+                horizontal = across
+            orbit_direction = horizontal.GetNormalized() * math.sqrt(1 - max_height**2) + vertical * max_height
+        eye = contact + orbit_direction * self._camera_radius
+        pose = Gf.Matrix4d(1).SetLookAt(eye, contact, vertical).GetInverse()
+        self.write_camera(pose)
+
+    def write_camera(self, pose):
+        with Usd.EditContext(self.camera_stage, self.camera_stage.GetSessionLayer()):
+            focal = 36 / (2 * math.tan(math.radians(self.fov) / 2))
+            if self.camera.GetFocalLengthAttr().Get() != focal:
+                self.camera.CreateFocalLengthAttr(focal)
+            if self.camera_op.Get() != pose:
+                self.camera_op.Set(pose)
+        self.private_view.camera_path = CAMERA
 
     def tick(self,dt):
         started=time.monotonic()
@@ -163,7 +203,7 @@ class RTGDriver:
             else:self.size_target=None
         moved=any(self.axes.values())
         if self.cargo.locked:self.axes['gantry']=0.
-        if self.axes['gantry']:self.controller.set_gantry_safe(gantry+self.axes['gantry']*2*dt)
+        if self.axes['gantry']:self.controller.set_gantry_safe(gantry+self.axes['gantry']*GANTRY_SPEED_M_S*dt)
         if self.axes['trolley']:
             target=trolley+self.axes['trolley']*1.2*dt
             if self.cargo.locked:

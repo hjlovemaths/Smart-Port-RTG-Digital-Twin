@@ -84,8 +84,8 @@ VIEWER_HEAD = """
 <script type="module" src="/static/smartport-navigation.js?v=5"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>
 <script type="module" src="/static/smartport-driver.js?v=7"></script>
-<script type="module" src="/static/smartport-rtg-driver.js?v=5"></script>
-<script type="module" src="/static/smartport-sts-driver.js?v=2"></script>
+<script type="module" src="/static/smartport-rtg-driver.js?v=7"></script>
+<script type="module" src="/static/smartport-sts-driver.js?v=4"></script>
 """
 
 

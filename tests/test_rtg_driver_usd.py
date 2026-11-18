@@ -73,26 +73,40 @@ class RTGDriverTests(unittest.TestCase):
                 self.assertAlmostEqual(math.degrees(2*math.atan(36/(2*focal))),fov,places=4)
         self.assertEqual(self.root.ExportToString(),root_before,'operator must not edit source layers')
 
-    def test_overview_frames_crane_and_follows_only_gantry(self):
-        self.step(view='overview',fov=50)
-        camera=self.camera_matrix()
-        to_camera=camera.GetInverse()
-        gantry=self.stage.GetPrimAtPath(GANTRY_PATH)
-        bounds=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render']).ComputeWorldBound(gantry).ComputeAlignedRange()
-        half_width=math.tan(math.radians(25))
-        for i in range(8):
-            x,y,z=to_camera.Transform(bounds.GetCorner(i))
-            self.assertLess(z,0)
-            self.assertLess(abs(x)/-z,half_width)
-            self.assertLess(abs(y)/-z,half_width*9/16)
+    def test_orbit_keeps_distance_focal_length_and_targets_spreader(self):
+        d=self.driver
+        def contact():return world(d.hoist).Transform(d.trim.pivot)
+        self.step(view='side',fov=70)
+        radius=(self.camera_matrix().ExtractTranslation()-contact()).GetLength()
+        focal=d.camera.GetFocalLengthAttr().Get()
+        for view in ('side','end','oblique','overview'):
+            before=self.camera_matrix()
+            d.command('rtg-page',{'view':view})
+            self.assertTrue(Gf.IsClose(before,self.camera_matrix(),1e-8))
+            for _ in range(5):
+                self.step(view=view)
+                matrix=self.camera_matrix()
+                self.assertAlmostEqual((matrix.ExtractTranslation()-contact()).GetLength(),radius,places=6)
+                trolley=UsdGeom.XformCache().GetLocalToWorldTransform(self.stage.GetPrimAtPath(TROLLEY_PATH))
+                self.assertLessEqual(matrix.ExtractTranslation()[2],trolley.Transform(Gf.Vec3d(2.55,-5.,8.))[2]-.25+1e-6)
+                self.assertEqual(d.camera.GetFocalLengthAttr().Get(),focal)
+                forward=matrix.TransformDir(Gf.Vec3d(0,0,-1))
+                self.assertLess((forward-(contact()-matrix.ExtractTranslation()).GetNormalized()).GetLength(),1e-7)
 
-        self.step(trolley=1,hoist=1)
-        self.assertEqual(self.camera_matrix(),camera)
-        before=UsdGeom.XformCache().GetLocalToWorldTransform(gantry).ExtractTranslation()
-        self.step(gantry=1)
-        delta=UsdGeom.XformCache().GetLocalToWorldTransform(gantry).ExtractTranslation()-before
-        self.assertGreater(delta.GetLength(),0)
-        self.assertLess((self.camera_matrix().ExtractTranslation()-camera.ExtractTranslation()-delta).GetLength(),1e-8)
+    def test_complete_spreader_fits_all_orbit_views(self):
+        d=self.driver
+        bounds=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render']).ComputeUntransformedBound(d.hoist).ComputeAlignedRange()
+        for size in (20,40):
+            d.controller.set_spreader_size(size,smooth=False)
+            for view in ('side','end','oblique','overview'):
+                for _ in range(6):self.step(view=view,fov=70)
+                to_camera=self.camera_matrix().GetInverse()
+                hoist_world=world(d.hoist)
+                for i in range(8):
+                    x,y,z=to_camera.Transform(hoist_world.Transform(bounds.GetCorner(i)))
+                    self.assertLess(z,0)
+                    self.assertLess(abs(x)/-z,math.tan(math.radians(35)))
+                    self.assertLess(abs(y)/-z,math.tan(math.radians(35))*9/16)
 
     def test_spreader_stops_on_box_roof_and_can_raise(self):
         body,_,_=self.contact_box();d=self.driver
@@ -100,6 +114,7 @@ class RTGDriverTests(unittest.TestCase):
         self.step(hoist=-1)
         self.assertAlmostEqual(d.controller.get_positions()[2],before,places=4)
         self.assertIn('接触箱顶',d.state()['notice'])
+
         self.step(hoist=1)
         self.assertAlmostEqual(d.controller.get_positions()[2],before+.5,places=5)
         self.step(hoist=-1)
@@ -107,6 +122,19 @@ class RTGDriverTests(unittest.TestCase):
         self.assertAlmostEqual(d.controller.get_positions()[2],before,places=4)
         self.assertIn('接触箱顶',d.state()['notice'])
 
+    def test_descent_reuses_static_bounds_and_refreshes_changed_box(self):
+        body,_,_=self.contact_box()
+        cargo=self.driver.cargo
+        hoist=self.driver.controller.get_positions()[2]
+        cargo.limit_hoist(hoist,hoist-.1,0)
+        with patch.object(cargo,'refresh_contacts',wraps=cargo.refresh_contacts) as refresh:
+            with patch.object(cargo.geometry,'_bounds',side_effect=AssertionError('static bounds recalculated')):
+                for i in range(40):cargo.limit_hoist(hoist,hoist-.1,i*.1)
+            refresh.assert_not_called()
+            with Usd.EditContext(self.stage,self.stage.GetSessionLayer()):
+                body.GetAttribute('xformOp:translate').Set(world(body).ExtractTranslation()+Gf.Vec3d(0,0,-1))
+            cargo.limit_hoist(hoist,hoist-.1,5)
+            refresh.assert_called_once()
     def yard_obstacle(self,centre,dims):
         with Usd.EditContext(self.stage,self.stage.GetSessionLayer()):
             obstacle=UsdGeom.Cube.Define(self.stage,'/World/LiveContainers/DriverObstacle')

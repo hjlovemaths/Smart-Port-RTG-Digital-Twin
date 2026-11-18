@@ -16,20 +16,25 @@ async function main(){
       const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'under',fov:body.fov??140,stream_ready:action!=='acquire',input_seq:-1})};
       if(action==='input'&&hold){hold=false;return await new Promise(resolve=>pending=()=>resolve(response));}return response;
     }};
-  vm.runInNewContext(fs.readFileSync('omniverse/web/smartport-sts-driver.js','utf8'),scope);
+  const runModule=name=>vm.runInNewContext(fs.readFileSync(`omniverse/web/${name}.js`,'utf8').replace(/^import \{startJpegFrames\} from '\.\/smartport-jpeg\.js';$/m,''),scope);
+  runModule('smartport-sts-driver');
   const settle=()=>new Promise(resolve=>setImmediate(resolve));for(let i=0;i<5;i++)await settle();
   const key=(type,code,repeat=false)=>{let consumed=false;events[type]({code,key:code,repeat,target:{closest:()=>null},preventDefault(){consumed=true;},stopImmediatePropagation(){}});assert(consumed);};
   assert.equal(requests[0].action,'acquire');assert.equal(readyEvents,1);
-  for(const [code,axis,value] of [['KeyW','gantry',1],['KeyS','gantry',-1],['KeyD','trolley',1],['KeyA','trolley',-1],['KeyQ','hoist',1],['KeyE','hoist',-1]]){
+  for(const [code,axis,value] of [['KeyW','trolley',1],['KeyS','trolley',-1],['KeyD','gantry',1],['KeyA','gantry',-1],['KeyQ','hoist',1],['KeyE','hoist',-1]]){
     key('keydown',code);await settle();assert.equal(requests.at(-1).body[axis],value);
     key('keyup',code);await settle();assert.equal(requests.at(-1).body[axis],0);
   }
   for(let fov=130;fov>=10;fov-=10){key('keydown','KeyF');await settle();assert.equal(requests.at(-1).body.fov,fov);}
   key('keydown','KeyF',true);await settle();assert.equal(requests.at(-1).body.fov,10,'held F must not skip angles');
   key('keydown','KeyF');await settle();assert.equal(requests.at(-1).body.fov,140);
+  key('keydown','KeyG');await settle();assert.equal(requests.at(-1).body.fov,10);
+  for(let fov=20;fov<=140;fov+=10){key('keydown','KeyG');await settle();assert.equal(requests.at(-1).body.fov,fov);}
+  key('keydown','KeyG',true);await settle();assert.equal(requests.at(-1).body.fov,140);
   hold=true;intervals[0]();await settle();key('keydown','KeyV');pending();await settle();await intervals[0]();
   assert.equal(requests.at(-1).body.view,'side','late replies must preserve requested view');
   key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'end');
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'oblique');
   key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'under');
   for(const [code,field,value] of [['Digit1','size_ft',20],['Digit2','size_ft',40],['KeyK','lock',true],['KeyU','lock',false]]){
     key('keydown',code);await settle();assert.equal(requests.at(-1).body[field],value);
@@ -46,6 +51,6 @@ async function main(){
   events.pagehide();assert.equal(requests.at(-1).action,'release');assert.equal(requests.at(-1).body.client_id,requests[0].body.client_id);
   console.log('STS web: axes, size actions, FOV/views, focus/video loss and scoped release passed.');
   // Shared video-only class must not cause the truck module to acquire a truck.
-  const count=requests.length;vm.runInNewContext(fs.readFileSync('omniverse/web/smartport-driver.js','utf8'),scope);assert.equal(requests.length,count);
+  const count=requests.length;runModule('smartport-driver');assert.equal(requests.length,count);
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

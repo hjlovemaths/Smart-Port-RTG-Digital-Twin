@@ -17,7 +17,7 @@ async function main(){
     fetch:async(url,options)=>{
       assert(url.startsWith('/api/rtg-driver/'),'RTG page must never send truck/admin commands');
       const action=url.split('/').pop().split('?')[0],body=options.body?JSON.parse(options.body):{};requests.push({url,action,body,method:options.method});
-      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'under',fov:body.fov??140,available_views:['under','side','end','overview'],stream_ready:action!=='acquire',input_seq:-1})};
+      const response={ok:true,status:200,json:async()=>({status:'driving',view:body.view||'under',fov:body.fov??140,available_views:['under','side','end','oblique','overview'],stream_ready:action!=='acquire',input_seq:-1})};
       if(action==='input'&&hold){hold=false;return await new Promise(resolve=>pending=()=>resolve(response));}return response;
     }};
   runDriver('smartport-rtg-driver',scope);
@@ -34,11 +34,12 @@ async function main(){
   hold=true;intervals[0]();await settle();key('keydown','KeyV');pending();await settle();await intervals[0]();
   assert.equal(requests.at(-1).body.view,'side','late replies must preserve requested view');
   key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'end');
-  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'overview');assert.equal(requests.at(-1).body.fov,50);
-  key('keydown','KeyF');await settle();assert.equal(requests.at(-1).body.fov,40);
-  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'under');assert.equal(requests.at(-1).body.fov,140);
-  for(let i=0;i<3;i++){key('keydown','KeyV');await settle();}
-  assert.equal(requests.at(-1).body.view,'overview');assert.equal(requests.at(-1).body.fov,40);
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'oblique');
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'overview');assert.equal(requests.at(-1).body.fov,140);
+  key('keydown','KeyF');await settle();assert.equal(requests.at(-1).body.fov,130);
+  key('keydown','KeyG');await settle();assert.equal(requests.at(-1).body.fov,140);
+  key('keydown','KeyG');await settle();assert.equal(requests.at(-1).body.fov,40);
+  key('keydown','KeyV');await settle();assert.equal(requests.at(-1).body.view,'under');assert.equal(requests.at(-1).body.fov,40);
   for(const [code,field,value] of [['KeyH','zero',true],['Digit1','size_ft',20],['Digit2','size_ft',40],['KeyK','lock',true],['KeyU','lock',false]]){
     key('keydown',code);await settle();assert.equal(requests.at(-1).body[field],value);
     await intervals[0]();assert.equal(requests.at(-1).body[field],undefined,'tool actions must not repeat on the input heartbeat');
