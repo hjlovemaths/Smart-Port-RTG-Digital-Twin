@@ -189,6 +189,51 @@ class LiveAlignmentUsdTests(unittest.TestCase):
                 self.assertEqual(bool(stage.GetPrimAtPath(persistent + "/R06_T01_Container")), bool(target))
                 self.assertFalse(stage.GetPrimAtPath(r.LIVE_TASK_STACK_PATH))
 
+    def test_recorded_switch_release_stays_in_target_after_task_clears(self):
+        from contextlib import ExitStack
+        from yard_inventory import YardInventory
+        r = self.receiver
+        driver = r.OmniverseRtgTwinDriver(inventory_autosave=False)
+        driver._inventory = YardInventory.empty()
+        driver._current_stage = lambda: self.stage
+        task = {"taskId": "29120088", "workType": "SWITCH", "startPos": "4C0463",
+                "endPos": "4C0422", "containerSize": 40, "containerHeight": 2.9,
+                "containerType": "RF", "bayMap": "414443"}
+        pose = {"currentField": "4C", "currentBay": 4, "trolleyMeter": 3.71,
+                "hoistMeter": 15.0, "lockState": 1, "unlockState": 0, "plcStale": False}
+        # Keep the real inventory, task renderer, RTG controller and operation
+        # state machine; omit unrelated panels/ships from this PLC replay.
+        with ExitStack() as mocks:
+            for name in ("_sync_floating_runinfo_billboard", "_sync_floating_task_panel",
+                         "_disable_demo_artifacts_for_stage", "_ensure_4c_feeder_ship_replacements",
+                         "_write_status", "_sync_status_overlay"):
+                mocks.enter_context(patch.object(driver, name))
+            driver.apply_state({"task": task, "pose": pose})
+            pose = dict(pose, trolleyMeter=15.05)
+            driver.apply_state({"task": task, "pose": pose})
+            self.assertEqual(driver._operation_state_machine.state, r.OperationState.HOIST_TO_PLACE)
+            released = dict(pose, hoistMeter=5.5, lockState=0, unlockState=1)
+            driver.apply_state({"task": task, "pose": dict(released, plcStale=True)})
+            self.assertFalse(driver._inventory.task_is_settled(task))
+            driver.apply_state({"task": task, "pose": released})
+            self.assertTrue(driver._inventory.task_is_settled(task))
+            # The same pre-move map can remain on screen while the empty
+            # spreader rises. It must not undo the committed placement.
+            raised = dict(released, hoistMeter=15.0)
+            driver.apply_state({"task": task, "pose": raised})
+            driver.apply_state({"task": None, "pose": raised})
+            persistent = driver._inventory_stack_path("4C/004")
+            root = self.stage.GetPrimAtPath(persistent)
+            self.assertEqual(root.GetAttribute("inventory:bayMap").Get(), "424442")
+            target = self.stage.GetPrimAtPath(persistent + "/R02_T02_Container")
+            self.assertTrue(target and target.IsActive())
+            self.assertEqual(self.UsdGeom.Imageable(target).ComputeVisibility(), "inherited")
+            source = self.stage.GetPrimAtPath(persistent + "/R06_T03_Container")
+            self.assertFalse(source and source.IsActive())
+            self.assertFalse(self.stage.GetPrimAtPath(r.LIVE_TASK_STACK_PATH))
+            boxes = [child for child in root.GetChildren() if str(child.GetName()).endswith("_Container")]
+            self.assertEqual(len(boxes), 20)
+
     def test_runinfo_anchor_follows_motion_without_repeating_full_model_bounds(self):
         driver = self.receiver.OmniverseRtgTwinDriver(inventory_autosave=False)
         root = self.UsdGeom.Xform.Define(self.stage, "/World/LiveHUD/TestRuninfo").GetPrim()

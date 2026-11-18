@@ -417,10 +417,17 @@ class RtgOperationStateMachine:
                     f"load lifted clear at {self.transfer_hoist_m:.1f}m",
                 )
         elif self.state == OperationState.TROLLEY_TO_TARGET:
-            if self._at_trolley(plc, self.target_trolley_m):
+            if self.release_at_target(plc):
+                next_state = (OperationState.HOIST_SAFE, "PLC release confirmed at target")
+            elif self._at_trolley(plc, self.target_trolley_m):
                 next_state = (OperationState.HOIST_TO_PLACE, "trolley reached target")
         elif self.state == OperationState.HOIST_TO_PLACE:
-            if plc.locked and self.at_placement_height(plc.hoist_m):
+            # The live stream may first report contact in the same frame as
+            # unlock. Requiring a preceding *locked* contact frame leaves the
+            # box carrying forever, then discards the move when the task clears.
+            if self.release_at_target(plc):
+                next_state = (OperationState.HOIST_SAFE, "PLC release confirmed at target")
+            elif plc.locked and self.at_placement_height(plc.hoist_m):
                 next_state = (OperationState.UNLOCK, "load settled at placement height")
         elif self.state == OperationState.UNLOCK:
             if not plc.locked:
@@ -449,6 +456,17 @@ class RtgOperationStateMachine:
         placement_bottom_m = self.placement_load_bottom_hoist_m
         return placement_bottom_m is None or (
             hoist_m is not None and hoist_m <= placement_bottom_m + self.HEIGHT_TOLERANCE_M
+        )
+
+    def release_at_target(self, plc: PlcOperationSnapshot) -> bool:
+        """Confirm a sampled release without relying on a separate contact frame."""
+        return (
+            not plc.locked and not plc.alarmed
+            and self.placement_load_bottom_hoist_m is not None
+            and plc.hoist_m is not None and plc.hoist_m >= 0.0
+            and self._at_slot(plc, self.task.target)
+            and self._at_trolley(plc, self.target_trolley_m)
+            and self.at_placement_height(plc.hoist_m)
         )
 
     def visual_phase(self) -> str:

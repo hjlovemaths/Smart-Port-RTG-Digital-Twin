@@ -47,6 +47,29 @@ def plc(**overrides):
 
 
 class OperationStateMachineTests(unittest.TestCase):
+    def test_release_frame_can_confirm_contact_and_unlock_together(self) -> None:
+        machine = RtgOperationStateMachine(
+            OperationTask("29120088", WORK_TYPE_SWITCH, TaskSlot("4C", 4, 6, 3),
+                          TaskSlot("4C", 4, 2, 2), container_height_m=2.9),
+            placement_load_bottom_m=5.5,
+        )
+        machine.state = OperationState.HOIST_TO_PLACE
+        machine.entered_at = 10.0
+        released = dict(field="4C", bay=4, trolley_m=15.05, hoist_m=5.5, locked=False)
+        for change in ({"bay": 5}, {"trolley_m": 3.71}, {"hoist_m": -1.0},
+                       {"hoist_m": 15.0}, {"hoist_m": None}):
+            with self.subTest(change=change):
+                candidate = dict(released, **change)
+                self.assertIsNone(machine.update(plc(**candidate), 10.1))
+        transition = machine.update(plc(**released), 10.2)
+        self.assertIsNotNone(transition)
+        self.assertEqual(machine.state, OperationState.HOIST_SAFE)
+        self.assertEqual(machine.visual_phase(), "PLACED")
+        # Arrival and release may also be coalesced into one network sample.
+        machine.state = OperationState.TROLLEY_TO_TARGET
+        self.assertFalse(machine.release_at_target(plc(**dict(released, alarmed=True))))
+        self.assertEqual(machine.update(plc(**released), 10.3).current, OperationState.HOIST_SAFE)
+
     def test_scenario_positions_use_two_digit_bay_numbers(self) -> None:
         self.assertEqual(_position("3C", 62, 1, 3), "3C6213")
         self.assertEqual(len(_position("3C", 62, 1, 3)), 6)
