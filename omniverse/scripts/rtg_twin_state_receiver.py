@@ -145,7 +145,7 @@ FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     ),
 }
 FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (1.0, 1.0, 1.0)
-LIVE_DRIVER_BUILD_ID = "2026-10-28-authoritative-task-map-lock-foot-alignment-v3"
+LIVE_DRIVER_BUILD_ID = "2026-11-18-task-map-and-placement"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
@@ -3748,6 +3748,7 @@ class OmniverseRtgTwinDriver:
         self._inventory_dirty_bays: set[str] = set()
         self._hidden_inventory_paths: set[str] = set()
         self._active_inventory_task_key: Optional[tuple[Any, ...]] = None
+        self._previous_live_task: Optional[Dict[str, Any]] = None
         self._active_inventory_snapshot_key: Optional[str] = None
         self._latest_state: Optional[Dict[str, Any]] = None
         self._latest_lock = threading.Lock()
@@ -3951,6 +3952,7 @@ class OmniverseRtgTwinDriver:
         self._inventory_dirty_bays.clear()
         self._hidden_inventory_paths.clear()
         self._active_inventory_task_key = None
+        self._previous_live_task = None
         self._active_inventory_snapshot_key = None
         self._spreader_task_key = None
         self._spreader_task_target_size_ft = None
@@ -4669,12 +4671,16 @@ class OmniverseRtgTwinDriver:
         self._sync_inventory_scene(stage)
         controller = self._controller_for_stage(stage)
         pose = dict(state.get("pose") or {})
+        pose[RESOLVED_LOCKED_KEY] = self._resolve_spreader_locked(pose)
         task = dict(state.get("task") or {})
+        if self._inventory_mode == INVENTORY_MODE_LIVE:
+            self._settle_departed_live_task(stage, task, pose)
         if task:
             task = self._prepare_inventory_task(stage, task)
             state = dict(state)
             state["task"] = task
-        pose[RESOLVED_LOCKED_KEY] = self._resolve_spreader_locked(pose)
+        if self._inventory_mode == INVENTORY_MODE_LIVE:
+            self._previous_live_task = task if _is_container_work_task(task) else None
 
         field = _field_name(pose.get("currentField"))
         bay = _as_int(pose.get("currentBay"), 0)
@@ -4698,7 +4704,9 @@ class OmniverseRtgTwinDriver:
         # A completed task changes the durable yard inventory exactly once.
         # Only its truck, carried-box proxy, and disposable working stack are
         # removed; every persistent inventory bay remains in the world.
-        task_complete = _task_is_complete(task)
+        task_complete = _task_is_complete(task) or (
+            bool(task) and self._inventory.task_is_settled(task)
+        )
         if task_complete:
             if _is_container_work_task(task):
                 if self._settle_inventory_task(stage, task):
@@ -4774,19 +4782,21 @@ class OmniverseRtgTwinDriver:
                 self._sync_task_switch(stage, task, pose)
             else:
                 self._sync_task_vehicle(stage, task, pose)
-            # The PLC-driven state machine may reach COMPLETE from physical
-            # spreader / hoist signals without the task payload ever setting
-            # ``operationState`` to a terminal value.  When the machine
-            # declares the operation done, settle the durable inventory and
-            # discard the disposable task visuals exactly once.
-            if (
-                task
-                and _is_container_work_task(task)
-                and self._operation_state_machine is not None
-                and self._operation_state_machine.state is OperationState.COMPLETE
+            machine = self._operation_state_machine
+            # A yard-to-yard move ends when the box is released at its target.
+            # Truck tasks retain their visual until departure or task removal.
+            switch_placed = (
+                _task_work_type(task) == WORK_TYPE_SWITCH
+                and self._task_flow_state == TASK_STATE_PLACED
+                and machine is not None
+                and not _pose_spreader_locked(pose)
+                and not pose.get("plcStale")
+            )
+            if _is_container_work_task(task) and (
+                switch_placed or machine is not None and machine.state is OperationState.COMPLETE
             ):
                 self._log(
-                    "state machine reached COMPLETE; settling inventory "
+                    "operation placed or completed; settling inventory "
                     f"task={task.get('taskId') or '--'}"
                 )
                 if self._settle_inventory_task(stage, task):
@@ -4795,6 +4805,48 @@ class OmniverseRtgTwinDriver:
         self._sync_status_overlay(state, applied)
 
         return applied
+
+    def _settle_departed_live_task(
+        self, stage: Any, task: Dict[str, Any], pose: Dict[str, Any]
+    ) -> None:
+        """Keep a verified placement when the PLC clears/replaces its task first."""
+        previous = self._previous_live_task
+        machine = self._operation_state_machine
+        if previous is None or machine is None or self._inventory.task_is_settled(previous):
+            return
+        previous_id = previous.get("taskId")
+        if previous_id and previous_id == task.get("taskId"):
+            return
+        if self._inventory_task_key(previous) == self._inventory_task_key(task):
+            return
+        confirmed = machine.state in (
+            OperationState.HOIST_SAFE, OperationState.TRUCK_EXITING, OperationState.COMPLETE,
+        )
+        if machine.state in (OperationState.UNLOCK, OperationState.HOIST_TO_PLACE):
+            # Task and PLC frames arrive independently. The last task frame
+            # may have confirmed contact, with unlock arriving in the next frame.
+            unlocked = (
+                _as_int(pose.get("unlockState"), 0) != 0
+                if pose.get("unlockState") is not None
+                else pose.get("lockState") is not None and _as_int(pose.get("lockState"), 1) == 0
+            )
+            confirmed = bool(
+                unlocked and not _pose_spreader_locked(pose)
+                and not pose.get("plcStale") and not _as_int(pose.get("alarmStatus"), 0)
+            )
+            if confirmed and machine.state is OperationState.HOIST_TO_PLACE:
+                # If contact and unlock arrived in one frame, verify the
+                # placement position before treating the task as successful.
+                trolley_m = _as_float(pose.get("trolleyMeter"))
+                confirmed = (
+                    machine.placement_load_bottom_hoist_m is not None
+                    and _as_int(pose.get("currentBay"), 0) == machine.task.target.bay
+                    and trolley_m is not None
+                    and abs(trolley_m - machine.target_trolley_m) <= machine.POSITION_TOLERANCE_M
+                    and machine.at_placement_height(_as_float(pose.get("hoistMeter")))
+                )
+        if confirmed and self._settle_inventory_task(stage, previous):
+            self._clear_completed_task_visuals(stage, previous)
 
     def report_crossbeam_alignment(self) -> Optional[Dict[str, Any]]:
         """Report, without changing pose, the live box-to-crossbeam offset."""
@@ -5015,6 +5067,7 @@ class OmniverseRtgTwinDriver:
                 ).Set(self._inventory_sync_reason)
 
         self._inventory_stage_id = stage_id
+        self._previous_live_task = None
         self._inventory_rendered_revisions.clear()
         self._inventory_dirty_bays.clear()
         self._hidden_inventory_paths.clear()
@@ -5300,12 +5353,20 @@ class OmniverseRtgTwinDriver:
     ) -> None:
         stack_key = str(task.get("inventoryBayId") or "")
         if not stack_key:
-            return
+            # A cross-bay SWITCH can display its authoritative source map
+            # while the destination inventory is still pending synchronization.
+            key = self._task_stack_key(task)
+            if key is None:
+                return
+            stack_key = inventory_bay_id(key[0], key[1])
         path = self._inventory_stack_path(stack_key)
         prim = stage.GetPrimAtPath(path)
         if not prim:
             return
-        self._set_visibility(prim, False)
+        from pxr import Usd, UsdGeom
+
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
         self._hidden_inventory_paths.add(path)
 
     def _restore_hidden_inventory(self, stage: Any) -> None:
@@ -5314,10 +5375,14 @@ class OmniverseRtgTwinDriver:
         for stack_key in tuple(self._inventory_dirty_bays):
             self._render_inventory_bay(stage, stack_key)
             self._inventory_dirty_bays.discard(stack_key)
-        for path in tuple(self._hidden_inventory_paths):
-            prim = stage.GetPrimAtPath(path)
-            if prim:
-                self._set_visibility(prim, True)
+        if self._hidden_inventory_paths:
+            from pxr import Usd, UsdGeom
+
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for path in self._hidden_inventory_paths:
+                    prim = stage.GetPrimAtPath(path)
+                    if prim and prim.IsActive():
+                        UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(UsdGeom.Tokens.inherited)
         self._hidden_inventory_paths.clear()
 
     def _sync_status_overlay(
@@ -5831,7 +5896,7 @@ class OmniverseRtgTwinDriver:
         )
         now = time.time()
         transitions = []
-        transition = machine.update(plc, now)
+        transition = None if pose.get("plcStale") else machine.update(plc, now)
         if transition is not None:
             transitions.append(transition)
             if (

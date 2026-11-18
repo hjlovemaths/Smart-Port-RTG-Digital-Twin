@@ -420,16 +420,7 @@ class RtgOperationStateMachine:
             if self._at_trolley(plc, self.target_trolley_m):
                 next_state = (OperationState.HOIST_TO_PLACE, "trolley reached target")
         elif self.state == OperationState.HOIST_TO_PLACE:
-            placement_bottom_m = self.placement_load_bottom_hoist_m
-            placed_at_target = (
-                placement_bottom_m is None
-                or (
-                    plc.hoist_m is not None
-                    and plc.hoist_m
-                    <= placement_bottom_m + self.HEIGHT_TOLERANCE_M
-                )
-            )
-            if plc.locked and placed_at_target:
+            if plc.locked and self.at_placement_height(plc.hoist_m):
                 next_state = (OperationState.UNLOCK, "load settled at placement height")
         elif self.state == OperationState.UNLOCK:
             if not plc.locked:
@@ -453,6 +444,12 @@ class RtgOperationStateMachine:
                 plc.trolley_m
             )
         return self._transition(next_state[0], now, next_state[1])
+
+    def at_placement_height(self, hoist_m: Optional[float]) -> bool:
+        placement_bottom_m = self.placement_load_bottom_hoist_m
+        return placement_bottom_m is None or (
+            hoist_m is not None and hoist_m <= placement_bottom_m + self.HEIGHT_TOLERANCE_M
+        )
 
     def visual_phase(self) -> str:
         """Map detailed execution states onto the existing scene visual phases."""

@@ -116,6 +116,79 @@ class LiveAlignmentUsdTests(unittest.TestCase):
             driver._restore_hidden_inventory(stage)
             self.assertFalse(stage.GetPrimAtPath(persistent))
 
+    def test_task_map_hides_cached_source_even_when_root_is_the_edit_target(self):
+        r = self.receiver
+        stage = self.Usd.Stage.CreateInMemory()
+        driver = r.OmniverseRtgTwinDriver(inventory_autosave=False)
+        from yard_inventory import YardInventory
+
+        driver._inventory = YardInventory.empty()
+        task = {"taskId": "outbound", "workType": "UNLOAD", "startPos": "4C0712",
+                "containerSize": 20, "bayMap": "200000"}
+        driver._inventory.reconcile_task_snapshot(task)
+        driver._sync_inventory_scene(stage)
+        persistent = driver._inventory_stack_path("4C/007")
+        before = stage.GetRootLayer().ExportToString()
+        cached_source = stage.GetPrimAtPath(persistent + "/R01_T02_Container")
+        with self.Usd.EditContext(stage, stage.GetSessionLayer()):
+            # Inventory can have an explicit stronger visibility opinion.
+            self.UsdGeom.Imageable(stage.GetPrimAtPath(persistent)).CreateVisibilityAttr().Set("inherited")
+
+        prepared = driver._prepare_inventory_task(stage, task)
+        self.assertTrue(driver._sync_task_stack(stage, prepared))
+        driver._hide_inventory_bay_for_task(stage, prepared)
+        source_path = driver._task_source_container_path(prepared)
+        source = stage.GetPrimAtPath(source_path)
+        driver._last_task_source_path = source_path
+        original = driver._get_xform_translate(source)
+        with self.Usd.EditContext(stage, stage.GetSessionLayer()):
+            lifted = original + self.Gf.Vec3d(0, 0, 4)
+            driver._move_task_source_to_local_target(stage, source, source.GetParent(), lifted)
+        self.assertEqual(driver._get_xform_translate(source), lifted)
+        self.assertEqual(self.UsdGeom.Imageable(cached_source).ComputeVisibility(), "invisible")
+        self.assertEqual(stage.GetRootLayer().ExportToString(), before)
+
+    def test_live_placement_survives_the_task_message_disappearing(self):
+        r = self.receiver
+        from yard_inventory import YardInventory
+
+        for work, target, resulting_map in (("UNLOAD", None, "100000"),
+                                            ("SWITCH", "4C0761", "100101")):
+            with self.subTest(work=work):
+                stage = self.Usd.Stage.CreateInMemory()
+                driver = r.OmniverseRtgTwinDriver(inventory_autosave=False)
+                driver._inventory = YardInventory.empty()
+                driver._sync_inventory_scene(stage)
+                task = {"taskId": "departing-task", "workType": work, "startPos": "4C0712",
+                        "endPos": target, "containerSize": 20, "bayMap": "200000"}
+                prepared = driver._prepare_inventory_task(stage, task)
+                self.assertTrue(driver._sync_task_stack(stage, prepared))
+                if work == "SWITCH":
+                    extra_box = r.LIVE_TASK_STACK_PATH + "/R04_T01_Container"
+                    self.assertFalse(stage.GetPrimAtPath(extra_box))
+                    prepared = driver._prepare_inventory_task(stage, dict(task, bayMap="200100"))
+                    self.assertTrue(driver._sync_task_stack(stage, prepared))
+                    self.assertTrue(stage.GetPrimAtPath(extra_box))
+                driver._hide_inventory_bay_for_task(stage, prepared)
+                driver._previous_live_task = prepared
+                machine = driver._build_operation_state_machine(prepared, driver._task_vehicle_key(prepared))
+                driver._operation_state_machine = machine
+                machine.state = r.OperationState.HOIST_TO_PLACE
+                pose = {"lockState": 0, "unlockState": 1, "currentBay": 7,
+                        "trolleyMeter": machine.target_trolley_m,
+                        "hoistMeter": machine.placement_load_bottom_hoist_m}
+                driver._settle_departed_live_task(stage, {}, dict(pose, plcStale=True))
+                driver._settle_departed_live_task(stage, {}, dict(pose, hoistMeter=18.0))
+                self.assertFalse(driver._inventory.task_is_settled(prepared))
+                driver._settle_departed_live_task(stage, {}, pose)
+                self.assertTrue(driver._inventory.task_is_settled(prepared))
+                persistent = driver._inventory_stack_path("4C/007")
+                stack = stage.GetPrimAtPath(persistent)
+                self.assertEqual(stack.GetAttribute("inventory:bayMap").Get(), resulting_map)
+                self.assertFalse(stage.GetPrimAtPath(persistent + "/R01_T02_Container"))
+                self.assertEqual(bool(stage.GetPrimAtPath(persistent + "/R06_T01_Container")), bool(target))
+                self.assertFalse(stage.GetPrimAtPath(r.LIVE_TASK_STACK_PATH))
+
     def test_runinfo_anchor_follows_motion_without_repeating_full_model_bounds(self):
         driver = self.receiver.OmniverseRtgTwinDriver(inventory_autosave=False)
         root = self.UsdGeom.Xform.Define(self.stage, "/World/LiveHUD/TestRuninfo").GetPrim()
