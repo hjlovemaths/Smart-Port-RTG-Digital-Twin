@@ -459,14 +459,11 @@ class RtgOperationStateMachine:
         )
 
     def release_at_target(self, plc: PlcOperationSnapshot) -> bool:
-        """Confirm a sampled release without relying on a separate contact frame."""
+        """A confirmed release at the target completes the carried move."""
         return (
             not plc.locked and not plc.alarmed
-            and self.placement_load_bottom_hoist_m is not None
-            and plc.hoist_m is not None and plc.hoist_m >= 0.0
             and self._at_slot(plc, self.task.target)
             and self._at_trolley(plc, self.target_trolley_m)
-            and self.at_placement_height(plc.hoist_m)
         )
 
     def visual_phase(self) -> str:

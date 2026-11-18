@@ -178,7 +178,7 @@ class LiveAlignmentUsdTests(unittest.TestCase):
                         "trolleyMeter": machine.target_trolley_m,
                         "hoistMeter": machine.placement_load_bottom_hoist_m}
                 driver._settle_departed_live_task(stage, {}, dict(pose, plcStale=True))
-                driver._settle_departed_live_task(stage, {}, dict(pose, hoistMeter=18.0))
+                driver._settle_departed_live_task(stage, {}, dict(pose, trolleyMeter=9.5))
                 self.assertFalse(driver._inventory.task_is_settled(prepared))
                 driver._settle_departed_live_task(stage, {}, pose)
                 self.assertTrue(driver._inventory.task_is_settled(prepared))
@@ -233,6 +233,42 @@ class LiveAlignmentUsdTests(unittest.TestCase):
             self.assertFalse(self.stage.GetPrimAtPath(r.LIVE_TASK_STACK_PATH))
             boxes = [child for child in root.GetChildren() if str(child.GetName()).endswith("_Container")]
             self.assertEqual(len(boxes), 20)
+
+    def test_switch_unlock_at_target_does_not_require_estimated_contact_height(self):
+        from contextlib import ExitStack
+        from yard_inventory import YardInventory
+        r = self.receiver
+        driver = r.OmniverseRtgTwinDriver(inventory_autosave=False)
+        driver._inventory = YardInventory.empty()
+        driver._current_stage = lambda: self.stage
+        task = {"taskId": "29121330", "workType": "SWITCH", "startPos": "4C2812",
+                "endPos": "4C2821", "containerSize": 40, "containerHeight": 2.9,
+                "containerType": "RF", "bayMap": "201410"}
+        pose = {"currentField": "4C", "currentBay": 28, "trolleyMeter": 18.06,
+                "hoistMeter": 15.0, "lockState": 1, "unlockState": 0, "plcStale": False}
+        with ExitStack() as mocks:
+            for name in ("_sync_floating_runinfo_billboard", "_sync_floating_task_panel",
+                         "_disable_demo_artifacts_for_stage", "_ensure_4c_feeder_ship_replacements",
+                         "_write_status", "_sync_status_overlay"):
+                mocks.enter_context(patch.object(driver, name))
+            driver.apply_state({"task": task, "pose": pose})
+            pose = dict(pose, trolleyMeter=15.05)
+            driver.apply_state({"task": task, "pose": pose})
+            self.assertEqual(driver._operation_state_machine.state, r.OperationState.HOIST_TO_PLACE)
+            # An example PLC height differing from the estimated 2.9 m contact.
+            release = dict(pose, hoistMeter=3.3, lockState=0, unlockState=1)
+            driver.apply_state({"task": task, "pose": dict(release, plcStale=True)})
+            self.assertFalse(driver._inventory.task_is_settled(task))
+            driver.apply_state({"task": task, "pose": release})
+            driver.apply_state({"task": None, "pose": dict(release, hoistMeter=15.0)})
+            self.assertTrue(driver._inventory.task_is_settled(task))
+            root = driver._inventory_stack_path("4C/028")
+            self.assertEqual(self.stage.GetPrimAtPath(root).GetAttribute("inventory:bayMap").Get(), "111410")
+            box = self.stage.GetPrimAtPath(root + "/R02_T01_Container")
+            self.assertTrue(box and box.IsActive())
+            self.assertEqual(self.UsdGeom.Imageable(box).ComputeVisibility(), "inherited")
+            old = self.stage.GetPrimAtPath(root + "/R01_T02_Container")
+            self.assertFalse(old and old.IsActive())
 
     def test_runinfo_anchor_follows_motion_without_repeating_full_model_bounds(self):
         driver = self.receiver.OmniverseRtgTwinDriver(inventory_autosave=False)

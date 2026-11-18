@@ -145,7 +145,7 @@ FOUR_C_FEEDER_SHIP_RUNTIME_TRANSFORMS = {
     ),
 }
 FOUR_C_FEEDER_SHIP_RUNTIME_SCALE = (1.0, 1.0, 1.0)
-LIVE_DRIVER_BUILD_ID = "2026-11-18-release-frame-placement"
+LIVE_DRIVER_BUILD_ID = "2026-11-18-target-unlock-placement"
 FOUR_C_FEEDER_SHIP_STALE_RUNTIME_NAMES = (
     "SMART_PORT_4C_FEEDER_SHIP_LEFT_RUNTIME",
     "SMART_PORT_4C_FEEDER_SHIP_RIGHT_RUNTIME",
@@ -4835,15 +4835,13 @@ class OmniverseRtgTwinDriver:
                 and not pose.get("plcStale") and not _as_int(pose.get("alarmStatus"), 0)
             )
             if confirmed and machine.state is OperationState.HOIST_TO_PLACE:
-                # If contact and unlock arrived in one frame, verify the
-                # placement position before treating the task as successful.
+                # An unlock after carrying confirms release. Check the bay and
+                # row even if the task frame disappears at the same instant.
                 trolley_m = _as_float(pose.get("trolleyMeter"))
                 confirmed = (
-                    machine.placement_load_bottom_hoist_m is not None
-                    and _as_int(pose.get("currentBay"), 0) == machine.task.target.bay
+                    _as_int(pose.get("currentBay"), 0) == machine.task.target.bay
                     and trolley_m is not None
                     and abs(trolley_m - machine.target_trolley_m) <= machine.POSITION_TOLERANCE_M
-                    and machine.at_placement_height(_as_float(pose.get("hoistMeter")))
                 )
         if confirmed and self._settle_inventory_task(stage, previous):
             self._clear_completed_task_visuals(stage, previous)

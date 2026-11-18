@@ -56,8 +56,7 @@ class OperationStateMachineTests(unittest.TestCase):
         machine.state = OperationState.HOIST_TO_PLACE
         machine.entered_at = 10.0
         released = dict(field="4C", bay=4, trolley_m=15.05, hoist_m=5.5, locked=False)
-        for change in ({"bay": 5}, {"trolley_m": 3.71}, {"hoist_m": -1.0},
-                       {"hoist_m": 15.0}, {"hoist_m": None}):
+        for change in ({"bay": 5}, {"trolley_m": 3.71}):
             with self.subTest(change=change):
                 candidate = dict(released, **change)
                 self.assertIsNone(machine.update(plc(**candidate), 10.1))
@@ -69,6 +68,9 @@ class OperationStateMachineTests(unittest.TestCase):
         machine.state = OperationState.TROLLEY_TO_TARGET
         self.assertFalse(machine.release_at_target(plc(**dict(released, alarmed=True))))
         self.assertEqual(machine.update(plc(**released), 10.3).current, OperationState.HOIST_SAFE)
+        machine.state = OperationState.HOIST_TO_PLACE
+        self.assertEqual(machine.update(plc(**dict(released, hoist_m=5.8)), 10.4).current,
+                         OperationState.HOIST_SAFE)
 
     def test_scenario_positions_use_two_digit_bay_numbers(self) -> None:
         self.assertEqual(_position("3C", 62, 1, 3), "3C6213")
