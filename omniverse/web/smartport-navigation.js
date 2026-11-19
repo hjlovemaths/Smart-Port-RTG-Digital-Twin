@@ -1,6 +1,8 @@
 // Model-view controls run before the SDK's document handlers, including when
 // its transparent cursor layer (rather than the video) receives the event.
-if(document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator') && !document.documentElement.classList.contains('smartport-driver')) {
+const pageClasses = document.documentElement.classList;
+const iecsView = pageClasses.contains('smartport-iecs');
+if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smartport-spectator') || iecsView) && !pageClasses.contains('smartport-driver')) {
   const video = document.getElementById('remote-video');
   const bar = document.createElement('aside'); bar.id = 'web-navigation';
   bar.innerHTML = `<button type="button" aria-label="恢复港区视角">恢复视角</button><span title="左键拖动：环绕；中键或 Shift+左键：平移；滚轮或 +/-：缩放；方向键或 WASD：平移；Home：复位。">左键环绕 · 中键平移 · 滚轮缩放</span><output aria-live="polite"></output>`;
@@ -11,13 +13,22 @@ if(document.documentElement.classList.contains('smartport-video-only') && !docum
   let drag = null, focused = false, pending = {}, timer = null, busy = false;
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
-    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#transfer-cinema');
+    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
+  }
+  function settingsOpen() {
+    const settings = document.getElementById('web-agent-settings');
+    return settings && !settings.hidden;
   }
   function scenePoint(e) {
-    if(editing(e) || !document.getElementById('web-agent-settings')?.hidden) return false;
+    if(editing(e) || settingsOpen()) return false;
     const r = video.getBoundingClientRect();
     if(!r.width || !r.height || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return false;
     const w = video.videoWidth || 2560, h = video.videoHeight || 1440;
+    if(iecsView) {
+      const scale=Math.min(r.width/w,r.height/h), width=w*scale, height=h*scale;
+      const left=r.left+(r.width-width)/2, top=r.top+(r.height-height)/2;
+      return e.clientX>=left && e.clientX<=left+width && e.clientY>=top && e.clientY<=top+height;
+    }
     const x = (e.clientX-r.left)*w/r.width, y = (e.clientY-r.top)*h/r.height;
     // The streamed Kit cards retain their own buttons and scrolling.
     const m=Math.min(14,w/20,h/20), available=w-2*m;
@@ -30,7 +41,10 @@ if(document.documentElement.classList.contains('smartport-video-only') && !docum
   }
   function enqueue(change) {
     if(change.action === 'reset') pending={action:'reset'};
-    else for(const [key,value] of Object.entries(change)) pending[key]=Math.max(-180,Math.min(180,(pending[key]||0)+value));
+    else for(const [key,value] of Object.entries(change)) {
+      const limit=key.startsWith('pan_')?100:180;
+      pending[key]=Math.max(-limit,Math.min(limit,(pending[key]||0)+value));
+    }
     if(!timer && !busy) timer=setTimeout(flush,24);
   }
   async function flush() {
@@ -39,7 +53,8 @@ if(document.documentElement.classList.contains('smartport-video-only') && !docum
     // Do not replay a large accumulated wheel burst after a slow response.
     if(command.zoom) command.zoom=Math.max(-3,Math.min(3,command.zoom));
     try {
-      const response=await fetch('/api/smartport-agent/navigate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});
+      const endpoint=iecsView?'/api/iecs/navigate':'/api/smartport-agent/navigate';
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});
       const state=await response.json(); if(!response.ok) throw new Error(state.detail || '视角操作暂不可用');
       output.textContent=`距离 ${Math.round(state.distance_m)} m`;
       output.dataset.distance=state.distance_m; output.dataset.height=state.height_m; output.dataset.pitch=state.pitch_deg;
@@ -85,7 +100,7 @@ if(document.documentElement.classList.contains('smartport-video-only') && !docum
   window.addEventListener('blur',()=>{drag=null;focused=false;});
   const handledKeys=new Set(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d','W','A','S','D','+','=','-','_','Home']);
   window.addEventListener('keydown',e=>{
-    if(!focused || editing(e) || !document.getElementById('web-agent-settings')?.hidden) return;
+    if(!focused || editing(e) || settingsOpen()) return;
     // Preserve browser shortcuts, and isolate all other keys from free flight.
     if((e.ctrlKey || e.metaKey || e.altKey) && !['+','=','-','_'].includes(e.key)) {e.stopImmediatePropagation();return;}
     if(!handledKeys.has(e.key)){e.stopImmediatePropagation();return;}

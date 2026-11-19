@@ -6,10 +6,10 @@ from sts_unload_task import UnloadTask,SHIP,BOX,bounds,translate
 
 
 class ShipPickup(UnloadTask):
-    def __init__(self,stage,layer,box_path=BOX,defer_pick=False,size_ft=40):
+    def __init__(self,stage,layer,box_path=BOX,defer_pick=False,size_ft=40,defer_sts=False):
         self.stage=stage;self.layer=layer;self.box_path=box_path
-        self.c=STSController(stage,'STS_01');self.home=dict(self.c.state)
-        self.home_size=self.c.spreader_size_ft;self.closed=False;self.phase='Ready'
+        self.c=None;self.owns_controller=not defer_sts;self.size_ft=size_ft
+        self.closed=False;self.phase='Ready';self.held_sea=None
         self.attached=False;self.finished=False;self.configured=False
         box=bounds(stage,box_path)
         self.source=box.GetMidpoint();self.height=box.GetSize()[2]
@@ -17,13 +17,12 @@ class ShipPickup(UnloadTask):
         # rotation on top of the source asset's inherited orientation.
         self.source_heading=90. if box.GetSize()[0]>box.GetSize()[1] else 0.
         self.pick=Gf.Vec3d(self.source[0],self.source[1],box.GetMax()[2])
-        self.c.set_spreader_size(size_ft)
-        self.clear_z=max(self.pick[2]+self.height+1.5,self.contact()[2])
-        if not defer_pick:
-            self.pick_pose=self.pose(self.pick)
-            self.pick_high=self.pose(Gf.Vec3d(self.pick[0],self.pick[1],self.clear_z))
-        sea=getattr(builtins,'_smart_port_sea_motion',None)
-        if sea and not sea.closed and sea.stage==stage:sea.hold(SHIP)
+        if not defer_sts:
+            self.bind_sts(STSController(stage,'STS_01'),prepare_pick=not defer_pick)
+            self.home=dict(self.c.state);self.home_size=self.c.spreader_size_ft
+            sea=getattr(builtins,'_smart_port_sea_motion',None)
+            if sea and not sea.closed and sea.stage==stage:
+                sea.hold(SHIP);self.held_sea=sea
         with Usd.EditContext(stage,layer):
             stage.OverridePrim(SHIP).SetInstanceable(False)
             xf=UsdGeom.Xformable(stage.GetPrimAtPath(box_path))
@@ -31,7 +30,15 @@ class ShipPickup(UnloadTask):
             xf.SetXformOpOrder([self.box_op]+[op for op in xf.GetOrderedXformOps() if op!=self.box_op])
             self.box_op.Set(Gf.Matrix4d(1))
             self.parent_inv=UsdGeom.XformCache().GetLocalToWorldTransform(stage.GetPrimAtPath(box_path).GetParent()).GetInverse()
-        self.c.hold()
+        if self.c:self.c.hold()
+
+    def bind_sts(self,controller,prepare_pick=False):
+        self.c=controller
+        self.c.set_spreader_size(self.size_ft)
+        self.clear_z=max(self.pick[2]+self.height+1.5,self.contact()[2])
+        if prepare_pick:
+            self.pick_pose=self.pose(self.pick)
+            self.pick_high=self.pose(Gf.Vec3d(self.pick[0],self.pick[1],self.clear_z))
 
     def configure(self,truck_center,deck_top):
         self.place=Gf.Vec3d(truck_center[0],truck_center[1],deck_top+self.height)
@@ -77,6 +84,6 @@ class ShipPickup(UnloadTask):
 
     def close(self):
         if self.closed:return
-        self.closed=True;self.c.close()
-        sea=getattr(builtins,'_smart_port_sea_motion',None)
-        if sea and not sea.closed and sea.stage==self.stage:sea.release(SHIP)
+        self.closed=True
+        if self.c and self.owns_controller:self.c.close()
+        if self.held_sea and not self.held_sea.closed:self.held_sea.release(SHIP)

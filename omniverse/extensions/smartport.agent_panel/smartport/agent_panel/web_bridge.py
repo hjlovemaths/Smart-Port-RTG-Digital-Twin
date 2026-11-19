@@ -1,9 +1,17 @@
 """Same-origin browser controls; all Kit model access stays on its main thread."""
 import asyncio
+import importlib
 import queue
 import sys
 import threading
 import time
+
+
+def validate_iecs_navigation(payload):
+    allowed={'action','orbit_x','orbit_y','pan_x','pan_y','zoom'}
+    if set(payload)-allowed or payload.get('action','move') not in ('move','reset','state'):
+        raise ValueError('IECS 视角仅支持环绕、平移、缩放和复位')
+    return payload
 
 
 class AgentWebBridge:
@@ -115,11 +123,16 @@ class AgentWebBridge:
             return await execute('iecs_state',{})
         async def iecs_command(payload: dict):
             return await execute('iecs_command',payload)
+        async def iecs_navigate(payload: dict):
+            try:validate_iecs_navigation(payload)
+            except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+            return await execute('navigate',payload)
         async def iecs_events(before: int = 0):
             if before<0:raise HTTPException(400,'无效事件游标')
             return await execute('iecs_events',{'before':before or None})
         app.add_api_route('/api/iecs/state',iecs_state,methods=['GET'])
         app.add_api_route('/api/iecs/command',iecs_command,methods=['POST'])
+        app.add_api_route('/api/iecs/navigate',iecs_navigate,methods=['POST'])
         app.add_api_route('/api/iecs/events',iecs_events,methods=['GET'])
         async def initial_view(request:Request):
             session=request.scope.get('smartport_session')
@@ -172,9 +185,11 @@ class AgentWebBridge:
                 ('rtg-driver','rtg_driver','_smartport_rtg_driver'),
                 ('sts-driver','sts_driver','_smartport_sts_driver')):
             app.add_api_route('/api/'+path+'/frame',driver_frame(role,attribute),methods=['GET'])
+        import rtg_webrtc_viewer
+        build_viewer_page=importlib.reload(rtg_webrtc_viewer).build_viewer_page
+
         async def driver_page(request:Request):
             from omni.services.livestream.webrtc import extension as web_client
-            from rtg_webrtc_viewer import build_viewer_page
             root=Path(web_client.__file__).parent/'web';backup=root/'index.smartport-original.html'
             stock=(backup if backup.exists() else root/'index.html').read_text(encoding='utf-8')
             return HTMLResponse(build_viewer_page(stock),headers={'Cache-Control':'no-store'})

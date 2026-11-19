@@ -40,10 +40,10 @@ def _clear_idle_task_panel(stage):
             UsdGeom.Imageable(prim).MakeInvisible()
 
 
-def require_idle(owner, *, allow_rtg_driver=False, allow_sts_driver=False):
+def require_idle(owner, *, allow_rtg_driver=False, allow_sts_driver=False, allow_iecs=False):
     if owner.motion:
         raise ValueError("An Agent RTG movement is running. Wait for arrival or stop it before starting a task.")
-    owner._guard_manual("rtg",allow_rtg_driver=allow_rtg_driver)
+    owner._guard_manual("rtg",allow_rtg_driver=allow_rtg_driver,allow_iecs=allow_iecs)
     active_sts=getattr(builtins,'_smartport_sts_driver',None)
     moving = [name for name, controller in sts_controllers(owner.stage).items()
               if not (allow_sts_driver and active_sts and not active_sts.closed and controller is active_sts.controller)
@@ -137,8 +137,8 @@ def _iecs(owner, args, *, web=False):
         else:runtime.focus()
     else:
         if action in {"submit", "mixed"}:
-            require_idle(owner)
-            owner._guard_manual("sts", "STS_01")
+            require_idle(owner,allow_iecs=True)
+            owner._guard_manual("sts", "STS_01", allow_iecs=True)
         command = {"action": action}
         if "flow" in args: command["flow"] = args["flow"]
         if action == "speed": command["value"] = args["speed"]

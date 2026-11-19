@@ -246,7 +246,7 @@ class SceneRuntime:
         self.jobs[identifier] = asyncio.ensure_future(run())
         return dict(self.operations[identifier])
 
-    def _guard_manual(self, equipment, crane_id=None, *, allow_truck_driver=False, allow_rtg_driver=False, allow_sts_driver=False):
+    def _guard_manual(self, equipment, crane_id=None, *, allow_truck_driver=False, allow_rtg_driver=False, allow_sts_driver=False, allow_iecs=False):
         driver=getattr(builtins,'_smartport_truck_driver',None)
         if driver and not driver.closed and not allow_truck_driver:raise ValueError('驾驶员正在使用01号集卡，设备作业暂不可操作')
         rtg_driver=getattr(builtins,'_smartport_rtg_driver',None)
@@ -268,7 +268,7 @@ class SceneRuntime:
         if equipment == "rtg" and any(item["status"] == "running" and item["kind"] == "lidar_positions" for item in self.operations.values()):
             raise ValueError("A multi-position LiDAR capture owns the RTG; wait or cancel it first")
         iecs = iecs_runtime(self.stage)
-        if iecs and any(order["status"] != "completed" for order in iecs.engine.orders.values()):
+        if not allow_iecs and iecs and any(order["status"] != "completed" for order in iecs.engine.orders.values()):
             raise ValueError("IECS owns the equipment for an unfinished task. Inspect get_current_tasks and finish or reset that task first.")
         panel = current_sts_panel(self.stage)
         task = panel.unload_task if panel else None

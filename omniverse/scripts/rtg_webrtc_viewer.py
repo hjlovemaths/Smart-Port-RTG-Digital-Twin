@@ -68,9 +68,12 @@ VIEWER_HEAD = """
       document.addEventListener('fullscreenchange', () => {button.textContent = document.fullscreenElement ? '退出全屏' : '全屏';});
       document.body.appendChild(button);
     });
+    // IECS handles camera gestures on window before this guard blocks any
+    // remaining raw input from reaching the streaming SDK.
+    const inputGuard = document.documentElement.classList.contains('smartport-iecs') ? document : window;
     for (const event of ['pointerdown','pointerup','pointermove','mousedown','mouseup','mousemove','wheel','dblclick','contextmenu','keydown','keyup']) {
-      window.addEventListener(event, e => {
-        if (e.target.closest?.('.control-panel,input,select,button') || !document.getElementById('remote-video')) return;
+      inputGuard.addEventListener(event, e => {
+        if (e.target.closest?.('.control-panel,input,select,button,#iecs-workbench,#web-navigation') || !document.getElementById('remote-video')) return;
         if (event.startsWith('key') && (e.key === 'F11' || e.key === 'Escape')) { e.stopImmediatePropagation(); return; }
         if (event === 'dblclick') { e.preventDefault(); e.stopImmediatePropagation(); toggleSpectatorFullscreen(); return; }
         if (event.startsWith('key') && (e.ctrlKey || e.metaKey || e.altKey)) { e.stopImmediatePropagation(); return; }
@@ -84,7 +87,7 @@ VIEWER_HEAD = """
 <link rel="stylesheet" href="/static/smartport-iecs.css">
 <script type="module" src="/static/smartport-iecs.js"></script>
 <script type="module" src="/static/smartport-agent.js?v=10"></script>
-<script type="module" src="/static/smartport-navigation.js?v=5"></script>
+<script type="module" src="/static/smartport-navigation.js?v=6"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>
 <script type="module" src="/static/smartport-driver.js?v=7"></script>
 <script type="module" src="/static/smartport-rtg-driver.js?v=7"></script>

@@ -6,7 +6,15 @@ from types import SimpleNamespace
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "omniverse/extensions/smartport.agent_panel"))
-from smartport.agent_panel.web_bridge import AgentWebBridge
+from smartport.agent_panel.web_bridge import AgentWebBridge, validate_iecs_navigation
+
+
+def test_iecs_navigation_only_accepts_camera_gestures():
+    assert validate_iecs_navigation({"pan_x":15,"zoom":1.2}) == {"pan_x":15,"zoom":1.2}
+    assert validate_iecs_navigation({"action":"reset"}) == {"action":"reset"}
+    for payload in ({"action":"restore_visibility"},{"action":"snapshot"},{"model":"large_vessel"}):
+        with pytest.raises(ValueError,match="IECS"):
+            validate_iecs_navigation(payload)
 
 
 class Model:

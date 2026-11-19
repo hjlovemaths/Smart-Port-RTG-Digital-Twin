@@ -17,7 +17,7 @@ if (document.documentElement.classList.contains('smartport-iecs')) {
       <div class="iecs-toolbar">
         <button class="iecs-primary" data-action="start">启动仿真</button>
         <button class="iecs-primary" data-action="submit">提交一单</button>
-        <button data-action="mixed">混合作业</button>
+        <button data-action="mixed">混合作业（5 单并行）</button>
         <button data-action="focus">聚焦任务</button>
       </div>
     </section>
@@ -45,7 +45,7 @@ if (document.documentElement.classList.contains('smartport-iecs')) {
   const names = Object.fromEntries(Array.from(flow.options, option => [option.value, option.textContent]));
   const statusNames = {queued:'排队中',running:'执行中',completed:'已完成'};
   const eventNames = {order_created:'订单提交',pause:'暂停',resume:'继续',reset:'复位',speed:'调整倍率',
-    command_rejected:'指令被拒绝',order_completed:'订单完成',ship_demo_box_bound:'绑定演示船箱'};
+    command_rejected:'指令被拒绝',order_completed:'订单完成',ship_demo_box_bound:'绑定演示船箱',gate_admitted:'外车入闸'};
   let state = {running:false};
   let pending = false;
   let refreshInFlight = false;
@@ -67,31 +67,41 @@ if (document.documentElement.classList.contains('smartport-iecs')) {
     });
     target.replaceChildren(...nodes);
   }
+  function eventLine(event) {
+    const details = event.payload || event;
+    const timer = event.kind === 'order_completed' && Number.isFinite(details.elapsed_s)
+      ? ` · 耗时 ${details.elapsed_s.toFixed(1)} 仿真秒（等待 ${details.wait_s.toFixed(1)} 秒）` : '';
+    return `${event.time.toFixed(1)} 秒 · ${eventNames[event.kind] || event.kind} ${details.order || ''}${timer}`;
+  }
   function render() {
     const orders = state.orders || [];
     const working = orders.some(order => order.status !== 'completed');
     const completed = orders.filter(order => order.status === 'completed').length;
+    const active = orders.filter(order => order.status === 'running').length;
+    const waiting = orders.filter(order => order.status !== 'completed' && order.wait_reason).length;
     host.querySelector('[data-state]').textContent = state.running
-      ? `${state.paused ? '已暂停' : '运行中'} · ${state.speed}× · ${Math.floor(state.simulation_time)} 秒 · 完成 ${completed}/${orders.length} 单 · ${state.size_ft} 尺演示`
+      ? `${state.paused ? '已暂停' : '运行中'} · ${state.speed}× · ${Math.floor(state.simulation_time)} 秒 · 车辆 ${active}/${state.max_active_trucks || 5} · 等待 ${waiting} 单 · 完成 ${completed}/${orders.length} 单`
       : '仿真尚未启动';
     host.querySelector('[data-checks]').textContent = state.scene_checks
       ? (state.scene_checks.ok ? '场景检查通过' : state.scene_checks.errors.join(' / ')) : '';
     list('[data-orders]', orders.map(order => {
       const vehicle = (state.vehicles || []).find(item => item.id === order.vehicle);
-      return `${order.id} · ${names[order.flow]} · ${statusNames[order.status] || order.status} · ${order.vehicle || '待派车'} · ${order.step_name || ''}${vehicle?.load ? ' · 载箱 ' + vehicle.load : ''}`;
+      const waitingFor = order.wait_reason?.replace('Collision wait:', '等待前方车辆');
+      const summary = waitingFor || (Number.isFinite(order.elapsed_s) ? `耗时 ${order.elapsed_s.toFixed(1)} 仿真秒` : order.step_name || '');
+      return `${order.id} · ${names[order.flow]} · ${statusNames[order.status] || order.status} · ${order.vehicle || '待派车'} · ${summary}${vehicle?.load ? ' · 载箱 ' + vehicle.load : ''}`;
     }), '暂无订单');
     if (!browsingHistory) {
       const events = (state.events || []).slice(-8).reverse();
-      list('[data-events]', events.map(e => `${e.time.toFixed(1)} 秒 · ${eventNames[e.kind] || e.kind} ${e.order || ''}`), '暂无事件');
+      list('[data-events]', events.map(eventLine), '暂无事件');
     }
     for (const button of host.querySelectorAll('button[data-action]')) {
       const action = button.dataset.action;
       button.disabled = pending || (action === 'start' ? state.running :
-        !state.running || ((action === 'submit' || action === 'mixed') && working) ||
+        !state.running ||
         (action === 'mixed' && orders.length > 0) || (action === 'focus' && !working) ||
         (action === 'pause' && state.paused) || (action === 'resume' && !state.paused));
     }
-    flow.disabled = pending || working;
+    flow.disabled = pending;
     speed.disabled = pending || !state.running;
     if (state.running && [...speed.options].some(option => +option.value === state.speed)) speed.value = String(state.speed);
     host.querySelector('[data-history="older"]').disabled = pending || !state.running;
@@ -130,7 +140,7 @@ if (document.documentElement.classList.contains('smartport-iecs')) {
         const page = await api('events' + (historyCursor === null ? '' : '?before=' + historyCursor));
         if (page.events.length) {
           browsingHistory = true; historyCursor = page.events.at(-1).id;
-          list('[data-events]', page.events.map(e => `#${e.id} · ${e.time.toFixed(1)} 秒 · ${eventNames[e.kind] || e.kind} ${e.payload.order || ''}`), '');
+          list('[data-events]', page.events.map(e => `#${e.id} · ${eventLine(e)}`), '');
           feedback.textContent = '';
         } else feedback.textContent = '没有更早的事件';
       } catch (error) { feedback.textContent = error.message; }

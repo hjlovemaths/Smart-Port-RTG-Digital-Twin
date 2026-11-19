@@ -24,9 +24,9 @@ def inspect_scene(stage,containers=(),vehicles=()):
         if p.GetAttribute('iecs:containerId').Get()!=c['id']:
             errors.append('Container identity mismatch: '+c['id'])
         hidden=UsdGeom.Imageable(p).ComputeVisibility()=='invisible'
-        exited=c['location'].startswith('EXIT/')
-        if hidden!=exited:errors.append('Container visibility mismatch: '+c['id'])
-        if not exited:
+        offstage=c['location'].startswith('EXIT/') or bool(c.get('waiting_gate'))
+        if hidden!=offstage:errors.append('Container visibility mismatch: '+c['id'])
+        if not offstage:
             b=cache.ComputeWorldBound(p).ComputeAlignedBox()
             if b.IsEmpty() or any(abs(b.GetMidpoint()[i]-c['position'][i])>.025 for i in range(3)):
                 errors.append('Container position mismatch: '+c['id'])

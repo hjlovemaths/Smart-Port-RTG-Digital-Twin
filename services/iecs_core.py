@@ -1,7 +1,6 @@
 """Deterministic IECS scheduling kernel; independent of Kit and USD.
 
-Conservative demo: one moving vehicle owns the road network, while independent
-equipment transfers may run concurrently. This is not a swept-volume planner.
+Trucks reserve overlapping travel corridors and wait for work lanes and cranes.
 """
 import copy
 import json
@@ -24,6 +23,7 @@ if 'iecs_geometry' not in sys.modules:
         sys.modules.pop('iecs_geometry',None)
         raise
 from iecs_geometry import TRUCK_LANE_X,YARD_ROW_ONE_X,GATE_STOP,GATE_EXIT_DISTANCE
+MAX_ACTIVE_TRUCKS=5
 
 FLOWS = {'unload': '卸船入场', 'load': '堆场装船', 'gate_in': '外车进场落箱',
          'gate_out': '外车提箱出场', 'transfer': '场内转栈'}
@@ -121,13 +121,34 @@ def rounded_path(points,radius=3.):
     result.append(points[-1]);return result
 
 
+def road_cells(path):
+    """Reserve 5 m cells around each leg to leave room for the truck envelope."""
+    cells=set()
+    for a,b in zip(path,path[1:]):
+        steps=max(1,math.ceil(distance(a,b)/2.))
+        for i in range(steps+1):
+            x,y=(a[j]+(b[j]-a[j])*i/steps for j in (0,1))
+            for col in range(math.floor((x-4.2)/5),math.floor((x+4.2)/5)+1):
+                for row in range(math.floor((y-4.2)/5),math.floor((y+4.2)/5)+1):
+                    cells.add((col,row))
+    return cells
+
+
+def work_lane(location):
+    if location is None:return None
+    if location['kind']=='yard':return 'yard:'+location['block']
+    if location['kind'] in ('quay','gate'):return location['kind']
+    return None
+
+
 class IECS:
     def __init__(self,db=':memory:'):
         self.db=sqlite3.connect(str(db))
         self.db.execute('CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, time REAL, kind TEXT, payload TEXT)')
         self.db.execute('CREATE TABLE IF NOT EXISTS checkpoint (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT)')
         self.events=deque(maxlen=100)
-        self.speed=1.; self.paused=False; self.time=0.; self.road_owner=None
+        self.speed=1.; self.paused=False; self.time=0.
+        self.road_claims={};self.planned_roads={};self.work_lanes={}
         self.vehicles={}; self.orders={}; self.containers={}; self.reserved={}; self.equipment={}
         self.sequence=0
         self.transfer_adapter=None
@@ -137,6 +158,10 @@ class IECS:
             self.vehicles[f'ITT-{i:03d}']={'id':f'ITT-{i:03d}','number':f'{i:02d}',
                'home':home,'position':home[:],'heading':-90.,'status':'idle','order':None,'load':None}
         self.checkpoint()
+
+    @property
+    def road_owner(self):
+        return next(iter(self.road_claims),None)
 
     def event(self,kind,**payload):
         item={'time':round(self.time,2),'kind':kind,**payload}; self.events.append(item)
@@ -168,7 +193,8 @@ class IECS:
         self.orders[oid]={'id':oid,'request_id':request_id,'flow':flow,'name':FLOWS[flow],
             'status':'queued','vehicle':None,'container':box,'source':source,'target':target,
             'step':0,'step_name':'等待派车','progress':0.,'path':[],'path_index':0,
-            'transfer_start':None,'transfer_end':None,'wait_reason':'','error':None}
+            'transfer_start':None,'transfer_end':None,'wait_reason':'','error':None,
+            'created_at':self.time,'started_at':None,'completed_at':None,'elapsed_s':None,'wait_s':0.}
         self.reserved[source['id']]=oid; self.reserved[target['id']]=oid
         self.event('order_created',order=oid,flow=flow,box=box); self.checkpoint()
         return oid
@@ -186,34 +212,67 @@ class IECS:
                     v.update(position=v['home'][:],heading=-90.,status='idle',order=None,load=None)
             self.vehicles={k:v for k,v in self.vehicles.items() if k.startswith('ITT')}
             self.orders.clear();self.containers.clear();self.reserved.clear();self.equipment.clear()
-            self.road_owner=None;self.paused=False;self.time=0.;self.sequence=0
+            self.road_claims.clear();self.planned_roads.clear();self.work_lanes.clear()
+            self.paused=False;self.time=0.;self.sequence=0
         else:raise ValueError('未知控制')
         self.event(action,value=value);self.checkpoint()
 
-    def assign(self,o):
+    def assign(self,o,started_at=None):
+        if sum(task['status']=='running' for task in self.orders.values())>=MAX_ACTIVE_TRUCKS:
+            o['wait_reason']='等待可用车辆名额';return
         if o['flow'] in ('gate_in','gate_out'):
             vid=f'EXT-{o["id"][-5:]}'
-            home=[151,388.4,.085]
+            home=list(GATE_STOP)
             self.vehicles[vid]={'id':vid,'number':vid,'home':home,'position':home[:],
-                    'heading':-90.,'status':'idle','order':None,'load':None}
+                    'heading':-90.,'status':'waiting_gate','order':None,'load':None}
             v=self.vehicles[vid]
         else:
             idle=[v for v in self.vehicles.values() if v['status']=='idle' and v['id'].startswith('ITT')]
             if not idle:o['wait_reason']='等待空闲集卡';return
             v=min(idle,key=lambda v:(distance(v['position'],o['source']['stop']),v['id']))
-        v.update(status='working',order=o['id']);o.update(vehicle=v['id'],status='running',wait_reason='')
+            v['status']='working'
+        v['order']=o['id']
+        o.update(vehicle=v['id'],status='running',wait_reason='',started_at=self.time if started_at is None else started_at)
         if o['flow']=='gate_in':
             v['load']=o['container'];c=self.containers[o['container']]
-            c.update(location=v['id'],owner=v['id'],position=[*v['position'][:2],1.],version=1)
+            c.update(location=v['id'],owner=v['id'],position=[*v['position'][:2],c.get('carry_height',1.)],version=1,waiting_gate=True)
             o['step']=2
         self.event('assigned',order=o['id'],vehicle=v['id'])
 
+    def admit_gate(self,o,v):
+        entry={'gate'}
+        if o['flow']=='gate_out':entry.add(work_lane(o['source']))
+        for lane in sorted(entry):
+            if self.work_lanes.get(lane) not in (None,o['id']):
+                o.update(step_name='闸外候场',wait_reason='等待入场车道 '+lane)
+                return False
+        self.work_lanes.update((lane,o['id']) for lane in entry)
+        v['status']='working'
+        if v['load']:self.containers[v['load']].pop('waiting_gate',None)
+        self.event('gate_admitted',order=o['id'],vehicle=v['id'])
+        return True
+
     def _move(self,o,v,end,dt,source=None,target=None):
-        if self.road_owner not in (None,o['id']):
-            o['wait_reason']='等待道路预约';return False
-        self.road_owner=o['id'];o['wait_reason']=''
+        oid=o['id'];lane=work_lane(target)
+        if target is None and o['flow']=='gate_in':lane='gate'
+        required={lane} if lane else set()
+        # Reserve both work lanes before sending an order that could otherwise
+        # hold its source lane while another truck waits to leave the target.
+        if o['step']==0 and o['flow'] in ('unload','transfer'):
+            required.add(work_lane(o['target']))
+        for needed in sorted(required):
+            if self.work_lanes.get(needed) not in (None,oid):
+                o['wait_reason']='等待作业车道 '+needed;return False
         if not o['path']:
             o['path']=route(v['position'],end,source,target);o['path_index']=1
+            self.planned_roads[oid]=road_cells(o['path'])
+        if oid not in self.road_claims:
+            cells=self.planned_roads[oid]
+            if any(cells & other for other in self.road_claims.values()):
+                o['wait_reason']='等待冲突路线放行';return False
+            self.road_claims[oid]=cells
+            self.work_lanes.update((needed,oid) for needed in required)
+        o['wait_reason']=''
         remaining=dt*8
         while remaining>0 and o['path_index']<len(o['path']):
             dest=o['path'][o['path_index']];length=distance(v['position'],dest)
@@ -233,12 +292,15 @@ class IECS:
         if v['load']:
             c=self.containers[v['load']];c['position']=[*v['position'][:2],c.get('carry_height',1.0)];c['heading']=v['heading']
         if o['path_index']>=len(o['path']):
-            self.road_owner=None;o['path']=[];return True
+            self.road_claims.pop(oid,None);self.planned_roads.pop(oid,None)
+            if o['flow']=='gate_out' and o['step']<4:required.add('gate')
+            self.work_lanes={name:owner for name,owner in self.work_lanes.items() if owner!=oid or name in required}
+            o['path']=[];return True
         return False
 
     def _transfer(self,o,v,pick,dt):
         location=o['source'] if pick else o['target']
-        eq='QC-01' if location['kind']=='quay' else 'RTG-'+location.get('block','GATE')
+        eq='STS_01' if location['kind']=='quay' else 'RTG'
         if self.equipment.get(eq) not in (None,o['id']):
             o['wait_reason']='等待 '+eq;return False
         self.equipment[eq]=o['id'];o['wait_reason']='';c=self.containers[o['container']]
@@ -276,11 +338,16 @@ class IECS:
         if self.paused:return
         dt=min(dt,.25)*self.speed;self.time+=dt
         for o in self.orders.values():
-            if o['status']=='queued':self.assign(o)
+            if o['status']=='queued':self.assign(o,self.time-dt)
             if o['status']!='running':continue
             v=self.vehicles[o['vehicle']];step=o['step'];done=False
+            if v['status']=='waiting_gate' and not self.admit_gate(o,v):
+                o['wait_s']+=dt
+                continue
             if step==0:
-                o['step_name']='驶往源交接点';done=self._move(o,v,o['source']['stop'],dt,target=o['source'])
+                o['step_name']='驶往源交接点'
+                departure=o['target'] if o['flow']=='gate_out' else None
+                done=self._move(o,v,o['source']['stop'],dt,source=departure,target=o['source'])
             elif step==1:
                 o['step_name']='取箱交接';done=self._transfer(o,v,True,dt)
             elif step==2:
@@ -297,10 +364,12 @@ class IECS:
                     done=self._move(o,v,end,dt,source=o['target'],target={'kind':'exit'})
                 else:
                     o['step_name']='空车归位 / 出闸';done=self._move(o,v,v['home'],dt,source=o['target'])
+            if o['wait_reason']:o['wait_s']+=dt
             if done:
                 o['step']+=1;self.event('step_completed',order=o['id'],step=step)
                 if o['step']==5:
-                    o.update(status='completed',step_name='完成',wait_reason='')
+                    elapsed=round(self.time-o['started_at'],2)
+                    o.update(status='completed',step_name='完成',wait_reason='',completed_at=self.time,elapsed_s=elapsed)
                     v.update(status='idle' if v['id'].startswith('ITT') else 'departed',order=None)
                     if o['flow']=='gate_out':
                         v['load']=None
@@ -308,15 +377,19 @@ class IECS:
                     if v['id'].startswith('ITT'):v['heading']=-90.
                     self.reserved.pop(o['source']['id'],None);self.reserved.pop(o['target']['id'],None)
                     if o['target']['kind']=='gate':self.containers[o['container']]['location']='EXIT/'+o['container']
-                    self.event('order_completed',order=o['id'])
+                    self.work_lanes={name:owner for name,owner in self.work_lanes.items() if owner!=o['id']}
+                    self.event('order_completed',order=o['id'],vehicle=v['id'],flow=o['flow'],
+                               elapsed_s=elapsed,wait_s=round(o['wait_s'],2),
+                               queued_s=round(o['started_at']-o['created_at'],2))
         if int(self.time)!=int(self.time-dt):self.checkpoint()
 
     def snapshot(self):
         return copy.deepcopy({'name':'IECS','simulation_time':self.time,'paused':self.paused,
-            'speed':self.speed,'road_owner':self.road_owner,'vehicles':list(self.vehicles.values()),
+            'speed':self.speed,'road_owner':self.road_owner,'road_owners':list(self.road_claims),
+            'work_lanes':self.work_lanes,'max_active_trucks':MAX_ACTIVE_TRUCKS,'vehicles':list(self.vehicles.values()),
             'orders':list(self.orders.values()),'containers':list(self.containers.values()),
             'reservations':self.reserved,'equipment':self.equipment,'events':list(self.events),
-            'mode':'kinematic_demo','traffic_policy':'whole_network_mutex'})
+            'mode':'kinematic_demo','traffic_policy':'route_conflict_reservation'})
 
     def close(self):
         self.checkpoint();self.db.close()

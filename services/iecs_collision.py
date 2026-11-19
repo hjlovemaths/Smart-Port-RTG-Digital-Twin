@@ -20,12 +20,17 @@ def overlap(a,b):
 
 def swept_conflict(vehicle,end,heading,others):
     start=vehicle['position'];length=math.dist(start[:2],end[:2])
+    # Two truck rectangles cannot touch if their centres are more than their
+    # combined diagonal radii apart. Include the entire sampled translation.
+    nearby=[other for other in others if other['id']!=vehicle['id'] and other['status'] not in ('departed','waiting_gate')
+            and math.dist(start[:2],other['position'][:2])<=length+8.1]
+    if not nearby:return None
     turn=(heading-vehicle['heading']+180)%360-180
     samples=max(1,math.ceil(length/.15),math.ceil(abs(turn)/2))
+    obstacles=[(other['id'],rectangle(other['position'],other['heading'])) for other in nearby]
     for i in range(samples+1):
         t=i/samples
         rect=rectangle([start[j]+(end[j]-start[j])*t for j in range(2)],vehicle['heading']+turn*t)
-        for other in others:
-            if other['id']==vehicle['id'] or other['status']=='departed':continue
-            if overlap(rect,rectangle(other['position'],other['heading'])):return other['id']
+        for identity,obstacle in obstacles:
+            if overlap(rect,obstacle):return identity
     return None
