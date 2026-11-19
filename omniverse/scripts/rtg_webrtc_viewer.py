@@ -16,6 +16,7 @@ VIEWER_HEAD = """
 <script>
   if (location.pathname === '/rtg-driver') document.documentElement.classList.add('smartport-rtg-driver');
   if (location.pathname === '/sts-driver') document.documentElement.classList.add('smartport-sts-driver');
+  if (location.pathname === '/iecs') document.documentElement.classList.add('smartport-iecs');
   if (['/driver','/rtg-driver','/sts-driver'].includes(location.pathname)) {
     document.documentElement.classList.add('smartport-driver','smartport-video-only');
   }
@@ -79,7 +80,9 @@ VIEWER_HEAD = """
   }
 </script>
 <link rel="stylesheet" href="/static/smartport-agent.css?v=8">
-<script type="module" src="/static/smartport-session.js?v=3"></script>
+<script type="module" src="/static/smartport-session.js?v=4"></script>
+<link rel="stylesheet" href="/static/smartport-iecs.css">
+<script type="module" src="/static/smartport-iecs.js"></script>
 <script type="module" src="/static/smartport-agent.js?v=10"></script>
 <script type="module" src="/static/smartport-navigation.js?v=5"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>

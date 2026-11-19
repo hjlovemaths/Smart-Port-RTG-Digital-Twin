@@ -54,8 +54,8 @@ class AgentWebBridge:
         install_auth(app)
         prefix = "/api/smartport-agent"
         app.router.routes[:] = [r for r in app.router.routes
-                                if not getattr(r, "path", "").startswith((prefix,'/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/'))
-                                and getattr(r,'path','') not in ('/api/transfer-camera/state','/driver','/rtg-driver','/sts-driver','/api/session/initial-view')
+                                if not getattr(r, "path", "").startswith((prefix,'/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/','/api/iecs/'))
+                                and getattr(r,'path','') not in ('/api/transfer-camera/state','/driver','/rtg-driver','/sts-driver','/iecs','/api/session/initial-view')
                                 and not getattr(r,'path','').startswith('/static/smartport-')]
 
         async def execute(action, payload):
@@ -111,6 +111,16 @@ class AgentWebBridge:
         app.add_api_route(prefix + "/state", state, methods=["GET"])
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
         app.add_api_route('/api/transfer-camera/state',cinema_state,methods=['GET'])
+        async def iecs_state():
+            return await execute('iecs_state',{})
+        async def iecs_command(payload: dict):
+            return await execute('iecs_command',payload)
+        async def iecs_events(before: int = 0):
+            if before<0:raise HTTPException(400,'无效事件游标')
+            return await execute('iecs_events',{'before':before or None})
+        app.add_api_route('/api/iecs/state',iecs_state,methods=['GET'])
+        app.add_api_route('/api/iecs/command',iecs_command,methods=['POST'])
+        app.add_api_route('/api/iecs/events',iecs_events,methods=['GET'])
         async def initial_view(request:Request):
             session=request.scope.get('smartport_session')
             if not session or session.get('role')!='admin':raise HTTPException(403,'仅管理员可初始化管理视口')
@@ -171,6 +181,7 @@ class AgentWebBridge:
         app.router.routes.insert(0,Route('/driver',driver_page,methods=['GET']))
         app.router.routes.insert(0,Route('/rtg-driver',driver_page,methods=['GET']))
         app.router.routes.insert(0,Route('/sts-driver',driver_page,methods=['GET']))
+        app.router.routes.insert(0,Route('/iecs',driver_page,methods=['GET']))
         # Project assets precede the vendor static mount; no installed files
         # need changing to make the new driving page available.
         for file in (Path(scripts).parent/'web').glob('smartport-*'):
@@ -275,6 +286,23 @@ class AgentWebBridge:
     @staticmethod
     def execute(panel, action, payload):
         from . import agent_api
+        if action in {'iecs_state','iecs_command','iecs_events'}:
+            import omni.usd
+            from .scene_runtime import SceneRuntime, iecs_runtime
+            from .project_interfaces import _iecs
+            stage=omni.usd.get_context().get_stage()
+            if not stage:raise ValueError('港区场景尚未打开')
+            if action=='iecs_command':
+                args=agent_api.validate_tool_arguments('control_iecs',payload)
+                owner=getattr(panel,'_runtime',None)
+                if owner is None:
+                    owner=panel._runtime=SceneRuntime(panel._project_root,panel._ui_events.put)
+                owner.bind(stage)
+                _iecs(owner,args,web=True)
+            runtime=iecs_runtime(stage)
+            if action=='iecs_events':
+                return {'events':runtime.recent_history(payload['before']) if runtime else []}
+            return {'running':False} if runtime is None else {'running':True,**runtime.cached}
         if action=='admin_home':
             import omni.usd
             from omni.kit.viewport.utility import get_viewport_from_window_name,get_active_viewport

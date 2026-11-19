@@ -9,6 +9,27 @@ async def app(scope,receive,send):await PlainTextResponse('protected')(scope,rec
 @pytest.fixture
 def server(tmp_path):return ViewerAuth(app,Accounts(tmp_path/'accounts.json'))
 def initialize(server):server.accounts.initialize('admin','AdminTestPassword!','viewer','ViewerTestPassword!')
+
+@pytest.mark.asyncio
+async def test_iecs_account_enters_workbench_with_only_iecs_controls(server):
+ initialize(server)
+ async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server),base_url='http://test:8011',headers={'origin':'http://test:8011'}) as c:
+  await c.post('/auth/login',data={'username':'viewer','password':'ViewerTestPassword!'})
+  assert (await c.get('/api/iecs/state')).status_code==403
+  assert (await c.post('/auth/iecs-account',data={'username':'iecs','password':'IecsTestPassword!'})).status_code==403
+  await c.post('/auth/login',data={'username':'admin','password':'AdminTestPassword!'})
+  assert (await c.post('/auth/iecs-account',data={'username':'iecs','password':'IecsTestPassword!'})).status_code==200
+  login=await c.post('/auth/login',data={'username':'iecs','password':'IecsTestPassword!'})
+  assert login.headers['location']=='/iecs?spectator=1'
+  assert (await c.get('/iecs?spectator=1')).status_code==200
+  assert (await c.get('/auth/me')).json()['role']=='iecs'
+  assert (await c.post('/api/iecs/command',json={'action':'pause'})).status_code==200
+  assert (await c.post('/api/iecs/command',json={'action':'pause'},headers={'origin':'http://other'})).status_code==403
+  assert (await c.get('/api/iecs/events')).status_code==200
+  assert (await c.get('/api/stream-config')).json()['streams'][0]['port'] in (49200,49210,49220)
+  for path in ('/api/smartport-agent/send','/api/rtg-driver/input','/auth/rtg-driver-account'):
+   assert (await c.post(path,json={})).status_code==403
+
 @pytest.mark.asyncio
 async def test_setup_only_on_loopback_and_stores_hashes(server):
  async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server,client=('192.168.6.90',123)),base_url='http://host:8011') as c:

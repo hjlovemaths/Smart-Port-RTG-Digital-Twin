@@ -42,6 +42,39 @@ FLOW_LABELS = {'unload':'Ship to Yard', 'load':'Yard to Ship',
 STEP_LABELS = ['Drive to Pickup','Pickup / Handover','Loaded Transport',
                'Drop / Handover','Return / Exit','Completed']
 
+def ship_demo_slot(stage):
+    """Choose a reachable top 6.6 structural box, with legacy scene support."""
+    from pxr import Gf, UsdGeom
+    from iecs_ship_pickup import BOX, SHIP
+    from ship_transfer_plan import box, crane_state, solve
+    from ship_structure_data import read_structure
+    if not stage.GetPrimAtPath(SHIP+'/StructureSlots'):
+        return (BOX, 40) if stage.GetPrimAtPath(BOX) else (None, 40)
+    prim=stage.GetPrimAtPath('/World/STSControls/STS_01')
+    if not prim:return None,20
+    crane=crane_state(stage,prim)
+    tops={}
+    for slot in read_structure()['slots']:
+        if slot['zone']=='D':
+            key=slot['bay'],slot['row']
+            if key not in tops or slot['tier']>tops[key]['tier']:tops[key]=slot
+    candidates=[]
+    for slot in tops.values():
+        path=SHIP+f"/StructureSlots/Bay{slot['bay']:02d}_D/L{slot['location']}"
+        model=stage.GetPrimAtPath(path)
+        if not model or UsdGeom.Imageable(model).ComputeVisibility()=='invisible':continue
+        bounds=box(stage,path);center=bounds.GetMidpoint()
+        if abs(center[1]-prim.GetAttribute('sts:homeY').Get())>45.:continue
+        top=Gf.Vec3d(center[0],center[1],bounds.GetMax()[2])
+        deck=Gf.Vec3d(QUAY_PICKUP_LANE_X,center[1],TRAILER_DECK_Z+bounds.GetSize()[2])
+        clear=max(top[2],deck[2])+bounds.GetSize()[2]+1.5
+        try:
+            for point in (top,deck,Gf.Vec3d(top[0],top[1],clear),Gf.Vec3d(deck[0],deck[1],clear)):
+                solve(stage,crane,point)
+        except ValueError:continue
+        candidates.append((abs(center[1]-prim.GetAttribute('sts:homeY').Get()),-center[0],path))
+    return (min(candidates)[2] if candidates else None),20
+
 
 class Runtime:
     def __init__(self,stage,port=48730,with_ui=True,subscribe=True,db_path=None):
@@ -53,8 +86,10 @@ class Runtime:
         self.pickups={};self.ship_bindings={}
         self.yard_drops={}
         self.mixed_pending=[]
-        from iecs_ship_pickup import BOX,bounds
-        self.ship_home=list(bounds(stage,BOX).GetMidpoint())
+        from iecs_ship_pickup import bounds
+        self.ship_box,self.size_ft=ship_demo_slot(stage)
+        self.ship_home=list(bounds(stage,self.ship_box).GetMidpoint()) if self.ship_box else None
+        self.visual_rtg=None
         self.snapshot_lock=threading.Lock();self.cached={};self.models={};self.last_ui=0
         self.layer=Sdf.Layer.CreateAnonymous('iecs_demo.usda')
         missing=[f'/World/ParkedYardTrucks/Group{g}_Bay{b:02d}' for g in (1,2) for b in range(1,11)
@@ -68,7 +103,7 @@ class Runtime:
         self.stage.GetSessionLayer().subLayerPaths.insert(0,self.layer.identifier)
         self.server=None;self.subscription=None;self.window=None
         try:
-            self.start_http(port)
+            if port is not None:self.start_http(port)
             if with_ui:self.make_ui()
             if subscribe:
                 import omni.kit.app
@@ -85,6 +120,24 @@ class Runtime:
             self.cached=self.engine.snapshot();self.cached['error']=self.last_error
             self.cached['mixed_pending']=list(self.mixed_pending)
             self.cached['scene_checks']=self.scene_report
+            self.cached['size_ft']=self.size_ft
+            self.cached['ship_demo_available']=self.ship_box is not None
+
+    def recent_history(self, before=None):
+        clause='WHERE id<?' if before is not None else ''
+        rows=self.engine.db.execute(
+            f'SELECT id,time,kind,payload FROM events {clause} ORDER BY id DESC LIMIT 30',
+            (before,) if before is not None else ())
+        return [{'id':i,'time':t,'kind':kind,'payload':json.loads(payload)} for i,t,kind,payload in rows]
+
+    def yard_slot(self,block,bay):
+        from build_live_containers import container_center_y_for_bay
+        from iecs_core import yard
+        slot=yard(block,bay+1 if self.size_ft==20 else bay)
+        slot.update(id=f'{block}{bay:03d}/R1/T1',bay=bay)
+        if self.size_ft==20:
+            slot['point'][1]=slot['stop'][1]=container_center_y_for_bay(block,bay,20)
+        return slot
 
     def start_http(self,port):
         runtime=self
@@ -256,26 +309,26 @@ class Runtime:
             'invisible' if c['location'].startswith('EXIT/') else 'inherited')
 
     def prepare_ship_order(self,oid):
-        from iecs_ship_pickup import ShipPickup,BOX
+        from iecs_ship_pickup import ShipPickup
         if self.ship_bindings:raise ValueError('Ship box already assigned. Reset Demo before another real pickup.')
-        pickup=ShipPickup(self.stage,self.layer)
+        if not self.ship_box:raise ValueError('STS_01 没有可达的演示船箱')
+        pickup=ShipPickup(self.stage,self.layer,self.ship_box,size_ft=self.size_ft)
         o=self.engine.orders[oid];c=self.engine.containers[o['container']]
         stop=[QUAY_PICKUP_LANE_X,float(pickup.source[1]),.085]
         pickup.configure(stop,TRAILER_DECK_Z)
         # Keep crane still until the allocated truck reaches its stopping point.
         pickup.c.hold();pickup.phase='Ready';pickup.configured=False
         self.engine.reserved.pop(o['source']['id'],None)
-        o['source'].update(id=BOX,point=list(pickup.source),stop=stop)
-        self.engine.reserved[BOX]=oid
-        o['source_prim']=BOX
-        c.update(position=list(pickup.source),location=BOX,carry_height=.685+pickup.height/2)
+        o['source'].update(id=self.ship_box,point=list(pickup.source),stop=stop)
+        self.engine.reserved[self.ship_box]=oid
+        o['source_prim']=self.ship_box
+        c.update(position=list(pickup.source),location=self.ship_box,carry_height=.685+pickup.height/2,size_ft=self.size_ft)
         o['target']['point'][2]=.12+pickup.height/2
         self.select_free_yard_slot(o,pickup.height)
         self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
-        self.engine.event('real_ship_box_bound',order=oid,source=BOX)
+        self.engine.event('ship_demo_box_bound',order=oid,source=self.ship_box,size_ft=self.size_ft)
 
     def select_free_yard_slot(self,o,height):
-        from iecs_core import yard
         cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
         occupied=[]
         # Source meshes are hidden during transport. Include authoritative
@@ -291,9 +344,9 @@ class Runtime:
                     box=cache.ComputeWorldBound(p).ComputeAlignedRange()
                     if not box.IsEmpty():occupied.append(box)
         for block in ('3C','2C','1C','4C'):
-            for bay in range(2,42 if block=='4C' else 92,2):
-                candidate=yard(block,bay);candidate['point'][2]=.12+height/2
-                center=candidate['point'];half=(.7,2.64,height/2)
+            for bay in range(1 if self.size_ft==20 else 2,42 if block=='4C' else 92,2):
+                candidate=self.yard_slot(block,bay);candidate['point'][2]=.12+height/2
+                center=candidate['point'];half=(.7,1.32 if self.size_ft==20 else 2.64,height/2)
                 if any(all(b.GetMin()[i]<center[i]+half[i]-.01 and b.GetMax()[i]>center[i]-half[i]+.01 for i in range(3)) for b in occupied):continue
                 if candidate['id'] in self.engine.reserved and self.engine.reserved[candidate['id']]!=o['id']:continue
                 self.engine.reserved.pop(o['target']['id'],None);o['target']=candidate
@@ -301,8 +354,7 @@ class Runtime:
         raise ValueError('No free ground-level RTG slot available')
 
     def prepare_load_order(self,oid,yard_only=False):
-        from iecs_ship_pickup import ShipPickup,BOX,bounds
-        from iecs_core import yard
+        from iecs_ship_pickup import ShipPickup,bounds
         import re
         if not yard_only and any(o['flow']=='load' for o in self.engine.orders.values() if o['id']!=oid):
             raise ValueError('Only one real ship loading slot is available per demo.')
@@ -312,38 +364,47 @@ class Runtime:
             match=re.search(r'/Bay_([1234]C)_(\d+)/R01_T(\d+)_Container$',str(p.GetPath()))
             if not match or self.UsdGeom.Imageable(p).ComputeVisibility()=='invisible':continue
             b=cache.ComputeWorldBound(p).ComputeAlignedBox()
-            if abs(b.GetMidpoint()[0]-6.433333)>.2 or b.GetSize()[1]<4.:continue
+            size=p.GetAttribute('live:containerSizeFt').Get()
+            if abs(b.GetMidpoint()[0]-6.433333)>.2 or size!=self.size_ft:continue
             if str(p.GetPath()) not in self.engine.reserved:stock.append((p,match,b))
         tops=[item for item in stock if not any(
             abs(other[2].GetMidpoint()[0]-item[2].GetMidpoint()[0])<.2
             and abs(other[2].GetMidpoint()[1]-item[2].GetMidpoint()[1])<.2
             and other[2].GetMax()[2]>item[2].GetMax()[2]+.01 for other in stock)]
-        if not tops:raise ValueError('No accessible row-1 40ft yard container found')
+        if not tops:raise ValueError(f'找不到可抓取的第 1 排 {self.size_ft} 尺堆场演示箱')
         p,match,b=min(tops,key=lambda item:(item[2].GetMax()[2],str(item[0].GetPath())))
-        pickup=ShipPickup(self.stage,self.layer,str(p.GetPath()),defer_pick=True)
+        if not yard_only and not self.ship_box:raise ValueError('STS_01 没有可达的演示装船箱位')
+        pickup=ShipPickup(self.stage,self.layer,str(p.GetPath()),defer_pick=True,size_ft=self.size_ft)
         o=self.engine.orders[oid];c=self.engine.containers[o['container']]
-        source=yard(match[1],int(match[2]))
+        source=self.yard_slot(match[1],int(match[2]))
         source.update(id=str(p.GetPath()),point=list(b.GetMidpoint()))
         source['stop']=[-3.75,float(b.GetMidpoint()[1]),.085]
-        support=bounds(self.stage,BOX)
-        target=list(support.GetMidpoint());target[2]=support.GetMax()[2]+pickup.height/2
-        if any(order['flow']=='unload' and order['status']=='completed' for order in self.engine.orders.values()):
-            target=self.ship_home[:]
+        target=source['point'][:]
+        if not yard_only:
+            support=bounds(self.stage,self.ship_box)
+            target=list(support.GetMidpoint());target[2]=support.GetMax()[2]+pickup.height/2
+            if self.size_ft==20 or any(order['flow']=='unload' and order['status']=='completed' for order in self.engine.orders.values()):
+                target=self.ship_home[:]
+                target[2]+=(pickup.height-support.GetSize()[2])/2
         stop=[-238.15,target[1],.085]
         # Validate all STS targets now, not after a truck has departed.
-        if not yard_only:pickup.configure_loading(stop,target)
+        if not yard_only:
+            pickup.configure_loading(stop,target)
+            if self.size_ft==20:
+                with self.Usd.EditContext(self.stage,self.layer):
+                    self.UsdGeom.Imageable(self.stage.GetPrimAtPath(self.ship_box)).MakeInvisible()
         pickup.c.hold();pickup.configured=False;pickup.phase='Ready'
         for loc in (o['source'],o['target']):self.engine.reserved.pop(loc['id'],None)
         o['source']=source;o['target']={'id':'SHIP/LOAD/STS01','kind':'quay','point':target,'stop':stop}
         o['source_prim']=str(p.GetPath())
         for loc in (o['source'],o['target']):self.engine.reserved[loc['id']]=oid
-        c.update(position=source['point'][:],location=source['id'],carry_height=.685+pickup.height/2)
+        c.update(position=source['point'][:],location=source['id'],carry_height=.685+pickup.height/2,size_ft=self.size_ft)
         c['production_id']=p.GetAttribute('live:containerId').Get()
         self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
         self.engine.event('real_yard_box_bound',order=oid,source=str(p.GetPath()))
 
     def prepare_ground_order(self,oid):
-        from iecs_ship_pickup import ShipPickup,BOX
+        from iecs_ship_pickup import ShipPickup
         o=self.engine.orders[oid];c=self.engine.containers[o['container']]
         if o['flow']=='gate_in':
             root='/World/IECS/IncomingCargo/'+o['id'].replace('-','_')
@@ -351,16 +412,15 @@ class Runtime:
             with self.Usd.EditContext(self.stage,self.layer):
                 wrapper=self.UsdGeom.Xform.Define(self.stage,root)
                 prim=self.UsdGeom.Xform.Define(self.stage,path).GetPrim()
-                prim.GetReferences().AddReference(self.stage.GetRootLayer().identifier,BOX)
-                # Referencing the box alone omits the ship parent's scale.
-                # Normalize incoming cargo to the same visual 40ft yard size.
-                from build_live_containers import CONTAINER_WIDTH_X_M,CONTAINER_VISUAL_HEIGHT_Z_M
+                asset=PROJECT/'omniverse/assets/resource/container/Yard_Container_20ft.usda'
+                prim.GetReferences().AddReference(str(asset),'/Yard20Container')
+                # Match the measured yard size in the current demo scene.
                 size=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render']).ComputeWorldBound(prim).ComputeAlignedBox().GetSize()
                 if min(size)<=0:raise ValueError('Incoming cargo has invalid geometry bounds')
-                desired=CONTAINER_40_SIZE
+                desired=(CONTAINER_40_SIZE[0],2.475,CONTAINER_40_SIZE[2]) if self.size_ft==20 else CONTAINER_40_SIZE
                 wrapper.AddScaleOp().Set(self.Gf.Vec3f(*(desired[i]/size[i] for i in range(3))))
-            pickup=ShipPickup(self.stage,self.layer,path,defer_pick=True)
-            c.update(carry_height=.685+pickup.height/2,position=[151,388.4,.685+pickup.height/2])
+            pickup=ShipPickup(self.stage,self.layer,path,defer_pick=True,size_ft=self.size_ft)
+            c.update(carry_height=.685+pickup.height/2,position=[151,388.4,.685+pickup.height/2],size_ft=self.size_ft)
             pickup.set_box_world(self.Gf.Vec3d(*c['position']))
             o['source_prim']=path
             self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
@@ -380,7 +440,7 @@ class Runtime:
         if key not in self.yard_drops:
             YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
             target={'point':[v['position'][0],v['position'][1],c['carry_height']]} if pick else o['target']
-            self.yard_drops[key]=YardDrop(self.stage,self.layer,pickup,v,c,target)
+            self.yard_drops[key]=YardDrop(self.stage,self.layer,pickup,v,c,target,motion=self.rtg_motion())
         rig=self.yard_drops[key];done=rig.step(dt)
         if rig.attached:
             c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG',heading=0.)
@@ -399,7 +459,7 @@ class Runtime:
                 if o['id'] not in self.yard_drops:
                     YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
                     target={'point':[v['position'][0],v['position'][1],c['carry_height']]}
-                    self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,target)
+                    self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,target,motion=self.rtg_motion())
                 rig=self.yard_drops[o['id']];done=rig.step(dt)
                 if rig.attached:
                     c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG-'+o['source']['block'],heading=0.)
@@ -419,7 +479,7 @@ class Runtime:
             YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
             c=self.engine.containers[o['container']]
             if o['id'] not in self.yard_drops:
-                self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,o['target'])
+                self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,o['target'],motion=self.rtg_motion())
             rig=self.yard_drops[o['id']];finished=rig.step(dt)
             if rig.attached:
                 c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG-'+o['target']['block'],owner='RTG-'+o['target']['block'],heading=0.)
@@ -437,6 +497,13 @@ class Runtime:
             c.update(position=list(p),location='SPREADER/QC-01',owner='QC-01')
         o['step_name']=pickup.phase
         return finished
+
+    def rtg_motion(self):
+        if self.size_ft==20 and self.visual_rtg is None:
+            from rtg_transfer_motion import VisualRTG
+            with self.Usd.EditContext(self.stage,self.layer):
+                self.visual_rtg=VisualRTG(self.stage,20)
+        return self.visual_rtg
 
     def process(self,cmd):
         action=cmd.get('action')
@@ -472,6 +539,7 @@ class Runtime:
             for pickup in self.pickups.values():pickup.close()
             self.pickups.clear();self.ship_bindings.clear()
             self.yard_drops.clear()
+            if self.visual_rtg:self.visual_rtg.close();self.visual_rtg=None
             self.mixed_pending.clear()
             # Clear only our anonymous opinions. Source inventory is untouched.
             self.layer.Clear();self.models.clear()
@@ -547,6 +615,7 @@ class Runtime:
         if self.closed:return
         self.closed=True;self.subscription=None
         for pickup in self.pickups.values():pickup.close()
+        if self.visual_rtg:self.visual_rtg.close();self.visual_rtg=None
         if self.server:self.server.shutdown();self.server.server_close()
         if self.layer.identifier in self.stage.GetSessionLayer().subLayerPaths:
             paths=list(self.stage.GetSessionLayer().subLayerPaths);paths.remove(self.layer.identifier)

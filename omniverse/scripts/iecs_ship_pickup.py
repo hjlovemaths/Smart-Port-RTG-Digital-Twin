@@ -6,7 +6,7 @@ from sts_unload_task import UnloadTask,SHIP,BOX,bounds,translate
 
 
 class ShipPickup(UnloadTask):
-    def __init__(self,stage,layer,box_path=BOX,defer_pick=False):
+    def __init__(self,stage,layer,box_path=BOX,defer_pick=False,size_ft=40):
         self.stage=stage;self.layer=layer;self.box_path=box_path
         self.c=STSController(stage,'STS_01');self.home=dict(self.c.state)
         self.home_size=self.c.spreader_size_ft;self.closed=False;self.phase='Ready'
@@ -17,7 +17,7 @@ class ShipPickup(UnloadTask):
         # rotation on top of the source asset's inherited orientation.
         self.source_heading=90. if box.GetSize()[0]>box.GetSize()[1] else 0.
         self.pick=Gf.Vec3d(self.source[0],self.source[1],box.GetMax()[2])
-        self.c.set_spreader_size(40)
+        self.c.set_spreader_size(size_ft)
         self.clear_z=max(self.pick[2]+self.height+1.5,self.contact()[2])
         if not defer_pick:
             self.pick_pose=self.pose(self.pick)

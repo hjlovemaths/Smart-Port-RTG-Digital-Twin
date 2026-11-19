@@ -15,9 +15,17 @@ def wheel_track_centers(stage):
 
 
 class YardDrop(YardDelivery):
-    def __init__(self,stage,layer,pickup,truck,container,target):
+    def __init__(self,stage,layer,pickup,truck,container,target,motion=None):
         self.stage=stage;self.layer=layer;self.pickup=pickup;self.finished=False
         self.phase='RTG raise clear';self.attached=False
+        self.motion=motion
+        if motion is not None:
+            self.pick=Gf.Vec3d(*container['position'])+Gf.Vec3d(0,0,pickup.height/2)
+            self.target=Gf.Vec3d(*target['point'])+Gf.Vec3d(0,0,pickup.height/2)
+            self.origin=motion.contact()
+            self.high=max(self.origin[2],self.pick[2]+2.,self.target[2]+2.,7.)
+            self.command(Gf.Vec3d(self.origin[0],self.origin[1],self.high))
+            return
         self.paths=(GANTRY,TROLLEY,HOIST);self.ops=[];self.bases=[]
         self.offset=[0.,0.,0.];self.goal=[0.,0.,0.];self.directions=[]
         with Usd.EditContext(stage,layer):
@@ -59,9 +67,19 @@ class YardDrop(YardDelivery):
         self.high=max(self.origin[2],self.pick[2]+2.,self.target[2]+2.)
         self.command(Gf.Vec3d(self.origin[0],self.origin[1],self.high))
 
+    def contact(self):
+        return self.motion.contact() if self.motion is not None else super().contact()
+
+    def command(self,point):
+        if self.motion is not None:self.motion.command(point)
+        else:super().command(point)
+
     def step(self,dt):
         with Usd.EditContext(self.stage,self.layer):
-            ready=self.move_rtg(dt)
+            if self.motion is not None and not self.motion.spreader_ready:
+                self.motion.tick_spreader(dt)
+                return False
+            ready=self.motion.tick(dt) if self.motion is not None else self.move_rtg(dt)
             if self.attached:
                 self.pickup.set_box_world(self.contact()-Gf.Vec3d(0,0,self.pickup.height/2))
             if not ready:return False

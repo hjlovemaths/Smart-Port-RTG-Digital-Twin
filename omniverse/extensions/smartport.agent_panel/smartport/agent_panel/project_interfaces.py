@@ -116,14 +116,16 @@ def _simulation(owner, args):
     raise ValueError("Unsupported simulation action")
 
 
-def _iecs(owner, args):
+def _iecs(owner, args, *, web=False):
     action = args["action"]
     runtime = iecs_runtime(owner.stage)
     if action == "status": return current_tasks(owner.stage)["iecs"]
     if action == "start":
         if runtime is None:
             require_idle(owner)
-            runtime = load("iecs_launch").launch(stage=owner.stage)
+            owner._guard_manual("sts", "STS_01")
+            options={"with_ui":False,"port":None} if web else {}
+            runtime = load("iecs_launch").launch(stage=owner.stage, **options)
     elif runtime is None:
         raise ValueError("IECS is not running. Start it with control_iecs(action='start').")
     elif action == "stop":
@@ -131,14 +133,17 @@ def _iecs(owner, args):
         return {"running": False}
     elif action == "focus":
         owner.follow = None
-        runtime.focus()
+        if web:owner.set_view({"target":"task","view":"angled","follow":True,"distance_m":24})
+        else:runtime.focus()
     else:
-        if action in {"submit", "mixed"} and owner.motion:
-            raise ValueError("Wait for or stop the Agent RTG movement before scheduling IECS work")
+        if action in {"submit", "mixed"}:
+            require_idle(owner)
+            owner._guard_manual("sts", "STS_01")
         command = {"action": action}
         if "flow" in args: command["flow"] = args["flow"]
         if action == "speed": command["value"] = args["speed"]
         runtime.process(command)
+        runtime.apply_scene()
         runtime.publish()
         if action == "check_scene": return runtime.scene_report
         if action == "inventory_preview": return runtime.inventory_preview()

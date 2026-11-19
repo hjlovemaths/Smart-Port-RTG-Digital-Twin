@@ -1,0 +1,33 @@
+.smartport-iecs { --iecs-width: min(440px, 38vw); }
+.smartport-iecs .container { right: var(--iecs-width); width: auto; }
+.smartport-iecs #remote-video { width: 100%; height: 100%; }
+.smartport-iecs #spectator-fullscreen { right: calc(var(--iecs-width) + 14px); }
+#iecs-workbench {
+  position: fixed; inset: 0 0 0 auto; z-index: 10002; width: var(--iecs-width);
+  overflow: auto; box-sizing: border-box; padding: 26px 22px;
+  background: #101f2b; color: #e7eef2; border-left: 1px solid #3a5668;
+  font: 14px/1.55 system-ui, "Microsoft YaHei", sans-serif;
+}
+#iecs-workbench h1 { display: block; font-size: 26px; line-height: 1.15; margin: 0 0 12px; }
+#iecs-workbench h2 { font-size: 15px; margin: 0 0 10px; color: #9bd7e8; }
+#iecs-workbench section { border-top: 1px solid #386073; padding: 15px 0; }
+#iecs-workbench p { margin: 6px 0; }
+#iecs-workbench .iecs-status { color: #a9c5d1; min-height: 2.8em; }
+#iecs-workbench .iecs-toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin: 9px 0; }
+#iecs-workbench button, #iecs-workbench select {
+  font: inherit; color: #ecf3f6; background: #234252; border: 1px solid #496777;
+  min-height: 34px; padding: 5px 10px; border-radius: 4px;
+}
+#iecs-workbench button { cursor: pointer; }
+#iecs-workbench button:disabled { opacity: .45; cursor: default; }
+#iecs-workbench button.iecs-primary { background: #096a81; border-color: #4f9aae; }
+#iecs-workbench .iecs-feedback { color: #ffcc91; white-space: pre-line; overflow-wrap: anywhere; }
+#iecs-workbench ol { padding-left: 1.4em; margin: 6px 0; }
+#iecs-workbench li { margin-bottom: .35em; overflow-wrap: anywhere; }
+#iecs-workbench .iecs-event { color: #b9cfd8; font-variant-numeric: tabular-nums; }
+@media (max-width: 740px) {
+  .smartport-iecs { --iecs-width: 100vw; }
+  .smartport-iecs .container { inset: 0 0 60vh; height: 40vh; }
+  .smartport-iecs #spectator-fullscreen { right: 12px; }
+  #iecs-workbench { top: 40vh; padding: 16px; border-left: none; }
+}
