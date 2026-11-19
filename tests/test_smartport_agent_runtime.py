@@ -16,6 +16,34 @@ sys.path.insert(0, str(ROOT / "omniverse/extensions/smartport.agent_panel"))
 from smartport.agent_panel import agent_api, project_interfaces, runtime_catalog, scene_runtime
 
 
+@pytest.mark.parametrize("live_running,sim_running,expected_hidden", [
+    (False, False, True),
+    (True, False, False),
+    (False, True, False),
+])
+def test_idle_cleanup_only_hides_stale_task_panel_when_both_sources_stopped(
+    monkeypatch, live_running, sim_running, expected_hidden
+):
+    import types
+    from contextlib import nullcontext
+
+    prim = SimpleNamespace(hidden=False)
+    stage = SimpleNamespace(GetSessionLayer=lambda: object(), GetPrimAtPath=lambda path: prim)
+    usd = SimpleNamespace(EditContext=lambda *_: nullcontext())
+    geom = SimpleNamespace(Imageable=lambda item: SimpleNamespace(
+        MakeInvisible=lambda: setattr(item, "hidden", True)))
+    pxr = types.ModuleType("pxr")
+    pxr.Usd, pxr.UsdGeom = usd, geom
+    monkeypatch.setitem(sys.modules, "pxr", pxr)
+    monkeypatch.setattr(builtins, "_smart_port_rtg_panel_facing_driver",
+                        SimpleNamespace(_subscription=object()) if live_running else None,
+                        raising=False)
+    monkeypatch.setattr(project_interfaces, "simulation_status", lambda _module: {"running": sim_running})
+    monkeypatch.setattr(project_interfaces, "existing_module", lambda _name: None)
+    project_interfaces._clear_idle_task_panel(stage)
+    assert prim.hidden is expected_hidden
+
+
 @pytest.mark.parametrize("filename", ["D:/scripts/rtg_driver.py", r"D:\scripts\rtg_driver.py"])
 def test_motion_module_lookup_handles_launcher_aliases_without_path_allocations(monkeypatch, filename):
     module = SimpleNamespace(__file__=filename)
@@ -32,6 +60,9 @@ def test_motion_module_lookup_handles_launcher_aliases_without_path_allocations(
 @pytest.mark.parametrize("name,args", [
     ("set_viewport_view", {"target": "bay"}),
     ("set_viewport_view", {"target": "sts"}),
+    ("set_viewport_view", {"target": "truck"}),
+    ("set_viewport_view", {"target": "truck", "truck_number": 21}),
+    ("set_viewport_view", {"target": "rtg", "view": "cabin"}),
     ("set_viewport_view", {"target": "rtg", "follow": "yes"}),
     ("switch_viewport_camera", {}),
     ("switch_viewport_camera", {"camera_path": "/World/Cam", "camera_number": 1}),
@@ -39,6 +70,8 @@ def test_motion_module_lookup_handles_launcher_aliases_without_path_allocations(
     ("set_sts_axis_positions", {"crane_id": "STS_08", "gantry_m": 1}),
     ("set_sts_axis_positions", {"crane_id": "STS_04"}),
     ("set_sts_axis_positions", {"crane_id": "STS_04", "hoist_m": float("nan")}),
+    ("set_sts_axis_positions", {"crane_id": "STS_04", "hoist_distance_m": 5}),
+    ("set_sts_axis_positions", {"crane_id": "STS_04", "hoist_m": 5, "hoist_distance_m": 2, "hoist_direction": "lower"}),
     ("set_sts_axis_positions", {"crane_id": "STS_04", "boom_deg": 50, "park_for_luffing": True}),
     ("control_iecs", {"action": "submit"}),
     ("control_iecs", {"action": "speed", "speed": 100}),

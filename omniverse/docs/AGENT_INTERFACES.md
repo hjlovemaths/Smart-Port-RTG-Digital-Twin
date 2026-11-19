@@ -50,7 +50,7 @@
 | 3 | `get_equipment_status` | RTG／岸桥实际位置、目标、限位、停止状态。`equipment=all/rtg/sts`，可选 `crane_id`。 |
 | 4 | `get_current_tasks` | RTG 最新任务、仿真任务及队列、岸桥任务阶段、IECS 订单／车辆／暂停状态；保留数据时间。 |
 | 5 | `list_viewpoints` | 可用视角、现有 USD 相机路径、当前相机和跟随状态。 |
-| 6 | `set_viewport_view` | `target=port/rtg/trolley/spreader/bay/sts/task`；`view=angled/front/back/left/right/top/under_trolley`。支持 `bay_id`、`crane_id`、`distance_m`、`azimuth_deg`、`elevation_deg`、`field_of_view_deg`、`follow`。`target=trolley` 默认使用平台下方正下视广角镜头并跟随小车；贝位和岸桥视角必须明确编号。 |
+| 6 | `set_viewport_view` | `target=port/rtg/trolley/spreader/bay/sts/task/truck`。集卡用 `truck_number=1..20` 指定，默认 `view=cabin` 前向视角，也可用 `view=chase` 车后跟随。`target=trolley` 默认用 `under_trolley` 跟随小车。其他视角支持 `angled/front/back/left/right/top`。贝位和岸桥视角必须明确编号。 |
 | 7 | `switch_viewport_camera` | 选择现有 `camera_path` 或 `camera_number=1..33`，二选一；停止 Agent 相机跟随。 |
 | 8 | `get_bay_inventory` | `bay_id`：贝位六位箱区图、各排层数、箱号、尺寸、ASCII 占用图和 40 英尺覆盖关系。 |
 | 9 | `get_yard_inventory_summary` | 整个堆场或 `block=1C/2C/3C/4C` 的箱数、TEU、已占用逻辑贝位及箱区图。 |
@@ -58,7 +58,7 @@
 | 11 | `move_rtg_to_bay` | `bay_id`、`anchor=start/center/end`、可选 `duration_s=0.2..120`。连续移动，保留贝位标定。 |
 | 12 | `set_rtg_axis_positions` | 主 RTG 的 `gantry_m`、`trolley_m`、`hoist_m`，至少一轴；可选 `duration_s`，默认 3 秒。未指定轴不变。 |
 | 13 | `set_rtg_spreader_size` | `size_ft=20/40`，控制伸缩吊具尺寸并返回实际值。 |
-| 14 | `set_sts_axis_positions` | `crane_id=STS_01..STS_07`；`gantry_m`、`trolley_m`、`hoist_m`、`boom_deg`。或单独使用 `park_for_luffing=true`。沿用现有速度、分区限位和抬梁联锁。 |
+| 14 | `set_sts_axis_positions` | `crane_id=STS_01..STS_07`。吊具轴值越大，吊具越高。用 `hoist_m` 设绝对轴值，或用 `hoist_distance_m` 配合 `hoist_direction=raise/lower` 指定相对行程。显式上升或下降时同时传入方向，程序会校验。大车、小车和抬梁参数为 `gantry_m`、`trolley_m`、`boom_deg`。`park_for_luffing=true` 单独调用。 |
 | 15 | `stop_equipment` | `equipment=rtg/sts/all`，岸桥可指定 `crane_id`。停止本地控制目标；涉及共享任务时暂停相应任务。 |
 | 16 | `resume_sts_crane` | 指定 `crane_id` 解除本地停止锁存；已经取消的目标不会自动重启，需要重新给目标。 |
 | 17 | `control_timeline` | `action=status/play/pause/stop`，读取或控制 Kit 时间轴。 |

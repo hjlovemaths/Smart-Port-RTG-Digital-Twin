@@ -24,6 +24,22 @@ def load(name):
     return existing_module(name) or importlib.import_module(name)
 
 
+def _clear_idle_task_panel(stage):
+    """Hide a leftover panel after both sources have stopped, without loading them."""
+    driver = getattr(builtins, "_smart_port_rtg_panel_facing_driver", None)
+    if driver is not None and getattr(driver, "_subscription", None) is not None:
+        return
+    if simulation_status(existing_module("rtg_simulation_driver"))["running"]:
+        return
+    if stage is None:
+        return
+    from pxr import Usd, UsdGeom
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        prim = stage.GetPrimAtPath("/World/LiveHUD/RTG_TASK_INFO_PANEL")
+        if prim:
+            UsdGeom.Imageable(prim).MakeInvisible()
+
+
 def require_idle(owner, *, allow_rtg_driver=False, allow_sts_driver=False):
     if owner.motion:
         raise ValueError("An Agent RTG movement is running. Wait for arrival or stop it before starting a task.")
@@ -74,6 +90,7 @@ def _simulation(owner, args):
     if action == "status": return simulation_status(module)
     if action == "stop":
         if module: module.stop_simulation()
+        _clear_idle_task_panel(owner.stage)
         return {"running": False}
     if action == "clear_task":
         if module: module.clear_simulated_task()
@@ -362,6 +379,7 @@ def execute_project_interface(owner, name, args):
         elif action == "stop":
             stop = getattr(builtins, "_smart_port_rtg_twin_stop_live_driver", None)
             if callable(stop): stop()
+            _clear_idle_task_panel(stage)
         driver = getattr(builtins, "_smart_port_rtg_panel_facing_driver", None)
         return {"running": bool(driver and driver._subscription is not None), "tasks": current_tasks(stage)["rtg"]}
     if name == "control_sea_motion": return _sea(owner, args)

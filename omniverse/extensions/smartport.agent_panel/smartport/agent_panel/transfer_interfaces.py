@@ -32,8 +32,8 @@ def execute_transfer(owner,name,args):
    destination=f"同一集卡经引桥到{plan['crane_id']}后载着两箱等待交接" if quay else f"同一集卡经引桥到{plan['crane_id']}逐箱装船，空车返场"
    summary=f"一车两箱位、累积装车（按车道前进方向排序）：{sources}。集卡依次前进到两个源贝位，先装前箱位再装后箱位；RTG载箱时大车不动，仅小车横移落车，开锁抬离后才允许集卡前进。两箱装满后{destination}。堆场内不倒车，返场时允许倒车入库。不修改库存，复位恢复原场景。"
   elif plan.get('double20'):
-   targets='；'.join(f"{p['target_bay']} 第{p['target_row']}排第{p['target_tier']}层" for p in plan['containers'])
-   summary=f"双20可复位仿真：{plan['source_location']} → {plan['crane_id']} 双箱装车 → 集卡运输 → RTG使用20尺吊具逐箱放到：{targets}。不修改库存。"
+   targets='；'.join(f"{p['source_location']} → {p['target_bay']} 第{p['target_row']}排第{p['target_tier']}层" for p in (plan['containers'][i] for i in plan['unloading_order']))
+   summary=f"{plan['crane_id']}双吊装车后，集卡依次停靠两个目标贝位。RTG用20尺吊具逐箱落箱，抓箱后大车保持不动。落箱顺序：{targets}。"
   else:summary+=f"取箱前先确认源箱为{plan['size_ft']}尺，并将RTG吊具匹配到{plan['size_ft']}尺、确认到位。"
   setattr(owner,preview_attribute,{'id':identifier,'args':dict(args),'plan':plan,'expires':time.monotonic()+600,'summary':summary})
   return {'plan_id':identifier,**plan}

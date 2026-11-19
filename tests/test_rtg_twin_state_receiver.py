@@ -1072,6 +1072,32 @@ class TaskPositionTests(unittest.TestCase):
         self.assertTrue(subscription.unsubscribed)
         self.assertIsNone(driver._subscription)
 
+    def test_driver_stop_hides_task_panel_for_live_and_simulation(self) -> None:
+        from contextlib import nullcontext
+
+        for mode in (receiver.INVENTORY_MODE_LIVE, receiver.INVENTORY_MODE_SIMULATION):
+            with self.subTest(mode=mode):
+                panel = types.SimpleNamespace(hidden=False)
+                stage = types.SimpleNamespace(
+                    GetSessionLayer=lambda: object(),
+                    GetPrimAtPath=lambda path: panel if path == receiver.TASK_PANEL_ROOT_PATH else None,
+                )
+                fake_pxr = types.ModuleType("pxr")
+                fake_pxr.Usd = types.SimpleNamespace(EditContext=lambda *_: nullcontext())
+                fake_pxr.UsdGeom = types.SimpleNamespace(Imageable=lambda prim: types.SimpleNamespace(
+                    MakeInvisible=lambda: setattr(prim, "hidden", True)))
+                fake_pxr.Gf = fake_pxr.Sdf = fake_pxr.UsdShade = object()
+                driver = receiver.OmniverseRtgTwinDriver(inventory_mode=mode, inventory_autosave=False)
+                driver._current_stage = lambda: stage
+                driver._hide_floating_device_panel = lambda *_: None
+                driver._hide_container_info_panel = lambda *_: None
+                driver._hide_truck_info_panel = lambda *_: None
+                driver._set_automatic_signal_visible = lambda *_, **__: None
+                driver._hide_work_mode_indicator = lambda *_: None
+                with patch.dict(sys.modules, {"pxr": fake_pxr}), patch.object(receiver, "_remove_runinfo_billboards"):
+                    driver.stop()
+                self.assertTrue(panel.hidden)
+
     def test_task_info_panel_is_live_hud_not_rtg_child(self) -> None:
         self.assertEqual(
             receiver.TASK_PANEL_ROOT_PATH,

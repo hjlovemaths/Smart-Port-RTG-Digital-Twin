@@ -424,9 +424,11 @@ class SceneRuntime:
                               hoist=(LIMITS["hoist"][0], LIMITS["hoist"][1] + float(offset[2])))
                 limits["trolley"] = (LIMITS["trolley"][0], LIMITS["trolley"][1] + 17.32 * (read_attr(prim,"sts:boomLengthScale",1.0)-1))
                 home = dict(INITIAL, hoist=INITIAL["hoist"]+read_attr(prim,"sts:raisedHomeOffset",0.0))
+                limits = controller.limits if controller else limits
                 result["sts"].append({"crane_id": name, "positions": dict(controller.state) if controller else home,
-                                      "targets": dict(controller.targets) if controller else dict(home),
-                                      "limits": controller.limits if controller else limits,
+                                      "targets": dict(controller.targets) if controller else dict(home), "limits": limits,
+                                      "hoist_axis_increases_upward": True, "hoist_lowest_m": limits["hoist"][0],
+                                      "hoist_highest_m": limits["hoist"][1],
                                       "stopped": controller.stopped if controller else False,
                                       "park_hoist": controller.park_hoist if controller else 7.7 + float(offset[2]),
                                       "units": "local scene control metres; boom degrees"})
@@ -443,6 +445,21 @@ class SceneRuntime:
         if args.get("park_for_luffing"):
             values = {"trolley": -8.0, "hoist": controller.park_hoist}
         try:
+            direction = args.get("hoist_direction")
+            if direction:
+                current = controller.state["hoist"]
+                requested = (current + args["hoist_distance_m"] * (1 if direction == "raise" else -1)
+                             if "hoist_distance_m" in args else values["hoist"])
+                delta = requested - current
+                if (direction == "raise" and delta < -1e-6) or (direction == "lower" and delta > 1e-6):
+                    required_direction = "上升" if delta > 0 else "下降"
+                    raise ValueError(f"{crane} 当前吊具轴值 {current:.2f} 米，到 {requested:.2f} 米需要{required_direction}。")
+                lower, upper = controller.limits["hoist"]
+                if math.isclose(requested, lower, rel_tol=0, abs_tol=1e-6):
+                    requested = lower
+                elif math.isclose(requested, upper, rel_tol=0, abs_tol=1e-6):
+                    requested = upper
+                values["hoist"] = requested
             controller.command(**values)
         except Exception:
             if not existed:
@@ -530,14 +547,60 @@ class SceneRuntime:
         return {"targets": properties["target"]["enum"], "views": properties["view"]["enum"], "cameras": cameras[:128],
                 "camera_count": len(cameras), "active_camera": camera_path, "following": self.follow,
                 "active_view": copy.deepcopy(self.active_view) if camera_path == CAMERA_PATH else None,
-                "presets": {"under_trolley": {"target": "trolley", "view": "under_trolley", "follow": True,
+                "presets": {"truck_cabin": {"target": "truck", "view": "cabin", "follow": True,
+                            "truck_numbers": list(range(1, 21))},
+                            "under_trolley": {"target": "trolley", "view": "under_trolley", "follow": True,
                             "field_of_view_deg": UNDER_TROLLEY_FOV_DEG,
                             "description": "Below the trolley platform, vertically down onto the spreader/container tops; follows trolley travel, not hoist height."}}}
 
-    def _target_bounds(self, args):
+    def _view_truck(self, number):
+        from pxr import UsdGeom
+        from ship_to_yard_transfer import active_task
+        from truck_driver_runtime import active_driver
+
+        group, bay = divmod(number - 1, 10)
+        paths = [f"/World/ParkedYardTrucks/Group{group + 1}_Bay{bay + 1:02d}"]
+        if number == 1:
+            for owner in (active_driver(self.stage), active_task(self.stage)):
+                if owner and owner.truck:
+                    paths.insert(0, owner.truck.GetPath())
+        for path in paths:
+            truck = self.stage.GetPrimAtPath(path)
+            if truck and truck.IsActive() and UsdGeom.Imageable(truck).ComputeVisibility() != UsdGeom.Tokens.invisible:
+                return truck
+        raise ValueError(f"当前场景找不到可见的 {number:02d} 号集卡")
+
+    def _truck_camera_pose(self, truck, view):
+        from pxr import Gf, Usd, UsdGeom
+
+        bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"])
+        matrix = UsdGeom.XformCache().GetLocalToWorldTransform(truck)
+        forward = matrix.TransformDir(Gf.Vec3d(0, -1, 0))
+        forward[2] = 0
+        forward = forward.GetNormalized()
+        up = Gf.Vec3d(0, 0, 1)
+        if view == "cabin":
+            windshield = next((p for p in Usd.PrimRange(truck, Usd.TraverseInstanceProxies())
+                               if "front_black_windshield" in p.GetName()), None)
+            if windshield is None:
+                raise ValueError("指定集卡缺少前挡风玻璃模型，无法定位驾驶室视角")
+            window = bounds.ComputeRelativeBound(windshield, truck).ComputeAlignedRange()
+            mount = window.GetMidpoint()
+            mount[1] = window.GetMin()[1]
+            eye = matrix.Transform(mount) + forward * .08
+            center = eye + forward * 15 - up * .2
+        else:
+            vehicle = bounds.ComputeWorldBound(truck).ComputeAlignedRange()
+            center = vehicle.GetMidpoint() + forward * 1.5
+            eye = vehicle.GetMidpoint() - forward * 10 + up * 5
+        return eye, center, up, (eye - center).GetLength()
+
+    def _target_bounds(self, args, truck=None):
         from pxr import Gf, Usd, UsdGeom
         target = args["target"]
         path = {"port": "/World/PortAndRTG", "rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST}.get(target)
+        if truck:
+            path = truck.GetPath()
         if target == "sts":
             path = "/World/STSControls/" + args["crane_id"]
         if target == "task":
@@ -606,11 +669,16 @@ class SceneRuntime:
     def _apply_view(self, args, viewport=None):
         from pxr import Gf, Sdf, Usd, UsdGeom
         viewport = viewport or self._viewport()
-        under_trolley = args.get("view") == "under_trolley"
+        view = args.get("view", "angled")
+        under_trolley = view == "under_trolley"
+        truck = self._view_truck(args["truck_number"]) if args["target"] == "truck" else None
+        truck_mounted = truck is not None and view in {"cabin", "chase"}
         if under_trolley:
             eye, center, up, distance = self._under_trolley_pose()
+        elif truck_mounted:
+            eye, center, up, distance = self._truck_camera_pose(truck, view)
         else:
-            center, radius = self._target_bounds(args)
+            center, radius = self._target_bounds(args, truck)
             angles = {"angled": (135.0, 28.0), "front": (90.0, 8.0), "back": (-90.0, 8.0),
                       "left": (180.0, 8.0), "right": (0.0, 8.0), "top": (0.0, 90.0)}
             azimuth, elevation = angles[args.get("view", "angled")]
@@ -619,10 +687,11 @@ class SceneRuntime:
             distance = args.get("distance_m", radius * 3.8)
             eye = center + Gf.Vec3d(math.cos(azimuth) * math.cos(elevation), math.sin(azimuth) * math.cos(elevation), math.sin(elevation)) * distance
             up = Gf.Vec3d(0, 1, 0) if abs(math.cos(elevation)) < 0.01 else Gf.Vec3d(0, 0, 1)
-        aperture = 36.0 if under_trolley else 20.955
-        fov = args.get("field_of_view_deg", UNDER_TROLLEY_FOV_DEG if under_trolley else math.degrees(2 * math.atan(aperture / 48.0)))
+        aperture = 36.0 if under_trolley or truck_mounted else 20.955
+        default_fov = UNDER_TROLLEY_FOV_DEG if under_trolley else 80.0 if truck_mounted else math.degrees(2 * math.atan(aperture / 48.0))
+        fov = args.get("field_of_view_deg", default_fov)
         focal_length = aperture / (2 * math.tan(math.radians(fov) / 2))
-        vertical_aperture = aperture / self._viewport_aspect(viewport) if under_trolley or "field_of_view_deg" in args else 15.2908
+        vertical_aperture = aperture / self._viewport_aspect(viewport) if under_trolley or truck_mounted or "field_of_view_deg" in args else 15.2908
         clipping_far = max(10000.0, distance * 10)
         lens_signature = (aperture, vertical_aperture, focal_length, clipping_far)
         if self.camera_layer is None:
@@ -649,6 +718,8 @@ class SceneRuntime:
             prim = camera.GetPrim()
             target_path = {"rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST,
                            "port": "/World/PortAndRTG"}.get(args["target"], "")
+            if truck:
+                target_path = str(truck.GetPath())
             if args["target"] == "sts":
                 target_path = "/World/STSControls/" + args["crane_id"]
                 if self.stage.GetPrimAtPath(target_path + "/Gantry"):
@@ -657,17 +728,21 @@ class SceneRuntime:
             prim.CreateAttribute("smartport:navigationCenter", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
             prim.CreateAttribute("omni:kit:centerOfInterest", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
             prim.CreateAttribute("smartport:navigationRadius", Sdf.ValueTypeNames.Double, custom=True).Set(
-                max(1.0, distance / 3.8) if under_trolley else radius)
+                max(1.0, distance / 3.8) if under_trolley or truck_mounted else radius)
         if str(viewport.camera_path) != CAMERA_PATH:
             viewport.camera_path = CAMERA_PATH
-        return {"camera_path": CAMERA_PATH, "target": args["target"], "view": args.get("view", "angled"),
+        result = {"camera_path": CAMERA_PATH, "target": args["target"], "view": view,
                 "eye_m": list(eye), "look_at_m": list(center), "distance_m": distance, "following": bool(args.get("follow")),
                 "field_of_view_deg": fov, "mount_path": TROLLEY if under_trolley else None,
                 "vertical_down": under_trolley}
+        if truck:
+            result.update(truck_number=args["truck_number"], truck_path=str(truck.GetPath()),
+                          mount_path=str(truck.GetPath()) if truck_mounted else None)
+        return result
 
     def set_view(self, args):
-        self.pause_transfer_camera('manual')
         result = self._apply_view(args)
+        self.pause_transfer_camera('manual')
         self.active_view = {**args, "view": result["view"], "field_of_view_deg": result["field_of_view_deg"]}
         self.follow = dict(args) if args.get("follow") else None
         self.follow_viewport = self._viewport() if self.follow else None

@@ -3921,6 +3921,12 @@ class OmniverseRtgTwinDriver:
         stage = self._current_stage()
         if stage is not None:
             try:
+                # The task panel lives in the session layer, not under the RTG.
+                # Clear it for both live receivers and the simulation driver.
+                self._sync_floating_task_panel(stage, {})
+            except Exception as exc:
+                self._log(f"task panel cleanup failed: {exc}")
+            try:
                 _remove_runinfo_billboards(stage, keep_current=False)
             except Exception:
                 pass

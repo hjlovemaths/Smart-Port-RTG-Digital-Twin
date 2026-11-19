@@ -102,6 +102,7 @@ class AgentCameraUsdTests(unittest.TestCase):
 
     def test_fixed_view_and_shutdown_restore_camera_without_leaving_session_layers(self):
         paths_before = list(self.stage.GetSessionLayer().subLayerPaths)
+        original_camera = bool(self.UsdGeom.Camera.Get(self.stage, self.scene.CAMERA_PATH))
         self.runtime.execute(self.stage, "set_viewport_view", {"target": "trolley", "follow": False})
         eye = self.matrix().ExtractTranslation()
         self.controller.set_trolley(6.66)
@@ -110,7 +111,76 @@ class AgentCameraUsdTests(unittest.TestCase):
         self.runtime.close()
         self.assertEqual(self.viewport.camera_path, "/OmniverseKit_Persp")
         self.assertEqual(list(self.stage.GetSessionLayer().subLayerPaths), paths_before)
-        self.assertFalse(self.stage.GetPrimAtPath(self.scene.CAMERA_PATH))
+        self.assertEqual(bool(self.UsdGeom.Camera.Get(self.stage, self.scene.CAMERA_PATH)), original_camera)
+
+    def test_numbered_truck_view_uses_the_selected_cab_and_follows_the_moving_01(self):
+        from ship_transfer_plan import PARK
+
+        result = self.runtime.execute(self.stage, "set_viewport_view", {"target": "truck", "truck_number": 17})
+        self.assertEqual(result["truck_path"], "/World/ParkedYardTrucks/Group2_Bay07")
+        self.assertEqual(result["view"], "cabin")
+        self.assertTrue(result["following"])
+        self.runtime.execute(self.stage, "set_viewport_view", {"target": "truck", "truck_number": 1, "view": "chase"})
+        layer = self.stage.GetSessionLayer()
+        with self.Usd.EditContext(self.stage, layer):
+            truck = self.stage.DefinePrim("/World/TestTruck01")
+            truck.GetReferences().AddInternalReference(PARK)
+            truck.SetInstanceable(False)
+            self.UsdGeom.Imageable(truck).CreateVisibilityAttr().Set("inherited")
+            self.UsdGeom.Imageable(self.stage.GetPrimAtPath(PARK)).MakeInvisible()
+            xf = self.UsdGeom.Xformable(truck)
+            op = xf.AddTransformOp()
+            xf.SetXformOpOrder([op])
+            op.Set(self.Gf.Matrix4d(1).SetTranslate(self.Gf.Vec3d(4, 50, 0)))
+        moving = SimpleNamespace(stage=self.stage, closed=False, truck=truck)
+        with patch("builtins._smartport_ship_transfer_task", moving, create=True):
+            self.runtime.tick(self.stage, .1)
+            camera = self.stage.GetPrimAtPath(self.scene.CAMERA_PATH)
+            self.assertEqual(camera.GetAttribute("smartport:navigationTarget").Get(), "/World/TestTruck01")
+            eye = self.matrix().ExtractTranslation()
+            with self.Usd.EditContext(self.stage, layer):
+                op.Set(self.Gf.Matrix4d(1).SetTranslate(self.Gf.Vec3d(4, 57, 0)))
+            self.runtime.tick(self.stage, .1)
+            self.assertAlmostEqual(self.matrix().ExtractTranslation()[1] - eye[1], 7)
+
+    def test_sts_hoist_direction_follows_the_displayed_axis(self):
+        from sts_control import shared_sts_controller
+        from sts_unload_task import UnloadTask
+
+        self.runtime.bind(self.stage)
+        controller = shared_sts_controller(self.stage, "STS_01")
+        self.runtime.owned_sts["STS_01"] = controller
+        controller.state["hoist"] = controller.targets["hoist"] = .30
+        controller._apply()
+        contact = UnloadTask.__new__(UnloadTask)
+        contact.stage, contact.c = self.stage, controller
+        at_bottom = contact.contact()[2]
+        status = self.runtime.execute(self.stage, "get_equipment_status", {"equipment": "sts", "crane_id": "STS_01"})["sts"][0]
+        self.assertEqual(status["hoist_lowest_m"], .30)
+        self.assertTrue(status["hoist_axis_increases_upward"])
+        with self.assertRaisesRegex(ValueError, "需要上升"):
+            self.runtime.execute(self.stage, "set_sts_axis_positions",
+                                 {"crane_id": "STS_01", "hoist_m": 5, "hoist_direction": "lower"})
+        self.assertEqual(controller.targets["hoist"], .30)
+        self.runtime.execute(self.stage, "set_sts_axis_positions",
+                             {"crane_id": "STS_01", "hoist_m": 10, "hoist_direction": "raise"})
+        for _ in range(180):
+            self.runtime.tick(self.stage, .1)
+        self.assertAlmostEqual(controller.state["hoist"], 10.)
+        lifted = contact.contact()[2]
+        self.assertGreater(lifted, at_bottom)
+        self.runtime.execute(self.stage, "set_sts_axis_positions",
+                             {"crane_id": "STS_01", "hoist_m": 5, "hoist_direction": "lower"})
+        for _ in range(100):
+            self.runtime.tick(self.stage, .1)
+        self.assertAlmostEqual(controller.state["hoist"], 5.)
+        self.assertLess(contact.contact()[2], lifted)
+        result = self.runtime.execute(self.stage, "set_sts_axis_positions",
+                                      {"crane_id": "STS_01", "hoist_distance_m": 2, "hoist_direction": "lower"})
+        self.assertEqual(result["targets"]["hoist"], 3.)
+        result = self.runtime.execute(self.stage, "set_sts_axis_positions",
+                                      {"crane_id": "STS_01", "hoist_m": 16.55, "hoist_direction": "raise"})
+        self.assertEqual(result["targets"]["hoist"], controller.limits["hoist"][1])
 
 
 if __name__ == "__main__":

@@ -248,10 +248,25 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
             required.add("bay_id")
         if result["target"] == "sts":
             required.add("crane_id")
+        if result["target"] == "truck":
+            required.add("truck_number")
+            result.setdefault("view", "cabin")
+            result.setdefault("follow", True)
+        elif "truck_number" in result or result.get("view") in {"cabin", "chase"}:
+            raise ValueError("A truck number and cabin/chase views require target=truck")
+        if result.get("view") in {"cabin", "chase"} and set(result) & {"azimuth_deg", "elevation_deg", "distance_m"}:
+            raise ValueError("Cabin/chase cameras follow the truck heading. Adjust field_of_view_deg instead")
     if name == "switch_viewport_camera" and len(result) != 1:
         raise ValueError("Specify exactly one camera_path or camera_number")
     if name == "set_sts_axis_positions":
-        axes = set(result) & {"gantry_m", "trolley_m", "hoist_m", "boom_deg"}
+        hoist = set(result) & {"hoist_m", "hoist_distance_m"}
+        axes = (set(result) & {"gantry_m", "trolley_m", "boom_deg"}) | hoist
+        if len(hoist) > 1:
+            raise ValueError("Specify either a STS hoist coordinate or a travel distance")
+        if "hoist_distance_m" in hoist:
+            required.add("hoist_direction")
+        if "hoist_direction" in result and not hoist:
+            raise ValueError("hoist_direction requires a hoist coordinate or travel distance")
         if not axes and not result.get("park_for_luffing"):
             raise ValueError("Specify at least one STS axis or park_for_luffing=true")
         if axes and result.get("park_for_luffing"):

@@ -513,7 +513,7 @@
       "type": "function",
       "function": {
         "name": "get_equipment_status",
-        "description": "Read RTG/STS positions, motion targets, limits and stop state without moving equipment. RTG work_mode reports TwinState workMode: 1 automatic, 2 assisted, 3 remote manual, 4 local, 5 maintenance. Check is_current/state/source; stopped/stale snapshots are not the current real device mode. Local gamepad/control ownership is separate.",
+        "description": "Read RTG/STS positions, motion targets, limits and stop state without moving equipment. For STS, positions.hoist is the displayed hoist coordinate, limits.hoist is [lowest, highest], and larger values raise the spreader. Read the current positions.hoist, not the previously commanded target, before choosing an upward or downward move. RTG work_mode reports TwinState workMode: 1 automatic, 2 assisted, 3 remote manual, 4 local, 5 maintenance. Check is_current/state/source; stopped/stale snapshots are not the current real device mode. Local gamepad/control ownership is separate.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -565,7 +565,7 @@
       "type": "function",
       "function": {
         "name": "set_viewport_view",
-        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane or current task. For looking straight down at the spreader and container tops from BELOW the trolley platform, use target=trolley and view=under_trolley: a wide 110-degree camera that follows the trolley by default. This differs from the external top view above the RTG. Increase field_of_view_deg to widen the view without moving the camera. Other views support custom angles, distance and following a moving target. Changes only the viewport.",
+        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane, numbered yard truck or current task. For a numbered truck, use target=truck with truck_number=1..20; view=cabin (default) looks forward from the cab, chase follows from behind, and angled shows the exterior. Truck views follow by default. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley, a 110-degree camera following the trolley by default. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -578,7 +578,8 @@
                 "spreader",
                 "bay",
                 "sts",
-                "task"
+                "task",
+                "truck"
               ]
             },
             "view": {
@@ -590,7 +591,9 @@
                 "left",
                 "right",
                 "top",
-                "under_trolley"
+                "under_trolley",
+                "cabin",
+                "chase"
               ]
             },
             "bay_id": {
@@ -600,6 +603,11 @@
             "crane_id": {
               "type": "string",
               "description": "STS_01 through STS_07; specify the requested crane"
+            },
+            "truck_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
             },
             "distance_m": {
               "type": "number",
@@ -659,7 +667,7 @@
       "type": "function",
       "function": {
         "name": "set_sts_axis_positions",
-        "description": "Move a specified STS shore crane continuously using the existing speed limits and boom interlock. Query get_equipment_status for per-crane limits. Coordinates are local scene control metres; boom is degrees.",
+        "description": "Move a specified STS crane subject to the existing limits and boom interlock. The displayed hoist coordinate increases upward. For 抬升到10米, pass hoist_m=10 and hoist_direction=raise. For 下降到5米, pass hoist_m=5 and hoist_direction=lower. For 下降5米, pass hoist_distance_m=5 and hoist_direction=lower. Include hoist_direction whenever raising or lowering is explicitly requested; the controller rejects motion in the opposite direction. If a distance or target is missing, ask for it. Query get_equipment_status for current coordinate and limits.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -675,6 +683,17 @@
             },
             "hoist_m": {
               "type": "number"
+            },
+            "hoist_distance_m": {
+              "type": "number",
+              "minimum": 0.001
+            },
+            "hoist_direction": {
+              "type": "string",
+              "enum": [
+                "raise",
+                "lower"
+              ]
             },
             "boom_deg": {
               "type": "number",

@@ -13,6 +13,13 @@ TITLES=('任务全景','集卡出场','船箱定位','岸桥取箱','船到集�
 REVERSE_TITLES=('装船任务全景','集卡前往堆场','堆场源箱定位','RTG取箱','RTG移箱','集卡接箱','运往岸桥','岸桥接箱','指定箱位装船','装船完成全景')
 QUAY_TITLES=('两箱运输任务全景',*REVERSE_TITLES[1:7],'两箱到达岸桥，等待交接')
 RTG_SHOTS={'yard_locate','yard_pick','rtg_cross','rtg_handoff','rtg_pick','yard_place'}
+UNLOAD_SHOTS={'rtg_pick_close','rtg_unload_medium','rtg_place_close'}
+UNLOAD_TITLES={
+    'rtg_pick_close':'RTG 接箱近景',
+    'rtg_unload_medium':'RTG 移箱中景',
+    'rtg_place_close':'RTG 落箱近景',
+    'rtg_bay_transfer':'集卡换贝中景',
+}
 
 
 def segment_hits(eye,target,bounds):
@@ -34,6 +41,7 @@ class TransferCinema:
         if task.closed:raise ValueError('搬运任务已复位，无法开启电影视角')
         self.stage=stage;self.viewport=viewport;self.task=task
         self.reverse=task.plan.get('direction')=='yard_to_ship'
+        self.twin_unload=not self.reverse and bool(task.plan.get('double20'))
         self.cargo_path=str(task.cargo.GetPath()) if self.reverse else task.plan['source_path']
         self.previous_camera=str(viewport.camera_path);self.layer=Sdf.Layer.CreateAnonymous('transfer_cinema.usda')
         self.closed=False;self.paused=False;self.reason='';self.elapsed=0.;self.finish_elapsed=0.
@@ -42,6 +50,7 @@ class TransferCinema:
         self.causeway_seen=False;self.causeway_elapsed=0.
         self.obstacle_elapsed=0.
         self.rtg_work=None;self.camera_group=None;self.camera_history=[];self.transition_duration=1.2;self.rtg_transition=False
+        self.unload_shots={}
         stage.GetSessionLayer().subLayerPaths.insert(0,self.layer.identifier)
         try:
             with Usd.EditContext(stage,self.layer):
@@ -77,7 +86,13 @@ class TransferCinema:
         if p in ('岸桥落箱到集卡','岸桥开锁交接','岸桥吊具抬离集卡'):return 'truck_handoff',5
         if p=='集卡经引桥运往堆场':
             return self.transport_shot(),6
-        if p in ('RTG移向下一只箱','RTG吊具下降到集卡','RTG对位闭锁','RTG起升'):return 'rtg_pick',7
+        if self.twin_unload:
+            from ship_double20_transfer import NEXT_UNLOAD_STOP
+            if p==NEXT_UNLOAD_STOP:return 'rtg_bay_transfer',8
+            if p in ('RTG吊具下降到集卡','RTG对位闭锁'):return 'rtg_pick_close',7
+            if p=='RTG起升' or p.startswith('RTG小车移向第'):return 'rtg_unload_medium',8
+            if p in ('RTG叠箱下降','RTG开锁落箱','RTG吊具抬离箱顶'):return 'rtg_place_close',8
+        if p in ('RTG吊具下降到集卡','RTG对位闭锁','RTG起升'):return 'rtg_pick',7
         return 'yard_place',8
 
     def transport_shot(self):
@@ -90,7 +105,13 @@ class TransferCinema:
         bounds.UnionWith(Gf.Range3d(point-half,point+half))
 
     def framing(self,key):
-        if key in RTG_SHOTS or key=='complete' and not self.reverse and self.rtg_work is not None:
+        if key in UNLOAD_SHOTS:
+            from transfer_rtg_cinema import RTGWorkShot
+            shot=(key,self.task.active_index)
+            if shot not in self.unload_shots:
+                self.unload_shots[shot]=RTGWorkShot(self.stage,self.task,unload_shot=key)
+            return self.unload_shots[shot].framing()
+        if key in RTG_SHOTS or key=='complete' and not self.reverse and (self.rtg_work is not None or self.twin_unload):
             if self.rtg_work is None:
                 from transfer_rtg_cinema import RTGWorkShot
                 self.rtg_work=RTGWorkShot(self.stage,self.task)
@@ -100,6 +121,9 @@ class TransferCinema:
         if key=='overview':
             for point in (t.cargo_origin,Gf.Vec3d(t.plan['target_center_m']),t.truck_point):bounds.UnionWith(point)
             direction=Gf.Vec3d(-.8,-.6,.85);margin=1.08
+        elif key=='rtg_bay_transfer':
+            bounds.UnionWith(truck);bounds.UnionWith(cargo)
+            direction=Gf.Vec3d(-1,-.65,.38);margin=1.18
         elif key in ('truck_out','truck_loaded') or key=='complete' and t.plan.get('delivery_mode')=='quay':
             bounds.UnionWith(truck)
             if key=='complete':
@@ -155,7 +179,8 @@ class TransferCinema:
         return center,direction.GetNormalized(),distance
 
     def collect_obstacles(self,center):
-        if self.reverse or self.camera_group=='rtg_work':return self.loading_obstacles(center)
+        if self.reverse or self.camera_group=='rtg_work' or self.twin_unload and (self.camera_group or '').startswith('rtg_'):
+            return self.loading_obstacles(center)
         cache=UsdGeom.BBoxCache(Usd.TimeCode.Default(),['default','render'])
         result=[]
         roots=(self.task.c.path+'/Gantry',GANTRY_PATH)
@@ -245,7 +270,15 @@ class TransferCinema:
         if self.paused or self.task.paused:return
         dt=max(0,min(float(dt),.1));self.elapsed+=dt
         key,index=self.selection();goal_center,direction,distance=self.framing(key)
-        group='rtg_work' if key in RTG_SHOTS or key=='complete' and not self.reverse and self.rtg_work is not None else key
+        if key in UNLOAD_SHOTS:
+            group=f'{key}_{self.task.active_index+1}'
+            work_shot=self.unload_shots[(key,self.task.active_index)]
+        elif key in RTG_SHOTS or key=='complete' and not self.reverse and self.rtg_work is not None:
+            group='rtg_work'
+            work_shot=self.rtg_work
+        else:
+            group=key
+            work_shot=None
         self.obstacle_elapsed+=dt
         if key=='causeway':
             self.causeway_elapsed+=dt
@@ -253,20 +286,21 @@ class TransferCinema:
         if key!=self.shot:
             self.shot=key;self.shot_index=index;self.history.append(key)
             with Usd.EditContext(self.stage,self.layer):
-                self.nav_target.Set('' if key in ('overview','causeway') else str(self.task.truck.GetPath()) if key in ('truck_out','truck_loaded') else getattr(self.task,'cinema_cargo_path',self.cargo_path))
+                self.nav_target.Set('' if key in ('overview','causeway') else str(self.task.truck.GetPath()) if key in ('truck_out','truck_loaded','rtg_bay_transfer') else getattr(self.task,'cinema_cargo_path',self.cargo_path))
         if group!=self.camera_group:
             self.from_eye=Gf.Vec3d(self.eye) if self.eye is not None else None
             self.from_center=Gf.Vec3d(self.center) if self.center is not None else None
-            self.rtg_transition=group=='rtg_work' or self.camera_group=='rtg_work'
+            self.rtg_transition=work_shot is not None or key=='rtg_bay_transfer' or (
+                self.camera_group is not None and self.camera_group.startswith('rtg_'))
             self.transition=0.;self.camera_group=group;self.camera_history.append(group)
-            self.transition_duration=2.4 if self.rtg_transition else 1.2
+            self.transition_duration=.85 if key in UNLOAD_TITLES else 2.4 if self.rtg_transition else 1.2
             self.obstacles=[] if key in ('overview','causeway') else self.collect_obstacles(goal_center)
             self.obstacle_elapsed=0.
-            if group=='rtg_work':self.rtg_work.choose(self.obstacles,segment_hits)
+            if work_shot is not None:work_shot.choose(self.obstacles,segment_hits)
         elif self.reverse and key in ('sts_pick','ship_place') and self.obstacle_elapsed>=.5:
             self.obstacles=self.collect_obstacles(goal_center);self.obstacle_elapsed=0.
-        if group=='rtg_work':
-            goal_center,direction,distance=self.rtg_work.framing();goal_eye=Gf.Vec3d(self.rtg_work.eye);self.occluded=self.rtg_work.occluded
+        if work_shot is not None:
+            goal_center,direction,distance=work_shot.framing();goal_eye=Gf.Vec3d(work_shot.eye);self.occluded=work_shot.occluded
         else:goal_eye,self.occluded=self.safe_eye(goal_center,direction,distance)
         if self.eye is None:
             self.eye=goal_eye;self.center=goal_center
@@ -312,7 +346,7 @@ class TransferCinema:
         titles=REVERSE_TITLES if self.reverse else TITLES
         if self.task.plan.get('delivery_mode')=='quay':titles=QUAY_TITLES;index=min(index,len(titles)-1)
         return {'status':('completed' if self.reason=='completed' else 'stopped') if self.closed else 'paused' if self.paused else 'task_paused' if self.task.paused else 'running',
-                'visible':not self.closed,'title':titles[index],'direction':'yard_to_ship' if self.reverse else 'ship_to_yard',
+                'visible':not self.closed,'title':UNLOAD_TITLES.get(key,titles[index]),'direction':'yard_to_ship' if self.reverse else 'ship_to_yard',
                 'detail':'集卡通过引桥' if key=='causeway' else getattr(self.task,'cinema_detail',self.task.phase),
                 'step':index+1,'total':len(titles),'reason':self.reason,'task_finished':self.task.finished,
                 'source':self.task.plan['source_location'],

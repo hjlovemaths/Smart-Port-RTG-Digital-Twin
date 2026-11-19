@@ -5,8 +5,10 @@ from ship_transfer_plan import plan_transfer,box,solve,crane_state
 from ship_structure_data import read_structure
 from ship_to_yard_transfer import ShipToYardTransfer,ROOT,task_op,tr
 from transfer_truck_geometry import loading_routes
+from transfer_truck_routes import WORK_X,return_routes
 
 PAIR=ROOT+'/Twin20Cargo'
+NEXT_UNLOAD_STOP='集卡前往下一卸箱贝位'
 
 
 def plan_double20(stage,source_bay,source_side,row_from_side,target_bay,target_row,second_target_bay,second_target_row):
@@ -37,8 +39,23 @@ def plan_double20(stage,source_bay,source_side,row_from_side,target_bay,target_r
         except ValueError:continue
         candidates.append((abs(prim.GetAttribute('sts:homeY').Get()-pick[1]),prim.GetName()))
     if not candidates:raise ValueError('没有岸桥能在现有限位内覆盖这组双20和集卡停位')
-    yard_y=sum(p['target_center_m'][1] for p in (first,second))/2
-    empty,loaded,info=loading_routes(stage,40,dims[1],stop,yard_y)
+    # Each box keeps its assigned target and trailer position. Align that
+    # position with its own target bay, then visit the stops southbound.
+    slots=[]
+    for i,item in enumerate((first,second)):
+        target_y=item['target_center_m'][1]
+        offset=(i-.5)*pitch
+        slots.append(dict(load_offset_y_m=offset,
+                          load_top_above_deck_m=item['source_pick_m'][2]-envelope.GetMin()[2],
+                          yard_contact_m=[WORK_X,target_y,stop[2]],
+                          yard_vehicle_stop_m=[WORK_X,target_y-offset,stop[2]]))
+    order=sorted(range(2),key=lambda i:-slots[i]['yard_vehicle_stop_m'][1])
+    first_stop,second_stop=(slots[i]['yard_vehicle_stop_m'] for i in order)
+    empty,loaded,info=loading_routes(stage,40,dims[1],stop,first_stop[1])
+    for slot in slots:
+        slot['yard_contact_m'][2]=slot['yard_vehicle_stop_m'][2]=loaded[-1][2]
+    home,backing=return_routes(second_stop,info['truck_park_m'])
+    info.update(truck_route_return=home,truck_route_parking=backing)
     fields=('source_path','source_location','source_pick_m','cargo_dimensions_m','target_bay','target_row','target_tier','target_center_m','support_path','support_bounds')
     result=dict(first)
     result.update(double20=True,container_count=2,container_size_ft=20,size_ft=40,rtg_size_ft=20,
@@ -47,9 +64,12 @@ def plan_double20(stage,source_bay,source_side,row_from_side,target_bay,target_r
                   source_pick_m=list(pick),source_pair_center_m=list(envelope.GetMidpoint()),
                   cargo_dimensions_m=list(dims),pair_pitch_m=pitch,pair_gap_m=gap,
                   containers=[{k:p[k] for k in fields} for p in (first,second)],
+                  truck_slots=slots,unloading_order=order,
+                  yard_unloading_stops_m=[first_stop,second_stop],
+                  yard_stop_m=slots[order[0]]['yard_contact_m'],rtg_loaded_gantry_motion_allowed=False,
                   crane_id=min(candidates)[1],truck_stop_m=list(stop),truck_route_empty=empty,truck_route_loaded=loaded,
                   yard_clear_z=max(first['yard_clear_z'],second['yard_clear_z']),
-                  note='双20结构示意箱的可复位运动演示：STS一次吊两箱，RTG使用20尺吊具逐箱放到用户指定的两个堆位；不修改库存或发送PLC命令。')
+                  note='双20结构示意箱演示：STS一次吊两箱，集卡依次前进到两个卸箱停位，RTG用20尺吊具逐箱横移落箱，载箱时大车保持在目标贝位。')
     result.update(info);result.pop('fingerprint',None);result.pop('spreader_adjustment',None)
     result['fingerprint']=hashlib.sha256(json.dumps(result,sort_keys=True,ensure_ascii=True).encode()).hexdigest()
     result['spreader_adjustment']=dict(first['spreader_adjustment'],target_size_ft=20)
@@ -58,7 +78,8 @@ def plan_double20(stage,source_bay,source_side,row_from_side,target_bay,target_r
 
 class Double20ShipToYardTransfer(ShipToYardTransfer):
     def prepare(self):
-        p=self.plan;self.box_prims=[];self.active_index=0;self.landed=[False,False]
+        p=self.plan;self.box_prims=[];self.stop_index=0;self.active_index=p['unloading_order'][0];self.landed=[False,False]
+        self.detached_index=None;self.loaded_gantry_y=None
         self.pair=UsdGeom.Xform.Define(self.stage,PAIR).GetPrim()
         cache=UsdGeom.XformCache()
         for i,path in enumerate(p['source_paths']):
@@ -93,38 +114,72 @@ class Double20ShipToYardTransfer(ShipToYardTransfer):
             pin.CreateDisplayColorAttr([Gf.Vec3f(1.,.68,.025)])
             pin.AddTranslateOp().Set(Gf.Vec3d(x,y,.14));pin.AddScaleOp().Set(Gf.Vec3d(.09,.055,.28))
         self.lock_op.Set(tr(self.sts_contact()))
-        self.yard_pick+=Gf.Vec3d(0,-p['pair_pitch_m']/2,0)
-        self.select_target(0)
-        for item in p['containers']:
-            self.rtg.command(Gf.Vec3d(item['target_center_m'])+Gf.Vec3d(0,0,self.height/2))
+        for index in p['unloading_order']:
+            self.select_target(index)
+            for point in (self.yard_pick,self.target):
+                self.rtg.command(point)
+                self.rtg.command(Gf.Vec3d(point[0],point[1],self.rtg_high))
+        self.select_target(p['unloading_order'][0])
         self.rtg.command(self.rtg.origin)
 
     @property
     def cinema_cargo_path(self):
-        return str(self.box_prims[self.active_index].GetPath()) if self.phase.startswith('RTG') and not self.spreader_preparing else PAIR
+        return str(self.box_prims[self.active_index].GetPath()) if self.in_yard_unload else PAIR
+
+    @property
+    def in_yard_unload(self):
+        return not self.spreader_preparing and (self.phase.startswith('RTG') or self.phase==NEXT_UNLOAD_STOP)
 
     @property
     def cinema_detail(self):
-        if self.phase.startswith('RTG') and not self.spreader_preparing:
+        if self.in_yard_unload:
             item=self.plan['containers'][self.active_index]
-            return f"{self.phase} · 第{self.active_index+1}/2只 → {item['target_bay']} 第{item['target_row']}排"
+            return f"{self.phase} · 第{self.stop_index+1}/2只 → {item['target_bay']} 第{item['target_row']}排"
         return self.phase
 
     def select_target(self,index):
         self.active_index=index;item=self.plan['containers'][index]
-        self.target=Gf.Vec3d(item['target_center_m'])+Gf.Vec3d(0,0,self.height/2)
+        self.box_height=item['cargo_dimensions_m'][2]
+        slot=self.plan['truck_slots'][index]
+        self.target=Gf.Vec3d(item['target_center_m'])+Gf.Vec3d(0,0,self.box_height/2)
+        self.yard_pick=Gf.Vec3d(slot['yard_contact_m'])+Gf.Vec3d(0,0,slot['load_top_above_deck_m'])
         self.cinema_target_center=item['target_center_m'];self.cinema_support_path=item['support_path']
 
     def detach_box(self):
+        if self.detached_index==self.active_index:return
         prim=self.box_prims[self.active_index];self.box_world=UsdGeom.XformCache().GetLocalToWorldTransform(prim)
         self.box_origin=box(self.stage,prim.GetPath()).GetMidpoint()
         xf,self.box_op=task_op(prim,'rtgSingle20');xf.SetXformOpOrder([self.box_op],resetXformStack=True);self.box_op.Set(self.box_world)
+        self.detached_index=self.active_index
 
     def move_box(self,center):self.box_op.Set(self.box_world*tr(-self.box_origin)*tr(center))
 
+    def lock(self,owner):
+        super().lock(owner)
+        self.loaded_gantry_y=self.rtg.contact()[1] if owner=='rtg' else None
+
+    def command_rtg(self,point):
+        if self.loaded_gantry_y is not None and abs(point[1]-self.loaded_gantry_y)>1e-5:
+            raise ValueError('RTG载箱时禁止大车行走')
+        self.rtg.command(point)
+
+    def drive(self,dt,reverse=False):
+        if self.attached=='rtg':raise ValueError('RTG吊具尚未开锁，集卡禁止移动')
+        return super().drive(dt,reverse=reverse)
+
+    def advance_unload_stop(self):
+        self.stop_index+=1
+        self.select_target(self.plan['unloading_order'][self.stop_index])
+        self.detach_box()
+        self.cargo_on_truck=True
+        stop=self.plan['truck_slots'][self.active_index]['yard_vehicle_stop_m']
+        self.set_route([self.truck_point,stop])
+        self.change(NEXT_UNLOAD_STOP)
+        self.command_rtg(Gf.Vec3d(self.yard_pick[0],self.yard_pick[1],self.rtg_high))
+
     def tick(self,dt):
         if self.closed or self.finished:return
-        if not self.phase.startswith('RTG') or self.spreader_preparing:
+        if not self.in_yard_unload:
             super().tick(dt)
         else:
             if self.c.stopped:self.pause();return
@@ -132,32 +187,37 @@ class Double20ShipToYardTransfer(ShipToYardTransfer):
             dt=max(0,min(float(dt),.1));self.elapsed+=dt;self.wait+=dt
             with Usd.EditContext(self.stage,self.layer):
                 if not self.spreader_gate(dt):return
+                if self.loaded_gantry_y is not None and abs(self.rtg.offset[0]-self.rtg.goal[0])>1e-5:
+                    raise ValueError('RTG载箱时禁止大车行走')
                 self.c.tick(dt);ready=self.rtg.tick(dt)
-                if self.phase=='RTG移向下一只箱' and ready:self.change('RTG吊具下降到集卡');self.rtg.command(self.yard_pick)
+                if self.phase==NEXT_UNLOAD_STOP:
+                    arrived=self.drive(dt)
+                    slot=self.plan['truck_slots'][self.active_index]
+                    self.move_box(self.truck_point+Gf.Vec3d(0,slot['load_offset_y_m'],slot['load_top_above_deck_m']-self.box_height/2))
+                    if arrived and ready:
+                        self.change('RTG吊具下降到集卡');self.command_rtg(self.yard_pick)
                 elif self.phase=='RTG吊具下降到集卡' and ready:self.change('RTG对位闭锁')
                 elif self.phase=='RTG对位闭锁' and self.wait>=1:
                     self.check_grip_size('rtg');self.detach_box();self.cargo_on_truck=False;self.lock('rtg')
-                    self.change('RTG起升');self.rtg.command(Gf.Vec3d(self.yard_pick[0],self.yard_pick[1],self.rtg_high))
+                    self.change('RTG起升');self.command_rtg(Gf.Vec3d(self.yard_pick[0],self.yard_pick[1],self.rtg_high))
                 elif self.phase=='RTG起升' and ready:
                     self.change('RTG小车移向第'+str(self.plan['containers'][self.active_index]['target_row'])+'排')
-                    self.rtg.command(Gf.Vec3d(self.target[0],self.target[1],self.rtg_high))
-                elif self.phase.startswith('RTG小车移向第') and ready:self.change('RTG叠箱下降');self.rtg.command(self.target)
+                    self.command_rtg(Gf.Vec3d(self.target[0],self.target[1],self.rtg_high))
+                elif self.phase.startswith('RTG小车移向第') and ready:self.change('RTG叠箱下降');self.command_rtg(self.target)
                 elif self.phase=='RTG叠箱下降' and ready:self.change('RTG开锁落箱')
                 elif self.phase=='RTG开锁落箱' and self.wait>=1:
-                    self.move_box(self.target-Gf.Vec3d(0,0,self.height/2));self.lock(None);self.landed[self.active_index]=True
-                    self.change('RTG吊具抬离箱顶');self.rtg.command(Gf.Vec3d(self.target[0],self.target[1],self.rtg_high))
+                    self.move_box(self.target-Gf.Vec3d(0,0,self.box_height/2));self.lock(None);self.landed[self.active_index]=True
+                    self.change('RTG吊具抬离箱顶');self.command_rtg(Gf.Vec3d(self.target[0],self.target[1],self.rtg_high))
                 elif self.phase=='RTG吊具抬离箱顶' and ready:
-                    if self.active_index==0:
-                        self.select_target(1);b=box(self.stage,self.box_prims[1].GetPath())
-                        self.yard_pick=Gf.Vec3d(b.GetMidpoint()[0],b.GetMidpoint()[1],b.GetMax()[2])
-                        self.change('RTG移向下一只箱');self.rtg.command(Gf.Vec3d(self.yard_pick[0],self.yard_pick[1],self.rtg_high))
+                    if self.stop_index==0:self.advance_unload_stop()
                     else:self.begin_return()
-                if self.attached=='rtg':self.move_box(self.rtg.contact()-Gf.Vec3d(0,0,self.height/2))
+                if self.attached=='rtg':self.move_box(self.rtg.contact()-Gf.Vec3d(0,0,self.box_height/2))
         if not self.closed:
             with Usd.EditContext(self.stage,self.layer):self.lock_op.Set(tr(self.sts_contact()))
 
     def summary(self):
         result=super().summary()
         result.update(double20=True,container_count=2,container_size_ft=20,required_size_ft=20,sts_lift_mode='twin20',
-                      current_box=self.active_index+1,containers=[dict(source_location=p['source_location'],target_bay=p['target_bay'],target_row=p['target_row'],target_tier=p['target_tier'],landed=self.landed[i]) for i,p in enumerate(self.plan['containers'])])
+                      current_box=self.stop_index+1,unloading_order=self.plan['unloading_order'],rtg_loaded_gantry_motion_allowed=False,
+                      containers=[dict(source_location=p['source_location'],target_bay=p['target_bay'],target_row=p['target_row'],target_tier=p['target_tier'],landed=self.landed[i]) for i,p in enumerate(self.plan['containers'])])
         return result
