@@ -1,6 +1,7 @@
 """Same-origin browser controls; all Kit model access stays on its main thread."""
 import asyncio
 import importlib
+import math
 import queue
 import sys
 import threading
@@ -100,6 +101,21 @@ class AgentWebBridge:
 
         async def navigate(payload: dict):
             return await execute("navigate", payload)
+
+        async def container_at(payload: dict):
+            return await execute("container-at", payload)
+
+        async def inspect_at(payload: dict):
+            return await execute("inspect-at", payload)
+
+        async def device_map():
+            return await execute("device-map", {})
+
+        async def device_view(payload: dict):
+            return await execute("device-view", payload)
+
+        app.add_api_route(prefix + "/device-map", device_map, methods=["GET"])
+        app.add_api_route(prefix + "/device-view", device_view, methods=["POST"])
 
         async def clear(payload: dict):
             return await execute("clear", payload)
@@ -205,7 +221,7 @@ class AgentWebBridge:
                 async def response(request):return FileResponse(file,headers={'Cache-Control':'no-store'})
                 return response
             app.router.routes.insert(0,Route('/static/'+file.name,asset_endpoint(),methods=['GET','HEAD']))
-        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("view", view), ("clear", clear), ("approval", approval),('cinema',cinema)):
+        for name, endpoint in (("draft", draft), ("send", send), ("settings", settings), ("zoom", zoom), ("navigate", navigate), ("container-at", container_at), ("inspect-at", inspect_at), ("view", view), ("clear", clear), ("approval", approval),('cinema',cinema)):
             app.add_api_route(prefix + "/" + name, endpoint, methods=["POST"])
         self.installed = True
 
@@ -251,12 +267,20 @@ class AgentWebBridge:
                         runtime = getattr(panel, "_runtime", None)
                         if runtime is not None:
                             runtime.follow = runtime.follow_viewport = None
+                elif command["action"] in ("container-at", "inspect-at"):
+                    self._query_scene(command)
+                    continue
+                elif command["action"] == "device-map":
+                    from .device_locations import device_map_state
+                    stage, viewport = self.navigation._context()
+                    command["result"] = device_map_state(stage, viewport.time)
+                elif command["action"] == "device-view":
+                    command["result"] = self._focus_map_device(panel, command["payload"])
                 else:
                     command["result"] = self.execute(panel, command["action"], command["payload"])
             except Exception as exc:
                 command["error"] = str(exc)
-            finally:
-                command["done"].set()
+            command["done"].set()
         try:
             self.navigation.tick()
         except RuntimeError:
@@ -297,6 +321,54 @@ class AgentWebBridge:
                     import logging
                     sts_driver.close();logging.getLogger(__name__).exception('STS driver stopped')
         else:self._sts_driver_last_tick=time.monotonic()
+
+    def _focus_map_device(self, panel, payload):
+        from .device_locations import device_for_hit
+        from .scene_runtime import SceneRuntime
+
+        device_id = payload.get("id")
+        if set(payload) != {"id"} or not isinstance(device_id, str) or not device_id.startswith("/World/") or len(device_id) > 240:
+            raise ValueError("无效的地图设备标识")
+        stage, viewport = self.navigation._context()
+        device = device_for_hit(stage, device_id, viewport.time)
+        if not device or device["id"] != device_id:
+            raise ValueError("所选设备已离开当前场景")
+        runtime = getattr(panel, "_runtime", None)
+        if runtime is None:
+            runtime = panel._runtime = SceneRuntime(panel._project_root, panel._ui_events.put)
+        runtime.bind(stage)
+        return runtime.set_device_view(device, viewport)
+
+    def _query_scene(self, command):
+        from rtg_container_info_popup import container_info_for_hit
+        from .device_locations import device_for_hit
+
+        x, y = (command["payload"].get(key) for key in ("x", "y"))
+        if any(type(value) not in (int, float) or not 0 <= value <= 1 or not math.isfinite(value) for value in (x, y)):
+            raise ValueError("无效的港区画面坐标")
+        stage, viewport = self.navigation._context()
+        width, height = viewport.resolution
+        if width <= 0 or height <= 0:
+            raise ValueError("港区画面尚未就绪")
+        pixel = (min(width - 1, int(x * width)), min(height - 1, int(y * height)))
+
+        def completed(prim_path, *_args):
+            if command["cancelled"]:
+                return
+            try:
+                rows, device = [], None
+                if prim_path and viewport.stage == stage:
+                    path = str(prim_path)
+                    rows = container_info_for_hit(stage, path)
+                    if not rows and command["action"] == "inspect-at":
+                        device = device_for_hit(stage, path, viewport.time)
+                command["result"] = {"rows": rows, "device": device} if command["action"] == "inspect-at" else {"rows": rows}
+            except Exception as exc:
+                command["error"] = str(exc)
+            finally:
+                command["done"].set()
+
+        viewport.request_query(pixel, completed)
 
     @staticmethod
     def execute(panel, action, payload):

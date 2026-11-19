@@ -565,7 +565,7 @@
       "type": "function",
       "function": {
         "name": "set_viewport_view",
-        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane, numbered yard truck or current task. For a numbered truck, use target=truck with truck_number=1..20; view=cabin (default) looks forward from the cab, chase follows from behind, and angled shows the exterior. Truck views follow by default. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley, a 110-degree camera following the trolley by default. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
+        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane, numbered yard truck or current task. For a numbered truck, use target=truck with truck_number=1..20; view=chase (default) follows the truck from outside, cabin looks forward from inside the cab, and angled shows the exterior. Truck views follow by default. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley, a 110-degree camera following the trolley by default. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
         "parameters": {
           "type": "object",
           "properties": {

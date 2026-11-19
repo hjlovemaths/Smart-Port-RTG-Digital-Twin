@@ -113,13 +113,18 @@ class AgentCameraUsdTests(unittest.TestCase):
         self.assertEqual(list(self.stage.GetSessionLayer().subLayerPaths), paths_before)
         self.assertEqual(bool(self.UsdGeom.Camera.Get(self.stage, self.scene.CAMERA_PATH)), original_camera)
 
-    def test_numbered_truck_view_uses_the_selected_cab_and_follows_the_moving_01(self):
+    def test_numbered_truck_defaults_to_exterior_and_still_supports_explicit_cab(self):
         from ship_transfer_plan import PARK
 
         result = self.runtime.execute(self.stage, "set_viewport_view", {"target": "truck", "truck_number": 17})
         self.assertEqual(result["truck_path"], "/World/ParkedYardTrucks/Group2_Bay07")
-        self.assertEqual(result["view"], "cabin")
+        self.assertEqual(result["view"], "chase")
         self.assertTrue(result["following"])
+        cabin = self.runtime.execute(self.stage, "set_viewport_view", {
+            "target": "truck", "truck_number": 17, "view": "cabin",
+        })
+        self.assertEqual(cabin["view"], "cabin")
+        self.assertNotEqual(result["eye_m"], cabin["eye_m"])
         self.runtime.execute(self.stage, "set_viewport_view", {"target": "truck", "truck_number": 1, "view": "chase"})
         layer = self.stage.GetSessionLayer()
         with self.Usd.EditContext(self.stage, layer):
@@ -142,6 +147,34 @@ class AgentCameraUsdTests(unittest.TestCase):
                 op.Set(self.Gf.Matrix4d(1).SetTranslate(self.Gf.Vec3d(4, 57, 0)))
             self.runtime.tick(self.stage, .1)
             self.assertAlmostEqual(self.matrix().ExtractTranslation()[1] - eye[1], 7)
+
+    def test_map_camera_switches_to_selected_truck_and_crane_prims(self):
+        from smartport.agent_panel.device_locations import device_map_state
+        from smartport.agent_panel.web_bridge import AgentWebBridge
+
+        self.runtime.bind(self.stage)
+        map_viewport = SimpleNamespace(camera_path="/OriginalMainCamera", time=self.Usd.TimeCode.Default())
+        bridge = AgentWebBridge()
+        bridge.navigation._context = lambda: (self.stage, map_viewport)
+        panel = SimpleNamespace(_runtime=self.runtime)
+        devices = {d["name"]: d for d in device_map_state(self.stage, map_viewport.time)["devices"]}
+        truck = devices["17 号集卡"]
+        result = bridge._focus_map_device(panel, {"id": truck["id"]})
+        self.assertEqual(result["truck_path"], truck["id"])
+        self.assertEqual(result["view"], "chase")
+        self.assertTrue(result["following"])
+        self.assertGreater(result["eye_m"][2], result["look_at_m"][2])
+        self.assertEqual(map_viewport.camera_path, self.scene.CAMERA_PATH)
+        self.assertEqual(self.viewport.camera_path, "/OmniverseKit_Persp")
+        with self.assertRaisesRegex(ValueError, "所选设备已离开"):
+            bridge._focus_map_device(panel, {"id": "/World/PortAndRTG"})
+        camera = self.stage.GetPrimAtPath(self.scene.CAMERA_PATH)
+        for device_name, target_suffix in (("M60 RTG", ""), ("STS_03", "/Gantry")):
+            device = devices[device_name]
+            result = bridge._focus_map_device(panel, {"id": device["id"]})
+            self.assertEqual(result["view"], "angled")
+            self.assertEqual(camera.GetAttribute("smartport:navigationTarget").Get(), device["id"] + target_suffix)
+            self.assertIsNone(self.runtime.follow)
 
     def test_sts_hoist_direction_follows_the_displayed_axis(self):
         from sts_control import shared_sts_controller

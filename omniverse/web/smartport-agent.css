@@ -21,6 +21,39 @@
 #web-navigation output[data-error]{color:#ffb7a0}
 #web-navigation{display:none}
 #remote-video{touch-action:none;user-select:none;outline:none}
+#web-container-info{position:fixed;z-index:21;top:56px;left:12px;box-sizing:border-box;width:min(318px,calc(100vw - 24px));max-height:calc(100vh - 68px);overflow:auto;padding:13px 15px;background:#102631f2;border:1px solid #426477;border-radius:8px;color:#e9f3f7;font:14px system-ui,sans-serif;box-shadow:0 8px 24px #0005}
+#web-container-info h2{margin:0 0 9px;padding:0 0 8px;border-bottom:1px solid #426477;color:#b7e5f7;font-size:17px}
+#web-container-info dl{display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:7px 10px;margin:0}
+#web-container-info dt{color:#a9c6d4}
+#web-container-info dd{margin:0;overflow-wrap:anywhere;user-select:text}
+#web-container-info small{display:block;margin-top:10px;color:#a9c6d4;line-height:1.4}
+#web-container-info [hidden],#web-device-map[hidden],#web-device-map [hidden]{display:none}
+#web-device-map-toggle{position:fixed;right:12px;top:12px;z-index:21;padding:7px 12px;border:1px solid #426477;border-radius:5px;background:#102631;color:#e9f3f7;font:14px system-ui,sans-serif;cursor:pointer}
+#web-device-map{position:fixed;z-index:22;right:12px;top:52px;width:min(304px,calc(100vw - 24px));max-height:calc(100vh - 64px);overflow:auto;box-sizing:border-box;padding:12px;background:#102631f5;border:1px solid #426477;border-radius:8px;color:#e9f3f7;font:13px system-ui,sans-serif}
+#web-device-map h2{margin:0;font-size:16px;color:#b7e5f7}
+#web-device-map .map-datum{margin:4px 0 9px;color:#a9c6d4}
+#web-device-map .map-canvas{position:relative;aspect-ratio:548/442;max-height:46vh;overflow:hidden;background:#17394d;border:1px solid #416274;border-radius:4px}
+#web-device-map .map-region{box-sizing:border-box;position:absolute;background:#304858;border:1px solid #496574;color:#d6e3ec;text-align:center;font-size:10px;pointer-events:none;overflow:hidden}
+#web-device-map .map-region[data-kind="yard"]{background:#3d564e;border-color:#6d7f70}
+#web-device-map .map-region[data-kind="parking"]{background:#65614c}
+#web-device-map .map-region[data-kind="bridge"]{background:#526474}
+#web-device-map .map-landmark{position:absolute;z-index:1;width:6px;height:6px;border:1px solid #102631;border-radius:2px;background:#f4db87;transform:translate(-50%,-50%);pointer-events:none}
+#web-device-map .map-landmark span{position:absolute;right:9px;top:50%;transform:translateY(-50%);padding:1px 3px;border-radius:3px;background:#102631f5;color:#fff1bf;font-size:10px;white-space:nowrap}
+#web-device-map .map-direction{position:absolute;z-index:4;padding:1px 3px;border-radius:3px;background:#102631ee;color:#d9edf7;font-size:10px;line-height:1.2;font-weight:650;pointer-events:none;white-space:nowrap}
+#web-device-map .map-direction[data-side="top"]{left:50%;top:2px;transform:translateX(-50%)}
+#web-device-map .map-direction[data-side="bottom"]{left:50%;bottom:2px;transform:translateX(-50%)}
+#web-device-map .map-direction[data-side="left"]{left:2px;top:50%;transform:translateY(-50%)}
+#web-device-map .map-direction[data-side="right"]{right:2px;top:50%;transform:translateY(-50%)}
+#web-device-map .map-device{position:absolute;z-index:2;width:9px;height:9px;padding:0;border:1px solid #102631;border-radius:50%;transform:translate(-50%,-50%);background:var(--device-color);cursor:pointer}
+#web-device-map .map-device[aria-pressed="true"]{z-index:3;width:13px;height:13px;outline:2px solid #fff}
+#web-device-map [data-kind="rtg"]{--device-color:#6ed4f6}
+#web-device-map [data-kind="sts"]{--device-color:#ffa95e}
+#web-device-map [data-kind="truck"]{--device-color:#a0e396}
+#web-device-map .map-legend{display:flex;gap:14px;margin:7px 0}
+#web-device-map .map-legend span::before{content:'';display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:50%;background:var(--device-color)}
+#web-device-map select{width:100%;padding:4px;border:1px solid #426477;border-radius:4px;background:#17394d;color:#eff9fc}
+#web-device-map output{color:#ffcda6}
+@media(max-width:620px){#web-container-info{width:min(230px,calc(52vw - 14px))}#web-device-map{width:calc(48vw - 14px)}}
 @media(max-width:850px){#web-navigation{top:10px;bottom:auto}#web-navigation span{display:none}}
 
 #web-agent-response{position:fixed;z-index:20;box-sizing:border-box;width:clamp(240px,18vw,320px);height:340px;padding:10px;border:1px solid #59657570;border-radius:8px;background:#20252bef;color:#e9eef4;font:13px system-ui;display:flex;flex-direction:column}

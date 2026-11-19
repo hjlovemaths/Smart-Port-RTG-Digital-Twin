@@ -50,7 +50,7 @@
 | 3 | `get_equipment_status` | RTG／岸桥实际位置、目标、限位、停止状态。`equipment=all/rtg/sts`，可选 `crane_id`。 |
 | 4 | `get_current_tasks` | RTG 最新任务、仿真任务及队列、岸桥任务阶段、IECS 订单／车辆／暂停状态；保留数据时间。 |
 | 5 | `list_viewpoints` | 可用视角、现有 USD 相机路径、当前相机和跟随状态。 |
-| 6 | `set_viewport_view` | `target=port/rtg/trolley/spreader/bay/sts/task/truck`。集卡用 `truck_number=1..20` 指定，默认 `view=cabin` 前向视角，也可用 `view=chase` 车后跟随。`target=trolley` 默认用 `under_trolley` 跟随小车。其他视角支持 `angled/front/back/left/right/top`。贝位和岸桥视角必须明确编号。 |
+| 6 | `set_viewport_view` | `target=port/rtg/trolley/spreader/bay/sts/task/truck`。集卡用 `truck_number=1..20` 指定，默认 `view=chase` 车后跟随，`view=cabin` 为驾驶室前向视角。`target=trolley` 默认用 `under_trolley` 跟随小车。其他视角支持 `angled/front/back/left/right/top`。贝位和岸桥视角必须明确编号。 |
 | 7 | `switch_viewport_camera` | 选择现有 `camera_path` 或 `camera_number=1..33`，二选一；停止 Agent 相机跟随。 |
 | 8 | `get_bay_inventory` | `bay_id`：贝位六位箱区图、各排层数、箱号、尺寸、ASCII 占用图和 40 英尺覆盖关系。 |
 | 9 | `get_yard_inventory_summary` | 整个堆场或 `block=1C/2C/3C/4C` 的箱数、TEU、已占用逻辑贝位及箱区图。 |

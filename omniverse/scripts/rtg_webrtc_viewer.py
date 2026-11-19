@@ -82,12 +82,12 @@ VIEWER_HEAD = """
     }
   }
 </script>
-<link rel="stylesheet" href="/static/smartport-agent.css?v=8">
+<link rel="stylesheet" href="/static/smartport-agent.css?v=12">
 <script type="module" src="/static/smartport-session.js?v=4"></script>
 <link rel="stylesheet" href="/static/smartport-iecs.css">
 <script type="module" src="/static/smartport-iecs.js"></script>
 <script type="module" src="/static/smartport-agent.js?v=10"></script>
-<script type="module" src="/static/smartport-navigation.js?v=6"></script>
+<script type="module" src="/static/smartport-navigation.js?v=10"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>
 <script type="module" src="/static/smartport-driver.js?v=7"></script>
 <script type="module" src="/static/smartport-rtg-driver.js?v=7"></script>
@@ -189,7 +189,7 @@ def install_viewer_page(web_root: Path) -> Path:
         temporary.write_text(result, encoding="utf-8")
         temporary.replace(index)
     assets = Path(__file__).resolve().parents[1] / "web"
-    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-navigation.js", "smartport-session.js", "smartport-speech.js", "smartport-recorder.js", "smartport-cinema.js"):
+    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-navigation.js", "smartport-device-map.js", "smartport-session.js", "smartport-speech.js", "smartport-recorder.js", "smartport-cinema.js"):
         (web_root / name).write_bytes((assets / name).read_bytes())
     return index
 

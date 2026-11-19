@@ -250,7 +250,7 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
             required.add("crane_id")
         if result["target"] == "truck":
             required.add("truck_number")
-            result.setdefault("view", "cabin")
+            result.setdefault("view", "chase")
             result.setdefault("follow", True)
         elif "truck_number" in result or result.get("view") in {"cabin", "chase"}:
             raise ValueError("A truck number and cabin/chase views require target=truck")

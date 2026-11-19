@@ -63,6 +63,27 @@ class ContainerInfoPopupTests(unittest.TestCase):
             popup._container_root_path_from_selection("/World/LiveContainers")
         )
 
+    def test_web_pick_reads_container_root_for_a_yard_detail_mesh(self) -> None:
+        root = "/World/LiveContainers/YardInventory/Bay_3C_077/R06_T03_Container"
+        stage = Stage({
+            root: Prim({"live:bayId": "3C/077", "live:row": 6, "live:tier": 3, "live:containerSizeFt": 20}),
+            popup.STATUS_PRIM_PATH: Prim({"rtg:containerNo": "other-box", "rtg:taskId": "other-task"}),
+        })
+        rows = {row["label"]: row["value"] for row in popup.container_info_for_hit(stage, root + "_RoofRidges")}
+        self.assertEqual(rows["当前位置"], "3C/077 / R06 / T03")
+        self.assertEqual(rows["箱尺寸"], "20 ft")
+        self.assertEqual(rows["箱号"], "--")
+        self.assertEqual(rows["关联任务"], "--")
+        self.assertEqual(popup.container_info_for_hit(stage, "/World/PortAndRTG/Ground"), [])
+
+    def test_web_pick_describes_ship_slot_as_a_structural_representation(self) -> None:
+        root = "/World/Ship/StructureSlots/Bay05_D/L051292"
+        stage = Stage({root: Prim({"ship:location": "051292", "ship:sizeFt": 20})})
+        rows = {row["label"]: row["value"] for row in popup.container_info_for_hit(stage, root + "/Roof")}
+        self.assertEqual(rows["当前位置"], "船位 051292")
+        self.assertEqual(rows["来源"], "船图结构示意箱")
+        self.assertEqual(rows["箱号"], "--")
+
     def test_container_panel_uses_scene_hud_without_omni_window_chrome(self) -> None:
         self.assertEqual(
             popup.CONTAINER_SCENE_PANEL_ROOT_PATH,

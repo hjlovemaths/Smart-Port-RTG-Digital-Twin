@@ -156,6 +156,10 @@ def _container_component_index(parts: Sequence[str]) -> Optional[int]:
             return index
         if name == "LoadedContainer":
             return index
+        if name.startswith("ShipContainer") and name[len("ShipContainer"):].isdigit():
+            return index
+        if index >= 2 and parts[index - 2] == "StructureSlots" and name.startswith("L") and name[1:].isdigit():
+            return index
         if name.endswith("_Container") or "_Container_" in name:
             return index
         if name.lower().endswith("container") and name.lower() != "livecontainers":
@@ -505,19 +509,19 @@ def _container_context_prims(stage: Any, root_path: str) -> List[Any]:
     return prims
 
 
-def _collect_info_rows(stage: Any, root_path: str) -> Tuple[InfoRow, ...]:
+def _collect_info_rows(stage: Any, root_path: str, *, use_task_status: bool = True) -> Tuple[InfoRow, ...]:
     """Collect display rows for a selected RTG container."""
 
-    status = _status_prim(stage)
+    status = _status_prim(stage) if use_task_status else None
     prims = _container_context_prims(stage, root_path)
 
     bay_id = _first_attr(prims, ("live:bayId", "inventory:bayId"))
-    row = _first_attr(prims, ("live:row",))
-    tier = _first_attr(prims, ("live:tier",))
+    row = _first_attr(prims, ("live:row", "ship:row"))
+    tier = _first_attr(prims, ("live:tier", "ship:tier"))
     tiers = _first_attr(prims, ("live:tiers",))
     container_size = _first_attr(
         prims,
-        ("live:containerSizeFt", "inventory:containerSizeFt"),
+        ("live:containerSizeFt", "inventory:containerSizeFt", "ship:sizeFt", "ship:containerSizeFt"),
         _read_attr(status, "rtg:containerSize"),
     )
     container_height = _first_attr(
@@ -562,6 +566,34 @@ def _collect_info_rows(stage: Any, root_path: str) -> Tuple[InfoRow, ...]:
         InfoRow("Source", _fmt(source)),
     ]
     return tuple(rows)
+
+
+def container_info_for_hit(stage: Any, hit_path: str) -> list[dict[str, str]]:
+    """Reuse the popup's rows for a visible container picked in the web viewport."""
+    root_path = _container_root_path_from_selection(hit_path)
+    if not root_path:
+        return []
+    # The yard renderer also creates sibling meshes such as ..._Container_RoofRidges.
+    parent, _, name = root_path.rpartition("/")
+    if "_Container_" in name:
+        base = f"{parent}/{name.partition('_Container_')[0]}_Container"
+        if _prim_at(stage, base):
+            root_path = base
+    root = _prim_at(stage, root_path)
+    if not root:
+        return []
+    use_task_status = root_path == LIVE_HOISTED_LOAD_PATH or root_path.endswith(LEGACY_HOISTED_LOAD_SUFFIX)
+    rows = {row.label: row.value for row in _collect_info_rows(stage, root_path, use_task_status=use_task_status)}
+    ship_location = _read_attr(root, "ship:location")
+    if ship_location:
+        rows["Bay"] = f"船位 {ship_location}"
+        rows["Source"] = "船图结构示意箱"
+    else:
+        rows["Bay"] = " / ".join(value for value in (rows["Bay"], rows["Row / Tier"]) if value != "--") or "--"
+    result = [{"label": CONTAINER_PANEL_LABELS[key], "value": rows[key]} for key in CONTAINER_PANEL_LABELS]
+    if rows["Container"] == "--":
+        result.append({"label": "模型标识", "value": root_path.rsplit("/", 1)[-1]})
+    return result
 
 
 def _format_row_tier(row: Any, tier: Any, tiers: Any) -> str:

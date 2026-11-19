@@ -17,12 +17,16 @@ async def test_iecs_account_enters_workbench_with_only_iecs_controls(server):
   await c.post('/auth/login',data={'username':'viewer','password':'ViewerTestPassword!'})
   assert (await c.get('/api/iecs/state')).status_code==403
   assert (await c.post('/api/iecs/navigate',json={'zoom':1})).status_code==403
+  assert (await c.post('/api/smartport-agent/container-at',json={'x':.5,'y':.5})).status_code==403
+  assert (await c.get('/api/smartport-agent/device-map')).status_code==403
   assert (await c.post('/auth/iecs-account',data={'username':'iecs','password':'IecsTestPassword!'})).status_code==403
   await c.post('/auth/login',data={'username':'admin','password':'AdminTestPassword!'})
   assert (await c.post('/auth/iecs-account',data={'username':'iecs','password':'IecsTestPassword!'})).status_code==200
   login=await c.post('/auth/login',data={'username':'iecs','password':'IecsTestPassword!'})
   assert login.headers['location']=='/iecs?spectator=1'
   assert (await c.get('/iecs?spectator=1')).status_code==200
+  assert (await c.post('/api/smartport-agent/inspect-at',json={'x':.5,'y':.5})).status_code==403
+  assert (await c.post('/api/smartport-agent/device-view',json={'id':'/World/STSControls/STS_01'})).status_code==403
   assert (await c.get('/auth/me')).json()['role']=='iecs'
   assert (await c.post('/api/iecs/command',json={'action':'pause'})).status_code==200
   assert (await c.post('/api/iecs/command',json={'action':'pause'},headers={'origin':'http://other'})).status_code==403

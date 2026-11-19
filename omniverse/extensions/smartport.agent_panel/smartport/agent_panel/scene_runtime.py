@@ -598,7 +598,7 @@ class SceneRuntime:
     def _target_bounds(self, args, truck=None):
         from pxr import Gf, Usd, UsdGeom
         target = args["target"]
-        path = {"port": "/World/PortAndRTG", "rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST}.get(target)
+        path = args.get("device_path") or {"port": "/World/PortAndRTG", "rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST}.get(target)
         if truck:
             path = truck.GetPath()
         if target == "sts":
@@ -671,7 +671,14 @@ class SceneRuntime:
         viewport = viewport or self._viewport()
         view = args.get("view", "angled")
         under_trolley = view == "under_trolley"
-        truck = self._view_truck(args["truck_number"]) if args["target"] == "truck" else None
+        truck = None
+        if args["target"] == "truck":
+            if device_path := args.get("device_path"):
+                truck = self.stage.GetPrimAtPath(device_path)
+                if not truck or UsdGeom.Imageable(truck).ComputeVisibility() == UsdGeom.Tokens.invisible:
+                    raise ValueError("所选集卡当前不可见")
+            else:
+                truck = self._view_truck(args["truck_number"])
         truck_mounted = truck is not None and view in {"cabin", "chase"}
         if under_trolley:
             eye, center, up, distance = self._under_trolley_pose()
@@ -716,8 +723,10 @@ class SceneRuntime:
             # The browser's orbit controller must inherit this view's subject,
             # pivot and lens rather than falling back to the primary RTG.
             prim = camera.GetPrim()
-            target_path = {"rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST,
-                           "port": "/World/PortAndRTG"}.get(args["target"], "")
+            target_path = args.get("device_path") or {
+                "rtg": GANTRY, "trolley": TROLLEY, "spreader": HOIST,
+                "port": "/World/PortAndRTG",
+            }.get(args["target"], "")
             if truck:
                 target_path = str(truck.GetPath())
             if args["target"] == "sts":
@@ -736,17 +745,31 @@ class SceneRuntime:
                 "field_of_view_deg": fov, "mount_path": TROLLEY if under_trolley else None,
                 "vertical_down": under_trolley}
         if truck:
-            result.update(truck_number=args["truck_number"], truck_path=str(truck.GetPath()),
+            result.update(truck_path=str(truck.GetPath()),
                           mount_path=str(truck.GetPath()) if truck_mounted else None)
+            if "truck_number" in args:
+                result["truck_number"] = args["truck_number"]
         return result
 
-    def set_view(self, args):
-        result = self._apply_view(args)
+    def set_view(self, args, viewport=None):
+        viewport = viewport or self._viewport()
+        result = self._apply_view(args, viewport)
         self.pause_transfer_camera('manual')
         self.active_view = {**args, "view": result["view"], "field_of_view_deg": result["field_of_view_deg"]}
         self.follow = dict(args) if args.get("follow") else None
-        self.follow_viewport = self._viewport() if self.follow else None
+        self.follow_viewport = viewport if self.follow else None
         return result
+
+    def set_device_view(self, device, viewport):
+        kind, path = device["kind"], device["id"]
+        if kind == "sts":
+            return self.set_view({"target": "sts", "crane_id": path.rsplit("/", 1)[-1]}, viewport)
+        if kind == "rtg" and path == RTG_ROOT and self.stage.GetPrimAtPath(GANTRY):
+            path = GANTRY
+        return self.set_view({
+            "target": kind, "device_path": path,
+            "view": "chase" if kind == "truck" else "angled", "follow": kind == "truck",
+        }, viewport)
 
     def switch_camera(self, args):
         self.pause_transfer_camera('manual')

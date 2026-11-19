@@ -1,3 +1,5 @@
+import {createSceneInspector} from './smartport-device-map.js?v=3';
+
 // Model-view controls run before the SDK's document handlers, including when
 // its transparent cursor layer (rather than the video) receives the event.
 const pageClasses = document.documentElement.classList;
@@ -11,9 +13,10 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   video.tabIndex = 0;
   video.setAttribute('aria-label', '港区模型视图');
   let drag = null, focused = false, pending = {}, timer = null, busy = false;
+  const inspector = iecsView ? null : createSceneInspector();
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
-    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
+    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#web-container-info,#web-device-map,#web-device-map-toggle,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
   }
   function settingsOpen() {
     const settings = document.getElementById('web-agent-settings');
@@ -22,14 +25,14 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   function scenePoint(e) {
     if(editing(e) || settingsOpen()) return false;
     const r = video.getBoundingClientRect();
-    if(!r.width || !r.height || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return false;
+    if(!r.width || !r.height) return false;
     const w = video.videoWidth || 2560, h = video.videoHeight || 1440;
-    if(iecsView) {
-      const scale=Math.min(r.width/w,r.height/h), width=w*scale, height=h*scale;
-      const left=r.left+(r.width-width)/2, top=r.top+(r.height-height)/2;
-      return e.clientX>=left && e.clientX<=left+width && e.clientY>=top && e.clientY<=top+height;
-    }
-    const x = (e.clientX-r.left)*w/r.width, y = (e.clientY-r.top)*h/r.height;
+    const scale=Math.min(r.width/w,r.height/h), width=w*scale, height=h*scale;
+    const left=r.left+(r.width-width)/2, top=r.top+(r.height-height)/2;
+    const point={x:(e.clientX-left)/width,y:(e.clientY-top)/height};
+    if(point.x<0 || point.x>=1 || point.y<0 || point.y>=1) return false;
+    if(iecsView) return point;
+    const x=point.x*w, y=point.y*h;
     // The streamed Kit cards retain their own buttons and scrolling.
     const m=Math.min(14,w/20,h/20), available=w-2*m;
     const iw=Math.min(560,Math.max(280,w*.3),available), ih=Math.min(100,h-2*m), iy=h-m-ih;
@@ -37,7 +40,7 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
     let oh=Math.min(340,Math.max(190,h*.4),h-2*m), oy=h-m-oh;
     if((w+iw)/2+m>ox){oh=Math.max(0,Math.min(oh,iy-2*m));oy=Math.max(m,iy-m-oh);}
     return y>44 && !(x>=ox && x<=w-m && y>=oy && y<=oy+oh) &&
-      !(x>=(w-iw)/2 && x<=(w+iw)/2 && y>=iy && y<=iy+ih);
+      !(x>=(w-iw)/2 && x<=(w+iw)/2 && y>=iy && y<=iy+ih) && point;
   }
   function enqueue(change) {
     if(change.action === 'reset') pending={action:'reset'};
@@ -71,15 +74,22 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
     enqueue({zoom:-Math.max(-2,Math.min(2,pixels/100))});
   },{capture:true,passive:false});
   window.addEventListener('pointerdown', e=>{
-    if(!scenePoint(e)){focused=false;return;}
+    if(!scenePoint(e)){
+      focused=false;
+      if(inspector && e.button===0 && !editing(e) && !settingsOpen()) inspector.dismiss();
+      return;
+    }
     consume(e);focused=true;video.focus({preventScroll:true});
     if(e.button!==0 && e.button!==1) return;
-    drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:e.button===1 || e.shiftKey};
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:e.button===1 || e.shiftKey,moved:false,
+      pick:inspector && e.button===0 && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey};
     video.setPointerCapture(e.pointerId);
   },true);
   window.addEventListener('pointermove', e=>{
     if(!drag || drag.id!==e.pointerId) return;
     consume(e);
+    if(!drag.moved && Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5) return;
+    drag.moved=true;
     const scale=1000/Math.max(400,video.getBoundingClientRect().width);
     const dx=(e.clientX-drag.x)*scale,dy=(e.clientY-drag.y)*scale;
     drag.x=e.clientX;drag.y=e.clientY;
@@ -87,8 +97,11 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   },true);
   function endDrag(e) {
     if(!drag || drag.id!==e.pointerId) return;
+    const point = e.type==='pointerup' && drag.pick && !drag.moved &&
+      Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5 && scenePoint(e);
     consume(e);drag=null;
     if(video.hasPointerCapture(e.pointerId)) video.releasePointerCapture(e.pointerId);
+    if(point && video.videoWidth) inspector.pick(point);
   }
   window.addEventListener('pointerup',endDrag,true);
   window.addEventListener('pointercancel',endDrag,true);
