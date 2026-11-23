@@ -40,6 +40,61 @@ class AgentCameraUsdTests(unittest.TestCase):
     def matrix(self):
         return self.UsdGeom.Xformable(self.stage.GetPrimAtPath(self.scene.CAMERA_PATH)).GetLocalTransformation()
 
+    def test_fourth_iecs_order_frames_gate_then_tracks_its_own_vehicle(self):
+        from iecs_runtime import Runtime
+        from iecs_core import IECS
+
+        engine = IECS(":memory:")
+        self.addCleanup(engine.close)
+        for flow in ("unload", "load", "gate_in", "gate_out", "transfer"):
+            engine.submit(flow)
+        order = engine.orders["IECS-00004"]
+        engine.assign(order)
+        vehicle = engine.vehicles[order["vehicle"]]
+        order.update(step_name="闸外候场", wait_reason="等待入场车道 yard:3C")
+        port = SimpleNamespace(engine=engine, vehicle_path=lambda vid: Runtime.vehicle_path(None, vid))
+        path = port.vehicle_path(vehicle["id"])
+        with self.Usd.EditContext(self.stage, self.stage.GetSessionLayer()):
+            truck = self.UsdGeom.Cube.Define(self.stage, path)
+            visibility = truck.CreateVisibilityAttr()
+            visibility.Set("invisible")
+            transform = truck.AddTranslateOp()
+        args = {"target": "iecs_order", "order_index": 4}
+
+        with patch.object(self.scene, "iecs_runtime", return_value=port):
+            before = engine.snapshot()
+            focused = self.runtime.execute(self.stage, "set_viewport_view", args)
+            self.assertEqual(engine.snapshot(), before)
+            self.assertEqual(focused["order_id"], "IECS-00004")
+            self.assertEqual(focused["vehicle_id"], vehicle["id"])
+            self.assertEqual(focused["focus_label"], "入口候场点")
+            self.assertFalse(focused["vehicle_visible"])
+            self.assertTrue(focused["following"])
+            self.assertEqual(focused["look_at_m"][:2], vehicle["position"][:2])
+            self.assertNotIn("order_index", self.runtime.follow)
+            with self.assertRaisesRegex(ValueError, "没有第 6 条任务"):
+                self.runtime.execute(self.stage, "set_viewport_view", {**args, "order_index": 6})
+
+            with self.Usd.EditContext(self.stage, self.stage.GetSessionLayer()):
+                transform.Set(self.Gf.Vec3d(*vehicle["position"]))
+                visibility.Set("inherited")
+            focused = self.runtime.execute(self.stage, "set_viewport_view", args)
+            self.assertTrue(focused["vehicle_visible"])
+            self.assertEqual(focused["focus_label"], "E04 · 入口候场")
+
+            vehicle.update(status="working", position=[133, 380, 0.085])
+            with self.Usd.EditContext(self.stage, self.stage.GetSessionLayer()):
+                visibility.Set("inherited")
+                transform.Set(self.Gf.Vec3d(*vehicle["position"]))
+            self.runtime.tick(self.stage, 0.016)
+            camera = self.stage.GetPrimAtPath(self.scene.CAMERA_PATH)
+            self.assertEqual(camera.GetAttribute("smartport:navigationTarget").Get(), path)
+            self.assertEqual(list(camera.GetAttribute("smartport:navigationCenter").Get())[:2], [133, 380])
+
+            engine.orders[order["id"]] = dict(order, status="queued", vehicle=None)
+            self.runtime.tick(self.stage, 0.016)
+            self.assertIsNone(self.runtime.follow)
+
     def assert_vertical(self):
         matrix = self.matrix()
         direction = matrix.TransformDir(self.Gf.Vec3d(0, 0, -1))

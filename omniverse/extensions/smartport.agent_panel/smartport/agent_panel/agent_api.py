@@ -6,9 +6,13 @@ tool allowlist can be validated outside Kit.
 
 from __future__ import annotations
 
+import http.client
+import ipaddress
 import json
 import math
 import re
+import socket
+import urllib.request
 from typing import Any, Mapping
 from urllib.parse import urlparse
 
@@ -18,6 +22,8 @@ from . import runtime_catalog
 DEFAULT_ENDPOINT = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "deepseek-flash"
 MAX_HISTORY_MESSAGES = 48
+REPLY_STYLE = """默认使用简体中文回答，包括用户用英文提问时；只有用户明确要求其他语言时才切换。回答简洁易懂。保留接口名称、参数名、设备编号、贝位编号和单位的原始写法。工具调用结果中的技术标识保持原样，说明和操作结果使用中文。
+默认只直接回答用户所问的结果，通常一句话，必要时最多两句；用户明确要求详情或同时询问多项时再展开。不主动附带依据、来源、时间戳、坐标、任务编号、工作模式、库存模式等未被问到的字段。不在结尾追问或推荐其他查询。使用纯文本，不使用 Markdown 加粗标记、标题或项目列表。只有结果未知、数据过期、仅为模拟/上次记录、或操作失败时，才补充一句必要说明，不能为了简短把不确定数据说成实时事实。"""
 
 
 def _tool(
@@ -130,8 +136,77 @@ def is_loopback_endpoint(endpoint: str) -> bool:
     return (parsed.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"}
 
 
+def _is_public_address(host: str) -> bool:
+    address = ipaddress.ip_address(host)
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        address = address.ipv4_mapped
+    return address.is_global and not (address.is_multicast or address.is_reserved)
+
+
+def validate_iecs_endpoint(endpoint: str) -> str:
+    if not endpoint.isprintable() or any(char.isspace() for char in endpoint):
+        raise ValueError("模型地址不能包含空白或控制字符")
+    endpoint = validate_endpoint(endpoint)
+    parsed = urlparse(endpoint)
+    host = (parsed.hostname or "").rstrip(".").lower()
+    if parsed.scheme != "https" or "." not in host and ":" not in host:
+        raise ValueError("请填写公网 HTTPS 模型接口")
+    if parsed.fragment or parsed.port == 0:
+        raise ValueError("模型地址的端口或片段无效")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        if host.endswith(".localhost"):
+            raise ValueError("请填写公网 HTTPS 模型接口")
+    else:
+        if not _is_public_address(host):
+            raise ValueError("请填写公网 HTTPS 模型接口")
+    return endpoint
+
+
+def _connect_to_public_address(address, timeout, source_address):
+    host, port = address
+    addresses = list(dict.fromkeys(
+        item[4][0] for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    ))
+    if not addresses or any(not _is_public_address(ip) for ip in addresses):
+        raise OSError("Agent model host must resolve to public addresses")
+    for ip in addresses:
+        try:
+            # Connect to the checked IP so the hostname is only resolved once.
+            return socket.create_connection((ip, port), timeout, source_address)
+        except OSError as error:
+            last_error = error
+    raise last_error
+
+
+class _PublicHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # HTTPSConnection still uses the URL hostname for TLS and SNI.
+        self._create_connection = _connect_to_public_address
+
+
+class _PublicHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_PublicHTTPSConnection, req)
+
+
+class _NoAgentRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def open_iecs_endpoint(request: urllib.request.Request, *, timeout: float):
+    validate_iecs_endpoint(request.full_url)
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _PublicHTTPSHandler(), _NoAgentRedirects()
+    )
+    return opener.open(request, timeout=timeout)
+
+
 def build_request_payload(
-    model: str, messages: list[dict[str, Any]]
+    model: str, messages: list[dict[str, Any]], *, tool_names: frozenset[str] | None = None
 ) -> dict[str, Any]:
     model_name = str(model or "").strip()
     if not model_name:
@@ -155,7 +230,7 @@ def build_request_payload(
     return {
         "model": model_name,
         "messages": bounded_messages,
-        "tools": list(TOOLS),
+        "tools": [tool for tool in TOOLS if tool_names is None or tool["function"]["name"] in tool_names],
         "tool_choice": "auto",
     }
 
@@ -225,6 +300,8 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
             raise ValueError(f"{key} must be one of: {', '.join(map(str, prop['enum']))}")
         if key == "bay_id":
             value = normalize_bay_id(value)
+        if key == "order_id":
+            value = value.upper()
         if key == "crane_id":
             match = re.fullmatch(r"(?:STS[_ -]?)?0?([1-7])", value.upper())
             if not match:
@@ -236,6 +313,13 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
     action = result.get("action")
     required = set()
     if name == "set_viewport_view":
+        selectors = result.keys() & runtime_catalog.IECS_ORDER_SELECTORS.keys()
+        if result["target"] == "iecs_order":
+            if len(selectors) != 1:
+                raise ValueError("聚焦 IECS 订单请指定一个订单编号或列表序号")
+            result.setdefault("follow", True)
+        elif selectors:
+            raise ValueError("订单编号或列表序号需要 target=iecs_order")
         if result["target"] == "trolley" and "view" not in result:
             result["view"] = "under_trolley"
         if result.get("view") == "under_trolley":
@@ -272,6 +356,9 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
         if axes and result.get("park_for_luffing"):
             raise ValueError("Park and boom movement must be separate commands")
     if name == "control_iecs":
+        selectors = result.keys() & runtime_catalog.IECS_ORDER_SELECTORS.keys()
+        if selectors and (action != "focus" or len(selectors) != 1):
+            raise ValueError("指定订单聚焦时只接受一个订单编号或列表序号")
         if action == "submit": required.add("flow")
         if action == "speed": required.add("speed")
     if name == "control_sea_motion":

@@ -9,6 +9,7 @@ RTG_ROOT = "/World/PortAndRTG/RTG_PRIMARY_DYNAMIC"
 STS_ROOT = "/World/STSControls"
 PARK = "/World/ParkedYardTrucks"
 EXTERNAL = "/World/IECS/ExternalTrucks"
+TRUCK_MARKERS = "/World/IECS/TruckMarkers/"
 RTG_STATIC = "/World/PortAndRTG/SMART_PORT_STATIC_RTG_YARD_"
 TRUCK_REPLACEMENTS = (
     "/World/TruckDriverDemo/Truck",
@@ -113,7 +114,8 @@ def _rtg_axes(stage, time):
     import rtg_live_control as rtg
 
     gantry = stage.GetPrimAtPath(rtg.GANTRY_PATH)
-    if gantry and any(op.GetOpName() in ("xformOp:transform:shipTransfer", "xformOp:transform:stsYardTask")
+    if gantry and any(op.GetOpName() in ("xformOp:transform:shipTransfer", "xformOp:transform:stsYardTask",
+                                        "xformOp:transform:iecsRtg")
                       for op in UsdGeom.Xformable(gantry).GetOrderedXformOps()):
         g, t, h = (_local_position(stage, path, time) for path in (rtg.GANTRY_PATH, rtg.TROLLEY_PATH, rtg.HOIST_PATH))
         if g is not None and t is not None and h is not None:
@@ -185,6 +187,13 @@ def _device(stage, description, transforms):
 def device_for_hit(stage, path, time):
     from pxr import UsdGeom
 
+    if path.startswith(TRUCK_MARKERS):
+        marker = path[len(TRUCK_MARKERS):].split("/", 1)[0]
+        if marker.startswith("EXT_"):
+            path = f"{EXTERNAL}/{marker}"
+        elif (match := re.fullmatch(r"ITT_(00[1-9]|01\d|020)", marker)):
+            group, slot = divmod(int(match[1]) - 1, 10)
+            path = f"{PARK}/Group{group + 1}_Bay{slot + 1:02d}"
     description = _device_root(path)
     if path.startswith("/World/ParkedTruckNumbers/Truck"):
         match = re.fullmatch(r"Truck(0[1-9]|1\d|20)", path.split("/")[3])

@@ -565,7 +565,7 @@
       "type": "function",
       "function": {
         "name": "set_viewport_view",
-        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane, numbered yard truck or current task. For a numbered truck, use target=truck with truck_number=1..20; view=chase (default) follows the truck from outside, cabin looks forward from inside the cab, and angled shows the exterior. Truck views follow by default. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley, a 110-degree camera following the trolley by default. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
+        "description": "Look at a port overview, RTG, trolley, spreader, bay, STS crane, yard truck, current task or specific IECS order. For 聚焦第4条任务 use target=iecs_order and order_index=4, or order_id for an exact IECS identifier. The camera tracks that order even at the gate; report the returned focus_label and vehicle_visible. Use target=task only for a generic current task. For a numbered yard truck, use target=truck with truck_number=1..20; view=chase (default) follows from outside, cabin looks forward from inside the cab, and angled shows the exterior. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -579,7 +579,8 @@
                 "bay",
                 "sts",
                 "task",
-                "truck"
+                "truck",
+                "iecs_order"
               ]
             },
             "view": {
@@ -631,6 +632,16 @@
             },
             "follow": {
               "type": "boolean"
+            },
+            "order_id": {
+              "type": "string",
+              "pattern": "^[Ii][Ee][Cc][Ss]-[0-9]{5,}$",
+              "description": "IECS order ID, for example IECS-00004"
+            },
+            "order_index": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "One-based row in the IECS workbench order list"
             }
           },
           "required": [
@@ -1011,6 +1022,16 @@
                 10,
                 20
               ]
+            },
+            "order_id": {
+              "type": "string",
+              "pattern": "^[Ii][Ee][Cc][Ss]-[0-9]{5,}$",
+              "description": "IECS order ID, for example IECS-00004"
+            },
+            "order_index": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "One-based row in the IECS workbench order list"
             }
           },
           "required": [

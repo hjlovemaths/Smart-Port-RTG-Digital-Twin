@@ -3,9 +3,9 @@ from pxr import Gf,Usd,UsdGeom
 from ship_transfer_plan import PARK,box
 
 
-def truck_loading(stage,size_ft,cargo_length):
+def truck_loading(stage,size_ft,cargo_length,truck_path=PARK):
     deck=Gf.Range3d()
-    for prim in Usd.PrimRange(stage.GetPrimAtPath(PARK),Usd.TraverseInstanceProxies()):
+    for prim in Usd.PrimRange(stage.GetPrimAtPath(truck_path),Usd.TraverseInstanceProxies()):
         if prim.IsA(UsdGeom.Boundable) and 'trailer_side_rail' in prim.GetName():
             deck.UnionWith(box(stage,prim.GetPath()))
     if deck.IsEmpty():raise ValueError('停车场集卡缺少可测量承载面')

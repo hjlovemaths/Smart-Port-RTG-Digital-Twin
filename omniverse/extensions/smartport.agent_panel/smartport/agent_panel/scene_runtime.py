@@ -175,6 +175,8 @@ def current_tasks(stage):
         iecs_status = {key: value for key, value in snapshot.items() if key in {
             "name", "simulation_time", "paused", "speed", "orders", "vehicles", "alarms", "reservations", "equipment", "mode"}}
         iecs_status.update(running=True, error=iecs.last_error, mixed_pending=list(iecs.mixed_pending))
+        if iecs.external:
+            iecs_status.update(mode="external",external=iecs.external.snapshot())
     transfer_module=existing_module("ship_to_yard_transfer")
     transfer=transfer_module.active_task(stage) if transfer_module else None
     reverse=transfer and transfer.plan.get('direction')=='yard_to_ship'
@@ -200,6 +202,7 @@ class SceneRuntime:
         self.sequence = 0
         self.follow = None
         self.follow_viewport = None
+        self._follow_iecs_order = None
         self.camera_viewport = None
         self.camera_layer = None
         self.previous_camera = None
@@ -375,10 +378,14 @@ class SceneRuntime:
                 controller.tick(dt)
         if self.follow:
             try:
+                order = self._follow_iecs_order
+                if order is not None and self._iecs_order(self.follow)[1] is not order:
+                    raise ValueError("所选 IECS 订单已重置")
                 self._apply_view(self.follow, self.follow_viewport)
+                if order is not None and order["status"] == "completed":
+                    self.follow = self.follow_viewport = self._follow_iecs_order = None
             except Exception as exc:
-                self.follow = None
-                self.follow_viewport = None
+                self.follow = self.follow_viewport = self._follow_iecs_order = None
                 self.notify({"kind": "status", "text": f"Camera following stopped: {exc}"})
 
     def equipment_status(self, args):
@@ -634,6 +641,58 @@ class SceneRuntime:
             return point, 5.0
         return bounds.GetMidpoint(), max(1.0, bounds.GetSize().GetLength() * 0.5)
 
+    def _iecs_order(self, args):
+        runtime = iecs_runtime(self.stage)
+        if runtime is None:
+            raise ValueError("IECS 工作台尚未运行")
+        orders = runtime.engine.orders
+        if "order_index" in args:
+            index = args["order_index"]
+            if not 1 <= index <= len(orders):
+                raise ValueError(f"当前订单列表没有第 {index} 条任务")
+            order = list(orders.values())[index - 1]
+        else:
+            order = orders.get(args["order_id"])
+            if order is None:
+                raise ValueError(f"当前列表没有订单 {args['order_id']}")
+        return runtime, order
+
+    def _iecs_order_bounds(self, args):
+        from pxr import Gf, UsdGeom
+
+        runtime, order = self._iecs_order(args)
+        vehicle_id = order.get("vehicle")
+        vehicle = runtime.engine.vehicles.get(vehicle_id)
+        status = order["status"]
+        if status == "completed" or vehicle is None or vehicle.get("order") != order["id"]:
+            location = order["target"] if status == "completed" else order["source"]
+            center = Gf.Vec3d(*location["stop"])
+            label = f"{'目的地' if status == 'completed' else '待派车，源交接点'} {location['id']}"
+            if status == "completed" and order["flow"] == "gate_out":
+                label = "外集卡已出场 · 出口车道"
+            radius, path = 8.0, ""
+        else:
+            waiting_gate = vehicle["status"] == "waiting_gate"
+            path = runtime.vehicle_path(vehicle_id)
+            prim = self.stage.GetPrimAtPath(path)
+            if prim and UsdGeom.Imageable(prim).ComputeVisibility() != UsdGeom.Tokens.invisible:
+                center, radius = self._target_bounds({"target": "truck", "device_path": path})
+                radius = max(radius, 8.0)
+            else:
+                path = ""
+                center = Gf.Vec3d(*vehicle["position"]) + Gf.Vec3d(0, 0, 1.5)
+                radius = 8.0
+            if waiting_gate:
+                label = f"{vehicle['number']} · 入口候场" if path else "入口候场点"
+            else:
+                label = f"{vehicle_id} 当前位置"
+        details = {
+            "order_id": order["id"], "order_status": status, "vehicle_id": vehicle_id,
+            "phase": order["step_name"], "wait_reason": order["wait_reason"],
+            "focus_label": label, "vehicle_visible": bool(path),
+        }
+        return center, radius, path, details
+
     def _under_trolley_pose(self):
         from pxr import Gf, Usd, UsdGeom
 
@@ -672,6 +731,7 @@ class SceneRuntime:
         view = args.get("view", "angled")
         under_trolley = view == "under_trolley"
         truck = None
+        order_focus = None
         if args["target"] == "truck":
             if device_path := args.get("device_path"):
                 truck = self.stage.GetPrimAtPath(device_path)
@@ -685,7 +745,10 @@ class SceneRuntime:
         elif truck_mounted:
             eye, center, up, distance = self._truck_camera_pose(truck, view)
         else:
-            center, radius = self._target_bounds(args, truck)
+            if args["target"] == "iecs_order":
+                center, radius, order_path, order_focus = self._iecs_order_bounds(args)
+            else:
+                center, radius = self._target_bounds(args, truck)
             angles = {"angled": (135.0, 28.0), "front": (90.0, 8.0), "back": (-90.0, 8.0),
                       "left": (180.0, 8.0), "right": (0.0, 8.0), "top": (0.0, 90.0)}
             azimuth, elevation = angles[args.get("view", "angled")]
@@ -729,6 +792,8 @@ class SceneRuntime:
             }.get(args["target"], "")
             if truck:
                 target_path = str(truck.GetPath())
+            if order_focus is not None:
+                target_path = order_path
             if args["target"] == "sts":
                 target_path = "/World/STSControls/" + args["crane_id"]
                 if self.stage.GetPrimAtPath(target_path + "/Gantry"):
@@ -749,15 +814,24 @@ class SceneRuntime:
                           mount_path=str(truck.GetPath()) if truck_mounted else None)
             if "truck_number" in args:
                 result["truck_number"] = args["truck_number"]
+        if order_focus is not None:
+            result.update(order_focus)
         return result
 
     def set_view(self, args, viewport=None):
         viewport = viewport or self._viewport()
+        order = None
+        if args["target"] == "iecs_order":
+            _, order = self._iecs_order(args)
+            args = dict(args)
+            args.pop("order_index", None)
+            args.update(order_id=order["id"], follow=args.get("follow", True) and order["status"] != "completed")
         result = self._apply_view(args, viewport)
         self.pause_transfer_camera('manual')
         self.active_view = {**args, "view": result["view"], "field_of_view_deg": result["field_of_view_deg"]}
         self.follow = dict(args) if args.get("follow") else None
         self.follow_viewport = viewport if self.follow else None
+        self._follow_iecs_order = order if self.follow else None
         return result
 
     def set_device_view(self, device, viewport):

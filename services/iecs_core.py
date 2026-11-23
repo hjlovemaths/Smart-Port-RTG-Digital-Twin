@@ -22,8 +22,10 @@ if 'iecs_geometry' not in sys.modules:
     except Exception:
         sys.modules.pop('iecs_geometry',None)
         raise
-from iecs_geometry import TRUCK_LANE_X,YARD_ROW_ONE_X,GATE_STOP,GATE_EXIT_DISTANCE
+from iecs_geometry import TRUCK_LANE_X,YARD_ROW_ONE_X,GATE_ENTRY_STOP,GATE_ENTRY_FRONT_STOP,GATE_EXIT_STOP,GATE_EXIT_END,truck_load_point
 MAX_ACTIVE_TRUCKS=5
+QUAY_CROSSINGS=(-5.375,126.05,256.30,386.55)
+CROSS_LANE_OFFSET=1.85
 
 FLOWS = {'unload': '卸船入场', 'load': '堆场装船', 'gate_in': '外车进场落箱',
          'gate_out': '外车提箱出场', 'transfer': '场内转栈'}
@@ -50,17 +52,29 @@ def quay(index=0):
             'point':[-246,y,1.1], 'stop':[-231.15,y,.085]}
 
 
-def gate(index=0):
+def gate(index=0,*,outbound=False):
+    stop=GATE_EXIT_STOP if outbound else GATE_ENTRY_STOP
     return {'id':f'GATE/{index:03d}','kind':'gate',
-            'point':[GATE_STOP[0],GATE_STOP[1],.57], 'stop':list(GATE_STOP)}
+            'point':[*stop[:2],.57], 'stop':list(stop)}
 
 
-def route(start,end,source=None,target=None):
+def quay_crossings(start,end,source,target):
+    if target and target['kind']=='quay':
+        # Enter upstream of the lift, with room to straighten out before stopping.
+        upstream=(y for y in QUAY_CROSSINGS if y+CROSS_LANE_OFFSET>end[1]+6.)
+        return sorted(upstream,key=lambda y:(round(abs(y-start[1])+abs(y-end[1]),3),abs(y-start[1]),y))
+    if source and source['kind']=='quay':
+        # All five work lanes under the STS run toward decreasing scene Y.
+        return [y for y in reversed(QUAY_CROSSINGS) if y-CROSS_LANE_OFFSET<start[1]-.5]
+    return []
+
+
+def route(start,end,source=None,target=None,*,quay_cross=None):
     """Work lanes always decrease Y. Reach an upper entrance before the stop."""
-    if target and target['kind']=='exit':
-        # Beyond the gate, keep driving east. Never re-enter the collector.
-        if end[0]<start[0] or abs(end[1]-start[1])>1e-6:
-            raise ValueError('Invalid outward gate exit segment')
+    if target and target['kind'] in ('gate_entry','exit'):
+        direction=-1 if target['kind']=='gate_entry' else 1
+        if direction*(end[0]-start[0])<0 or abs(end[1]-start[1])>1e-6:
+            raise ValueError('Invalid straight gate segment')
         return [list(start),list(end)]
     if (source and target and source['kind']==target['kind']=='yard'
             and source.get('block')==target.get('block')
@@ -79,15 +93,10 @@ def route(start,end,source=None,target=None):
         lower,_=BLOCKS[source['block']]
         add(-3.75,lower-1.85); add(116.15,lower-1.85)
     elif source and source['kind']=='quay':
-        # Continue in the lane's painted direction to the next intersection.
-        southbound=start[0]<-232.9
-        crossings=(-5.375,126.05,256.30,386.55)
-        candidates=[y for y in crossings if y<start[1]-.5] if southbound else [y for y in crossings if y>start[1]+.5]
-        crossing=max(candidates) if southbound and candidates else min(candidates) if candidates else None
-        if crossing is None:raise ValueError('No legal quay exit in current travel direction')
-        add(start[0],crossing-1.85);add(119.85,crossing-1.85)
-    elif source and source['kind']=='gate':
-        add(116.15,388.4)
+        choices=quay_crossings(start,end,source,None)
+        if not choices:raise ValueError('No legal quay exit in current travel direction')
+        crossing=quay_cross if quay_cross is not None else choices[0]
+        add(start[0],crossing-CROSS_LANE_OFFSET);add(119.85,crossing-CROSS_LANE_OFFSET)
     if target and target['kind']=='yard':
         _,upper=BLOCKS[target['block']]
         approach=upper+1.85
@@ -95,10 +104,12 @@ def route(start,end,source=None,target=None):
         add(collector,points[-1][1]); add(collector,approach)
         add(-3.75,approach); add(end[0],end[1])
     elif target and target['kind']=='quay':
-        collector=119.85 if 256.30>=points[-1][1] else 116.15
-        add(collector,points[-1][1]); add(collector,258.15)
-        add(-238.15,258.15); add(-238.15,end[1])
-        add(end[0],end[1])
+        choices=quay_crossings(points[-1],end,None,target)
+        if not choices:raise ValueError('No suitable upstream quay crossing')
+        junction=(quay_cross if quay_cross is not None else choices[0])+CROSS_LANE_OFFSET
+        collector=119.85 if junction>=points[-1][1] else 116.15
+        add(collector,points[-1][1]); add(collector,junction)
+        add(end[0],junction); add(end[0],end[1])
     else:
         collector=119.85 if end[1]>=points[-1][1] else 116.15
         add(collector,points[-1][1]); add(collector,end[1]); add(end[0],end[1])
@@ -137,6 +148,7 @@ def road_cells(path):
 def work_lane(location):
     if location is None:return None
     if location['kind']=='yard':return 'yard:'+location['block']
+    if location['kind']=='gate_entry':return 'gate'
     if location['kind'] in ('quay','gate'):return location['kind']
     return None
 
@@ -153,6 +165,8 @@ class IECS:
         self.sequence=0
         self.transfer_adapter=None
         self.motion_guard=None
+        self.quay_clearance=None
+        self.step_gate=None
         for i in range(1,21):
             home=[138.639, (65 if i<=10 else 160)+((i-1)%10)*5.4+2.2,.085]
             self.vehicles[f'ITT-{i:03d}']={'id':f'ITT-{i:03d}','number':f'{i:02d}',
@@ -174,20 +188,20 @@ class IECS:
                         (json.dumps(self.snapshot(),ensure_ascii=False),))
         self.db.commit()
 
-    def submit(self,flow,request_id=None):
+    def submit(self,flow,request_id=None,*,container_id=None,vehicle_id=None):
         if flow not in FLOWS: raise ValueError('未知流程')
         if request_id:
             existing=next((o for o in self.orders.values() if o.get('request_id')==request_id),None)
             if existing:return existing['id']
         self.sequence+=1; n=self.sequence
         source=quay(n) if flow=='unload' else gate(n) if flow=='gate_in' else yard('2C',2+((n-1)%40)*2)
-        target=yard('3C',2+((n-1)%40)*2) if flow in ('unload','gate_in','transfer') else quay(n) if flow=='load' else gate(n)
+        target=yard('3C',2+((n-1)%40)*2) if flow in ('unload','gate_in','transfer') else quay(n) if flow=='load' else gate(n,outbound=True)
         if source['id'] in self.reserved or target['id'] in self.reserved:
             raise ValueError('源箱位或目标箱位已被预约')
         if any(c['location']==target['id'] for c in self.containers.values()):
             raise ValueError('目标箱位已占用')
         # Demonstration stock is explicit and isolated from production inventory.
-        box=f'IECS-DEMO-{n:04d}'; oid=f'IECS-{n:05d}'
+        box=container_id or f'IECS-DEMO-{n:04d}'; oid=f'IECS-{n:05d}'
         self.containers[box]={'id':box,'size_ft':40,'location':source['id'],
             'position':source['point'][:],'heading':0.,'owner':None,'version':0}
         self.orders[oid]={'id':oid,'request_id':request_id,'flow':flow,'name':FLOWS[flow],
@@ -196,6 +210,7 @@ class IECS:
             'transfer_start':None,'transfer_end':None,'wait_reason':'','error':None,
             'created_at':self.time,'started_at':None,'completed_at':None,'elapsed_s':None,'wait_s':0.}
         self.reserved[source['id']]=oid; self.reserved[target['id']]=oid
+        if vehicle_id:self.orders[oid]['requested_vehicle']=vehicle_id
         self.event('order_created',order=oid,flow=flow,box=box); self.checkpoint()
         return oid
 
@@ -222,12 +237,14 @@ class IECS:
             o['wait_reason']='等待可用车辆名额';return
         if o['flow'] in ('gate_in','gate_out'):
             vid=f'EXT-{o["id"][-5:]}'
-            home=list(GATE_STOP)
-            self.vehicles[vid]={'id':vid,'number':vid,'home':home,'position':home[:],
+            home=list(GATE_ENTRY_STOP)
+            self.vehicles[vid]={'id':vid,'number':f'E{int(vid[4:]):02d}','home':home,'position':home[:],
                     'heading':-90.,'status':'waiting_gate','order':None,'load':None}
             v=self.vehicles[vid]
         else:
             idle=[v for v in self.vehicles.values() if v['status']=='idle' and v['id'].startswith('ITT')]
+            if o.get('requested_vehicle'):
+                idle=[v for v in idle if v['id']==o['requested_vehicle']]
             if not idle:o['wait_reason']='等待空闲集卡';return
             v=min(idle,key=lambda v:(distance(v['position'],o['source']['stop']),v['id']))
             v['status']='working'
@@ -235,7 +252,8 @@ class IECS:
         o.update(vehicle=v['id'],status='running',wait_reason='',started_at=self.time if started_at is None else started_at)
         if o['flow']=='gate_in':
             v['load']=o['container'];c=self.containers[o['container']]
-            c.update(location=v['id'],owner=v['id'],position=[*v['position'][:2],c.get('carry_height',1.)],version=1,waiting_gate=True)
+            c.update(location=v['id'],owner=v['id'],position=truck_load_point(v,c),
+                     heading=v['heading'],version=1,waiting_gate=True)
             o['step']=2
         self.event('assigned',order=o['id'],vehicle=v['id'])
 
@@ -247,24 +265,38 @@ class IECS:
                 o.update(step_name='闸外候场',wait_reason='等待入场车道 '+lane)
                 return False
         self.work_lanes.update((lane,o['id']) for lane in entry)
-        v['status']='working'
+        v['status']='entering_gate'
         if v['load']:self.containers[v['load']].pop('waiting_gate',None)
         self.event('gate_admitted',order=o['id'],vehicle=v['id'])
         return True
 
     def _move(self,o,v,end,dt,source=None,target=None):
         oid=o['id'];lane=work_lane(target)
-        if target is None and o['flow']=='gate_in':lane='gate'
         required={lane} if lane else set()
         # Reserve both work lanes before sending an order that could otherwise
         # hold its source lane while another truck waits to leave the target.
-        if o['step']==0 and o['flow'] in ('unload','transfer'):
+        if o['step']==0 and o['flow'] in ('unload','transfer') and not o.get('requested_vehicle'):
             required.add(work_lane(o['target']))
+        if target and target['kind']=='gate_entry' and o['flow']=='gate_out':
+            required.add(work_lane(o['source']))
         for needed in sorted(required):
             if self.work_lanes.get(needed) not in (None,oid):
                 o['wait_reason']='等待作业车道 '+needed;return False
         if not o['path']:
-            o['path']=route(v['position'],end,source,target);o['path_index']=1
+            if self.quay_clearance and any(loc and loc['kind']=='quay' for loc in (source,target)):
+                obstacle=None
+                for crossing in quay_crossings(v['position'],end,source,target):
+                    path=route(v['position'],end,source,target,quay_cross=crossing)
+                    obstacle=self.quay_clearance(path,self.containers[v['load']] if v['load'] else None)
+                    if not obstacle:
+                        o['path']=path
+                        break
+                if not o['path']:
+                    o['wait_reason']='岸桥通道受阻，等待可用引桥'+(f'（{obstacle}）' if obstacle else '')
+                    return False
+            else:
+                o['path']=route(v['position'],end,source,target)
+            o['path_index']=1
             self.planned_roads[oid]=road_cells(o['path'])
         if oid not in self.road_claims:
             cells=self.planned_roads[oid]
@@ -290,7 +322,7 @@ class IECS:
             remaining-=amount
             if amount>=length-1e-8:o['path_index']+=1
         if v['load']:
-            c=self.containers[v['load']];c['position']=[*v['position'][:2],c.get('carry_height',1.0)];c['heading']=v['heading']
+            c=self.containers[v['load']];c['position']=truck_load_point(v,c);c['heading']=v['heading']
         if o['path_index']>=len(o['path']):
             self.road_claims.pop(oid,None);self.planned_roads.pop(oid,None)
             if o['flow']=='gate_out' and o['step']<4:required.add('gate')
@@ -338,16 +370,28 @@ class IECS:
         if self.paused:return
         dt=min(dt,.25)*self.speed;self.time+=dt
         for o in self.orders.values():
+            if o['status']!='completed' and self.step_gate:
+                reason=self.step_gate(o)
+                if reason:
+                    o['wait_reason']=reason
+                    if o['status']=='running':o['wait_s']+=dt
+                    continue
+                o['wait_reason']=''
             if o['status']=='queued':self.assign(o,self.time-dt)
             if o['status']!='running':continue
             v=self.vehicles[o['vehicle']];step=o['step'];done=False
             if v['status']=='waiting_gate' and not self.admit_gate(o,v):
                 o['wait_s']+=dt
                 continue
+            if v['status']=='entering_gate':
+                o['step_name']='驶向入口前方'
+                if self._move(o,v,GATE_ENTRY_FRONT_STOP,dt,target={'kind':'gate_entry'}):
+                    v['status']='working'
+                if o['wait_reason']:o['wait_s']+=dt
+                continue
             if step==0:
                 o['step_name']='驶往源交接点'
-                departure=o['target'] if o['flow']=='gate_out' else None
-                done=self._move(o,v,o['source']['stop'],dt,source=departure,target=o['source'])
+                done=self._move(o,v,o['source']['stop'],dt,target=o['source'])
             elif step==1:
                 o['step_name']='取箱交接';done=self._transfer(o,v,True,dt)
             elif step==2:
@@ -360,10 +404,12 @@ class IECS:
             elif step==4:
                 if o['flow']=='gate_out':
                     o['step_name']='载箱直行出闸'
-                    end=[o['target']['stop'][0]+GATE_EXIT_DISTANCE,o['target']['stop'][1],.085]
-                    done=self._move(o,v,end,dt,source=o['target'],target={'kind':'exit'})
+                    done=self._move(o,v,GATE_EXIT_END,dt,source=o['target'],target={'kind':'exit'})
+                elif o['flow']=='gate_in':
+                    o['step_name']='空车出闸'
+                    done=self._move(o,v,GATE_EXIT_END,dt,source=o['target'],target=gate(outbound=True))
                 else:
-                    o['step_name']='空车归位 / 出闸';done=self._move(o,v,v['home'],dt,source=o['target'])
+                    o['step_name']='空车归位';done=self._move(o,v,v['home'],dt,source=o['target'])
             if o['wait_reason']:o['wait_s']+=dt
             if done:
                 o['step']+=1;self.event('step_completed',order=o['id'],step=step)

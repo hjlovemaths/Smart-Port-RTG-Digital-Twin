@@ -1,4 +1,4 @@
-import {createSceneInspector} from './smartport-device-map.js?v=3';
+import {createSceneInspector} from './smartport-device-map.js?v=4';
 
 // Model-view controls run before the SDK's document handlers, including when
 // its transparent cursor layer (rather than the video) receives the event.
@@ -13,7 +13,8 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   video.tabIndex = 0;
   video.setAttribute('aria-label', '港区模型视图');
   let drag = null, focused = false, pending = {}, timer = null, busy = false;
-  const inspector = iecsView ? null : createSceneInspector();
+  const api = iecsView ? '/api/iecs' : '/api/smartport-agent';
+  const inspector = createSceneInspector(api);
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
     return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-navigation,#web-container-info,#web-device-map,#web-device-map-toggle,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
@@ -25,9 +26,9 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   function scenePoint(e) {
     if(editing(e) || settingsOpen()) return false;
     const r = video.getBoundingClientRect();
-    if(!r.width || !r.height) return false;
+    if(!r.width || !r.height || e.clientX<r.left || e.clientX>=r.right || e.clientY<r.top || e.clientY>=r.bottom) return false;
     const w = video.videoWidth || 2560, h = video.videoHeight || 1440;
-    const scale=Math.min(r.width/w,r.height/h), width=w*scale, height=h*scale;
+    const scale=(iecsView ? Math.max : Math.min)(r.width/w,r.height/h), width=w*scale, height=h*scale;
     const left=r.left+(r.width-width)/2, top=r.top+(r.height-height)/2;
     const point={x:(e.clientX-left)/width,y:(e.clientY-top)/height};
     if(point.x<0 || point.x>=1 || point.y<0 || point.y>=1) return false;
@@ -56,8 +57,7 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
     // Do not replay a large accumulated wheel burst after a slow response.
     if(command.zoom) command.zoom=Math.max(-3,Math.min(3,command.zoom));
     try {
-      const endpoint=iecsView?'/api/iecs/navigate':'/api/smartport-agent/navigate';
-      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});
+      const response=await fetch(`${api}/navigate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});
       const state=await response.json(); if(!response.ok) throw new Error(state.detail || '视角操作暂不可用');
       output.textContent=`距离 ${Math.round(state.distance_m)} m`;
       output.dataset.distance=state.distance_m; output.dataset.height=state.height_m; output.dataset.pitch=state.pitch_deg;

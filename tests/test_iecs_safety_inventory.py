@@ -21,13 +21,13 @@ def test_departed_truck_does_not_block():
 
 def test_scheduler_waits_and_continues_after_blocker_removed():
     e=IECS();oid=e.submit('gate_out');o=e.orders[oid];e.assign(o)
-    v=e.vehicles[o['vehicle']];v.update(position=[151,388.4,.085],heading=90.)
-    blocker=truck('obstacle',161,388.4)
+    v=e.vehicles[o['vehicle']];v.update(position=[139,384.7,.085],heading=90.)
+    blocker=truck('obstacle',147.5,384.7)
     e.motion_guard=lambda vehicle,end,heading:swept_conflict(vehicle,end,heading,[blocker])
-    end=[163,388.4,.085]
+    end=[144,384.7,.085]
     for _ in range(20):e._move(o,v,end,.25,target={'kind':'exit'})
     stopped=v['position'][:]
-    assert o['wait_reason']=='Collision wait: obstacle' and stopped[0]<163
+    assert o['wait_reason']=='Collision wait: obstacle' and stopped[0]<end[0]
     blocker['status']='departed'
     for _ in range(20):
         if e._move(o,v,end,.25,target={'kind':'exit'}):break

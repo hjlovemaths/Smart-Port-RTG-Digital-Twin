@@ -20,6 +20,10 @@ TEXT = {"type": "string", "maxLength": 256}
 BOOL = {"type": "boolean"}
 BAY = {"type": "string", "description": "For example 4C41 or 4C/041"}
 CRANE = {"type": "string", "description": "STS_01 through STS_07; specify the requested crane"}
+IECS_ORDER_SELECTORS = {
+    "order_id": {"type": "string", "pattern": "^[Ii][Ee][Cc][Ss]-[0-9]{5,}$", "description": "IECS order ID, for example IECS-00004"},
+    "order_index": {**number(1, integer=True), "description": "One-based row in the IECS workbench order list"},
+}
 
 
 def tool(name, description, properties=None, required=()):
@@ -53,12 +57,12 @@ TOOLS = (
          {"equipment": enum("all", "rtg", "sts"), "crane_id": CRANE}),
     tool("get_current_tasks", "Read current RTG, STS and IECS tasks, phases, IDs, sources, destinations, queues and snapshot time. Includes RTG work_mode even without a current task; check its freshness and source before reporting the current mode. Never starts a task."),
     tool("list_viewpoints", "List view presets and existing USD cameras, including camera paths for switch_viewport_camera."),
-    tool("set_viewport_view", "Look at a port overview, RTG, trolley, spreader, bay, STS crane, numbered yard truck or current task. For a numbered truck, use target=truck with truck_number=1..20; view=chase (default) follows the truck from outside, cabin looks forward from inside the cab, and angled shows the exterior. Truck views follow by default. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley, a 110-degree camera following the trolley by default. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
-         {"target": enum("port", "rtg", "trolley", "spreader", "bay", "sts", "task", "truck"),
+    tool("set_viewport_view", "Look at a port overview, RTG, trolley, spreader, bay, STS crane, yard truck, current task or specific IECS order. For 聚焦第4条任务 use target=iecs_order and order_index=4, or order_id for an exact IECS identifier. The camera tracks that order even at the gate; report the returned focus_label and vehicle_visible. Use target=task only for a generic current task. For a numbered yard truck, use target=truck with truck_number=1..20; view=chase (default) follows from outside, cabin looks forward from inside the cab, and angled shows the exterior. For looking vertically down from below the RTG trolley platform, use target=trolley, view=under_trolley. Adjust field_of_view_deg to change the lens. Changes only the viewport.",
+         {"target": enum("port", "rtg", "trolley", "spreader", "bay", "sts", "task", "truck", "iecs_order"),
           "view": enum("angled", "front", "back", "left", "right", "top", "under_trolley", "cabin", "chase"),
           "bay_id": BAY, "crane_id": CRANE, "truck_number": number(1, 20, True), "distance_m": number(1, 3000),
           "azimuth_deg": number(-360, 360), "elevation_deg": number(-85, 90),
-          "field_of_view_deg": number(30, 140), "follow": BOOL}, ("target",)),
+          "field_of_view_deg": number(30, 140), "follow": BOOL, **IECS_ORDER_SELECTORS}, ("target",)),
     tool("switch_viewport_camera", "Switch the active viewport to an existing USD camera path, or RTG virtual camera C01-C33 by number. Stops Agent camera following.",
          {"camera_path": TEXT, "camera_number": number(1, 33, True)}),
     tool("set_sts_axis_positions", "Move a specified STS crane subject to the existing limits and boom interlock. The displayed hoist coordinate increases upward. For 抬升到10米, pass hoist_m=10 and hoist_direction=raise. For 下降到5米, pass hoist_m=5 and hoist_direction=lower. For 下降5米, pass hoist_distance_m=5 and hoist_direction=lower. Include hoist_direction whenever raising or lowering is explicitly requested; the controller rejects motion in the opposite direction. If a distance or target is missing, ask for it. Query get_equipment_status for current coordinate and limits.",
@@ -86,7 +90,8 @@ TOOLS = (
           "inventory_seed": number(0, 2147483647, True)}, ("action",)),
     tool("control_iecs", "Use the existing integrated equipment scheduling simulator: unload/load/gate-in/gate-out/yard transfer, mixed workload, pause/resume/reset, speed, scene validation, inventory preview and task focus. Uses reversible demo layers.",
          {"action": enum("status", "start", "submit", "mixed", "pause", "resume", "reset", "speed", "check_scene", "inventory_preview", "focus", "stop"),
-          "flow": enum("unload", "load", "gate_in", "gate_out", "transfer"), "speed": {"type": "integer", "enum": [1, 5, 10, 20]}}, ("action",)),
+          "flow": enum("unload", "load", "gate_in", "gate_out", "transfer"), "speed": {"type": "integer", "enum": [1, 5, 10, 20]},
+          **IECS_ORDER_SELECTORS}, ("action",)),
     tool("control_live_twin", "Read status or start/stop the existing local TwinState receiver. Receives PLC/RCMS data to visualize the twin; never writes PLC commands. Stop simulation before starting a live receiver.",
          {"action": enum("status", "start", "stop")}, ("action",)),
     tool("control_plc_zmq", "Manage the local RTG ZMQ PLC simulator. start reuses a compatible existing service or launches the fixed service (command SUB 5515, state PUB 5516), then connects Kit. connect attaches only to an existing service. After start/connect completes, physics_on enables ZMQ cargo collision, landing/twistlock interlocks, gravity and stacking through sim_physics=1; it explicitly claims local control without velocity commands. Keep the timeline paused and all axes stopped. physics_off requires landing/unlocking cargo. Use physics_on for ZMQ picking/collision requests, not control_rtg_physics.activate_physics. status reports service, scene_ready, armed, physics_enabled and carried_container. stop/disconnect clear the adapter; stop only terminates an Agent-owned service. start/connect alone never arm control or stop competing drivers. Async actions return operation_id; poll completion. Never sends real PLC commands.",

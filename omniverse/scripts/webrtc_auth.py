@@ -149,7 +149,7 @@ class ViewerAuth:
             return HTMLResponse('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>作业账号</title><style>body{background:#0b1722;color:#e5edf5;font:16px system-ui;max-width:440px;margin:8vh auto;padding:24px}label{display:grid;gap:8px;margin:20px 0}input,button{font:inherit;padding:12px}a{color:#80c7ff}</style><h1>'+equipment+'</h1><p>'+description+'</p><p role="status">'+html.escape(error or ('账号已保存。' if saved else '密码至少10位，保存会使该账号的旧会话失效。'))+'</p><form method="post"><label>账号<input name="username" value="'+html.escape(username,quote=True)+'" maxlength="64" required></label><label>密码<input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label><button>保存账号</button></form><p><a href="/">返回港区</a></p></html>',status_code=400 if error else 200)
         if path=='/auth/logout':
             if r.method!='POST':return JSONResponse({},405)
-            session['driver_released']=True;self.accounts.sessions.pop(r.cookies.get(COOKIE),None)
+            session.update(driver_released=True,expires=0);self.accounts.sessions.pop(r.cookies.get(COOKIE),None)
             response=RedirectResponse('/login',303);response.delete_cookie(COOKIE);return response
         if path=='/auth/release':
             if r.method!='POST':return JSONResponse({},405)

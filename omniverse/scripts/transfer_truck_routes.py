@@ -50,8 +50,10 @@ def return_routes(start,park,from_quay=False):
             upper=min(c for c in CROSS if west_y(c)>exit_y+6)
             # Use the open junction to turn around. The long cab cannot make
             # a tight east-to-south cut without sweeping the collector median.
+            # At the waterfront crossover, keep the cab sweep inside the rail.
+            crossover_y=CROSS[0]-1.0
             route += [[COLLECTOR_NORTH_X,west_y(upper),z],[COLLECTOR_SOUTH_X,west_y(upper),z],
-                      [COLLECTOR_SOUTH_X,bottom,z],[COLLECTOR_NORTH_X,bottom,z]]
+                      [COLLECTOR_SOUTH_X,crossover_y,z],[COLLECTOR_NORTH_X,crossover_y,z]]
     backing=list(reversed(parking_exit(park)))
     route.append(backing[0])
     return route,backing

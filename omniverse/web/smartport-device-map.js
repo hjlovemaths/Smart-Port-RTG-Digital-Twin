@@ -1,5 +1,3 @@
-const API = '/api/smartport-agent';
-
 function coordinates(position) {
   return [
     {label:'经度', value:`${position.longitude.toFixed(6)}°`},
@@ -7,7 +5,7 @@ function coordinates(position) {
   ];
 }
 
-export function createSceneInspector() {
+export function createSceneInspector(api) {
   const panel = document.createElement('aside');
   panel.id = 'web-container-info';
   panel.hidden = true;
@@ -54,7 +52,7 @@ export function createSceneInspector() {
     pendingView = null;
     switching = true;
     try {
-      const response = await fetch(`${API}/device-view`,{
+      const response = await fetch(`${api}/device-view`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id}),
       });
       if(!response.ok) {
@@ -205,7 +203,7 @@ export function createSceneInspector() {
     clearTimeout(timer);
     polling = true;
     try {
-      const response = await fetch(`${API}/device-map`,{cache:'no-store'});
+      const response = await fetch(`${api}/device-map`,{cache:'no-store'});
       if(!response.ok) throw new Error('设备位置暂不可用');
       render(await response.json());
       mapError = '';
@@ -222,7 +220,7 @@ export function createSceneInspector() {
     dismiss();
     const request = picking = new AbortController();
     try {
-      const response = await fetch(`${API}/inspect-at`,{
+      const response = await fetch(`${api}/inspect-at`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(point),signal:request.signal,
       });
       if(!response.ok) throw new Error(`场景点选失败（${response.status}）`);

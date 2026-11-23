@@ -120,6 +120,8 @@ def _iecs(owner, args, *, web=False):
     action = args["action"]
     runtime = iecs_runtime(owner.stage)
     if action == "status": return current_tasks(owner.stage)["iecs"]
+    if runtime and runtime.external and action not in {"focus","check_scene","inventory_preview"}:
+        raise ValueError("真实 IECS 已接管数字设备，请使用 IECS 联调工作台")
     if action == "start":
         if runtime is None:
             require_idle(owner)
@@ -132,6 +134,9 @@ def _iecs(owner, args, *, web=False):
         runtime.close()
         return {"running": False}
     elif action == "focus":
+        selection = {key: args[key] for key in ("order_id", "order_index") if key in args}
+        if selection:
+            return owner.set_view({"target": "iecs_order", **selection})
         owner.follow = None
         if web:owner.set_view({"target":"task","view":"angled","follow":True,"distance_m":24})
         else:runtime.focus()
@@ -148,6 +153,47 @@ def _iecs(owner, args, *, web=False):
         if action == "check_scene": return runtime.scene_report
         if action == "inventory_preview": return runtime.inventory_preview()
     return current_tasks(owner.stage)["iecs"]
+
+
+def external_iecs(owner, payload):
+    action = payload.get("action")
+    runtime = iecs_runtime(owner.stage)
+    if action == "start":
+        if runtime and runtime.external:
+            return runtime
+        if runtime and any(order["status"]!="completed" for order in runtime.engine.orders.values()):
+            raise ValueError("请先完成或复位当前模拟任务")
+
+        def guard():
+            require_idle(owner,allow_iecs=True)
+            owner._guard_manual("sts","STS_01",allow_iecs=True)
+
+        guard()
+        # Use the deployment environment for peer and addresses. Operators can
+        # start the link without changing where machine callbacks are sent.
+        import runpy
+        config = runpy.run_path(str(Path(__file__).resolve().parents[5]/"services"/"iecs_external_http.py"))["ExternalConfig"].environment()
+        return load("iecs_launch").launch(restart=runtime is not None,stage=owner.stage,port=None,
+                                         with_ui=False,external_config=config,external_guard=guard)
+    if not runtime or not runtime.external:
+        raise ValueError("请先开启真实 IECS 接入")
+    if action == "stop":
+        unfinished = any(order["status"]!="completed" for order in runtime.engine.orders.values())
+        if unfinished and (not runtime.external.fault or payload.get("abort") is not True):
+            raise ValueError("当前作业仍在执行。完成后再关闭，失败时可确认恢复数字场景")
+        runtime.close()
+        return None
+    if action == "speed":
+        speed = payload.get("speed")
+        if type(speed) not in (int,float) or speed not in (1,5,10,20):
+            raise ValueError("数字场景速度可选 1×、5×、10× 或 20×")
+        runtime.process({"action":"speed","value":speed})
+        runtime.publish()
+    elif action == "focus":
+        _iecs(owner, {"action":"focus"}, web=True)
+    else:
+        raise ValueError("无效的真实 IECS 操作")
+    return runtime
 
 
 def _sea(owner, args):

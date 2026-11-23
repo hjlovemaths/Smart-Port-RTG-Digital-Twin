@@ -11,6 +11,7 @@ class ShipPickup(UnloadTask):
         self.c=None;self.owns_controller=not defer_sts;self.size_ft=size_ft
         self.closed=False;self.phase='Ready';self.held_sea=None
         self.attached=False;self.finished=False;self.configured=False
+        self.allow_place=None
         box=bounds(stage,box_path)
         self.source=box.GetMidpoint();self.height=box.GetSize()[2]
         # heading is absolute (long side along Y at zero), not an extra
@@ -76,7 +77,14 @@ class ShipPickup(UnloadTask):
             elif self.phase=='Lower to box':
                 self.attached=True;self.move_box();self.go('Locked - lift box',self.pick_high)
             elif self.phase=='Locked - lift box':self.go('Transfer to ship' if getattr(self,'loading',False) else 'Transfer to truck',self.place_high)
-            elif self.phase in ('Transfer to truck','Transfer to ship'):self.go('Lower onto ship' if getattr(self,'loading',False) else 'Lower onto trailer',self.place_pose)
+            elif self.phase in ('Transfer to truck','Transfer to ship'):
+                if self.allow_place is not None and not self.allow_place():
+                    self.phase='Waiting for IECS landing permission'
+                    return False
+                self.go('Lower onto ship' if getattr(self,'loading',False) else 'Lower onto trailer',self.place_pose)
+            elif self.phase=='Waiting for IECS landing permission':
+                if not self.allow_place():return False
+                self.go('Lower onto trailer',self.place_pose)
             elif self.phase in ('Lower onto trailer','Lower onto ship'):
                 self.move_box();self.attached=False;self.go('Unlocked - raise spreader',self.place_high)
             elif self.phase=='Unlocked - raise spreader':self.finished=True;return True

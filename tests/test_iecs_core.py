@@ -41,6 +41,28 @@ def test_loaded_quay_exit_preserves_southbound_heading():
     assert any(abs(p[1]-(-5.375-1.85))<.001 for p in path)
 
 
+def test_quay_approach_waits_then_uses_an_unblocked_crossing():
+    engine=m.IECS()
+    order=engine.orders[engine.submit('unload',vehicle_id='ITT-001')]
+    order['source']['stop']=[-238.15,22.85,.085]
+    engine.quay_clearance=lambda path,cargo:'STS'
+    engine.tick(.1)
+    truck=engine.vehicles['ITT-001']
+    assert truck['position']==truck['home'] and not engine.road_claims
+    assert '岸桥通道受阻' in order['wait_reason']
+
+    visited=[]
+    def clearance(path,cargo):
+        crossing=next(y for x,y,_ in path if x<-220)
+        visited.append(round(crossing,2))
+        return 'STS' if crossing<200 else None
+    engine.quay_clearance=clearance
+    engine.tick(.1)
+    assert visited==[127.90,258.15]
+    assert engine.road_owner==order['id'] and truck['position']!=truck['home']
+    engine.close()
+
+
 def test_pause_reset_and_idempotent_request():
     e=m.IECS();oid=e.submit('unload','same');assert e.submit('unload','same')==oid
     e.control('pause');before=e.snapshot();e.tick(.25);assert e.snapshot()==before
@@ -86,21 +108,41 @@ def test_different_lane_cannot_take_forward_shortcut():
     assert len(m.route(source['stop'],target['stop'],source,target))>2
 
 
-def test_gate_out_continues_outward_without_returning_to_collector():
-    e=m.IECS();oid=e.submit('gate_out');e.control('speed',20)
-    exit_positions=[]
+@pytest.mark.parametrize('flow',['gate_in','gate_out'])
+def test_external_truck_follows_gate_arrows(flow):
+    e=m.IECS();oid=e.submit(flow);o=e.orders[oid]
+    directions=set()
     for _ in range(5000):
-        o=e.orders[oid]
-        if o['step']==4:
-            v=e.vehicles[o['vehicle']]
-            exit_positions.append(v['position'][:])
-            assert v['load']==o['container']
+        truck=e.vehicles.get(o['vehicle'])
+        before=truck['position'][:] if truck else None
         e.tick(.25)
-        if o['status']=='completed':
-            exit_positions.append(e.vehicles[o['vehicle']]['position'][:]);break
-    assert o['status']=='completed' and len(exit_positions)>=2
-    assert all(b[0]>=a[0] for a,b in zip(exit_positions,exit_positions[1:]))
-    assert all(abs(p[1]-o['target']['stop'][1])<1e-6 for p in exit_positions)
-    assert exit_positions[-1][0]==o['target']['stop'][0]+12.
-    assert e.vehicles[o['vehicle']]['status']=='departed'
+        if before is not None and min(before[0],truck['position'][0])>=130:
+            dx=truck['position'][0]-before[0]
+            if dx>0:
+                assert before[1]==pytest.approx(384.7)
+                assert truck['position'][1]==pytest.approx(384.7)
+                if o['status']!='completed':
+                    assert truck['load']==(o['container'] if flow=='gate_out' else None)
+                directions.add('exit')
+            elif dx<0:
+                assert before[1]==pytest.approx(388.4)
+                assert truck['position'][1]==pytest.approx(388.4)
+                directions.add('entry')
+        if o['status']=='completed':break
+    assert o['status']=='completed' and directions=={'entry','exit'}
+    assert truck['position']==pytest.approx([144.,384.7,.085])
+    assert truck['status']=='departed'
+    if flow=='gate_out':assert o['target']['stop']==pytest.approx([139.,384.7,.085])
+    e.close()
+
+
+def test_gate_in_load_follows_cab_before_first_movement():
+    e=m.IECS();order=e.orders[e.submit('gate_in')]
+    cargo=e.containers[order['container']]
+    cargo['load_forward_m']=1.275
+    e.assign(order)
+    truck=e.vehicles[order['vehicle']]
+    assert e.admit_gate(order,truck)
+    assert cargo['heading']==truck['heading']==-90.
+    assert cargo['position'][:2]==pytest.approx([truck['position'][0]-1.275,truck['position'][1]])
     e.close()

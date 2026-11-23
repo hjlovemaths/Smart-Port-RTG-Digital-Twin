@@ -1,5 +1,6 @@
 // Browser-native IME controls. Scene operations still use the existing Agent.
-if (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator') && !document.documentElement.classList.contains('smartport-driver')) {
+const iecsAgent = document.documentElement.classList.contains('smartport-iecs');
+if (iecsAgent || (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator') && !document.documentElement.classList.contains('smartport-driver'))) {
   const host = document.createElement('section');
   host.id = 'web-agent'; host.hidden = true;
   host.innerHTML = `<header><span>SMART PORT / AGENT</span><button type="button" id="web-agent-open">Settings</button></header>
@@ -14,6 +15,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
     <div role="status"></div><footer><button type="button" id="web-agent-close">Close</button><button>Save</button></footer></form>`;
   const responseCard=document.createElement('section'); responseCard.id='web-agent-response';
   responseCard.innerHTML='<header><span>AGENT RESPONSE</span><button type="button" id="web-agent-clear">Clear</button></header><div class="conversation"></div><div class="approval" hidden><p></p><button type="button" data-approved="true">确认执行</button><button type="button" data-approved="false">取消</button></div>';
+  if (iecsAgent) modal.querySelector('p').textContent = '请填写公网 HTTPS 接口。配置保留在本次登录中。同一接口域名和端口下，Key 留空可保留已有值。';
   document.body.append(host, modal, responseCard);
   responseCard.querySelector('#web-agent-clear').onclick=()=>{speech.stop();api('clear',{}).then(poll).catch(e=>status.textContent=e.message);};
   responseCard.querySelectorAll('[data-approved]').forEach(button=>button.onclick=()=>{
@@ -57,26 +59,39 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
     if(e.key === 'Escape' && !modal.hidden){modal.hidden = true; input.focus();}
   }, true);
   async function api(action, payload) {
-    const route = action === 'state' ? 'state?native_input=true' : action;
-    const response = await fetch('/api/smartport-agent/' + route, payload === undefined ? {cache:'no-store'} : {
+    const route = iecsAgent ? '/api/iecs/agent/' + action :
+      '/api/smartport-agent/' + (action === 'state' ? 'state?native_input=true' : action);
+    const response = await fetch(route, payload === undefined ? {cache:'no-store'} : {
       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
     });
     const result = await response.json();
     if(!response.ok) throw new Error(result.detail || 'Agent 暂不可用');
     return result;
   }
+  const scene = iecsAgent ? document.querySelector('.container') : null;
   function layout() {
-    const video = document.getElementById('remote-video'); if(!video) return;
-    const rect = video.getBoundingClientRect(), scale = rect.width / (video.videoWidth || 2560);
+    const video = document.getElementById('remote-video');
+    const surface = scene || video;
+    if (!surface) return;
+    const rect = surface.getBoundingClientRect(), scale = rect.width / (video?.videoWidth || 2560);
+    const bottom = innerHeight - rect.bottom + 14 * scale;
+    const rightGap = Math.max(10, 14 * scale);
+    const width = Math.min(rect.width - 20, Math.max(300, Math.min(560, (video?.videoWidth || 2560) * .3) * scale));
     host.style.left = `${rect.x + rect.width / 2}px`;
-    host.style.bottom = `${innerHeight - rect.bottom + 14 * scale}px`;
-    responseCard.style.right=`${Math.max(10,innerWidth-rect.right+14*scale)}px`;
-    responseCard.style.bottom=`${innerHeight-rect.bottom+14*scale}px`;
+    host.style.bottom = `${bottom}px`;
+    host.style.width = `${width}px`;
+    responseCard.style.right=`${Math.max(10, innerWidth - rect.right + 14 * scale)}px`;
+    responseCard.style.bottom=`${bottom}px`;
     responseCard.style.maxHeight=`${Math.max(120,rect.height-140)}px`;
-    host.style.width = `${Math.min(rect.width - 20, Math.max(300, Math.min(560, (video.videoWidth || 2560) * .3) * scale))}px`;
+    if (iecsAgent) {
+      const aboveInput = responseCard.offsetWidth + 8 > (rect.width - width) / 2 - rightGap;
+      const offset = aboveInput ? host.offsetHeight + 8 : 0;
+      responseCard.style.setProperty('--iecs-agent-response-bottom', `${bottom + offset}px`);
+      responseCard.style.maxHeight = `${Math.max(64, rect.height - offset - 66)}px`;
+    }
   }
   function scheduleDraft(){clearTimeout(draftTimer); draftTimer=setTimeout(() => {
-    if(!composing && !posting && state && !state.busy) api('draft',{text:input.value}).catch(e => status.textContent=e.message);
+    if(!iecsAgent && !composing && !posting && state && !state.busy) api('draft',{text:input.value}).catch(e => status.textContent=e.message);
   }, 250);}
   async function poll() {
     if(pollBusy) return; pollBusy = true;
@@ -86,12 +101,17 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
       host.hidden = false; renderResponse(); speech.update(state); layout();
       status.textContent = localError || (state.status === 'URL / Model saved (API key not saved)'
         ? '配置已保存，Key 仅保留在当前会话' : state.status);
-      sendButton.disabled = state.busy || posting;
-    } catch(e){if(initialized) status.textContent = e.message;}
+      sendButton.disabled = state.busy || posting || state.configured === false;
+    } catch(e){
+      if(initialized || iecsAgent) {
+        host.hidden = false; status.textContent = e.message;
+        sendButton.disabled = true;
+      }
+    }
     finally{pollBusy=false;}
   }
   async function submit() {
-    if(composing || posting || state?.busy || !input.value.trim()) return;
+    if(composing || posting || state?.busy || state?.configured === false || !input.value.trim()) return;
     clearTimeout(draftTimer); posting=true; sendButton.disabled=true;
     try {const result=await api('send',{text:input.value}); if(result.accepted){input.value=''; localError='';}}
     catch(e){localError=e.message; status.textContent=e.message;}
@@ -100,6 +120,10 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
   host.querySelector('form').addEventListener('submit', e => {e.preventDefault(); submit();});
   host.querySelector('#web-agent-open').onclick = async () => {
     await poll(); if(!state) return;
+    if (iecsAgent && !state.endpoint) {
+      status.textContent = localError = '港区服务重载后可独立配置 Agent';
+      return;
+    }
     settings.elements.endpoint.value = state.endpoint; settings.elements.model.value = state.model;
     settings.elements.api_key.value = '';
     settings.elements.api_key.placeholder = state.key_configured ? '已配置；留空保留' : '请输入 API Key';
@@ -113,6 +137,7 @@ if (document.documentElement.classList.contains('smartport-video-only') && !docu
     } catch(error){message.textContent=error.message;}
   };
   window.addEventListener('resize',layout); document.getElementById('remote-video')?.addEventListener('resize',layout);
+  if (scene) new ResizeObserver(layout).observe(scene);
   const speech={update(){},stop(){}}; // Voice UI temporarily disabled; text chat remains active.
   try{localStorage.removeItem("smartport-auto-speech");}catch{}
   setInterval(poll,700); poll();

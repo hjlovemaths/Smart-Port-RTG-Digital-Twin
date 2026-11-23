@@ -25,19 +25,19 @@ from omni.kit.menu.utils import MenuItemDescription
 
 from . import agent_api, runtime_catalog
 from .viewport_overlay import ViewportChatOverlay
-from .web_bridge import AgentWebBridge
+from .web_bridge import AgentWebBridge, IECS_AGENT_PROMPT, IECS_AGENT_TOOLS
 
 
 _EXTENSION_ID = "smartport.agent_panel"
 _SETTING_ROOT = "/exts/smartport.agent_panel"
 _WINDOW_NAME = "Smart Port Agent"
-_SYSTEM_PROMPT = """You are the scene assistant for Smart Port RTG Digital Twin.
-默认使用简体中文回答，包括用户用英文提问时；只有用户明确要求其他语言时才切换。回答简洁易懂。保留接口名称、参数名、设备编号、贝位编号和单位的原始写法。工具调用结果中的技术标识保持原样，说明和操作结果使用中文。
-默认只直接回答用户所问的结果，通常一句话，必要时最多两句；用户明确要求详情或同时询问多项时再展开。不主动附带依据、来源、时间戳、坐标、任务编号、工作模式、库存模式等未被问到的字段。不在结尾追问或推荐其他查询。使用纯文本，不使用 Markdown 加粗标记、标题或项目列表。只有结果未知、数据过期、仅为模拟/上次记录、或操作失败时，才补充一句必要说明，不能为了简短把不确定数据说成实时事实。
+_SYSTEM_PROMPT = f"""You are the scene assistant for Smart Port RTG Digital Twin.
+{agent_api.REPLY_STYLE}
 例如用户问“rtg所在贝位是哪里”，只回答“RTG_220 当前所在贝位为 2C/090。”；用户问工作模式时只回答“当前为维修模式。”。设备编号和结果必须来自本次工具查询，不能照抄示例。
 Use the provided tools to query the current USD scene, set day/night/rain/fog, set the time from 0 to 24 hours, adjust weather, and move the primary RTG in the current USD scene.
 You also have viewport/camera controls, smooth RTG motion, independent STS crane axes with boom interlocks, current task queries, STS and RTG simulation tasks, IECS scheduling, live twin visualization, sea motion, camera/info panels, gamepad mode, slot picking, physics, LiDAR captures, and local streaming. Use get_agent_capabilities to discover the complete current catalog instead of claiming a capability is missing. For view requests use set_viewport_view (target, view, optional bay_id/crane_id/follow) or switch_viewport_camera. To look straight down at the spreader and container tops from below the trolley platform, use target=trolley, view=under_trolley. This wide-angle preset follows the trolley by default and must not be replaced with the external top view. To widen it, increase field_of_view_deg (default 110, maximum 140); read list_viewpoints for the active preset when needed. For current tasks call get_current_tasks. For shore-crane motion use set_sts_axis_positions and query get_equipment_status for its current limits. Ask which crane if unspecified. Treat motion/job status 'running' or 'moving' as started, never completed; poll get_operation_status or get_equipment_status for actual arrival. Respect active task ownership, soft limits and STS boom interlocks. Do not stop/reset a competing task unless the user has requested that. RTX sensing/physics depend on the installed runtime; report a missing dependency clearly.
 For a numbered yard truck viewpoint (e.g. 切换到07号集卡视角), use set_viewport_view with target=truck and truck_number=7. The default view is chase, an external camera following the truck. Use cabin when the user explicitly requests the forward cab view, or angled when the user requests an angled exterior view. Ask for the number if the user has not identified a truck. Viewing does not require opening a driver session.
+For a specific IECS order (e.g. 聚焦第4条任务), use set_viewport_view target=iecs_order with order_index=4 or the exact order_id. This tracks the selected order. Use the returned order_id, focus_label and vehicle_visible in your answer. Do not substitute the current task or source bay for a requested IECS order.
 STS hoist values increase UPWARD. Read the selected crane's positions.hoist and limits.hoist from get_equipment_status. The lower limit (e.g. 0.30) is the LOWEST position, so it can still rise. Translate 抬升/上升/升高 to hoist_direction=raise, and 下降/下放/降低 to hoist_direction=lower. “抬升到10米” means hoist_m=10, direction=raise. “下降到5米” means hoist_m=5, direction=lower. “下降5米” means hoist_distance_m=5, direction=lower. Keep the user's direction: if the absolute target is on the other side of the actual coordinate, explain the mismatch instead of silently reversing the direction. If only “抬升” or “下降” is given, report the current coordinate and ask for the target or travel distance if that direction has available travel. In follow-ups use the crane from the ongoing request.
 For a complete ship deck -> STS -> truck from parking -> yard RTG stacking DEMONSTRATION, use preview_ship_to_yard_transfer then start_ship_to_yard_transfer with the returned plan_id after approval. Read control_ship_to_yard_transfer status once after starting, then report started/current phase if still running; the task continues asynchronously. Do not busy-poll within the tool-round limit or claim completion before status=completed. Interpret port-side first row as outermost even row when facing the bow; use source_side=port,row_from_side=1, and TOP tier selection is automatic. Describe it as a structural-slot visual demo, not real cargo dispatch. Do not substitute the old fixed-box unload demo or stop at moving the STS alone. Compact source models should not require normalization.
 For twin-20 ship unloading, use preview_ship_to_yard_transfer(double20=true). The user must specify BOTH destination bays and rows; ask for missing destinations, never choose them. source_bay denotes the first odd bay; the second is the next odd bay, with the same row and top elevation. STS lifts both together onto one truck; RTG uses its 20ft spreader to pick and place them ONE AT A TIME into the two user-specified supported stacks. This is reversible visual motion, not inventory/PLC dispatch. Cinema follows each individual RTG pickup and landing. Do not invoke the obsolete fixed STS_03 round-trip demo.
@@ -321,13 +321,30 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         model: str,
         api_key: str,
         messages: list[dict[str, Any]],
+        *,
+        emit=None,
+        tool_names: frozenset[str] | None = None,
+        active=None,
+        open_endpoint=urllib.request.urlopen,
     ) -> None:
+        publish = emit or self._ui_events.put
+        if tool_names == IECS_AGENT_TOOLS:
+            # Browser sessions retain their history when Kit reloads this extension.
+            messages[0] = {"role": "system", "content": IECS_AGENT_PROMPT}
+
+        def alive():
+            return not self._shutting_down and (active is None or active())
+
         try:
             for _round in range(_MAX_TOOL_ROUNDS):
-                if self._shutting_down:
+                if not alive():
                     return
-                self._ui_events.put({"kind": "status", "text": "Waiting for Agent API..."})
-                response = self._request_completion(endpoint, model, api_key, messages)
+                publish({"kind": "status", "text": "Waiting for Agent API..."})
+                response = self._request_completion(
+                    endpoint, model, api_key, messages, tool_names=tool_names, open_endpoint=open_endpoint
+                )
+                if not alive():
+                    return
                 choices = response.get("choices")
                 if not isinstance(choices, list) or not choices:
                     raise RuntimeError("API response has no choices; check that the endpoint supports Chat Completions")
@@ -340,7 +357,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                     answer = self._message_text(assistant_message.get("content"))
                     if not answer:
                         answer = str(assistant_message.get("refusal") or "The agent returned no text.")
-                    self._ui_events.put(
+                    publish(
                         {"kind": "complete", "answer": answer, "history": messages}
                     )
                     return
@@ -348,7 +365,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                 if not isinstance(tool_calls, list):
                     raise RuntimeError("API returned invalid tool_calls")
                 for raw_call in tool_calls:
-                    if self._shutting_down:
+                    if not alive():
                         return
                     if not isinstance(raw_call, dict):
                         continue
@@ -357,7 +374,9 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                         raise RuntimeError("API tool call is missing an id")
                     try:
                         name, arguments = agent_api.parse_tool_call(raw_call)
-                        self._ui_events.put(
+                        if tool_names is not None and name not in tool_names:
+                            raise ValueError("当前账号未开放此工具")
+                        publish(
                             {"kind": "tool_start", "name": name, "arguments": arguments}
                         )
                         if runtime_catalog.needs_approval(name, arguments):
@@ -369,9 +388,9 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                                     "message": "The operator cancelled this scene movement.",
                                 }
                             else:
-                                result = self._dispatch_kit_tool(name, arguments)
+                                result = self._dispatch_kit_tool(name, arguments, active=active)
                         else:
-                            result = self._dispatch_kit_tool(name, arguments)
+                            result = self._dispatch_kit_tool(name, arguments, active=active)
                     except Exception as exc:
                         result = {"ok": False, "error": str(exc)}
                     raw_function = raw_call.get("function")
@@ -380,7 +399,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                         if isinstance(raw_function, dict)
                         else "tool"
                     )
-                    self._ui_events.put(
+                    publish(
                         {"kind": "tool_result", "name": display_name, "result": result}
                     )
                     messages.append(
@@ -392,7 +411,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
                     )
             raise RuntimeError("Agent tool-call round limit reached; this request has been stopped")
         except Exception as exc:
-            self._ui_events.put({"kind": "failed", "error": str(exc)})
+            publish({"kind": "failed", "error": str(exc)})
 
     @staticmethod
     def _message_text(content: Any) -> str:
@@ -413,8 +432,11 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         model: str,
         api_key: str,
         messages: list[dict[str, Any]],
+        *,
+        tool_names: frozenset[str] | None = None,
+        open_endpoint=urllib.request.urlopen,
     ) -> dict[str, Any]:
-        payload = agent_api.build_request_payload(model, messages)
+        payload = agent_api.build_request_payload(model, messages, tool_names=tool_names)
         request = urllib.request.Request(
             agent_api.validate_endpoint(endpoint),
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -424,7 +446,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         if api_key:
             request.add_header("Authorization", f"Bearer {api_key}")
         try:
-            with urllib.request.urlopen(request, timeout=_API_TIMEOUT_SECONDS) as response:
+            with open_endpoint(request, timeout=_API_TIMEOUT_SECONDS) as response:
                 body = response.read(4 * 1024 * 1024 + 1)
             if len(body) > 4 * 1024 * 1024:
                 raise RuntimeError("Agent API response exceeds the 4 MiB limit")
@@ -462,7 +484,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
         self._ui_events.put({"kind": "approval_finished", "approval": approval})
         return bool(approval["approved"])
 
-    def _dispatch_kit_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    def _dispatch_kit_tool(self, name: str, arguments: dict[str, Any], *, active=None) -> dict[str, Any]:
         command = {
             "name": name,
             "arguments": arguments,
@@ -470,6 +492,7 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             "cancelled": False,
             "result": None,
             "error": None,
+            "active": active,
         }
         self._kit_commands.put(command)
         if not command["completed"].wait(_TOOL_TIMEOUT_SECONDS):
@@ -509,6 +532,8 @@ class SmartPortAgentPanelExtension(omni.ext.IExt):
             try:
                 if command["cancelled"] or self._shutting_down:
                     continue
+                if command["active"] is not None and not command["active"]():
+                    raise RuntimeError("会话已失效")
                 command["result"] = self._execute_tool(
                     command["name"], command["arguments"]
                 )

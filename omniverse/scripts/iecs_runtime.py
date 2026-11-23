@@ -6,6 +6,7 @@ lift/transfer, not PLC feedback or original crane joint actuation.
 """
 import builtins
 import json
+import math
 import queue
 import sys
 import threading
@@ -24,18 +25,25 @@ for _name in ('iecs_collision','iecs_inventory'):
             sys.modules.pop(_name,None)
             raise
 if str(PROJECT/'services') not in sys.path:sys.path.insert(0,str(PROJECT/'services'))
-# The diagnostic module is also new; register by absolute source path so a
-# running Kit session need not restart its extension import machinery.
-if 'iecs_scene_checks' not in sys.modules:
-    _spec=importlib.util.spec_from_file_location('iecs_scene_checks',Path(__file__).with_name('iecs_scene_checks.py'))
-    _module=importlib.util.module_from_spec(_spec)
-    sys.modules[_spec.name]=_module
-    try:_spec.loader.exec_module(_module)
-    except Exception:
-        sys.modules.pop(_spec.name,None)
-        raise
+# Kit may keep an older launcher and directory cache while the stage is open.
+# Resolve sibling helpers by absolute path even when that launcher missed them.
+for _name in ('iecs_scene_checks','iecs_quay_clearance'):
+    if _name not in sys.modules:
+        _spec=importlib.util.spec_from_file_location(_name,Path(__file__).with_name(_name+'.py'))
+        _module=importlib.util.module_from_spec(_spec)
+        sys.modules[_spec.name]=_module
+        try:_spec.loader.exec_module(_module)
+        except Exception:
+            sys.modules.pop(_spec.name,None)
+            raise
 from iecs_core import IECS, FLOWS
-from iecs_geometry import TRAILER_DECK_Z,QUAY_PICKUP_LANE_X,YARD_PAD_Z,CONTAINER_40_SIZE,GATE_STOP
+from iecs_geometry import TRAILER_DECK_Z,QUAY_PICKUP_LANE_X,YARD_PAD_Z,CONTAINER_40_SIZE,truck_load_point
+from iecs_geometry import FRONT_20FT_LOAD_FORWARD,YARD_TRUCK_RAIL_Z
+import build_parked_yard_trucks as truck_markings
+
+# A new demo can start while Kit still holds the previous demo's mesh helpers.
+truck_markings=importlib.reload(truck_markings)
+
 FLOW_LABELS = {'unload':'Ship to Yard', 'load':'Yard to Ship',
                'gate_in':'Gate In / Drop Box', 'gate_out':'Gate Out / Pick Box',
                'transfer':'Yard Transfer'}
@@ -77,10 +85,12 @@ def ship_demo_slots(stage):
 
 
 class Runtime:
-    def __init__(self,stage,port=48730,with_ui=True,subscribe=True,db_path=None):
+    def __init__(self,stage,port=48730,with_ui=True,subscribe=True,db_path=None,
+                 external_config=None,external_guard=None):
         from pxr import Gf,Sdf,Usd,UsdGeom
         self.Gf,self.Usd,self.UsdGeom=Gf,Usd,UsdGeom
         self.stage=stage;self.closed=False;self.commands=queue.Queue();self.last_error=''
+        self.external=None
         from iecs_scene_checks import inspect_scene
         self.scene_report=inspect_scene(stage)
         self.pickups={};self.ship_bindings={}
@@ -96,13 +106,20 @@ class Runtime:
                  if not stage.GetPrimAtPath(f'/World/ParkedYardTrucks/Group{g}_Bay{b:02d}')]
         if missing:raise ValueError('请先加载 parked_yard_trucks.usda：'+missing[0])
         (PROJECT/'outputs/iecs').mkdir(parents=True,exist_ok=True)
-        self.engine=IECS(db_path or PROJECT/'outputs/iecs/iecs.sqlite3')
+        database='external.sqlite3' if external_config else 'iecs.sqlite3'
+        self.engine=IECS(db_path or PROJECT/'outputs/iecs'/database)
         self.engine.transfer_adapter=self.real_ship_transfer
         from iecs_collision import swept_conflict
+        from iecs_quay_clearance import quay_route_obstacle
         self.engine.motion_guard=lambda v,end,heading:swept_conflict(v,end,heading,self.engine.vehicles.values())
+        self.engine.quay_clearance=lambda path,cargo:quay_route_obstacle(self.stage,path,cargo)
         self.stage.GetSessionLayer().subLayerPaths.insert(0,self.layer.identifier)
         self.server=None;self.subscription=None;self.window=None
         try:
+            if external_config:
+                from iecs_external import ExternalDispatch
+                self.external=ExternalDispatch(self,external_config,external_guard)
+                self.engine.step_gate=self.external.step_gate
             if port is not None:self.start_http(port)
             if with_ui:self.make_ui()
             if subscribe:
@@ -122,15 +139,21 @@ class Runtime:
             self.cached['scene_checks']=self.scene_report
             self.cached['size_ft']=self.size_ft
             self.cached['ship_demo_available']=self.ship_box is not None
+            if self.external:
+                self.cached.update(mode='external',external=self.external.snapshot())
 
     @property
     def mixed_pending(self):
         return [o['flow'] for o in self.engine.orders.values() if o.get('mixed') and o['status']=='queued']
 
-    def reserve_ship_slot(self,order,loading=False):
+    def reserve_ship_slot(self,order,loading=False,path=None):
         from large_vessel_layout import SHIP
         used={o.get('ship_slot') for o in self.engine.orders.values()}
-        path=next((p for p in self.ship_slots if p not in used),None)
+        if path is not None:
+            if path not in self.ship_slots or path in used:
+                raise ValueError('指定船箱位不可用')
+        else:
+            path=next((p for p in self.ship_slots if p not in used),None)
         if path is None and loading and self.size_ft==40:
             used_for_loading=any(o['flow']=='load' and o.get('ship_slot') for o in self.engine.orders.values())
             if not used_for_loading and any(o['flow']=='unload' and o['status']=='completed' for o in self.engine.orders.values()):
@@ -249,19 +272,71 @@ class Runtime:
             xf.SetXformOpOrder([t,r,s])
         else:xf.SetXformOpOrder([t,r])
 
+    def update_truck_marker(self,v,hidden,now):
+        path='/World/IECS/TruckMarkers/'+v['id'].replace('-','_')
+        marker=self.stage.GetPrimAtPath(path)
+        if not marker:
+            if hidden:return
+            marker=self.UsdGeom.Xform.Define(self.stage,path).GetPrim()
+            lamp_scale=.75
+            cab_y,roof_z=-2.29,1.06
+            mount=self.UsdGeom.Cube.Define(self.stage,path+'/Mount')
+            mount.CreateSizeAttr(2)
+            mount.AddTranslateOp().Set(self.Gf.Vec3d(0.,cab_y,roof_z+.016*lamp_scale))
+            mount.AddScaleOp().Set(self.Gf.Vec3f(.41,.105,.016)*lamp_scale)
+            mount.CreateDisplayColorAttr([self.Gf.Vec3f(.12,.14,.16)])
+
+            lens=self.UsdGeom.Mesh.Define(self.stage,path+'/Lens')
+            # Fit the tapered light behind the painted fleet number.
+            lens.CreatePointsAttr([
+                self.Gf.Vec3f(x*lamp_scale,cab_y+y*lamp_scale,roof_z+h*lamp_scale)
+                for w,d,h in ((.39,.10,.032),(.31,.076,.19))
+                for x,y in ((-w,-d),(w,-d),(w,d),(-w,d))
+            ])
+            lens.CreateFaceVertexCountsAttr([4]*5)
+            lens.CreateFaceVertexIndicesAttr([0,1,5,4, 1,2,6,5, 2,3,7,6, 3,0,4,7, 4,5,6,7])
+            lens.CreateSubdivisionSchemeAttr('none')
+            lens.CreateDisplayOpacityAttr([.80])
+        self.UsdGeom.Imageable(marker).CreateVisibilityAttr().Set('invisible' if hidden else 'inherited')
+        if not hidden:
+            base=v['position'][:];base[2]-=.14
+            self.pose(path,base,v['heading'],(1,1.22,1))
+            order=self.engine.orders.get(v['order'])
+            color=self.Gf.Vec3f(.47,.47,.47)
+            if order:
+                waiting=self.engine.paused or v['status']=='waiting_gate' or bool(order['wait_reason'])
+                color=self.Gf.Vec3f(1.,.59,.13) if waiting else self.Gf.Vec3f(.12,.92,.78)
+                period=1.8 if waiting else 1.2
+                pulse=(1-math.cos(math.tau*now/period))/2
+                color*=.65+.35*pulse
+            lens=self.UsdGeom.Mesh.Get(self.stage,path+'/Lens')
+            lens.CreateDisplayColorAttr().Set([color])
+
     def apply_scene(self):
         from pxr import Sdf
+        from iecs_collision import swept_conflict
+        vehicles=self.engine.vehicles.values()
+        waiting=next((v for v in vehicles if v['status']=='waiting_gate'),None)
+        # The simulator has one shared entry pose. Show the lead empty truck
+        # only once that pose is clear, so the two outside rigs never overlap.
+        waiting_visible=waiting and not waiting['load'] and not swept_conflict(
+            waiting,waiting['position'],waiting['heading'],vehicles)
+        now=time.monotonic()
         with self.Usd.EditContext(self.stage,self.layer):
-            for v in self.engine.vehicles.values():
+            for v in vehicles:
                 path=self.vehicle_path(v['id'])
                 if v['id'].startswith('EXT') and not self.stage.GetPrimAtPath(path):
                     prim=self.UsdGeom.Xform.Define(self.stage,path).GetPrim()
                     prim.GetReferences().AddReference(str(PROJECT/'omniverse/assets/resource/truck/RTG_Model_Lane_Truck.usdc'),'/root')
                     self.stage.OverridePrim(path+'/env_light').SetActive(False)
+                    truck_markings.add_roof_digits(self.stage,path+'/RoofNumber',v['number'])
                 base=v['position'][:];base[2]-=.14
                 self.pose(path,base,v['heading'],(1,1.22,1))
+                hidden=v['status']=='departed' or (
+                    v['status']=='waiting_gate' and not (waiting_visible and v is waiting))
                 self.UsdGeom.Imageable(self.stage.GetPrimAtPath(path)).CreateVisibilityAttr().Set(
-                    'invisible' if v['status'] in ('departed','waiting_gate') else 'inherited')
+                    'invisible' if hidden else 'inherited')
+                if not self.external:self.update_truck_marker(v,hidden,now)
                 if v['id'].startswith('ITT'):
                     label=f'/World/ParkedTruckNumbers/Truck{int(v["number"]):02d}'
                     if self.stage.GetPrimAtPath(label):self.pose(label,base,v['heading'],(1,1.22,1))
@@ -332,29 +407,39 @@ class Runtime:
         self.UsdGeom.Imageable(self.stage.GetPrimAtPath(path)).CreateVisibilityAttr().Set(
             'invisible' if c['location'].startswith('EXIT/') or c.get('waiting_gate') else 'inherited')
 
-    def prepare_ship_order(self,oid):
-        from iecs_ship_pickup import ShipPickup
+    def prepare_ship_order(self,oid,source_path=None):
+        from iecs_ship_pickup import ShipPickup,bounds
         o=self.engine.orders[oid];c=self.engine.containers[o['container']]
-        path=self.reserve_ship_slot(o)
+        path=self.reserve_ship_slot(o,path=source_path)
+        deck_top = TRAILER_DECK_Z
+        if source_path is not None:
+            from transfer_truck_geometry import truck_loading
+            vehicle = self.engine.vehicles[o['requested_vehicle']]
+            length = bounds(self.stage,path).GetSize()[1]
+            _, pivot, offset = truck_loading(self.stage,20,length,self.vehicle_path(vehicle['id']))
+            deck_top = pivot[2]
+            # Trucks face -X at their parking bays. The stop positions below
+            # are approached along -Y, with the front lock point at the lift line.
+            c['load_forward_m'] = vehicle['position'][0]-(pivot[0]+offset)
         pickup=ShipPickup(self.stage,self.layer,path,size_ft=self.size_ft,defer_sts=True)
-        stop=[QUAY_PICKUP_LANE_X,float(pickup.source[1]),.085]
+        stop=[QUAY_PICKUP_LANE_X,float(pickup.source[1])+c.get('load_forward_m',0.),.085]
         self.engine.reserved.pop(o['source']['id'],None)
         o['source'].update(id=path,point=list(pickup.source),stop=stop)
         self.engine.reserved[path]=oid
         o['source_prim']=path
-        c.update(position=list(pickup.source),location=path,carry_height=.685+pickup.height/2,size_ft=self.size_ft)
+        c.update(position=list(pickup.source),location=path,carry_height=deck_top+pickup.height/2,size_ft=self.size_ft)
         o['target']['point'][2]=.12+pickup.height/2
-        self.select_free_yard_slot(o,pickup.height)
+        if source_path is None:self.select_free_yard_slot(o,pickup.height)
         self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
         self.engine.event('ship_demo_box_bound',order=oid,source=path,size_ft=self.size_ft)
 
-    def select_free_yard_slot(self,o,height):
+    def occupied_yard_bounds(self,exclude=None):
         cache=self.UsdGeom.BBoxCache(self.Usd.TimeCode.Default(),['default','render'])
         occupied=[]
         # Source meshes are hidden during transport. Include authoritative
         # ledger positions so a previously delivered box is not overwritten.
         for c in self.engine.containers.values():
-            if c['id']==o['container'] or c['owner'] or c['location'].startswith('EXIT/'):continue
+            if c['id']==exclude or c['owner'] or c['location'].startswith('EXIT/'):continue
             size=c.get('visual_size',CONTAINER_40_SIZE)
             center=self.Gf.Vec3d(*c['position']);half=self.Gf.Vec3d(*(v/2 for v in size))
             occupied.append(self.Gf.Range3d(center-half,center+half))
@@ -363,15 +448,24 @@ class Runtime:
                 if self.UsdGeom.Imageable(p).ComputeVisibility()!='invisible':
                     box=cache.ComputeWorldBound(p).ComputeAlignedRange()
                     if not box.IsEmpty():occupied.append(box)
-        used_blocks=self.planned_yard_blocks(o)
+        return occupied
+
+    def free_yard_slots(self,height,order=None):
+        occupied=self.occupied_yard_bounds(order['container'] if order else None)
+        used_blocks=self.planned_yard_blocks(order)
         for block in sorted(('3C','2C','1C','4C'),key=lambda block:block in used_blocks):
             for bay in range(1 if self.size_ft==20 else 2,42 if block=='4C' else 92,2):
                 candidate=self.yard_slot(block,bay);candidate['point'][2]=.12+height/2
                 center=candidate['point'];half=(.7,1.32 if self.size_ft==20 else 2.64,height/2)
                 if any(all(b.GetMin()[i]<center[i]+half[i]-.01 and b.GetMax()[i]>center[i]-half[i]+.01 for i in range(3)) for b in occupied):continue
-                if candidate['id'] in self.engine.reserved and self.engine.reserved[candidate['id']]!=o['id']:continue
-                self.engine.reserved.pop(o['target']['id'],None);o['target']=candidate
-                self.engine.reserved[candidate['id']]=o['id'];return
+                if candidate['id'] in self.engine.reserved and (not order or self.engine.reserved[candidate['id']]!=order['id']):continue
+                yield candidate
+
+    def select_free_yard_slot(self,o,height):
+        candidate=next(self.free_yard_slots(height,o),None)
+        if candidate:
+            self.engine.reserved.pop(o['target']['id'],None);o['target']=candidate
+            self.engine.reserved[candidate['id']]=o['id'];return
         raise ValueError('No free ground-level RTG slot available')
 
     def planned_yard_blocks(self,exclude):
@@ -427,6 +521,8 @@ class Runtime:
     def prepare_ground_order(self,oid):
         from iecs_ship_pickup import ShipPickup
         o=self.engine.orders[oid];c=self.engine.containers[o['container']]
+        if o['flow'] in ('gate_in','transfer') and self.size_ft==20:
+            c['load_forward_m']=FRONT_20FT_LOAD_FORWARD
         if o['flow']=='gate_in':
             root='/World/IECS/IncomingCargo/'+o['id'].replace('-','_')
             path=root+'/Container'
@@ -441,7 +537,8 @@ class Runtime:
                 desired=(CONTAINER_40_SIZE[0],2.475,CONTAINER_40_SIZE[2]) if self.size_ft==20 else CONTAINER_40_SIZE
                 wrapper.AddScaleOp().Set(self.Gf.Vec3f(*(desired[i]/size[i] for i in range(3))))
             pickup=ShipPickup(self.stage,self.layer,path,defer_pick=True,size_ft=self.size_ft,defer_sts=True)
-            c.update(carry_height=.685+pickup.height/2,position=[151,388.4,.685+pickup.height/2],size_ft=self.size_ft,waiting_gate=True)
+            carry_height=YARD_TRUCK_RAIL_Z+pickup.height/2
+            c.update(carry_height=carry_height,position=[*o['source']['stop'][:2],carry_height],size_ft=self.size_ft,waiting_gate=True)
             pickup.set_box_world(self.Gf.Vec3d(*c['position']))
             o['source_prim']=path
             self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
@@ -450,17 +547,26 @@ class Runtime:
             self.prepare_load_order(oid,yard_only=True)
         if o['flow']=='gate_out':
             from iecs_core import gate
+            c['carry_height']=YARD_TRUCK_RAIL_Z+self.pickups[oid].height/2
             self.engine.reserved.pop(o['target']['id'],None)
-            o['target']=gate(self.engine.sequence)
+            o['target']=gate(self.engine.sequence,outbound=True)
             self.engine.reserved[o['target']['id']]=oid
-        else:self.select_free_yard_slot(o,self.pickups[oid].height)
+        else:
+            self.select_free_yard_slot(o,self.pickups[oid].height)
+            # The cab faces -Y at the RTG. Stop upstream by the load offset
+            # so the forward-mounted box still stops on the bay's lift line.
+            forward=c.get('load_forward_m',0.)
+            o['target']['stop'][1]+=forward
+            if o['flow']=='transfer' and forward:
+                o['source']['stop'][1]+=forward
+                c['carry_height']=YARD_TRUCK_RAIL_Z+self.pickups[oid].height/2
 
     def ground_transfer(self,o,v,pick,dt):
         pickup=self.pickups[o['id']];c=self.engine.containers[o['container']]
         key=(o['id'],pick)
         if key not in self.yard_drops:
             YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
-            target={'point':[v['position'][0],v['position'][1],c['carry_height']]} if pick else o['target']
+            target={'point':truck_load_point(v,c)} if pick else o['target']
             self.yard_drops[key]=YardDrop(self.stage,self.layer,pickup,v,c,target,motion=self.rtg_motion())
         rig=self.yard_drops[key];done=rig.step(dt)
         if rig.attached:
@@ -513,15 +619,16 @@ class Runtime:
                 c.update(position=o['target']['point'][:],heading=0.)
             o['step_name']=rig.phase
             return finished
+        c=self.engine.containers[o['container']]
         if not pickup.configured:
             pickup.bind_sts(self.sts_motion(),prepare_pick=True)
-            pickup.configure(v['position'],.685)
+            pickup.configure(truck_load_point(v,c),c['carry_height']-pickup.height/2)
         finished=pickup.step(dt)
-        c=self.engine.containers[o['container']]
-        if pickup.attached or finished:
-            p=pickup.contact()-self.Gf.Vec3d(0,0,pickup.height/2)
-            if finished:p=self.Gf.Vec3d(v['position'][0],v['position'][1],.685+pickup.height/2)
-            c.update(position=list(p),location='SPREADER/STS_01',owner='STS_01')
+        if pickup.attached:
+            c.update(position=list(pickup.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),
+                     location='SPREADER/STS_01',owner='STS_01')
+        elif finished or (self.external and pickup.phase=='Unlocked - raise spreader'):
+            c.update(position=truck_load_point(v,c),location=v['id'],owner=v['id'],heading=v['heading'])
         o['step_name']=pickup.phase
         return finished
 
@@ -540,22 +647,10 @@ class Runtime:
 
     def process(self,cmd):
         action=cmd.get('action')
+        if self.external and action not in ('pause','resume','speed','check_scene','inventory_preview'):
+            raise ValueError('当前由真实 IECS 派单，请通过联调工作台操作')
         if action=='submit':
-            if cmd.get('request_id') and any(o.get('request_id')==cmd['request_id'] for o in self.engine.orders.values()):return
-            oid=self.engine.submit(cmd.get('flow'),cmd.get('request_id'))
-            try:
-                if cmd.get('flow')=='unload':self.prepare_ship_order(oid)
-                elif cmd.get('flow')=='load':self.prepare_load_order(oid)
-                elif cmd.get('flow') in ('gate_in','gate_out','transfer'):self.prepare_ground_order(oid)
-                self.engine.checkpoint()
-            except Exception:
-                o=self.engine.orders.pop(oid)
-                self.engine.containers.pop(o['container'],None)
-                pickup=self.pickups.pop(oid,None)
-                if pickup:pickup.close()
-                self.ship_bindings.pop(o['container'],None)
-                for key in [k for k,v in self.engine.reserved.items() if v==oid]:self.engine.reserved.pop(key)
-                raise
+            self.submit_order(cmd.get('flow'),cmd.get('request_id'))
         elif action=='mixed':
             if self.engine.orders:raise ValueError('Reset Demo before Mixed Workload.')
             try:
@@ -587,6 +682,28 @@ class Runtime:
         else:self.engine.control(action,cmd.get('value'))
         self.last_error=''
 
+    def submit_order(self,flow,request_id=None,*,source_path=None,container_id=None,vehicle_id=None):
+        if request_id:
+            existing=next((o for o in self.engine.orders.values() if o.get('request_id')==request_id),None)
+            if existing:return existing['id']
+        oid=self.engine.submit(flow,request_id,container_id=container_id,vehicle_id=vehicle_id)
+        try:
+            if flow=='unload':self.prepare_ship_order(oid,source_path)
+            elif flow=='load':self.prepare_load_order(oid)
+            else:self.prepare_ground_order(oid)
+            self.engine.checkpoint()
+            return oid
+        except Exception:
+            o=self.engine.orders.pop(oid)
+            self.engine.containers.pop(o['container'],None)
+            pickup=self.pickups.pop(oid,None)
+            if pickup:pickup.close()
+            self.ship_bindings.pop(o['container'],None)
+            for key in [k for k,v in self.engine.reserved.items() if v==oid]:self.engine.reserved.pop(key)
+            if not self.engine.orders:self.release_ship()
+            self.engine.checkpoint()
+            raise
+
     def check_scene(self):
         from iecs_scene_checks import inspect_scene
         self.scene_report=inspect_scene(self.stage,list(self.engine.containers.values()),list(self.engine.vehicles.values()))
@@ -609,14 +726,21 @@ class Runtime:
                 try:self.process(cmd)
                 except Exception as e:
                     self.last_error=str(e);self.engine.event('command_rejected',error=str(e),command=cmd)
-            self.engine.tick(float(event.payload.get('dt',1/60)))
-            self.apply_scene();self.publish()
+            self.advance(float(event.payload.get('dt',1/60)))
             if self.window and time.monotonic()-self.last_ui>.25:
                 self.check_scene();self.publish()
                 self.last_ui=time.monotonic();self.render_ui()
         except Exception as e:
+            if self.external:self.external.fail(str(e))
             self.last_error=str(e);self.engine.paused=True;self.publish()
             if self.window:self.render_ui()
+
+    def advance(self,dt):
+        if self.external:self.external.poll()
+        self.engine.tick(dt)
+        self.apply_scene()
+        if self.external:self.external.observe()
+        self.publish()
 
     def render_ui(self):
         s=self.cached;orders=s['orders']
@@ -643,6 +767,7 @@ class Runtime:
     def close(self):
         if self.closed:return
         self.closed=True;self.subscription=None
+        if self.external:self.external.close()
         for pickup in self.pickups.values():pickup.close()
         if self.shared_sts:self.shared_sts.close();self.shared_sts=None
         self.release_ship()

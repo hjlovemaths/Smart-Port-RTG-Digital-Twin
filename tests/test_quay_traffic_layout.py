@@ -5,6 +5,8 @@ from pxr import Usd,UsdGeom
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'omniverse/scripts'))
 from build_ground_traffic_network import QUAY_ROAD_EDGES,QUAY_LANE_CENTERS,CAUSEWAYS
+from build_quay_edge_guardrails import YARD_SHORE_FIXTURE,YARD_SHORE_START_X,YARD_SHORE_END_X,YARD_SHORE_Y
+from build_waterfront_amenities import SHORE_RAIL_SECTIONS,SHORE_RAIL_HEIGHTS
 
 
 def faces(stage,path):
@@ -66,6 +68,29 @@ class QuayTrafficTests(unittest.TestCase):
             for lo,hi in vertical:self.assertFalse(lo<y+3.7 and hi>y-3.7)
             for side in (-1,1):
                 self.assertTrue(any(abs(s[0]+201.7)<1e-4 and abs(s[2]+201)<1e-4 and abs(s[1]-y-side*4.3)<1e-4 for s in spans))
+
+    def test_legacy_yard_shore_fixtures_are_hidden_and_rail_joins_the_bridge(self):
+        port=self.s.GetPrimAtPath('/World/PortAndRTG')
+        hidden=[prim.GetName() for prim in port.GetAllChildren()
+                if YARD_SHORE_FIXTURE.fullmatch(prim.GetName()) and not prim.IsActive()]
+        self.assertEqual(len(hidden),154)
+        for token in ('rope_bind','yellow_quay_bollard','quay_black_fender','berth_slot_mark','quay_edge_white_cap'):
+            self.assertTrue(any(token in name for name in hidden))
+        self.assertTrue(port.GetChild('SMART_PORT_quay_wall_dark_front').IsActive())
+        root=self.s.GetPrimAtPath('/World/QuayEdgeGuardrails')
+        spans=[tuple(s) for s in root.GetAttribute('guardrail:segments').Get()]
+        end_of_bridge=(YARD_SHORE_START_X,CAUSEWAYS[0]-4.3)
+        shore_start=(YARD_SHORE_START_X,YARD_SHORE_Y)
+        self.assertIn((*end_of_bridge,*shore_start),spans)
+        self.assertIn((*shore_start,YARD_SHORE_END_X,YARD_SHORE_Y),spans)
+        rail_start_y=SHORE_RAIL_SECTIONS[0][0]
+        self.assertIn((YARD_SHORE_END_X,YARD_SHORE_Y,YARD_SHORE_END_X,rail_start_y),spans)
+        self.assertTrue(all(y<CAUSEWAYS[0]-3.7 for y in (end_of_bridge[1],YARD_SHORE_Y)))
+        points=self.s.GetPrimAtPath(str(root.GetPath())+'/Rails').GetAttribute('points').Get()
+        self.assertTrue(any(p[0]>YARD_SHORE_END_X-.04 and abs(p[1]-YARD_SHORE_Y)<.05 and p[2]>1.3 for p in points))
+        for z in SHORE_RAIL_HEIGHTS:
+            self.assertTrue(any(abs(p[0]-YARD_SHORE_END_X)<.04 and abs(p[1]-rail_start_y)<.001 and
+                                abs(p[2]-z)<.04 for p in points))
 
 
 if __name__=='__main__':unittest.main()

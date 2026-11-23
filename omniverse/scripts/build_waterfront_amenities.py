@@ -7,6 +7,9 @@ import build_port_service_areas as g
 ROOT=Path(__file__).resolve().parents[2]
 BASE='/World/WaterfrontAmenities'
 LAYER=ROOT/'omniverse/scenes/waterfront_amenities.usda'
+SHORE_RAIL_X=149.5
+SHORE_RAIL_SECTIONS=((10,118),(134,248),(264,378),(395,426))
+SHORE_RAIL_HEIGHTS=(.5,1.12)
 
 def bench(s,x,y):
  g.box(s,'Bark',x,y,.60,.6,2,.09)
@@ -23,8 +26,8 @@ def shelter(s,x,y,w=5,d=10):
  g.box(s,'Glass',x+w/2-.15,y,.8,.055,d-1,1.6)
 
 def rail(s,y0,y1):
- x=149.5
- for z in (.5,1.12): g.box(s,'Steel',x,(y0+y1)/2,z,.055,y1-y0,.055)
+ x=SHORE_RAIL_X
+ for z in SHORE_RAIL_HEIGHTS: g.box(s,'Steel',x,(y0+y1)/2,z,.055,y1-y0,.055)
  for k in range(int((y1-y0)/2.5)+1): g.cyl(s,'Steel',x,y0+.06+k*2.5,.12,.045,1.06)
  # Paved perimeter path is outside the existing 18 m truck bay rectangles.
  g.box(s,'Concrete',148.9,(y0+y1)/2,.09,1.6,y1-y0,.035)
@@ -46,7 +49,7 @@ def rescue(s,y):
 def build():
  g.DATA.clear();g.SOLIDS.clear()
  # Continuous detail at the seawall, with crossroad and external-gate breaks.
- for a,b in ((10,118),(134,248),(264,378),(395,426)):
+ for a,b in SHORE_RAIL_SECTIONS:
   rail('ShoreSafety',a,b)
  for y in (38,95,145,190,235,277,319,363,414): rescue('ShoreSafety',y)
  s='DriverServices'

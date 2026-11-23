@@ -14,26 +14,32 @@ def add_roof_number(stage, truck, number):
     label.AddRotateZOp().Set(-90)
     label.AddScaleOp().Set(Gf.Vec3f(1, 1.22, 1))
     label.GetPrim().CreateAttribute('vehicle:number', Sdf.ValueTypeNames.String).Set(f'{number:02d}')
+    add_roof_digits(stage, str(label.GetPath())+'/Digits', f'{number:02d}')
+
+
+def add_roof_digits(stage, path, number):
+    """Draw the fleet number in the truck asset's local cab-roof coordinates."""
     segments = {
         'a': (0, 0, .24, .045), 'g': (0, .22, .24, .265),
         'd': (0, .44, .24, .485), 'f': (0, 0, .045, .265),
         'b': (.195, 0, .24, .265), 'e': (0, .22, .045, .485),
         'c': (.195, .22, .24, .485),
     }
-    patterns = ('abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd',
-                'afgecd', 'abc', 'abcdefg', 'abfgcd')
+    patterns = dict(zip('0123456789E', ('abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd',
+                                       'afgecd', 'abc', 'abcdefg', 'abfgcd', 'afged')))
+    width = .24+(len(number)-1)*.33
+    scale = min(1., .9/width)
     points = []
-    for index, digit in enumerate(f'{number:02d}'):
-        for segment in patterns[int(digit)]:
+    for index, digit in enumerate(number):
+        for segment in patterns[digit]:
             x1,y1,x2,y2 = segments[segment]
-            xoff, yoff = -.285 + index*.33, -2.90
+            xoff = index*.33-width/2
             # Glyph coordinates run downward; USD roof coordinates run upward.
             # Reflect glyph Y so right/up form a right-handed top-facing basis.
-            points.extend((Gf.Vec3f(x1+xoff,yoff+.485-y2,1.066),
-                           Gf.Vec3f(x2+xoff,yoff+.485-y2,1.066),
-                           Gf.Vec3f(x2+xoff,yoff+.485-y1,1.066),
-                           Gf.Vec3f(x1+xoff,yoff+.485-y1,1.066)))
-    mesh = UsdGeom.Mesh.Define(stage, str(label.GetPath())+'/Digits')
+            for x,y in ((x1,y2),(x2,y2),(x2,y1),(x1,y1)):
+                points.append(Gf.Vec3f((x+xoff)*scale, -2.415-y, 1.066))
+    mesh = UsdGeom.Mesh.Define(stage, path)
+    mesh.GetPrim().CreateAttribute('vehicle:number', Sdf.ValueTypeNames.String).Set(number)
     mesh.CreatePointsAttr(points)
     mesh.CreateFaceVertexCountsAttr([4]*(len(points)//4))
     mesh.CreateFaceVertexIndicesAttr(list(range(len(points))))

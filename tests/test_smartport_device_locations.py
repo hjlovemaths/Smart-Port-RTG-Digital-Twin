@@ -45,5 +45,9 @@ def test_sts_and_moving_truck_use_the_same_map_as_scene_picking():
 
     truck_position.Set(Gf.Vec3d(118, 80, 0))
     assert device_for_hit(stage, truck_path + "/Cab", time)["position"] == map_coordinates(118, 80)
+    assert device_for_hit(stage, "/World/IECS/TruckMarkers/ITT_001/Lens", time)["id"] == truck_path
+    external = "/World/IECS/ExternalTrucks/EXT_00004"
+    UsdGeom.Xform.Define(stage, external)
+    assert device_for_hit(stage, "/World/IECS/TruckMarkers/EXT_00004/Lens", time)["id"] == external
     UsdGeom.Imageable(truck).MakeInvisible()
     assert device_for_hit(stage, truck_path + "/Cab", time) is None

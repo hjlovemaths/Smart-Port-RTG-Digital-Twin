@@ -50,7 +50,7 @@
 | 3 | `get_equipment_status` | RTG／岸桥实际位置、目标、限位、停止状态。`equipment=all/rtg/sts`，可选 `crane_id`。 |
 | 4 | `get_current_tasks` | RTG 最新任务、仿真任务及队列、岸桥任务阶段、IECS 订单／车辆／暂停状态；保留数据时间。 |
 | 5 | `list_viewpoints` | 可用视角、现有 USD 相机路径、当前相机和跟随状态。 |
-| 6 | `set_viewport_view` | `target=port/rtg/trolley/spreader/bay/sts/task/truck`。集卡用 `truck_number=1..20` 指定，默认 `view=chase` 车后跟随，`view=cabin` 为驾驶室前向视角。`target=trolley` 默认用 `under_trolley` 跟随小车。其他视角支持 `angled/front/back/left/right/top`。贝位和岸桥视角必须明确编号。 |
+| 6 | `set_viewport_view` | `target=iecs_order` 按 `order_index`（工作台列表从 1 开始）或 `order_id` 聚焦指定订单。集卡用 `target=truck` 和 `truck_number=1..20` 指定，默认 `view=chase` 车后跟随，`view=cabin` 为驾驶室前向视角。`target=trolley` 默认用 `under_trolley` 跟随小车。其他目标为 `port/rtg/spreader/bay/sts/task`，视角支持 `angled/front/back/left/right/top`。贝位和岸桥视角必须明确编号。 |
 | 7 | `switch_viewport_camera` | 选择现有 `camera_path` 或 `camera_number=1..33`，二选一；停止 Agent 相机跟随。 |
 | 8 | `get_bay_inventory` | `bay_id`：贝位六位箱区图、各排层数、箱号、尺寸、ASCII 占用图和 40 英尺覆盖关系。 |
 | 9 | `get_yard_inventory_summary` | 整个堆场或 `block=1C/2C/3C/4C` 的箱数、TEU、已占用逻辑贝位及箱区图。 |
@@ -65,7 +65,7 @@
 | 18 | `control_sts_task` | `action=status/start_unload/start_double20/pause/resume/reset/focus`。使用已有单箱卸船和双 20 英尺往返演示。 |
 | 19 | `submit_rtg_task` | 仿真任务 `work_type=LOAD/UNLOAD/SWITCH`；按类型指定 `start_pos`／`end_pos`，可带 `bay_map`、箱尺寸／高度／箱号、`task_id`、排队选项。 |
 | 20 | `control_rtg_simulation` | `status/start/stop/clear_task/preview_scenarios/start_scenarios/continue_scenarios/stop_scenarios/scenario_status`。支持任务数、随机种子、箱区、贝位范围和仿真库存重置选项。 |
-| 21 | `control_iecs` | `status/start/submit/mixed/pause/resume/reset/speed/check_scene/inventory_preview/focus/stop`；流程 `unload/load/gate_in/gate_out/transfer`；倍率 1／5／10／20。 |
+| 21 | `control_iecs` | `status/start/submit/mixed/pause/resume/reset/speed/check_scene/inventory_preview/focus/stop`。流程 `unload/load/gate_in/gate_out/transfer`，倍率 1／5／10／20。`focus` 可带订单编号或列表序号。 |
 | 22 | `control_live_twin` | `action=status/start/stop`，控制已有本机 TwinState 接收器，接收真实数据并更新数字场景。 |
 | 23 | `set_environment` | `mode=day/night/rain/fog`，切换环境预设。 |
 | 24 | `set_time_of_day` | `hour=0..24`，设置港区时间和光照。 |

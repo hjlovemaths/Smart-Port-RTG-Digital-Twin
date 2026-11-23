@@ -6,6 +6,120 @@ import queue
 import sys
 import threading
 import time
+from collections import deque
+from urllib.parse import urlparse
+
+from . import agent_api
+
+
+IECS_AGENT_TOOLS = frozenset({
+    "get_current_tasks", "get_equipment_status", "get_bay_inventory",
+    "get_yard_inventory_summary", "list_viewpoints", "set_viewport_view",
+})
+IECS_AGENT_PROMPT = (
+    "你是智慧港口 IECS 作业工作台的调度助手。\n"
+    f"{agent_api.REPLY_STYLE}\n"
+    "询问订单、载箱、等待、报错、"
+    "真实 IECS 接入或当前进度时，先用 get_current_tasks 读取场景实时状态，重点查看 iecs "
+    "及 external 字段。依据回报区分接单、完工和放行。用户要求看当前作业或指定集卡时，"
+    "使用 set_viewport_view，指定集卡默认用车外跟随。用户指定第几条 IECS 任务或 IECS 订单号时，"
+    "直接使用 set_viewport_view 的 target=iecs_order 和 order_index 或 order_id。"
+    "不要改用当前任务或源箱位，依据返回的 focus_label 和 vehicle_visible 说明镜头所见。"
+    "操作范围为查询和切换视角。仅在用户请求派单、设备控制或流程启停时，简短提示在工作台操作。"
+)
+
+
+class IECSConversation:
+    """Session-local UI state for the existing Agent worker."""
+
+    def __init__(self):
+        self.events = queue.SimpleQueue()
+        self.endpoint = agent_api.DEFAULT_ENDPOINT
+        self.model = agent_api.DEFAULT_MODEL
+        self.api_key = ""
+        self.clear()
+
+    def clear(self):
+        self.history = [{"role": "system", "content": IECS_AGENT_PROMPT}]
+        self.chat = deque(maxlen=48)
+        self.busy = False
+        self.status = "就绪"
+
+    def collect(self):
+        while True:
+            try:
+                event = self.events.get_nowait()
+            except queue.Empty:
+                break
+            kind = event["kind"]
+            if kind == "complete":
+                self.history = event["history"]
+                self.chat.append({"speaker": "Agent", "text": event["answer"]})
+                self.status, self.busy = "就绪", False
+            elif kind == "failed":
+                self.status, self.busy = "Agent 回复失败，请检查 Settings 中的模型配置后重试", False
+            elif kind in ("status", "tool_start"):
+                self.status = "正在处理港区操作…" if kind == "tool_start" else "正在等待 Agent 回复…"
+
+    def configure(self, data):
+        endpoint, model, key = data.get("endpoint"), data.get("model"), data.get("api_key", "")
+        if not all(isinstance(value, str) and len(value) <= 4096 for value in (endpoint, model, key)):
+            raise ValueError("请填写有效的模型 URL、名称和 API Key")
+        endpoint, model, key = endpoint.strip(), model.strip(), key.strip()
+        endpoint = agent_api.validate_iecs_endpoint(endpoint)
+        if not model or not model.isprintable() or (key and not key.isascii()) or (key and not key.isprintable()):
+            raise ValueError("请填写有效的模型名称和 API Key")
+        previous = urlparse(self.endpoint)
+        updated = urlparse(endpoint)
+        if (previous.hostname, previous.port or 443) != (updated.hostname, updated.port or 443):
+            # Keep credentials and conversation context with the original provider.
+            self.api_key = ""
+            self.clear()
+        self.endpoint = endpoint
+        self.model = model
+        if key:
+            self.api_key = key
+
+    def handle(self, panel, action, data, active):
+        if not active():
+            raise ValueError("会话已失效，请重新登录")
+        self.collect()
+        if action in ("send", "clear", "settings") and self.busy:
+            raise ValueError("请等待当前回复完成")
+        if action == "clear":
+            self.clear()
+        elif action == "settings":
+            self.configure(data)
+        elif action == "send":
+            text = data.get("text")
+            if not isinstance(text, str) or not text.strip() or len(text) > 8192:
+                raise ValueError("请输入 1 至 8192 字的内容")
+            if not self.api_key:
+                raise ValueError("请在 Settings 中配置 Agent 模型和 API Key")
+            text = text.strip()
+            history = self.history + [{"role": "user", "content": text}]
+            self.chat.append({"speaker": "你", "text": text})
+            self.status, self.busy = "正在连接 Agent…", True
+            threading.Thread(
+                target=panel._run_agent_turn,
+                args=(self.endpoint, self.model, self.api_key, history),
+                kwargs={
+                    "emit": self.events.put, "tool_names": IECS_AGENT_TOOLS, "active": active,
+                    "open_endpoint": agent_api.open_iecs_endpoint,
+                },
+                name="SmartPortIECSAgentRequest",
+                daemon=True,
+            ).start()
+        return {
+            "chat": list(self.chat),
+            "busy": self.busy,
+            "configured": bool(self.api_key),
+            "status": self.status if self.api_key else "请在 Settings 中配置 Agent 模型和 API Key",
+            "endpoint": self.endpoint,
+            "model": self.model,
+            "key_configured": bool(self.api_key),
+            "accepted": action == "send",
+        }
 
 
 def validate_iecs_navigation(payload):
@@ -139,17 +253,49 @@ class AgentWebBridge:
             return await execute('iecs_state',{})
         async def iecs_command(payload: dict):
             return await execute('iecs_command',payload)
+        async def iecs_external_command(payload: dict):
+            return await execute('iecs_external_command',payload)
         async def iecs_navigate(payload: dict):
             try:validate_iecs_navigation(payload)
             except ValueError as exc:raise HTTPException(400,str(exc)) from exc
             return await execute('navigate',payload)
+        async def iecs_inspect_at(payload: dict):
+            return await execute("device-at",payload)
         async def iecs_events(before: int = 0):
             if before<0:raise HTTPException(400,'无效事件游标')
             return await execute('iecs_events',{'before':before or None})
+        async def iecs_messages(message_id: str = '', direction: str = '', heartbeat: bool = False):
+            if direction not in ('','received','sent'):
+                raise HTTPException(400,'无效的报文方向')
+            return await execute('iecs_messages',{'message_id':message_id,'direction':direction,'heartbeat':heartbeat})
+        async def iecs_agent_state(request: Request):
+            return await iecs_agent(request, "state", {})
+        async def iecs_agent_command(request: Request, action: str, payload: dict):
+            if action not in ("send", "clear", "settings"):
+                raise HTTPException(404, "未知的 IECS Agent 操作")
+            return await iecs_agent(request, action, payload)
+        async def iecs_agent(request, action, payload):
+            session = request.scope.get("smartport_session")
+            if not session or session.get("role") not in ("iecs", "admin"):
+                raise HTTPException(403, "需要 IECS 作业权限")
+            conversation = session.get("iecs_agent")
+            if conversation is None:
+                conversation = session["iecs_agent"] = IECSConversation()
+            return await execute("iecs_agent", {
+                "conversation": conversation, "action": action, "data": payload,
+                "active": lambda: session["expires"] > time.time(),
+            })
         app.add_api_route('/api/iecs/state',iecs_state,methods=['GET'])
         app.add_api_route('/api/iecs/command',iecs_command,methods=['POST'])
+        app.add_api_route('/api/iecs/external/command',iecs_external_command,methods=['POST'])
+        app.add_api_route('/api/iecs/external/messages',iecs_messages,methods=['GET'])
         app.add_api_route('/api/iecs/navigate',iecs_navigate,methods=['POST'])
+        app.add_api_route('/api/iecs/device-map',device_map,methods=['GET'])
+        app.add_api_route('/api/iecs/device-view',device_view,methods=['POST'])
+        app.add_api_route('/api/iecs/inspect-at',iecs_inspect_at,methods=['POST'])
         app.add_api_route('/api/iecs/events',iecs_events,methods=['GET'])
+        app.add_api_route('/api/iecs/agent/state',iecs_agent_state,methods=['GET'])
+        app.add_api_route('/api/iecs/agent/{action}',iecs_agent_command,methods=['POST'])
         async def initial_view(request:Request):
             session=request.scope.get('smartport_session')
             if not session or session.get('role')!='admin':raise HTTPException(403,'仅管理员可初始化管理视口')
@@ -267,7 +413,7 @@ class AgentWebBridge:
                         runtime = getattr(panel, "_runtime", None)
                         if runtime is not None:
                             runtime.follow = runtime.follow_viewport = None
-                elif command["action"] in ("container-at", "inspect-at"):
+                elif command["action"] in ("container-at", "inspect-at", "device-at"):
                     self._query_scene(command)
                     continue
                 elif command["action"] == "device-map":
@@ -340,9 +486,9 @@ class AgentWebBridge:
         return runtime.set_device_view(device, viewport)
 
     def _query_scene(self, command):
-        from rtg_container_info_popup import container_info_for_hit
         from .device_locations import device_for_hit
 
+        action = command["action"]
         x, y = (command["payload"].get(key) for key in ("x", "y"))
         if any(type(value) not in (int, float) or not 0 <= value <= 1 or not math.isfinite(value) for value in (x, y)):
             raise ValueError("无效的港区画面坐标")
@@ -359,10 +505,14 @@ class AgentWebBridge:
                 rows, device = [], None
                 if prim_path and viewport.stage == stage:
                     path = str(prim_path)
-                    rows = container_info_for_hit(stage, path)
-                    if not rows and command["action"] == "inspect-at":
+                    if action != "device-at":
+                        from rtg_container_info_popup import container_info_for_hit
+                        rows = container_info_for_hit(stage, path)
+                    if not rows and action != "container-at":
                         device = device_for_hit(stage, path, viewport.time)
-                command["result"] = {"rows": rows, "device": device} if command["action"] == "inspect-at" else {"rows": rows}
+                command["result"] = {"rows": rows}
+                if action != "container-at":
+                    command["result"]["device"] = device
             except Exception as exc:
                 command["error"] = str(exc)
             finally:
@@ -373,23 +523,41 @@ class AgentWebBridge:
     @staticmethod
     def execute(panel, action, payload):
         from . import agent_api
-        if action in {'iecs_state','iecs_command','iecs_events'}:
+        if action=='iecs_agent':
+            return payload['conversation'].handle(panel,payload['action'],payload['data'],payload['active'])
+        if action in {'iecs_state','iecs_command','iecs_events','iecs_external_command','iecs_messages'}:
             import omni.usd
             from .scene_runtime import SceneRuntime, iecs_runtime
-            from .project_interfaces import _iecs
+            from .project_interfaces import _iecs, external_iecs
             stage=omni.usd.get_context().get_stage()
             if not stage:raise ValueError('港区场景尚未打开')
-            if action=='iecs_command':
-                args=agent_api.validate_tool_arguments('control_iecs',payload)
+            focus = None
+            if action in {'iecs_command','iecs_external_command'}:
                 owner=getattr(panel,'_runtime',None)
                 if owner is None:
                     owner=panel._runtime=SceneRuntime(panel._project_root,panel._ui_events.put)
                 owner.bind(stage)
-                _iecs(owner,args,web=True)
+                if action=='iecs_external_command':
+                    external_iecs(owner,payload)
+                else:
+                    args=agent_api.validate_tool_arguments('control_iecs',payload)
+                    result = _iecs(owner,args,web=True)
+                    if args["action"] == "focus" and result.get("order_id"):
+                        focus = result
             runtime=iecs_runtime(stage)
             if action=='iecs_events':
                 return {'events':runtime.recent_history(payload['before']) if runtime else []}
-            return {'running':False} if runtime is None else {'running':True,**runtime.cached}
+            if action=='iecs_messages':
+                traffic=runtime.external.transport.traffic if runtime and runtime.external else None
+                if payload['message_id']:
+                    return {'message':traffic.read(payload['message_id']) if traffic else None}
+                return {'messages':traffic.read(direction=payload['direction'],telemetry=payload['heartbeat']) if traffic else []}
+            if runtime is None:
+                return {"running": False}
+            state = {"running": True, **runtime.cached}
+            if focus is not None:
+                state["focus"] = focus
+            return state
         if action=='admin_home':
             import omni.usd
             from omni.kit.viewport.utility import get_viewport_from_window_name,get_active_viewport

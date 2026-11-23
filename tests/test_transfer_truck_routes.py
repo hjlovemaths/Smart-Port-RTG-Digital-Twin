@@ -9,6 +9,7 @@ from transfer_truck_geometry import truck_loading
 from transfer_truck_routes import ship_to_yard_routes,yard_to_ship_routes,return_routes
 from sts_yard_delivery import rounded_route
 from build_ground_traffic_network import QUAY_ROAD_EDGES,CROSS
+from build_quay_edge_guardrails import YARD_SHORE_Y
 
 
 def overlaps(a,b):
@@ -34,8 +35,9 @@ class TruckRouteTests(unittest.TestCase):
             cls.dividers.append(face)
         # The new edge railings must not obstruct truck turns or bridge mouths.
         for x1,y1,x2,y2 in cls.stage.GetPrimAtPath('/World/QuayEdgeGuardrails').GetAttribute('guardrail:segments').Get():
-            cls.dividers.append([(min(x1,x2)-.0325,min(y1,y2)-.0325),(max(x1,x2)+.0325,min(y1,y2)-.0325),
-                                 (max(x1,x2)+.0325,max(y1,y2)+.0325),(min(x1,x2)-.0325,max(y1,y2)+.0325)])
+            half=.14 if abs(y1-YARD_SHORE_Y)<1e-5 and abs(y2-YARD_SHORE_Y)<1e-5 else .0325
+            cls.dividers.append([(min(x1,x2)-half,min(y1,y2)-half),(max(x1,x2)+half,min(y1,y2)-half),
+                                 (max(x1,x2)+half,max(y1,y2)+half),(min(x1,x2)-half,max(y1,y2)+half)])
         for face in cls.dividers:
             for x in range(math.floor(min(v[0] for v in face)/16),math.floor(max(v[0] for v in face)/16)+1):
                 for y in range(math.floor(min(v[1] for v in face)/16),math.floor(max(v[1] for v in face)/16)+1):
