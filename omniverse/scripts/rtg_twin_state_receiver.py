@@ -1983,19 +1983,15 @@ def _task_panel_value_rows(task: Dict[str, Any]) -> list[tuple[str, str]]:
 def _task_panel_content_key(task: Dict[str, Any]) -> tuple[str, ...]:
     """Return only the task fields that are rendered into the task panel bitmap."""
 
+    task_id, *values = (value for _, value in _task_panel_value_rows(task))
     return (
-        str(task.get("taskId") or ""),
-        str(task.get("taskState") or task.get("state") or ""),
-        str(task.get("workType") or task.get("taskType") or ""),
-        str(task.get("startPos") or task.get("sourcePos") or ""),
-        str(task.get("endPos") or task.get("targetPos") or ""),
-        str(task.get("containerNo") or ""),
-        str(task.get("containerType") or ""),
-        str(task.get("containerHeight") or ""),
-        str(task.get("spreaderPos") or ""),
-        str(task.get("carType") or ""),
-        str(task.get("carNo") or ""),
-        str(task.get("bayMap") or ""),
+        task_id,
+        _task_panel_state_text(task),
+        _task_work_type(task),
+        _fmt_text(task.get("startPos") or task.get("sourcePos")),
+        _fmt_text(task.get("endPos") or task.get("targetPos")),
+        *values,
+        str(task.get("bayMap") or "").strip(),
     )
 
 
@@ -4653,9 +4649,7 @@ class OmniverseRtgTwinDriver:
         # per stage; the task-panel route arrow is rendered independently.
         self._remove_task_route_indicator_once(stage)
 
-        # HUD messages are independent from inventory/model synchronization.
-        # Render them first so a malformed bay or asset cannot suppress the
-        # operator-facing RunInfo and task panels.
+        # Refresh RunInfo even when inventory or scene synchronization fails.
         raw_task = dict(state.get("task") or {})
         raw_runinfo = state.get("runinfo")
         self._update_validated_truck_runinfo_cache(raw_runinfo, raw_task)
@@ -4668,10 +4662,20 @@ class OmniverseRtgTwinDriver:
         except Exception as exc:  # noqa: BLE001 - physical state can still apply
             self._log(f"runinfo panel update failed: {exc}")
         try:
-            self._sync_floating_task_panel(stage, raw_task)
-        except Exception as exc:  # noqa: BLE001 - physical state can still apply
-            self._log(f"task panel update failed: {exc}")
+            return self._apply_twin_scene_state(stage, state)
+        except Exception:
+            # Preserve a published panel for this task when reconciliation
+            # fails. Use the raw snapshot only to show a different task (or
+            # clear a finished one) when no normalized update was published.
+            panel_key = self._floating_task_panel_key
+            if not panel_key or panel_key[0] != _fmt_text(raw_task.get("taskId")):
+                try:
+                    self._sync_floating_task_panel(stage, raw_task)
+                except Exception as exc:  # noqa: BLE001 - preserve the scene error
+                    self._log(f"task panel update failed: {exc}")
+            raise
 
+    def _apply_twin_scene_state(self, stage: Any, state: Dict[str, Any]) -> Dict[str, Any]:
         self._disable_demo_artifacts_for_stage(stage)
         self._ensure_4c_feeder_ship_replacements(stage)
         self._sync_inventory_scene(stage)
@@ -7351,7 +7355,9 @@ class OmniverseRtgTwinDriver:
             for name in ordered_names
             if name not in (translate_name, rotate_name)
         ]
-        order_attr.Set([translate_name, rotate_name, *extras])
+        desired_order = [translate_name, rotate_name, *extras]
+        if ordered_names != desired_order:
+            order_attr.Set(desired_order)
 
     @staticmethod
     def _get_xform_translate(prim: Any) -> Any:
@@ -8995,7 +9001,6 @@ class OmniverseRtgTwinDriver:
                     self._sync_floating_task_panel_pose(root, stack_key, task)
                 return
 
-            self._floating_task_panel_key = panel_key
             self._floating_task_panel_bitmap_seq += 1
             texture_path = (
                 Path(tempfile.gettempdir())
@@ -9093,7 +9098,8 @@ class OmniverseRtgTwinDriver:
             material.CreateSurfaceOutput().ConnectToSource(
                 shader.ConnectableAPI(), "surface"
             )
-            UsdShade.MaterialBindingAPI(panel_prim).Bind(material)
+            UsdShade.MaterialBindingAPI.Apply(panel_prim).Bind(material)
+            self._floating_task_panel_key = panel_key
 
     def _log_task_panel_status(self, status: str, message: str) -> None:
         if not TASK_PANEL_DIAGNOSTIC_LOG_ENABLED:

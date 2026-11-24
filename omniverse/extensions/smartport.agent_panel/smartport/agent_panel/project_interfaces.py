@@ -15,7 +15,7 @@ HANDLED_TOOLS = {
     "get_vessel_structure",
     "set_rtg_spreader_size", "resume_sts_crane", "control_timeline", "control_sts_task", "submit_rtg_task",
     "control_rtg_simulation", "control_iecs", "control_live_twin", "control_plc_zmq", "control_sea_motion",
-    "control_camera_display", "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
+    "control_camera_display", "control_sts_statistics", "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
     "control_rtg_physics", "control_lidar", "capture_lidar", "reload_yard_inventory", "control_livestream",
 }
 
@@ -220,8 +220,48 @@ def _sea(owner, args):
             "held_ships": sorted(motion.held) if motion else []}
 
 
+def _rtsp_display(owner, args):
+    from .live_camera import CameraPreview
+
+    display, action = args["display"], args["action"]
+    popup = display == "rtsp_popup"
+    module = load("rtg_camera_popup")
+    preview = owner.camera_preview
+    if action == "stop":
+        if preview and preview.display == display:
+            preview.close()
+            owner.camera_preview = None
+        return {"display": display, "running": False}
+
+    path = module.camera_config_path()
+    cameras = module._read_camera_config(path)
+    if action == "status":
+        active = preview.state() if preview and preview.display == display else None
+        return {"display": display, "running": active is not None,
+                "active": active, "configured_cameras": [{"number": number, "location": camera.location}
+                                                           for number, camera in sorted(cameras.items())]}
+
+    number = args.get("camera_number")
+    if popup and number is None and action == "refresh" and preview and preview.display == display:
+        number = preview.cameras[0]["number"]
+    if number is not None and number not in cameras:
+        raise ValueError(f"C{number} 未配置 RTSP。请先在相机配置文件中添加这一路。")
+    if popup and number is None:
+        raise ValueError("请指定相机编号，例如 C1。可先通过 status 查询已配置的相机。")
+    numbers = (number,) if popup else tuple(seq for row in module.SPREADER_CAMERA_GRID_LAYOUT for seq in row)
+    if not any(seq in cameras for seq in numbers):
+        raise ValueError("所选相机未配置 RTSP。请检查相机配置文件。")
+    selection = CameraPreview(display, {seq: cameras.get(seq) for seq in numbers}, module.RtgRtspReader)
+    if preview:
+        preview.close()
+    owner.camera_preview = selection
+    return {"display": display, "running": True, "cameras": selection.cameras, "status": "awaiting_web_viewer"}
+
+
 def _camera_display(owner, args):
     display, action = args["display"], args["action"]
+    if display in {"rtsp_popup", "spreader_rtsp_grid"}:
+        return _rtsp_display(owner, args)
     if display == "work_views":
         module = load("rtg_work_views")
         if action in {"start", "refresh"}: return module.start_rtg_work_views(owner.stage)
@@ -237,20 +277,16 @@ def _camera_display(owner, args):
                 owner.set_view({"target": "rtg", "view": "angled"})
             module.cleanup_rtg_virtual_cameras(owner.stage)
         return {"display": display, "cameras": [{"number": item.seq, "camera_path": item.camera_path} for item in module._existing_virtual_camera_records(owner.stage)]}
-    configurations = {
-        "rtsp_popup": ("rtg_camera_popup", "start_rtg_camera_popup", "stop_rtg_camera_popup", "_service"),
-        "spreader_rtsp_grid": ("rtg_camera_popup", "start_rtg_spreader_camera_grid", "stop_rtg_spreader_camera_grid", "_spreader_grid_service"),
-        "model_grid": ("rtg_model_camera_grid", "start_rtg_model_camera_grid", "stop_rtg_model_camera_grid", "_service"),
-    }
-    name, start, stop, attr = configurations[display]
-    module = existing_module(name)
-    if action in {"start", "refresh"}:
-        module = load(name)
-        if display == "model_grid" and action == "refresh": module.refresh_rtg_model_camera_grid(owner.stage)
-        elif display == "model_grid": getattr(module, start)(owner.stage)
-        else: getattr(module, start)()
-    elif action == "stop" and module: getattr(module, stop)()
-    return {"display": display, "running": bool(module and getattr(module, attr, None))}
+    module = existing_module("rtg_model_camera_grid")
+    if action == "start":
+        module = load("rtg_model_camera_grid")
+        module.start_rtg_model_camera_grid(owner.stage)
+    elif action == "refresh":
+        module = load("rtg_model_camera_grid")
+        module.refresh_rtg_model_camera_grid(owner.stage)
+    elif action == "stop" and module:
+        module.stop_rtg_model_camera_grid()
+    return {"display": display, "running": bool(module and module._service)}
 
 
 def _panels(args):
@@ -435,6 +471,10 @@ def execute_project_interface(owner, name, args):
         return {"running": bool(driver and driver._subscription is not None), "tasks": current_tasks(stage)["rtg"]}
     if name == "control_sea_motion": return _sea(owner, args)
     if name == "control_camera_display": return _camera_display(owner, args)
+    if name == "control_sts_statistics":
+        from .sts_statistics import command
+
+        return command(owner, args)
     if name == "control_info_panel": return _panels(args)
     if name == "show_alarm":
         module = load("rtg_alarm_popup")

@@ -9,9 +9,9 @@ STORE=Path(__file__).resolve().parents[2]/'.cache/webrtc-auth/accounts.json'
 COOKIE='smartport_session'
 TTL=8*3600
 HOME={'admin':'/','viewer':'/?spectator=1','driver':'/driver','rtg_driver':'/rtg-driver',
-      'sts_driver':'/sts-driver','iecs':'/iecs?spectator=1'}
+      'sts_driver':'/sts-driver','iecs':'/iecs?spectator=1','sim':'/sim?spectator=1'}
 ACCOUNT_ROLES={'/auth/driver-account':'driver','/auth/rtg-driver-account':'rtg_driver',
-               '/auth/sts-driver-account':'sts_driver','/auth/iecs-account':'iecs'}
+               '/auth/sts-driver-account':'sts_driver','/auth/iecs-account':'iecs','/auth/sim-account':'sim'}
 
 def password_hash(password,salt):
     return hashlib.pbkdf2_hmac('sha256',password.encode(),bytes.fromhex(salt),310000).hex()
@@ -49,7 +49,7 @@ class Accounts:
                               'initial_view_pending':record['role']=='admin'}
         return token
     def set_driver(self,username,password,role='driver'):
-        if role not in ('driver','rtg_driver','sts_driver','iecs'):raise ValueError('无效作业角色')
+        if role not in ACCOUNT_ROLES.values():raise ValueError('无效作业角色')
         if not 1<=len(username)<=64 or not username.isascii() or not all(c.isalnum() or c in '_-.' for c in username):
             raise ValueError('账号限1–64位英文字母、数字、下划线、点或短横线')
         if not 10<=len(password)<=128:raise ValueError('密码长度须为10–128位')
@@ -137,15 +137,15 @@ class ViewerAuth:
         if path in ACCOUNT_ROLES:
             if session['role']!='admin':return JSONResponse({'detail':'仅管理员可设置作业账号'},403)
             account_role=ACCOUNT_ROLES[path]
-            equipment={'sts_driver':'STS司机','rtg_driver':'RTG司机','driver':'01号集卡驾驶员','iecs':'IECS 作业账号'}[account_role]
+            equipment={'sts_driver':'STS司机','rtg_driver':'RTG司机','driver':'01号集卡驾驶员','iecs':'IECS 作业账号','sim':'SIM 调试账号'}[account_role]
             error='';saved=False
             if r.method=='POST':
                 data=await self.form(r)
                 try:self.accounts.set_driver(data.get('username','').strip(),data.get('password',''),account_role);saved=True
                 except ValueError as exc:error=str(exc)
             elif r.method!='GET':return JSONResponse({},405)
-            username=next((name for name,record in (self.accounts.read() or {}).items() if record['role']==account_role),{'sts_driver':'STS01','rtg_driver':'RTG01','driver':'driver','iecs':'iecs'}[account_role])
-            description='登录后打开 IECS 作业工作台。' if account_role=='iecs' else '登录后进入对应设备的驾驶视角。'
+            username=next((name for name,record in (self.accounts.read() or {}).items() if record['role']==account_role),{'sts_driver':'STS01','rtg_driver':'RTG01','driver':'driver','iecs':'iecs','sim':'sim'}[account_role])
+            description={'iecs':'登录后打开 IECS 作业工作台。','sim':'登录后打开数字 RTG 调试工作台。'}.get(account_role,'登录后进入对应设备的驾驶视角。')
             return HTMLResponse('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>作业账号</title><style>body{background:#0b1722;color:#e5edf5;font:16px system-ui;max-width:440px;margin:8vh auto;padding:24px}label{display:grid;gap:8px;margin:20px 0}input,button{font:inherit;padding:12px}a{color:#80c7ff}</style><h1>'+equipment+'</h1><p>'+description+'</p><p role="status">'+html.escape(error or ('账号已保存。' if saved else '密码至少10位，保存会使该账号的旧会话失效。'))+'</p><form method="post"><label>账号<input name="username" value="'+html.escape(username,quote=True)+'" maxlength="64" required></label><label>密码<input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label><button>保存账号</button></form><p><a href="/">返回港区</a></p></html>',status_code=400 if error else 200)
         if path=='/auth/logout':
             if r.method!='POST':return JSONResponse({},405)
@@ -160,17 +160,19 @@ class ViewerAuth:
             if session.get('spectator_port'):session['lease_until']=time.time()+90
             return JSONResponse({'username':session['username'],'role':session['role'],
                                  'initial_view_pending':session.get('initial_view_pending',False)})
-        if path.startswith('/api/iecs/'):
-            if session['role'] not in ('iecs','admin'):return JSONResponse({'detail':'需要 IECS 作业权限'},403)
+        if path.startswith(('/api/iecs/','/api/sim/')):
+            role='iecs' if path.startswith('/api/iecs/') else 'sim'
+            if session['role'] not in (role,'admin'):return JSONResponse({'detail':f'需要 {role.upper()} 工作台权限'},403)
             return None
-        if path=='/iecs':
-            if session['role'] not in ('iecs','admin'):return RedirectResponse(home,303)
-            if r.query_params.get('spectator')!='1':return RedirectResponse('/iecs?spectator=1',303)
+        if path in ('/iecs','/sim'):
+            role=path[1:]
+            if session['role'] not in (role,'admin'):return RedirectResponse(home,303)
+            if r.query_params.get('spectator')!='1':return RedirectResponse(HOME[role],303)
             return None
-        if session['role']=='iecs':
+        if session['role'] in ('iecs','sim'):
             if path in ('/','/index.html'):return RedirectResponse(home,303)
             if not (r.method in ('GET','HEAD') and (path=='/api/stream-config' or path.startswith('/static/'))):
-                return JSONResponse({'detail':'IECS 账号仅可操作作业工作台'},403)
+                return JSONResponse({'detail':f'{session["role"].upper()} 账号仅可操作对应工作台'},403)
         if path.startswith(('/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/')):
             required_role='sts_driver' if path.startswith('/api/sts-driver/') else 'rtg_driver' if path.startswith('/api/rtg-driver/') else 'driver'
             if session['role']!=required_role:return JSONResponse({'detail':'仅对应设备驾驶员账号可操作'},403)
@@ -183,7 +185,7 @@ class ViewerAuth:
             if path==home and r.method=='GET':return None
             if not ((path=='/api/stream-config' and r.method=='GET') or (path.startswith('/static/') and r.method in ('GET','HEAD'))):
                 return JSONResponse({'detail':'驾驶员仅可操作对应设备，无管理员操作权限'},403)
-        if path=='/api/stream-config' and (session['role'] in ('viewer','driver','rtg_driver','sts_driver','iecs') or r.query_params.get('spectator')=='1'):
+        if path=='/api/stream-config' and (session['role'] in ('viewer','driver','rtg_driver','sts_driver','iecs','sim') or r.query_params.get('spectator')=='1'):
             # Config is fetched before /driver acquires its viewport. Connect
             # is deferred by the browser until that dedicated server is ready.
             try:port={'driver':49230,'rtg_driver':49240,'sts_driver':49250}.get(session['role']) or self.accounts.spectator_port(session)
@@ -236,7 +238,13 @@ def activate_pending_sts_account(accounts):
         pending.unlink()
 
 def install_auth(app):
-    if getattr(app.state,'smartport_auth_installed',False):return
+    if getattr(app.state,'smartport_auth_installed',False):
+        middleware = app.middleware_stack
+        if type(middleware).__module__ == __name__ and type(middleware).__name__ == 'ViewerAuth':
+            # Keep active sessions and spectator leases on a Kit extension reload.
+            middleware.accounts.__class__ = Accounts
+            middleware.__class__ = ViewerAuth
+        return
     # Kit has already started its ASGI service by the time the Agent installs.
     def live_ports():
         result=[]

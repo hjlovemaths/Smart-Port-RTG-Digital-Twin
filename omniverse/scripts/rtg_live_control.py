@@ -148,6 +148,13 @@ TROLLEY_USD_LIMITS = (
     TROLLEY_PLC_STOP_CALIBRATION[0][1],
     TROLLEY_PLC_STOP_CALIBRATION[-1][1],
 )
+# SIM starts at the authored home in smart_port.usda and keeps the truck and
+# yard stops. The PLC's additional 1.00 m truck reading collapses the jog range.
+TROLLEY_SIM_CALIBRATION = (
+    (TROLLEY_SOFT_LIMITS[0], 0.615562),
+    TROLLEY_PLC_STOP_CALIBRATION[0],
+    *TROLLEY_PLC_STOP_CALIBRATION[2:],
+)
 HOIST_ENGINEERING_LIMITS = (0.0, 18.0)
 # The configured RTG hoist limit is 18 m.  Keep the live controller aligned
 # with the task-state clearance calculation, especially for a sixth-tier box.
@@ -171,6 +178,14 @@ HOIST_USD_LIMITS = (
     HOIST_USD_AT_ENGINEERING_ZERO,
     HOIST_USD_AT_ENGINEERING_ZERO
     + HOIST_ENGINEERING_LIMITS[1] * HOIST_USD_PER_ENGINEERING_M,
+)
+# Preserve the stack-height calibration through the sixth tier. Above it,
+# the SIM upper limit follows the authored home in smart_port.usda.
+_HOIST_SIXTH_TIER_M = 6 * HOIST_ACTUAL_TIER_HEIGHT_M
+HOIST_SIM_CALIBRATION = (
+    (0.0, HOIST_USD_AT_ENGINEERING_ZERO),
+    (_HOIST_SIXTH_TIER_M, HOIST_USD_AT_ENGINEERING_ZERO + _HOIST_SIXTH_TIER_M * HOIST_USD_PER_ENGINEERING_M),
+    (HOIST_SOFT_LIMITS[1], 4.333059),
 )
 # The current Omniverse visual alignment expects the gantry controller Y to
 # match the yard bay scene Y directly.  Keep this explicit so bay commands such
@@ -267,6 +282,15 @@ def trolley_usd_to_actual(position_usd: float) -> float:
     return _piecewise_inverse(value, TROLLEY_PLC_STOP_CALIBRATION)
 
 
+def trolley_sim_to_usd(position_m: float) -> float:
+    return _piecewise_map(position_m, TROLLEY_SIM_CALIBRATION)
+
+
+def trolley_usd_to_sim(position_usd: float) -> float:
+    # Ignore float drive rounding so an exact 0.5 m jog can reach a limit.
+    return round(_piecewise_inverse(position_usd, TROLLEY_SIM_CALIBRATION), 5)
+
+
 def hoist_actual_to_usd(height_m: float) -> float:
     value = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
     return _linear_map(value, HOIST_ENGINEERING_LIMITS, HOIST_USD_LIMITS)
@@ -275,6 +299,14 @@ def hoist_actual_to_usd(height_m: float) -> float:
 def hoist_usd_to_actual(position_usd: float) -> float:
     value = _clamp(position_usd, min(HOIST_USD_LIMITS), max(HOIST_USD_LIMITS))
     return _linear_map(value, HOIST_USD_LIMITS, HOIST_ENGINEERING_LIMITS)
+
+
+def hoist_sim_to_usd(height_m: float) -> float:
+    return _piecewise_map(height_m, HOIST_SIM_CALIBRATION)
+
+
+def hoist_usd_to_sim(position_usd: float) -> float:
+    return _piecewise_inverse(position_usd, HOIST_SIM_CALIBRATION)
 
 
 def gantry_actual_to_usd(position_m: float) -> float:
@@ -377,8 +409,9 @@ def _rope_points(hoist_position: float) -> list[Gf.Vec3f]:
 class RTGController:
     """Write synchronized gantry, trolley, hoist, and rope commands."""
 
-    def __init__(self, stage: Usd.Stage):
+    def __init__(self, stage: Usd.Stage, *, simulation: bool = False):
         self.stage = stage
+        self._simulation = simulation
         self._session = stage.GetSessionLayer()
         self._gantry = self._drive_target(GANTRY_JOINT_PATH)
         self._gantry_prim = stage.GetPrimAtPath(GANTRY_PATH)
@@ -409,7 +442,13 @@ class RTGController:
         if not self._ropes:
             raise RuntimeError(f"Missing rope system: {ROPE_SYSTEM_PATH}")
         self._rope_binding = None
-        self._trolley_visual_alignment_usd_x = self._trolley_alignment_to_truck_lane()
+        if simulation:
+            # Continue from the composed pose on takeover, including any
+            # lateral correction already applied by the live controller.
+            translate = self._trolley_translate.Get() or TROLLEY_BASE_TRANSLATE
+            self._trolley_visual_alignment_usd_x = float(translate[0]) - float(self._trolley.Get() or 0.0)
+        else:
+            self._trolley_visual_alignment_usd_x = self._trolley_alignment_to_truck_lane()
 
     def _trolley_alignment_to_truck_lane(self) -> float:
         """Keep PLC row stops on the boxes after the gantry's lateral pose changes.
@@ -619,11 +658,14 @@ class RTGController:
         return self.set_gantry(_clamp(position_m, *GANTRY_SOFT_LIMITS))
 
     def set_trolley(self, position_m: float) -> float:
-        """Set PLC trolley travel against the validated task animation stops."""
+        """Set trolley travel using this controller's position calibration."""
         actual = _clamp(position_m, *TROLLEY_ENGINEERING_LIMITS)
-        value = trolley_actual_to_usd(actual)
+        value = trolley_sim_to_usd(actual) if self._simulation else trolley_actual_to_usd(actual)
         with Usd.EditContext(self.stage, self._session):
             self._trolley.Set(value)
+            if self._simulation:
+                # Keep the visual offset stable across successive SIM commands.
+                value = float(self._trolley.Get())
             self._trolley_translate.Set(
                 Gf.Vec3d(
                     TROLLEY_BASE_TRANSLATE[0] + value + getattr(self, "_trolley_visual_alignment_usd_x", 0.0),
@@ -646,7 +688,7 @@ class RTGController:
         call this method without that simulation-only compensation.
         """
         actual = _clamp(height_m, *HOIST_ENGINEERING_LIMITS)
-        drive_value = hoist_actual_to_usd(actual)
+        drive_value = hoist_sim_to_usd(actual) if self._simulation else hoist_actual_to_usd(actual)
         visual_value = drive_value
         if carried_load:
             visual_value += HOIST_ACTUAL_TIER_HEIGHT_M * HOIST_USD_PER_ENGINEERING_M
@@ -767,8 +809,10 @@ class RTGController:
         trolley_value = self._trolley.Get()
         hoist_value = self._hoist.Get()
         gantry = gantry_usd_to_actual(float(gantry_value or 0.0))
-        trolley = trolley_usd_to_actual(float(trolley_value or 0.0))
-        hoist = hoist_usd_to_actual(float(hoist_value or 0.0))
+        trolley_from_usd = trolley_usd_to_sim if self._simulation else trolley_usd_to_actual
+        trolley = trolley_from_usd(float(trolley_value or 0.0))
+        hoist_from_usd = hoist_usd_to_sim if self._simulation else hoist_usd_to_actual
+        hoist = hoist_from_usd(float(hoist_value or 0.0))
         return gantry, trolley, hoist
 
     def get_gantry_bay_center_m(self) -> float:
@@ -820,7 +864,11 @@ __all__ = [
     "bay_id_position_m",
     "bay_position_m",
     "hoist_actual_to_usd",
+    "hoist_sim_to_usd",
     "hoist_usd_to_actual",
+    "hoist_usd_to_sim",
     "trolley_actual_to_usd",
+    "trolley_sim_to_usd",
     "trolley_usd_to_actual",
+    "trolley_usd_to_sim",
 ]

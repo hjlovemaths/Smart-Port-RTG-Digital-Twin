@@ -49,10 +49,12 @@ class WorkbenchUsdTests(unittest.TestCase):
 
     def test_mixed_demo_checks_pause_reset_and_history(self):
         try:
-            from pxr import Usd, UsdGeom
+            from pxr import Gf, Usd, UsdGeom
         except ImportError:
             self.skipTest("Requires the Kit USD runtime")
         from iecs_launch import launch
+        from rtg_live_control import GANTRY_PATH, gantry_actual_to_usd
+        from smartport.agent_panel import sim_workbench
         from smartport.agent_panel.project_interfaces import _iecs
         from smartport.agent_panel.scene_runtime import SceneRuntime
 
@@ -70,9 +72,23 @@ class WorkbenchUsdTests(unittest.TestCase):
             parked_color = parked_lens.GetDisplayColorAttr().Get()[0]
             self.assertEqual(parked_color[0], parked_color[1])
             self.assertEqual(parked_color[1], parked_color[2])
+            # The SIM workbench uses this same STS motion entry point before IECS opens its own layer.
+            owner.move_sts({"crane_id": "STS_01", "trolley_m": 2.0})
+            manual_sts = owner.owned_sts["STS_01"]
+            for _ in range(10):
+                manual_sts.tick(.1)
+            hoist = UsdGeom.Xformable(stage.GetPrimAtPath(manual_sts.path + "/Gantry/Trolley/Hoist"))
+            manual_ops = hoist.GetXformOpOrderAttr().Get()
+            self.assertIn("xformOp:transform:stsControl", manual_ops)
+            manual_pose = UsdGeom.XformCache().GetLocalToWorldTransform(hoist.GetPrim())
+            gantry = stage.GetPrimAtPath(GANTRY_PATH)
+            gantry_ops = UsdGeom.Xformable(gantry).GetXformOpOrderAttr().Get()
             demo.process({"action": "speed", "value": 20})
             _iecs(owner,{"action":"mixed"},web=True)
             demo.process({"action": "pause"})
+            move = {"action": "move", "axis": "gantry_m", "target_m": 300.}
+            with self.assertRaisesRegex(ValueError, "IECS 调度还有未完成任务"):
+                sim_workbench.command(owner, move)
             before = demo.engine.time
             demo.engine.tick(.1)
             self.assertEqual(demo.engine.time, before)
@@ -86,14 +102,47 @@ class WorkbenchUsdTests(unittest.TestCase):
             demo.apply_scene()
             demo.process({"action": "resume"})
             peak_trucks=peak_roads=peak_cranes=0
+            unload = next(o for o in demo.engine.orders.values() if o["flow"] == "unload")
             gate_in = next(o for o in demo.engine.orders.values() if o["flow"] == "gate_in")
             gate_out = next(o for o in demo.engine.orders.values() if o["flow"] == "gate_out")
+            unload_cargo = demo.engine.containers[unload["container"]]
+            checked_front_slot = set()
             gate_wait_verified = False
             gate_out_seen = set()
             running_marker_seen = False
             for _ in range(2200):
-                demo.engine.tick(.1)
-                demo.apply_scene()
+                demo.advance(.1)
+                if unload["vehicle"] and unload_cargo["owner"] == unload["vehicle"]:
+                    truck = demo.engine.vehicles[unload["vehicle"]]
+                    checkpoint = None
+                    if unload["step"] == 1:
+                        checkpoint = "STS release"
+                    elif unload["step"] == 2 and 1 < truck["heading"] % 90 < 89:
+                        checkpoint = "turn"
+                    elif unload["step"] == 3:
+                        checkpoint = "RTG arrival"
+                    if checkpoint is not None and checkpoint not in checked_front_slot:
+                        cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"])
+                        prim = stage.GetPrimAtPath(demo.vehicle_path(truck["id"]))
+                        rail_bounds = Gf.Range3d()
+                        for part in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
+                            if part.IsA(UsdGeom.Boundable) and "trailer_side_rail" in part.GetName():
+                                rail_bounds.UnionWith(cache.ComputeRelativeBound(part, prim).ComputeAlignedRange())
+                        visual = stage.GetPrimAtPath(unload_cargo["visual_prim"])
+                        transforms = UsdGeom.XformCache()
+                        truck_transform = transforms.GetLocalToWorldTransform(prim)
+                        box_transform = transforms.GetLocalToWorldTransform(visual)
+                        # The render asset is centred on its visual root. Its world AABB
+                        # midpoint can drift slightly as the asymmetric mesh rotates.
+                        local_center = truck_transform.GetInverse().Transform(box_transform.ExtractTranslation())
+                        truck_axis = truck_transform.TransformDir(Gf.Vec3d(0, 1, 0))
+                        box_axis = box_transform.TransformDir(Gf.Vec3d(0, 1, 0))
+                        _, length, height = unload_cargo["visual_size"]
+                        gap = (local_center[1] - rail_bounds.GetMin()[1]) * truck_axis.GetLength() - length / 2
+                        self.assertAlmostEqual(gap, .08, places=3, msg=checkpoint)
+                        self.assertAlmostEqual(local_center[2] - height / 2, rail_bounds.GetMax()[2], places=3, msg=checkpoint)
+                        self.assertAlmostEqual(Gf.Dot(truck_axis.GetNormalized(), box_axis.GetNormalized()), 1., places=5)
+                        checked_front_slot.add(checkpoint)
                 if not gate_wait_verified and gate_in["step"] == 2 and gate_in["wait_reason"] == "等待冲突路线放行":
                     truck = demo.engine.vehicles[gate_in["vehicle"]]
                     cargo = demo.engine.containers[gate_in["container"]]
@@ -169,6 +218,9 @@ class WorkbenchUsdTests(unittest.TestCase):
                              ["unload", "load", "gate_in", "gate_out", "transfer"])
             self.assertTrue(all(o["status"] == "completed" for o in demo.engine.orders.values()),
                             [(o['flow'],o['step'],o['wait_reason']) for o in demo.engine.orders.values()])
+            self.assertEqual(checked_front_slot, {"STS release", "turn", "RTG arrival"})
+            self.assertAlmostEqual(demo.pickups[unload["id"]].place[1], unload["source"]["point"][1], places=4)
+            self.assertAlmostEqual(demo.yard_drops[unload["id"]].pick[1], unload["target"]["point"][1], places=4)
             self.assertTrue(gate_wait_verified)
             self.assertTrue(running_marker_seen)
             self.assertEqual(gate_out_seen, {"entry", "pickup"})
@@ -196,6 +248,23 @@ class WorkbenchUsdTests(unittest.TestCase):
                 order=demo.engine.orders[event["order"]]
                 self.assertAlmostEqual(event["elapsed_s"],order["completed_at"]-order["started_at"],places=2)
                 self.assertGreaterEqual(event["elapsed_s"],event["wait_s"])
+            self.assertIsNone(demo.visual_rtg)
+            self.assertIsNone(demo.shared_sts)
+            self.assertEqual(UsdGeom.Xformable(gantry).GetXformOpOrderAttr().Get(), gantry_ops)
+            landed = stage.GetPrimAtPath(unload_cargo["visual_prim"])
+            self.assertNotEqual(UsdGeom.Imageable(landed).ComputeVisibility(), "invisible")
+            start = sim_workbench.state(owner)["positions_m"]["gantry_m"]
+            sim_workbench.command(owner, move)
+            for _ in range(32):
+                owner.tick(stage, .1)
+                demo.advance(.1)
+            report = sim_workbench.state(owner)
+            self.assertEqual(report["operation"]["status"], "completed")
+            self.assertAlmostEqual(report["positions_m"]["gantry_m"], 300., places=3)
+            translate = gantry.GetAttribute("xformOp:translate").Get()
+            matrix_y = UsdGeom.Xformable(gantry).GetLocalTransformation().ExtractTranslation()[1]
+            self.assertGreater(abs(gantry_actual_to_usd(start) - translate[1]), 1.)
+            self.assertAlmostEqual(matrix_y, translate[1], places=3)
             self.assertTrue(demo.check_scene()["ok"], demo.scene_report)
             history = demo.recent_history()
             self.assertGreater(len(history), 2)
@@ -204,6 +273,8 @@ class WorkbenchUsdTests(unittest.TestCase):
             self.assertFalse(demo.engine.orders)
             self.assertEqual(demo.recent_history()[0]["kind"], "reset")
             self.assertIsNone(demo.visual_rtg)
+            self.assertEqual(hoist.GetXformOpOrderAttr().Get(), manual_ops)
+            self.assertEqual(UsdGeom.XformCache().GetLocalToWorldTransform(hoist.GetPrim()), manual_pose)
         finally:
             owner.close()
             demo.close()

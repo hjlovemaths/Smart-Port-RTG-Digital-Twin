@@ -10,3 +10,5 @@ services/logs/
 *.log
 *.blend1
 blender/converted/
+omniverse/config/cameras/*.local.json
+omniverse/data/sts_efficiency_report.local.json

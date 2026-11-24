@@ -386,6 +386,7 @@ class TaskPositionTests(unittest.TestCase):
         }
         changed_phase = dict(
             task,
+            taskState="ACTIVE",
             operationState="HOIST_TO_PICK",
             visualPhase="PICKING",
         )
@@ -393,6 +394,10 @@ class TaskPositionTests(unittest.TestCase):
         self.assertEqual(
             receiver._task_panel_content_key(task),
             receiver._task_panel_content_key(changed_phase),
+        )
+        self.assertNotEqual(
+            receiver._task_panel_content_key(task),
+            receiver._task_panel_content_key(dict(task, taskState="COMPLETED")),
         )
 
     def test_operation_state_machine_receives_current_bay_heights(self) -> None:

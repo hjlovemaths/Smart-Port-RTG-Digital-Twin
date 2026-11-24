@@ -11,6 +11,27 @@ def server(tmp_path):return ViewerAuth(app,Accounts(tmp_path/'accounts.json'))
 def initialize(server):server.accounts.initialize('admin','AdminTestPassword!','viewer','ViewerTestPassword!')
 
 @pytest.mark.asyncio
+async def test_sim_account_is_limited_to_its_debug_workbench(server):
+ initialize(server)
+ server.accounts.set_driver('iecs','IecsTestPassword!','iecs')
+ async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server),base_url='http://test:8011',headers={'origin':'http://test:8011'}) as c:
+  await c.post('/auth/login',data={'username':'iecs','password':'IecsTestPassword!'})
+  assert (await c.get('/api/sim/state')).status_code==403
+  assert (await c.get('/api/sim/pointcloud/'+'0'*32+'/ply')).status_code==403
+  await c.post('/auth/login',data={'username':'admin','password':'AdminTestPassword!'})
+  assert (await c.post('/auth/sim-account',data={'username':'sim','password':'SimTestPassword!'})).status_code==200
+  login=await c.post('/auth/login',data={'username':'sim','password':'SimTestPassword!'})
+  assert login.headers['location']=='/sim?spectator=1'
+  assert (await c.get('/sim?spectator=1')).status_code==200
+  assert (await c.get('/api/sim/state')).status_code==200
+  assert (await c.get('/api/sim/pointcloud/'+'0'*32+'/ply')).status_code==200
+  assert (await c.post('/api/sim/command',json={'action':'stop'})).status_code==200
+  assert (await c.post('/api/sim/command',json={'action':'stop'},headers={'origin':'http://other'})).status_code==403
+  for path in ('/api/iecs/state','/api/smartport-agent/state','/api/rtg-driver/state','/auth/sim-account'):
+   assert (await c.get(path)).status_code==403
+  assert (await c.get('/api/stream-config')).json()['streams'][0]['type']=='spectator'
+
+@pytest.mark.asyncio
 async def test_iecs_account_enters_workbench_with_only_iecs_controls(server):
  initialize(server)
  async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server),base_url='http://test:8011',headers={'origin':'http://test:8011'}) as c:

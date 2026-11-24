@@ -269,6 +269,9 @@ def _validate_runtime_arguments(name: str, args: dict[str, Any]) -> dict[str, An
     missing = set(schema["required"]) - args.keys()
     if missing:
         raise ValueError(f"Missing argument(s) for {name}: {', '.join(sorted(missing))}")
+    if name == "control_camera_display" and "camera_number" in args:
+        if str(args.get("display", "")).strip().casefold() != "rtsp_popup" or str(args.get("action", "")).strip().casefold() not in {"start", "refresh"}:
+            raise ValueError("camera_number requires rtsp_popup with start or refresh")
     result = {}
     for key, value in args.items():
         prop = properties[key]

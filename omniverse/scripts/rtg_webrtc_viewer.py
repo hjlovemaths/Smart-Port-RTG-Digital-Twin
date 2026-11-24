@@ -17,6 +17,7 @@ VIEWER_HEAD = """
   if (location.pathname === '/rtg-driver') document.documentElement.classList.add('smartport-rtg-driver');
   if (location.pathname === '/sts-driver') document.documentElement.classList.add('smartport-sts-driver');
   if (location.pathname === '/iecs') document.documentElement.classList.add('smartport-iecs');
+  if (location.pathname === '/sim') document.documentElement.classList.add('smartport-sim');
   if (['/driver','/rtg-driver','/sts-driver'].includes(location.pathname)) {
     document.documentElement.classList.add('smartport-driver','smartport-video-only');
   }
@@ -73,7 +74,7 @@ VIEWER_HEAD = """
     const inputGuard = document.documentElement.classList.contains('smartport-iecs') ? document : window;
     for (const event of ['pointerdown','pointerup','pointermove','mousedown','mouseup','mousemove','wheel','dblclick','contextmenu','keydown','keyup']) {
       inputGuard.addEventListener(event, e => {
-        if (e.target.closest?.('.control-panel,input,select,button,#iecs-workbench,#web-navigation,#web-agent,#web-agent-settings,#web-agent-response,#web-device-map,#web-container-info') || !document.getElementById('remote-video')) return;
+        if (e.target.closest?.('.control-panel,input,select,button,#iecs-workbench,#sim-workbench,#web-navigation,#web-agent,#web-agent-settings,#web-agent-response,#web-device-map,#web-container-info,#web-live-camera,#web-sts-statistics') || !document.getElementById('remote-video')) return;
         if (event.startsWith('key') && (e.key === 'F11' || e.key === 'Escape')) { e.stopImmediatePropagation(); return; }
         if (event === 'dblclick') { e.preventDefault(); e.stopImmediatePropagation(); toggleSpectatorFullscreen(); return; }
         if (event.startsWith('key') && (e.ctrlKey || e.metaKey || e.altKey)) { e.stopImmediatePropagation(); return; }
@@ -82,12 +83,14 @@ VIEWER_HEAD = """
     }
   }
 </script>
-<link rel="stylesheet" href="/static/smartport-agent.css?v=12">
-<script type="module" src="/static/smartport-session.js?v=4"></script>
+<link rel="stylesheet" href="/static/smartport-agent.css?v=21">
+<script type="module" src="/static/smartport-session.js?v=5"></script>
 <link rel="stylesheet" href="/static/smartport-iecs.css?v=4">
 <script type="module" src="/static/smartport-iecs.js?v=3"></script>
-<script type="module" src="/static/smartport-agent.js?v=12"></script>
-<script type="module" src="/static/smartport-navigation.js?v=11"></script>
+<link rel="stylesheet" href="/static/smartport-sim.css?v=4">
+<script type="module" src="/static/smartport-sim.js?v=7"></script>
+<script type="module" src="/static/smartport-agent.js?v=18"></script>
+<script type="module" src="/static/smartport-navigation.js?v=13"></script>
 <script type="module" src="/static/smartport-cinema.js?v=2"></script>
 <script type="module" src="/static/smartport-driver.js?v=7"></script>
 <script type="module" src="/static/smartport-rtg-driver.js?v=7"></script>
@@ -189,7 +192,7 @@ def install_viewer_page(web_root: Path) -> Path:
         temporary.write_text(result, encoding="utf-8")
         temporary.replace(index)
     assets = Path(__file__).resolve().parents[1] / "web"
-    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-navigation.js", "smartport-device-map.js", "smartport-session.js", "smartport-speech.js", "smartport-recorder.js", "smartport-cinema.js"):
+    for name in ("smartport-agent.js", "smartport-agent.css", "smartport-panel-drag.js", "smartport-sts-statistics.js", "smartport-navigation.js", "smartport-device-map.js", "smartport-session.js", "smartport-speech.js", "smartport-recorder.js", "smartport-cinema.js"):
         (web_root / name).write_bytes((assets / name).read_bytes())
     return index
 

@@ -698,10 +698,19 @@ surfaces and edge markings over the same 1,961 m range:
 
 ## RTG camera marker popup
 
+管理员打开港区网页后，可以对 Agent 说“打开 RTG C5 实体相机”或“打开 RTG
+吊具四角实体相机”。画面显示在网页的“实体相机”浮层。关闭浮层可停止取流。
+“列出已配置的 RTG 实体相机”可按编号和安装位置查询。
+
+相机配置位于 `omniverse/config/cameras/Cam_RTG_220.json`。现场部署可复制到
+同目录 `Cam_RTG_220.local.json` 后修改，程序优先读取这份本地文件。配置的
+`CameraList` 中，每路相机填写 `Seq`、`IP`、`RtspPort`、`UserName`、`Password`
+和 `Location`。Axis 使用 `AttachedLine`，海康可用 `RtspChannel` 指定 `101`、
+`102` 等通道。其他设备可填以 `/` 开头的 `RtspPath`，可包含查询参数。
+运行 Kit 的机器负责从设备取流，网页通过同源接口加载预览。
+
 The Kit receiver can open an RTSP preview when a camera marker is selected in
-the viewport. Camera definitions are read from the local, git-ignored file
-`omniverse/config/cameras/Cam_RTG_220.json`, with the RCMS camera configuration
-used as a fallback.
+the viewport. This legacy Script Editor workflow reads the same configuration.
 The authored RTG markers (`C1`–`C33`) are preserved; markers without a
 matching entry open an `UNCONFIGURED` status instead of creating geometry
 outside the RTG. To start it standalone from Script Editor:

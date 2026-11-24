@@ -45,7 +45,7 @@ def test_lidar_creation_forwards_downward_orientation():
             calls.append((path, kwargs))
             return object()
 
-    orientation = MODULE.DOWNWARD_ORIENTATION_WXYZ
+    orientation = MODULE.orientation_wxyz(0, MODULE.YARD_ANGLES[1])
     MODULE._create_lidar(
         FakeLidar,
         "/World/downward_lidar",

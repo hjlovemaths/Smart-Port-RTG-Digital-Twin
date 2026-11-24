@@ -92,3 +92,104 @@ def test_cinema_state_is_read_only_and_controls_use_the_allowlisted_tool(panel):
     calls=[];panel._execute_tool=lambda name,args:calls.append((name,args)) or {'status':'running'}
     AgentWebBridge.execute(panel,'cinema',{'action':'resume'})
     assert calls==[('control_transfer_camera',{'action':'resume'})]
+
+
+def test_live_camera_routes_check_role_and_preview_revision():
+    import asyncio
+    from smartport.agent_panel.live_camera import install_camera_routes
+
+    fastapi = pytest.importorskip("fastapi")
+    httpx = pytest.importorskip("httpx")
+    app = fastapi.FastAPI()
+
+    @app.middleware("http")
+    async def test_session(request, call_next):
+        request.scope["smartport_session"] = {"role": request.headers.get("test-role")}
+        return await call_next(request)
+
+    requests = []
+
+    async def execute(action, payload):
+        requests.append((action, payload))
+        return {"ok": True}
+
+    preview = SimpleNamespace(revision="selection", feeds={
+        1: SimpleNamespace(frame=lambda: b"jpeg"), 2: SimpleNamespace(frame=lambda: None)})
+    prefix = "/api/smartport-agent"
+    install_camera_routes(app, prefix, lambda: preview, execute)
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            root = prefix + "/live-camera"
+            admin = {"test-role": "admin"}
+            viewer = {"test-role": "viewer"}
+            assert (await client.get(root + "/selection/1")).status_code == 403
+            assert (await client.get(root + "/selection/1", headers=viewer)).status_code == 403
+            assert (await client.get(root + "/old/1", headers=admin)).status_code == 404
+            assert (await client.get(root + "/selection/3", headers=admin)).status_code == 404
+            assert (await client.get(root + "/selection/2", headers=admin)).status_code == 204
+            response = await client.get(root + "/selection/1", headers=admin)
+            assert response.content == b"jpeg"
+            assert response.headers["Content-Type"] == "image/jpeg"
+            assert response.headers["Cache-Control"] == "private, no-store"
+            assert (await client.post(root + "/close", json={}, headers=viewer)).status_code == 403
+            assert (await client.post(root + "/close", json={"revision": "selection"}, headers=admin)).status_code == 200
+            assert requests == [("live-camera-close", {"revision": "selection"})]
+
+    asyncio.run(check())
+
+
+def test_sts_statistics_agent_and_browser_use_the_same_read_only_report(panel, tmp_path):
+    import asyncio
+    import json
+    from smartport.agent_panel import sts_statistics
+    from smartport.agent_panel.scene_runtime import SceneRuntime
+
+    fastapi = pytest.importorskip("fastapi")
+    httpx = pytest.importorskip("httpx")
+    source = tmp_path / sts_statistics.SNAPSHOT
+    source.parent.mkdir(parents=True)
+    rows = [["H101", "test-container-1"], ["H105", "test-container-2"]]
+    source.write_text(json.dumps({"columns": ["桥吊编号", "箱号"], "rows": rows, "missing_replies": 3,
+                                  "start": "2026-11-24T08:00:00+08:00", "end": "2026-11-25T08:00:00+08:00"}), encoding="utf-8")
+    panel._runtime = SceneRuntime(tmp_path)
+    panel._execute_tool = lambda name, args: panel._runtime.execute(None, name, args)
+    tool = "control_sts_statistics"
+    result = panel._execute_tool(tool, {"action": "open"})
+    assert result["visible"] and result["crane"] == "ALL" and result["row_count"] == 2
+    assert "rows" not in result and "test-container-1" not in repr(result)
+    state = AgentWebBridge.execute(panel, "state", {})
+    assert state["sts_statistics"] == result["revision"] and "test-container-1" not in repr(state)
+
+    app = fastapi.FastAPI()
+
+    @app.middleware("http")
+    async def test_session(request, call_next):
+        request.scope["smartport_session"] = {"role": request.headers.get("test-role")}
+        return await call_next(request)
+
+    async def execute(action, payload):
+        return AgentWebBridge.execute(panel, action, payload)
+
+    prefix = "/api/smartport-agent"
+    sts_statistics.install_routes(app, prefix, execute)
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            path = prefix + "/sts-statistics"
+            admin = {"test-role": "admin"}
+            viewer = {"test-role": "viewer"}
+            assert (await client.get(path, headers=viewer)).status_code == 403
+            assert (await client.post(path, json={"action": "close"}, headers=viewer)).status_code == 403
+            report = await client.get(path, headers=admin)
+            assert report.headers["cache-control"] == "private, no-store" and report.json()["rows"] == rows
+            selected = await client.post(path, json={"action": "query", "crane": "H105"}, headers=admin)
+            assert selected.json()["row_count"] == 1
+            await client.post(path, json={"action": "close", "revision": result["revision"]}, headers=admin)
+            assert (await client.get(path, headers=admin)).json()["rows"] == [rows[1]]
+            reopened = panel._execute_tool(tool, {"action": "open"})
+            assert reopened["crane"] == "ALL" and (await client.get(path, headers=admin)).json()["rows"] == rows
+            await client.post(path, json={"action": "close", "revision": reopened["revision"]}, headers=admin)
+            assert (await client.get(path, headers=admin)).json() == {"visible": False}
+
+    asyncio.run(check())

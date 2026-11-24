@@ -58,6 +58,17 @@ def _translate(v):
     return Gf.Matrix4d(1).SetTranslate(Gf.Vec3d(*v))
 
 
+def _control_transform(xform):
+    # IECS authors its own layer over any controller used by SIM, Agent or the driver.
+    # Reuse the composed op so removing the IECS layer restores the earlier pose.
+    ops = xform.GetOrderedXformOps()
+    control = next((op for op in ops if op.GetOpName() == 'xformOp:transform:stsControl'), None)
+    if control is None:
+        control = xform.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'stsControl')
+    xform.SetXformOpOrder([control] + [op for op in ops if op != control], xform.GetResetXformStack())
+    return control
+
+
 def boom_matrix(angle, pivot=PIVOT):
     return (_translate(-pivot) *
             Gf.Matrix4d(1).SetRotate(Gf.Rotation(Gf.Vec3d(1, 0, 0), -angle)) *
@@ -147,18 +158,14 @@ class STSController:
                     xf = UsdGeom.Xformable(stage.GetPrimAtPath(f'{self.path}/{name}'))
                     if not xf:
                         raise ValueError(f'Missing STS axis: {name}')
-                    op = xf.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'stsControl')
                     # The control delta is in the parent's coordinate system.
-                    xf.SetXformOpOrder([op]+[o for o in xf.GetOrderedXformOps() if o != op])
-                    self._ops[name] = op
+                    self._ops[name] = _control_transform(xf)
                 for name in ('Gantry/Trolley/Hoist/STS_SpreaderEndFront',
                              'Gantry/Trolley/Hoist/STS_SpreaderEndRear'):
                     xf = UsdGeom.Xformable(stage.GetPrimAtPath(f'{self.path}/{name}'))
                     if not xf:
                         raise ValueError(f'Missing STS spreader axis: {name}')
-                    op = xf.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'stsControl')
-                    xf.SetXformOpOrder([op]+[o for o in xf.GetOrderedXformOps() if o != op])
-                    self._ops[name] = op
+                    self._ops[name] = _control_transform(xf)
                 fixed = stage.GetPrimAtPath(f'{self.path}/Gantry/Fixed')
                 for prim in Usd.PrimRange(fixed):
                     if any(tag in prim.GetName().lower() for tag in LUFFING_HIDE_TAGS):

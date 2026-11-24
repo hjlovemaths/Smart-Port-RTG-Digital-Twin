@@ -1,0 +1,65 @@
+.smartport-sim { --sim-width: min(416px, 42vw); }
+.smartport-sim .container { width: auto; right: var(--sim-width); }
+.smartport-sim #remote-video { width: 100%; height: 100%; object-fit: cover; }
+.smartport-sim #spectator-fullscreen { right: calc(var(--sim-width) + 16px) !important; }
+#sim-workbench {
+  position: fixed; inset: 0 0 0 auto; width: var(--sim-width);
+  z-index: 10002; box-sizing: border-box; padding: 26px 22px; overflow: auto;
+  background: #101f2b; border-left: 1px solid #3a5668; color: #e7eef2;
+  font: 14px/1.5 system-ui, "Microsoft YaHei", sans-serif;
+}
+#sim-workbench h1 { display: block; margin: 0 0 4px; font-size: 24px; color: #e7eef2; }
+#sim-workbench h2 { margin: 0; font-size: 15px; color: #9bd7e8; }
+#sim-workbench p { margin: 5px 0 10px; }
+#sim-workbench section { border-top: 1px solid #386073; padding: 12px 0; }
+#sim-workbench .sim-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#sim-workbench .sim-devices { margin-bottom: 10px; }
+#sim-workbench .sim-devices button { flex: 1; }
+#sim-workbench .sim-devices button[aria-pressed="true"] { background: #096a81; border-color: #6bafc1; }
+#sim-workbench .sim-axis-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+#sim-workbench .sim-detail { color: #b4cad7; }
+#sim-workbench .sim-position { font-size: 18px; font-variant-numeric: tabular-nums; }
+#sim-workbench button, #sim-workbench input, #sim-workbench select, #sim-workbench .sim-downloads a {
+  box-sizing: border-box; min-height: 34px; padding: 4px 9px;
+  border: 1px solid #507182; border-radius: 4px; color: #ecf3f6; font: inherit;
+}
+#sim-workbench button { cursor: pointer; background: #234252; }
+#sim-workbench button[data-action="move"], #sim-workbench button[data-action="capture_pointcloud"] { background: #096a81; }
+#sim-workbench button[data-action="stop"] { background: #603e36; border-color: #9c6b5a; }
+#sim-workbench button:disabled { cursor: default; opacity: .48; }
+#sim-workbench input { width: 6.8em; background: #0a1924; }
+#sim-workbench select { background: #0a1924; }
+#sim-workbench .sim-capture-controls { margin-top: 9px; }
+#sim-workbench summary { color: #9bd7e8; cursor: pointer; }
+#sim-workbench .sim-mounts { padding-left: 1.4em; color: #b4cad7; }
+#sim-workbench .sim-downloads[hidden] { display: none; }
+#sim-workbench .sim-downloads a { background: #234252; text-decoration: none; }
+#sim-workbench .sim-downloads a:hover { background: #096a81; }
+#sim-workbench .sim-scan-result { white-space: pre-line; }
+#sim-workbench .sim-pointcloud-preview {
+  margin: 8px 0 10px; border: 1px solid #386073; border-radius: 5px;
+  background: #09151e; overflow: hidden;
+}
+#sim-workbench .sim-preview-status:empty { display: none; }
+#sim-workbench .sim-preview-status { padding: 8px 10px; color: #ffcc91; }
+#sim-workbench canvas:not([hidden]) { display: block; width: 100%; height: 224px; cursor: grab; touch-action: none; }
+#sim-workbench canvas:active { cursor: grabbing; }
+#sim-workbench .sim-preview-footer, #sim-workbench .sim-preview-legend {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+}
+#sim-workbench .sim-preview-footer { justify-content: space-between; padding: 5px 8px; border-top: 1px solid #294758; }
+#sim-workbench .sim-preview-legend span::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 4px;
+  border-radius: 50%; background: var(--point-color);
+}
+#sim-workbench .sim-preview-reset { min-height: 26px; padding: 2px 8px; }
+#sim-workbench .sim-preview-help { padding: 0 8px; margin: 4px 0 7px; font-size: 12px; }
+#sim-workbench .sim-scan-status { overflow-wrap: anywhere; }
+#sim-workbench .sim-notice { color: #ffcc91; overflow-wrap: anywhere; }
+#sim-workbench progress { width: 100%; height: 8px; accent-color: #67c9df; }
+@media (max-width: 740px) {
+  .smartport-sim { --sim-width: 100vw; }
+  .smartport-sim .container { inset: 0 0 58vh; height: 42vh; }
+  .smartport-sim #spectator-fullscreen { right: 12px !important; }
+  #sim-workbench { top: 42vh; padding: 16px; border-left: 0; }
+}

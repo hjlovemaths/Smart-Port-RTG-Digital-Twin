@@ -1,4 +1,7 @@
 // Browser-native IME controls. Scene operations still use the existing Agent.
+import {createStsStatisticsPanel} from './smartport-sts-statistics.js?v=3';
+import {enablePanelDrag} from './smartport-panel-drag.js?v=1';
+
 const iecsAgent = document.documentElement.classList.contains('smartport-iecs');
 if (iecsAgent || (document.documentElement.classList.contains('smartport-video-only') && !document.documentElement.classList.contains('smartport-spectator') && !document.documentElement.classList.contains('smartport-driver'))) {
   const host = document.createElement('section');
@@ -17,6 +20,91 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
   responseCard.innerHTML='<header><span>AGENT RESPONSE</span><button type="button" id="web-agent-clear">Clear</button></header><div class="conversation"></div><div class="approval" hidden><p></p><button type="button" data-approved="true">确认执行</button><button type="button" data-approved="false">取消</button></div>';
   if (iecsAgent) modal.querySelector('p').textContent = '请填写公网 HTTPS 接口。配置保留在本次登录中。同一接口域名和端口下，Key 留空可保留已有值。';
   document.body.append(host, modal, responseCard);
+  const statistics = iecsAgent ? null : createStsStatisticsPanel(api);
+  const liveCamera = document.createElement('aside');
+  liveCamera.id = 'web-live-camera';
+  liveCamera.hidden = true;
+  liveCamera.setAttribute('aria-labelledby', 'web-live-camera-title');
+  liveCamera.innerHTML = `<header><h2 id="web-live-camera-title">实体相机</h2><button type="button">关闭</button></header>
+    <div class="camera-feeds"></div>`;
+  if (!iecsAgent) document.body.append(liveCamera);
+  let cameraRevision = null, dismissedCameraRevision = null, cameraRequests;
+  const cameraDrag = iecsAgent ? null : enablePanelDrag(liveCamera, liveCamera.querySelector('header'));
+  const cameraGrid = liveCamera.querySelector('.camera-feeds');
+  const closeCamera = liveCamera.querySelector('button');
+
+  closeCamera.onclick = async () => {
+    const revision = cameraRevision;
+    if (!revision) return;
+    dismissedCameraRevision = revision;
+    renderLiveCameras(null);
+    try {
+      await api('live-camera/close', {revision});
+    } catch (error) {
+      if (!cameraRevision && dismissedCameraRevision === revision) {
+        localError = `已关闭本页相机预览，服务端关闭失败：${error.message}`;
+        status.textContent = localError;
+      }
+    }
+  };
+
+  function renderLiveCameras(preview) {
+    if (preview && preview.revision === dismissedCameraRevision) return;
+    if (iecsAgent || (preview?.revision ?? null) === cameraRevision) return;
+    cameraRequests?.abort();
+    cameraRevision = preview?.revision ?? null;
+    cameraGrid.replaceChildren();
+    liveCamera.hidden = !preview;
+    if (!preview) {
+      cameraDrag?.cancel();
+      return;
+    }
+    cameraRequests = new AbortController();
+    const hasGrid = preview.cameras.length > 1;
+    cameraGrid.classList.toggle('four-cameras', hasGrid);
+    for (const camera of preview.cameras) {
+      const tile = document.createElement('figure');
+      tile.innerHTML = '<figcaption></figcaption><div class="camera-screen"><img hidden><span role="status"></span></div>';
+      const caption = tile.querySelector('figcaption');
+      caption.textContent = `C${camera.number}${camera.location ? ` · ${camera.location}` : ''}`;
+      if (hasGrid && (camera.number === 3 || camera.number === 4)) tile.append(caption);
+      cameraGrid.append(tile);
+      const picture = tile.querySelector('img'), message = tile.querySelector('[role=status]');
+      picture.alt = `C${camera.number} 实时画面`;
+      message.textContent = camera.configured ? '正在连接 RTSP…' : '未配置 RTSP';
+      if (camera.configured) pollCameraFrame(preview.revision, camera.number, picture, message, cameraRequests.signal);
+    }
+    cameraDrag?.constrain();
+  }
+
+  function pollCameraFrame(revision, number, picture, message, signal) {
+    const path = `/api/smartport-agent/live-camera/${revision}/${number}`;
+    const started = performance.now();
+    let frameUrl;
+    signal.addEventListener('abort', () => { if (frameUrl) URL.revokeObjectURL(frameUrl); }, {once: true});
+    async function pollFrame() {
+      if (signal.aborted) return;
+      let frame;
+      try {
+        const response = await fetch(path, {cache: 'no-store', signal});
+        if (response.status === 200) frame = await response.blob();
+      } catch (error) {
+        if (signal.aborted) return;
+      }
+      if (signal.aborted) return;
+      if (frame) {
+        if (frameUrl) URL.revokeObjectURL(frameUrl);
+        frameUrl = URL.createObjectURL(frame);
+        picture.src = frameUrl;
+      }
+      picture.hidden = !frame;
+      message.hidden = !!frame;
+      const statusText = performance.now() - started < 5000 ? '正在连接 RTSP…' : '暂未收到 RTSP 画面，正在重连…';
+      if (message.textContent !== statusText) message.textContent = statusText;
+      setTimeout(pollFrame, frame ? 100 : 500);
+    }
+    pollFrame();
+  }
   responseCard.querySelector('#web-agent-clear').onclick=()=>{speech.stop();api('clear',{}).then(poll).catch(e=>status.textContent=e.message);};
   responseCard.querySelectorAll('[data-approved]').forEach(button=>button.onclick=()=>{
     if(!state?.approval)return;
@@ -45,7 +133,7 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
   // browser editing, but do not also send these keystrokes to the 3D viewport.
   for (const name of ['keydown','keyup','keypress','beforeinput','input','compositionstart','compositionupdate','compositionend']) {
     document.addEventListener(name, event => {
-      if (host.contains(event.target) || modal.contains(event.target) || responseCard.contains(event.target)) event.stopImmediatePropagation();
+      if (host.contains(event.target) || modal.contains(event.target) || responseCard.contains(event.target) || liveCamera.contains(event.target) || statistics?.element.contains(event.target)) event.stopImmediatePropagation();
     }, true);
   }
   // Target listeners perform editing actions because document capture above
@@ -99,10 +187,14 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
       state = await api('state');
       if(!initialized){input.value = state.draft || ''; initialized = true;}
       host.hidden = false; renderResponse(); speech.update(state); layout();
+      renderLiveCameras(state.live_camera);
+      statistics?.update(state.sts_statistics ?? null);
       status.textContent = localError || (state.status === 'URL / Model saved (API key not saved)'
         ? '配置已保存，Key 仅保留在当前会话' : state.status);
       sendButton.disabled = state.busy || posting || state.configured === false;
     } catch(e){
+      renderLiveCameras(null);
+      statistics?.update(null);
       if(initialized || iecsAgent) {
         host.hidden = false; status.textContent = e.message;
         sendButton.disabled = true;

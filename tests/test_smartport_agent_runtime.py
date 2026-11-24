@@ -130,6 +130,39 @@ def test_work_views_dispatch_uses_fixed_display_api_without_equipment_control(ru
     assert calls[-1] == ("stop", None)
 
 
+def test_agent_opens_configured_rtsp_only_in_web_preview(runtime, monkeypatch):
+    class Reader:
+        def __init__(self, camera, on_frame, on_status, *, active):
+            self.stopped = False
+
+        def stop(self, *, wait):
+            self.stopped = True
+
+    cameras = {1: SimpleNamespace(location="吊具角一", password="camera-secret"),
+               5: SimpleNamespace(location="前横梁", password="camera-secret")}
+    module = SimpleNamespace(camera_config_path=lambda: "cameras.json", _read_camera_config=lambda _: cameras,
+                             RtgRtspReader=Reader, SPREADER_CAMERA_GRID_LAYOUT=((1, 2), (4, 3)))
+    monkeypatch.setattr(project_interfaces, "load", lambda name: module)
+    name = "control_camera_display"
+    popup = {"display": "rtsp_popup"}
+    assert runtime.execute(None, name, {**popup, "action": "status"})["configured_cameras"][1] == {
+        "number": 5, "location": "前横梁"}
+    result = runtime.execute(None, name, {**popup, "action": "start", "camera_number": 5})
+    assert result["cameras"] == [{"number": 5, "location": "前横梁", "configured": True}]
+    preview = runtime.camera_preview
+    with pytest.raises(ValueError, match="未配置"):
+        runtime.execute(None, name, {**popup, "action": "start", "camera_number": 6})
+    assert runtime.camera_preview is preview and not preview.feeds[5]._reader.stopped
+    grid = {"display": "spreader_rtsp_grid"}
+    with pytest.raises(ValueError, match="requires rtsp_popup"):
+        runtime.execute(None, name, {**grid, "action": "start", "camera_number": 1})
+    result = runtime.execute(None, name, {**grid, "action": "start"})
+    assert [tile["number"] for tile in result["cameras"]] == [1, 2, 4, 3]
+    assert preview.feeds[5]._reader.stopped and "camera-secret" not in repr(result)
+    runtime.execute(None, name, {**grid, "action": "stop"})
+    assert runtime.camera_preview is None
+
+
 def test_equipment_task_and_multi_position_capture_preserve_confirmation_boundary():
     assert runtime_catalog.needs_approval("set_sts_axis_positions", {})
     assert runtime_catalog.needs_approval("control_sts_task", {"action": "start_unload"})
@@ -246,7 +279,7 @@ def test_physics_target_adapter_fills_untouched_axes(runtime, monkeypatch):
 def test_capabilities_can_be_read_without_loading_or_starting_service_modules(runtime, monkeypatch):
     monkeypatch.setattr(project_interfaces, "load", lambda _name: pytest.fail("Capability listing must not load services"))
     result = runtime.execute(None, "get_agent_capabilities", {})
-    assert result["interface_count"] == 46
+    assert result["interface_count"] == 47
     assert any(item["name"] == "get_current_tasks" for item in result["interfaces"])
 
 

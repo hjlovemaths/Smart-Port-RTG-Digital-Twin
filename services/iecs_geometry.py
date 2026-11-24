@@ -17,7 +17,14 @@ GATE_EXIT_STOP = (139., 384.7, GROUND_Z)
 GATE_EXIT_END = (144., 384.7, GROUND_Z)
 # Measured on the scaled IECS truck: rail top and front 20 ft load position.
 YARD_TRUCK_RAIL_Z = .625
-FRONT_20FT_LOAD_FORWARD = 2.125*1.22 - 2.475/2 - .08
+
+
+def front_20ft_load_forward(length_m):
+    """Keep the front of a single 20 ft box 8 cm behind the front rail edge."""
+    return 2.125 * 1.22 - length_m / 2 - .08
+
+
+FRONT_20FT_LOAD_FORWARD = front_20ft_load_forward(2.475)
 
 
 def truck_load_point(vehicle, cargo):

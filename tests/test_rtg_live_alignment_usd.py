@@ -234,6 +234,45 @@ class LiveAlignmentUsdTests(unittest.TestCase):
             boxes = [child for child in root.GetChildren() if str(child.GetName()).endswith("_Container")]
             self.assertEqual(len(boxes), 20)
 
+    def test_task_panel_reuses_the_normalized_texture_across_live_frames(self):
+        from contextlib import ExitStack
+        from yard_inventory import YardInventory
+
+        r = self.receiver
+        stage = self.Usd.Stage.CreateInMemory()
+        driver = r.OmniverseRtgTwinDriver(inventory_autosave=False)
+        driver._inventory = YardInventory.empty()
+        driver._current_stage = lambda: stage
+        task = {"taskId": "replay", "workType": "SWITCH", "startPos": "4C3051",
+                "endPos": "4C3011", "bayMap": "144332"}
+        with tempfile.TemporaryDirectory() as images, ExitStack() as mocks:
+            mocks.enter_context(patch.object(r.tempfile, "gettempdir", return_value=images))
+            for name in ("_sync_floating_runinfo_billboard", "_sync_floating_device_panel",
+                         "_disable_demo_artifacts_for_stage", "_ensure_4c_feeder_ship_replacements",
+                         "_sync_inventory_scene", "_controller_for_stage", "_sync_task_switch",
+                         "_sync_status_overlay"):
+                mocks.enter_context(patch.object(driver, name))
+            mocks.enter_context(patch.object(driver, "_sync_task_stack", return_value=False))
+            mocks.enter_context(patch.object(driver, "_sync_spreader_size_for_task", return_value=(40., 40.)))
+            normalize = mocks.enter_context(patch.object(driver, "_prepare_inventory_task", return_value=dict(task, bayMap="154332")))
+            driver.apply_state({"task": task, "pose": {}})
+            mesh = stage.GetPrimAtPath(r.TASK_PANEL_MESH_PATH)
+            texture = mesh.GetAttribute("rtg:taskPanelTexture")
+            original = texture.Get()
+            driver.apply_state({"task": task, "pose": {}})
+            self.assertEqual(texture.Get(), original)
+            self.assertEqual(len(list(Path(images).glob("*.png"))), 1)
+
+            with patch.object(driver, "_ensure_4c_feeder_ship_replacements", side_effect=RuntimeError("scene update failed")):
+                with self.assertRaisesRegex(RuntimeError, "scene update failed"):
+                    driver.apply_state({"task": task, "pose": {}})
+            self.assertEqual(texture.Get(), original)
+
+            normalize.return_value = dict(task, bayMap="164332")
+            driver.apply_state({"task": task, "pose": {}})
+            self.assertNotEqual(texture.Get(), original)
+            self.assertEqual(len(list(Path(images).glob("*.png"))), 2)
+
     def test_switch_unlock_at_target_does_not_require_estimated_contact_height(self):
         from contextlib import ExitStack
         from yard_inventory import YardInventory

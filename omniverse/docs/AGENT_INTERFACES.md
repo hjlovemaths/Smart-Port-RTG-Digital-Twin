@@ -1,6 +1,6 @@
 # Agent 可调用接口
 
-项目的交互式运行接口已整理为 **46 个 Agent 工具**。在 **Smart Port Agent**
+项目的交互式运行接口已整理为 **47 个 Agent 工具**。在 **Smart Port Agent**
 输入自然语言并点击 **Send** 即可，模型会选择对应接口，不需要输入 Python。
 面板按钮保持英文，助手默认用简体中文回答。中文问答使用启动时加载的 SimHei
 字体与中文字符集；更新后需要完整重启应用，重新加载字体和工具目录。
@@ -71,7 +71,7 @@
 | 24 | `set_time_of_day` | `hour=0..24`，设置港区时间和光照。 |
 | 25 | `set_weather` | `wind_speed_mps=0..20`、`rain_amount=light/medium/heavy/torrential`、`fog_amount=light/medium/heavy`。 |
 | 26 | `control_sea_motion` | `status/start/stop/pause/resume/strength/quality/hold/release`；海浪强度 0..3、平滑质量、指定现有船舶的 `ship_path`。 |
-| 27 | `control_camera_display` | `display=work_views/rtsp_popup/spreader_rtsp_grid/model_grid/virtual_cameras`；`action=status/start/stop/refresh`。work_views 为同面板正下视+侧面跟随+整台 RTG 斜视全景；视频使用项目现有 RTSP 配置。 |
+| 27 | `control_camera_display` | `display=work_views/rtsp_popup/spreader_rtsp_grid/model_grid/virtual_cameras`，`action=status/start/stop/refresh`。`rtsp_popup` 使用 `camera_number=1..33` 打开单路，`spreader_rtsp_grid` 打开吊具四角。两种 RTSP 画面都在管理员网页浮层显示。`work_views` 为三维视口的正下视、侧面跟随和整台 RTG 斜视全景。 |
 | 28 | `control_info_panel` | `panel=device/container/alarm`，`action=status/start/stop`，控制信息面板服务。 |
 | 29 | `show_alarm` | `action=status/show/clear`；可指定本地模拟报警内容、`severity=info/warning/error`、持续秒数。 |
 | 30 | `control_gamepad` | `status/start/stop/position_for_pick`；手柄索引 0..3；抓箱定位必须指定 `block/bay/row/tier`。 |
@@ -83,6 +83,7 @@
 | 36 | `cancel_operation` | 指定 `operation_id`，取消 Agent RTG 运动或后台采集操作。 |
 | 37 | `control_livestream` | `action=start/restore_ui/enable_interaction/status`，启动纯场景 WebRTC 或恢复交互。启动时隐藏 Kit 编辑器菜单和窗口，保留浏览器 Agent 与场景交互；`restore_ui` 显式恢复编辑器。`1080p` 为 1920×1080，`2k` 为 2560×1440。 |
 | 38 | `control_plc_zmq` | `action=status/start/stop/connect/disconnect/physics_on/physics_off`。启动时优先复用已有服务；首次连接默认控制关闭。`physics_on` 申请本地控制合并开启 ZMQ 箱体碰撞、锁箱和重力模式，不发送速度；保持时间轴暂停。`physics_off` 要求先落箱解锁。异步操作需查询完成状态。停止只关闭 Agent 自己启动的服务。详见 [ZMQ 接口说明](RTG_PLC_ZMQ.md)。 |
+| 47 | `control_sts_statistics` | 在管理员网页打开或关闭桥吊装卸船效率报表。打开时直接显示日志回放中“今天昼夜”的全部明细，`action=query` 可用 `crane` 筛选桥吊。演示范围随本地快照显示，按北京时间计算。 |
 
 所有参数的精确类型、范围及必填条件见
 [`agent_interfaces.json`](../extensions/smartport.agent_panel/docs/agent_interfaces.json)。

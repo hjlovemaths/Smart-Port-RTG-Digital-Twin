@@ -1,4 +1,4 @@
-"""Attach horizontal and downward RTX LiDARs to the primary RTG trolley.
+"""Attach the perimeter and yard RTX LiDARs to the primary RTG trolley.
 
 Run this file from the Isaac Sim Script Editor after ``smart_port.usda`` is
 open::
@@ -15,11 +15,11 @@ open::
 
 The sensors are created at the validated trolley pose and the visual mounts
 are placed at the trolley.  The live viewport uses the RTX point-cloud debug
-writer: horizontal returns are green and downward returns are orange.
+writer: perimeter returns are green and yard returns are orange.
 When enabled, the service also creates temporary blue L1-L24 spheres at
 the RTG drawing's approximate LiDAR installation points.
-Captures default to the primary horizontal LiDAR coordinate frame, where
-that RTG radar is the origin; the downward sensor is transformed into the
+Captures default to the perimeter LiDAR coordinate frame, where
+that RTG radar is the origin; the yard sensor is transformed into the
 same frame.  Pass ``output_frame="world"`` for a world-coordinate map.
 Both are exported as PLY, PCD, and NPY.
 
@@ -57,25 +57,15 @@ LIDAR_PATH = "/World/RTG_YARD_LIDAR_RUNTIME"
 DOWN_MOUNT_PATH = "/World/RTG_YARD_LIDAR_DOWN_MOUNT_RUNTIME"
 DOWN_LIDAR_PATH = "/World/RTG_YARD_LIDAR_DOWN_RUNTIME"
 
-# Calibrated against the imported RTG trolley controller.  The earlier
-# (2.55,-5.0) guess placed the scanner at [4.68,11.58,9.35], outside the live
-# yard scan corridor.  This local pose maps to the verified RTG world pose
-# [-4.6515,21.5775,9.35] and remains above the trolley roof.
-DEFAULT_SENSOR_TRANSLATION = (-3.7811240757, 5.00, 9.35)
-# The second unit is co-located just below the horizontal unit and points at
-# nadir.  Its smaller range keeps the second RTX render product affordable on
-# 8 GB GPUs while covering the containers directly below the RTG.
-DOWN_SENSOR_VERTICAL_OFFSET_M = -0.20
-DEFAULT_DOWN_SENSOR_TRANSLATION = (
-    DEFAULT_SENSOR_TRANSLATION[0],
-    DEFAULT_SENSOR_TRANSLATION[1],
-    DEFAULT_SENSOR_TRANSLATION[2] + DOWN_SENSOR_VERTICAL_OFFSET_M,
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from rtg_lidar_mounts import (
+    PERIMETER_ANGLES, PERIMETER_TRANSLATION as DEFAULT_SENSOR_TRANSLATION,
+    YARD_ANGLES, YARD_TRANSLATION as DEFAULT_DOWN_SENSOR_TRANSLATION,
+    orientation_wxyz, trolley_transform, world_pose,
 )
+
 DEFAULT_DOWN_FAR_RANGE_M = 150.0
-# Lidar orientations use world-frame quaternions in wxyz order.  With the
-# sensor's local +X ray direction, +90 degrees about world Y points +X down
-# along world -Z.
-DOWNWARD_ORIENTATION_WXYZ = (0.7071067812, 0.0, 0.7071067812, 0.0)
 DEFAULT_CONFIG = "Example_Rotary"
 # Defaults also exposed by this launcher-facing wrapper so the project
 # launcher can select the downloaded Ouster profile without treating a path as
@@ -731,8 +721,8 @@ def _set_prim_orientation(
     ``XformPrim``.  Reasserting the value on the USD prim is intentional here:
     the sensor is created from a referenced profile, and on some Isaac Sim
     6.0.x builds the reference opinion can win again during the first render
-    graph update.  The downward unit must keep its 90-degree pitch while the
-    runtime translation is synchronized with the trolley.
+    graph update. The runtime mounts must keep their calibrated aim while
+    their position is synchronized with the trolley.
     """
 
     from pxr import Gf, UsdGeom
@@ -772,36 +762,18 @@ def _sync_runtime_lidar_pose(service: RtgYardLidarService) -> tuple[float, float
     when ``move_gantry``/``move_trolley`` were called after startup.
     """
 
-    from pxr import Gf, Usd, UsdGeom
-
-    trolley = service.stage.GetPrimAtPath(TROLLEY_PATH)
-    if not trolley or not trolley.IsValid():
-        raise RuntimeError(f"Primary RTG trolley was not found: {TROLLEY_PATH}")
-    trolley_matrix = UsdGeom.Xformable(trolley).ComputeLocalToWorldTransform(
-        Usd.TimeCode.Default()
-    )
-    sensor_position = trolley_matrix.Transform(
-        Gf.Vec3d(*service.sensor_local_translation)
-    )
-    world_translation = (
-        float(sensor_position[0]),
-        float(sensor_position[1]),
-        float(sensor_position[2]),
-    )
-    _set_root_translation(service.stage, MOUNT_PATH, world_translation)
-    _set_root_translation(service.stage, service.lidar_path, world_translation)
-    down_sensor_position = trolley_matrix.Transform(
-        Gf.Vec3d(*service.down_sensor_local_translation)
-    )
-    down_world_translation = (
-        float(down_sensor_position[0]),
-        float(down_sensor_position[1]),
-        float(down_sensor_position[2]),
-    )
-    _set_root_translation(service.stage, DOWN_MOUNT_PATH, down_world_translation)
-    _set_root_translation(
-        service.stage, service.down_lidar_path, down_world_translation
-    )
+    matrix = trolley_transform(service.stage)
+    for mount, lidar, path, local, angles in (
+        (MOUNT_PATH, service.lidar, service.lidar_path, service.sensor_local_translation, PERIMETER_ANGLES),
+        (DOWN_MOUNT_PATH, service.down_lidar, service.down_lidar_path, service.down_sensor_local_translation, YARD_ANGLES),
+    ):
+        position, yaw, pitch = world_pose(matrix, local, angles)
+        _set_root_translation(service.stage, mount, position)
+        _set_root_translation(service.stage, path, position)
+        orientation = orientation_wxyz(yaw, pitch)
+        for sensor_path in _sensor_prim_paths(lidar, path):
+            _set_prim_orientation(service.stage, sensor_path, orientation)
+    world_translation, _, _ = world_pose(matrix, service.sensor_local_translation, PERIMETER_ANGLES)
     return world_translation
 
 
@@ -1244,7 +1216,7 @@ def start_rtg_yard_lidar(
     max_accumulated_points: int = DEFAULT_MAX_ACCUMULATED_POINTS,
     show_position_markers: bool = True,
 ) -> dict[str, Any]:
-    """Create the horizontal/downward trolley-mounted LiDAR pair."""
+    """Create the perimeter and yard LiDARs below the trolley deck."""
 
     global _service
     if _service is not None:
@@ -1261,9 +1233,7 @@ def start_rtg_yard_lidar(
     stage = stage or omni.usd.get_context().get_stage()
     if stage is None:
         raise RuntimeError("No USD stage is open. Open smart_port.usda first.")
-    trolley = stage.GetPrimAtPath(TROLLEY_PATH)
-    if not trolley or not trolley.IsValid():
-        raise RuntimeError(f"Primary RTG trolley was not found: {TROLLEY_PATH}")
+    trolley_matrix = trolley_transform(stage)
     if tick_rate_hz <= 0:
         raise ValueError("tick_rate_hz must be greater than zero")
     if far_range_m <= 0:
@@ -1273,30 +1243,14 @@ def start_rtg_yard_lidar(
 
     output_path = Path(output_dir).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
-    from pxr import Gf, Usd, UsdGeom
-
-    trolley_matrix = UsdGeom.Xformable(trolley).ComputeLocalToWorldTransform(
-        Usd.TimeCode.Default()
+    sensor_world_translation, yaw, pitch = world_pose(trolley_matrix, translation, PERIMETER_ANGLES)
+    perimeter_orientation = orientation_wxyz(yaw, pitch)
+    down_sensor_local_translation = tuple(
+        value + yard - perimeter
+        for value, yard, perimeter in zip(translation, DEFAULT_DOWN_SENSOR_TRANSLATION, DEFAULT_SENSOR_TRANSLATION)
     )
-    sensor_position = trolley_matrix.Transform(Gf.Vec3d(*translation))
-    sensor_world_translation = (
-        float(sensor_position[0]),
-        float(sensor_position[1]),
-        float(sensor_position[2]),
-    )
-    down_sensor_local_translation = (
-        float(translation[0]),
-        float(translation[1]),
-        float(translation[2]) + DOWN_SENSOR_VERTICAL_OFFSET_M,
-    )
-    down_sensor_position = trolley_matrix.Transform(
-        Gf.Vec3d(*down_sensor_local_translation)
-    )
-    down_sensor_world_translation = (
-        float(down_sensor_position[0]),
-        float(down_sensor_position[1]),
-        float(down_sensor_position[2]),
-    )
+    down_sensor_world_translation, yaw, pitch = world_pose(trolley_matrix, down_sensor_local_translation, YARD_ANGLES)
+    yard_orientation = orientation_wxyz(yaw, pitch)
     _author_lidar_mount(stage, sensor_world_translation)
     _author_lidar_mount(
         stage, down_sensor_world_translation, mount_path=DOWN_MOUNT_PATH
@@ -1315,6 +1269,7 @@ def start_rtg_yard_lidar(
         float(far_range_m),
         np,
         translations=sensor_world_translation,
+        orientations=perimeter_orientation,
     )
     down_lidar = _create_lidar(
         Lidar,
@@ -1324,23 +1279,14 @@ def start_rtg_yard_lidar(
         float(down_far_range_m),
         np,
         translations=down_sensor_world_translation,
-        orientations=DOWNWARD_ORIENTATION_WXYZ,
+        orientations=yard_orientation,
     )
-    # Reassert the downward pose after the referenced profile has been
-    # composed.  Also apply the setting to a referenced child path when the
-    # asset loader returns one, because the wrapper may not be the requested
-    # root path on all Isaac Sim builds.
-    for sensor_path in _sensor_prim_paths(
-        down_lidar, DOWN_LIDAR_PATH
-    ):
-        _set_prim_orientation(
-            stage, sensor_path, DOWNWARD_ORIENTATION_WXYZ
-        )
-    for lidar_object, requested_path in (
-        (lidar, LIDAR_PATH),
-        (down_lidar, DOWN_LIDAR_PATH),
+    for lidar_object, requested_path, orientation in (
+        (lidar, LIDAR_PATH, perimeter_orientation),
+        (down_lidar, DOWN_LIDAR_PATH, yard_orientation),
     ):
         for sensor_path in _sensor_prim_paths(lidar_object, requested_path):
+            _set_prim_orientation(stage, sensor_path, orientation)
             lidar_prim = stage.GetPrimAtPath(sensor_path)
             if not lidar_prim or not lidar_prim.IsValid():
                 continue
@@ -1392,11 +1338,11 @@ def start_rtg_yard_lidar(
             print(f"[RTG LiDAR] position markers skipped: {error}")
 
     print(
-        "[RTG LiDAR] horizontal + downward sensors created at the trolley "
+        "[RTG LiDAR] perimeter + yard sensors created at the trolley "
         "world pose; writers will attach after playback warmup at "
         f"{LIDAR_PATH} and {DOWN_LIDAR_PATH}; "
-        f"downOrientationWXYZ={DOWNWARD_ORIENTATION_WXYZ}; "
-        f"horizontalPosition={sensor_world_translation}; "
+        f"yardOrientationWXYZ={yard_orientation}; "
+        f"perimeterPosition={sensor_world_translation}; "
         f"downPosition={down_sensor_world_translation}; output={output_path}"
     )
     print(

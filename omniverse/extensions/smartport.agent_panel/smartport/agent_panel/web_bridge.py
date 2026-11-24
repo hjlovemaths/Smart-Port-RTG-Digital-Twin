@@ -10,6 +10,8 @@ from collections import deque
 from urllib.parse import urlparse
 
 from . import agent_api
+from . import sts_statistics
+from .live_camera import install_camera_routes
 
 
 IECS_AGENT_TOOLS = frozenset({
@@ -137,6 +139,7 @@ class AgentWebBridge:
         self.installed = False
         self.next_attempt = 0
         self.closed = False
+        self.camera_preview = None
         self._rtg_visibility_stage = None
 
     def install(self):
@@ -173,12 +176,16 @@ class AgentWebBridge:
         from pathlib import Path
         scripts = str(Path(__file__).resolve().parents[5] / "omniverse/scripts")
         if scripts not in sys.path: sys.path.insert(0,scripts)
-        from webrtc_auth import install_auth
-        install_auth(app)
+        import rtg_lidar_mounts
+        import sts_lidar_mounts
+        import webrtc_auth
+        importlib.reload(rtg_lidar_mounts)
+        importlib.reload(sts_lidar_mounts)
+        importlib.reload(webrtc_auth).install_auth(app)
         prefix = "/api/smartport-agent"
         app.router.routes[:] = [r for r in app.router.routes
-                                if not getattr(r, "path", "").startswith((prefix,'/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/','/api/iecs/'))
-                                and getattr(r,'path','') not in ('/api/transfer-camera/state','/driver','/rtg-driver','/sts-driver','/iecs','/api/session/initial-view')
+                                if not getattr(r, "path", "").startswith((prefix,'/api/truck-driver/','/api/rtg-driver/','/api/sts-driver/','/api/iecs/','/api/sim/'))
+                                and getattr(r,'path','') not in ('/api/transfer-camera/state','/driver','/rtg-driver','/sts-driver','/iecs','/sim','/api/session/initial-view')
                                 and not getattr(r,'path','').startswith('/static/smartport-')]
 
         async def execute(action, payload):
@@ -248,6 +255,8 @@ class AgentWebBridge:
 
         app.add_api_route(prefix + "/state", state, methods=["GET"])
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
+        install_camera_routes(app, prefix, lambda: self.camera_preview if not self.closed else None, execute)
+        sts_statistics.install_routes(app, prefix, execute)
         app.add_api_route('/api/transfer-camera/state',cinema_state,methods=['GET'])
         async def iecs_state():
             return await execute('iecs_state',{})
@@ -296,6 +305,26 @@ class AgentWebBridge:
         app.add_api_route('/api/iecs/events',iecs_events,methods=['GET'])
         app.add_api_route('/api/iecs/agent/state',iecs_agent_state,methods=['GET'])
         app.add_api_route('/api/iecs/agent/{action}',iecs_agent_command,methods=['POST'])
+
+        async def sim_state(equipment: str = "rtg"):
+            return await execute("sim_state", {"equipment": equipment})
+
+        async def sim_command(payload: dict):
+            return await execute("sim_command", payload)
+
+        async def sim_pointcloud_download(capture_id: str, extension: str):
+            from .sim_pointcloud import download
+
+            path = download(Path(scripts).parents[1], capture_id, extension)
+            if path is None:
+                raise HTTPException(404, "找不到这份点云文件。")
+            options = {"media_type": "application/octet-stream"} if extension == "preview" else {"filename": path.name}
+            return FileResponse(path, headers={"Cache-Control": "private, no-store"}, **options)
+
+        app.add_api_route("/api/sim/state", sim_state, methods=["GET"])
+        app.add_api_route("/api/sim/command", sim_command, methods=["POST"])
+        app.add_api_route("/api/sim/pointcloud/{capture_id}/{extension}", sim_pointcloud_download, methods=["GET"])
+
         async def initial_view(request:Request):
             session=request.scope.get('smartport_session')
             if not session or session.get('role')!='admin':raise HTTPException(403,'仅管理员可初始化管理视口')
@@ -359,6 +388,7 @@ class AgentWebBridge:
         app.router.routes.insert(0,Route('/rtg-driver',driver_page,methods=['GET']))
         app.router.routes.insert(0,Route('/sts-driver',driver_page,methods=['GET']))
         app.router.routes.insert(0,Route('/iecs',driver_page,methods=['GET']))
+        app.router.routes.insert(0,Route('/sim',driver_page,methods=['GET']))
         # Project assets precede the vendor static mount; no installed files
         # need changing to make the new driving page available.
         for file in (Path(scripts).parent/'web').glob('smartport-*'):
@@ -373,6 +403,7 @@ class AgentWebBridge:
 
     def tick(self, panel):
         self.install()
+        self.camera_preview = getattr(getattr(panel, "_runtime", None), "camera_preview", None)
         import omni.usd
         stage = omni.usd.get_context().get_stage()
         if stage is not None and stage is not self._rtg_visibility_stage:
@@ -387,9 +418,19 @@ class AgentWebBridge:
                 scripts = str(Path(__file__).resolve().parents[5] / 'omniverse' / 'scripts')
                 if scripts not in sys.path:
                     sys.path.insert(0, scripts)
+                import carb.settings
                 import importlib
                 import large_vessel_layout
+
                 importlib.reload(large_vessel_layout).ensure_live_layout(stage)
+                # The SIM housings are rendered in the WebRTC scene. Keep
+                # them out of the separate Isaac RTX sensor authoring flow.
+                if carb.settings.get_settings().get("/smartport/webrtc/browserAgentOnly"):
+                    from rtg_lidar_mounts import install_sim_housings
+                    from sts_lidar_mounts import STS_MOUNTS
+
+                    install_sim_housings(stage)
+                    install_sim_housings(stage, STS_MOUNTS, housing_scale=.46)
                 self._rtg_visibility_stage = stage
         for _ in range(8):
             try:
@@ -523,6 +564,21 @@ class AgentWebBridge:
     @staticmethod
     def execute(panel, action, payload):
         from . import agent_api
+        if action in {"sim_state", "sim_command"}:
+            import omni.usd
+            from . import sim_workbench
+            from .scene_runtime import SceneRuntime
+
+            stage = omni.usd.get_context().get_stage()
+            if not stage:
+                raise ValueError("港区场景尚未打开。")
+            owner = getattr(panel, "_runtime", None)
+            if owner is None:
+                owner = panel._runtime = SceneRuntime(panel._project_root, panel._ui_events.put)
+            owner.bind(stage)
+            if action == "sim_command":
+                return sim_workbench.command(owner, payload)
+            return sim_workbench.state(owner, payload.get("equipment", "rtg"))
         if action=='iecs_agent':
             return payload['conversation'].handle(panel,payload['action'],payload['data'],payload['active'])
         if action in {'iecs_state','iecs_command','iecs_events','iecs_external_command','iecs_messages'}:
@@ -612,11 +668,29 @@ class AgentWebBridge:
                 raise ValueError("确认请求已失效")
             panel._resolve_approval(pending,payload['approved'])
             return {"ok":True}
+        if action == "live-camera-close":
+            runtime = getattr(panel, "_runtime", None)
+            preview = runtime.camera_preview if runtime else None
+            if preview and payload.get("revision") == preview.revision:
+                return panel._execute_tool("control_camera_display", {"display": preview.display, "action": "stop"})
+            return {"ok": True}
+        if action in {"sts-statistics-data", "sts-statistics-control"}:
+            report = getattr(getattr(panel, "_runtime", None), "sts_statistics", None)
+            if action == "sts-statistics-data":
+                return report if report else {"visible": False}
+            arguments = dict(payload)
+            revision = arguments.pop("revision", None)
+            if arguments.get("action") == "close" and revision and (not report or revision != report["revision"]):
+                return {"visible": bool(report)}
+            return panel._execute_tool("control_sts_statistics", arguments)
         if action == "state":
             if payload.get("native_input") is True:
                 # Expire automatically when the browser card stops polling.
                 panel._web_input_lease_until = time.monotonic() + 5
             overlay = getattr(panel, "_overlay", None)
+            runtime = getattr(panel, "_runtime", None)
+            preview = getattr(runtime, "camera_preview", None)
+            report = getattr(runtime, "sts_statistics", None)
             pending=getattr(panel,"_pending_approval",None)
             approval=None
             if pending and not pending['decision'].is_set():
@@ -628,6 +702,8 @@ class AgentWebBridge:
                     "endpoint": panel._endpoint_model.get_value_as_string(),
                     "model": panel._model_model.get_value_as_string(),
                     "key_configured": bool(panel._key_model.get_value_as_string()),
+                    "live_camera": preview.state() if preview else None,
+                    "sts_statistics": report["revision"] if report else None,
                     "draft": panel._input_model.get_value_as_string(),
                     "native_input_visible": getattr(getattr(overlay, "_input_card", None), "visible", None)}
         if action in ("draft", "send"):

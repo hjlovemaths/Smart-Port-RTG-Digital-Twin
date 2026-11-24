@@ -1,5 +1,5 @@
 {
-  "interface_count": 46,
+  "interface_count": 47,
   "tools": [
     {
       "type": "function",
@@ -1139,7 +1139,7 @@
       "type": "function",
       "function": {
         "name": "control_camera_display",
-        "description": "Start/stop camera displays. work_views shows three simultaneous docked views: auto-zoom under-trolley top-down, side-follow spreader/container, and an angled whole-RTG overview that follows gantry travel. Use this for multiple RTG views in one panel. Also supports RTSP popup/grid, four-corner model grid, and virtual cameras. RTSP uses existing project configuration.",
+        "description": "Start/stop camera displays. For a real RTSP camera such as C5, use rtsp_popup with action=start and camera_number=5. Use rtsp_popup with action=status to list configured cameras by number and location. For real RTSP spreader corners C1–C4, use spreader_rtsp_grid. RTSP opens a panel in the administrator web viewer with project-configured feeds. A started preview can still be connecting. work_views shows three docked 3D views: under-trolley top-down, side follow, and angled RTG overview. model_grid and virtual_cameras are simulated views.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -1161,10 +1161,49 @@
                 "stop",
                 "refresh"
               ]
+            },
+            "camera_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33
             }
           },
           "required": [
             "display",
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "control_sts_statistics",
+        "description": "Open, query, or close 桥吊 → 数据统计 → 作业流程效率统计报表(新)-装卸船 in the administrator browser. Opening immediately displays all 今天昼夜 rows. For an explicit query, use action=query and period=today_day_night, with optional crane such as H101, or omit crane for ALL. Query also opens the report. The demo replays the captured shift (08:00 to next day 08:00 Beijing time) from a local log. Report the replay source and do not claim live or complete shift coverage. The browser displays the table; this tool returns only the summary.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "query",
+                "close"
+              ]
+            },
+            "period": {
+              "type": "string",
+              "enum": [
+                "today_day_night"
+              ]
+            },
+            "crane": {
+              "type": "string",
+              "pattern": "^(?:ALL|H[0-9]{3})$"
+            }
+          },
+          "required": [
             "action"
           ],
           "additionalProperties": false

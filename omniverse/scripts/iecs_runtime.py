@@ -38,7 +38,7 @@ for _name in ('iecs_scene_checks','iecs_quay_clearance'):
             raise
 from iecs_core import IECS, FLOWS
 from iecs_geometry import TRAILER_DECK_Z,QUAY_PICKUP_LANE_X,YARD_PAD_Z,CONTAINER_40_SIZE,truck_load_point
-from iecs_geometry import FRONT_20FT_LOAD_FORWARD,YARD_TRUCK_RAIL_Z
+from iecs_geometry import FRONT_20FT_LOAD_FORWARD,YARD_TRUCK_RAIL_Z,front_20ft_load_forward
 import build_parked_yard_trucks as truck_markings
 
 # A new demo can start while Kit still holds the previous demo's mesh helpers.
@@ -74,7 +74,7 @@ def ship_demo_slots(stage):
         bounds=box(stage,path);center=bounds.GetMidpoint()
         if abs(center[1]-prim.GetAttribute('sts:homeY').Get())>45.:continue
         top=Gf.Vec3d(center[0],center[1],bounds.GetMax()[2])
-        deck=Gf.Vec3d(QUAY_PICKUP_LANE_X,center[1],TRAILER_DECK_Z+bounds.GetSize()[2])
+        deck=Gf.Vec3d(QUAY_PICKUP_LANE_X,center[1],YARD_TRUCK_RAIL_Z+bounds.GetSize()[2])
         clear=max(top[2],deck[2])+bounds.GetSize()[2]+1.5
         try:
             for point in (top,deck,Gf.Vec3d(top[0],top[1],clear),Gf.Vec3d(deck[0],deck[1],clear)):
@@ -102,6 +102,7 @@ class Runtime:
         self.visual_rtg=None;self.shared_sts=None;self.held_sea=None
         self.snapshot_lock=threading.Lock();self.cached={};self.models={};self.last_ui=0
         self.layer=Sdf.Layer.CreateAnonymous('iecs_demo.usda')
+        self.rtg_layer=Sdf.Layer.CreateAnonymous('iecs_rtg_motion.usda')
         missing=[f'/World/ParkedYardTrucks/Group{g}_Bay{b:02d}' for g in (1,2) for b in range(1,11)
                  if not stage.GetPrimAtPath(f'/World/ParkedYardTrucks/Group{g}_Bay{b:02d}')]
         if missing:raise ValueError('请先加载 parked_yard_trucks.usda：'+missing[0])
@@ -421,15 +422,23 @@ class Runtime:
             # Trucks face -X at their parking bays. The stop positions below
             # are approached along -Y, with the front lock point at the lift line.
             c['load_forward_m'] = vehicle['position'][0]-(pivot[0]+offset)
+        elif self.size_ft==20:
+            box_size=bounds(self.stage,path).GetSize()
+            c['load_forward_m']=front_20ft_load_forward(max(box_size[0],box_size[1]))
+            deck_top=YARD_TRUCK_RAIL_Z
         pickup=ShipPickup(self.stage,self.layer,path,size_ft=self.size_ft,defer_sts=True)
-        stop=[QUAY_PICKUP_LANE_X,float(pickup.source[1])+c.get('load_forward_m',0.),.085]
+        forward=c.get('load_forward_m',0.)
+        stop=[QUAY_PICKUP_LANE_X,float(pickup.source[1])+forward,.085]
         self.engine.reserved.pop(o['source']['id'],None)
         o['source'].update(id=path,point=list(pickup.source),stop=stop)
         self.engine.reserved[path]=oid
         o['source_prim']=path
         c.update(position=list(pickup.source),location=path,carry_height=deck_top+pickup.height/2,size_ft=self.size_ft)
         o['target']['point'][2]=.12+pickup.height/2
-        if source_path is None:self.select_free_yard_slot(o,pickup.height)
+        if source_path is None:
+            self.select_free_yard_slot(o,pickup.height)
+            # The truck approaches both cranes along -Y. Keep the box on the lift line.
+            o['target']['stop'][1]+=forward
         self.pickups[oid]=pickup;self.ship_bindings[c['id']]=pickup
         self.engine.event('ship_demo_box_bound',order=oid,source=path,size_ft=self.size_ft)
 
@@ -565,9 +574,8 @@ class Runtime:
         pickup=self.pickups[o['id']];c=self.engine.containers[o['container']]
         key=(o['id'],pick)
         if key not in self.yard_drops:
-            YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
             target={'point':truck_load_point(v,c)} if pick else o['target']
-            self.yard_drops[key]=YardDrop(self.stage,self.layer,pickup,v,c,target,motion=self.rtg_motion())
+            self.yard_drops[key]=self.create_yard_drop(pickup,v,c,target)
         rig=self.yard_drops[key];done=rig.step(dt)
         if rig.attached:
             c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG',owner='RTG',heading=0.)
@@ -584,9 +592,8 @@ class Runtime:
             c=self.engine.containers[o['container']]
             if pick:
                 if o['id'] not in self.yard_drops:
-                    YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
                     target={'point':[v['position'][0],v['position'][1],c['carry_height']]}
-                    self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,target,motion=self.rtg_motion())
+                    self.yard_drops[o['id']]=self.create_yard_drop(pickup,v,c,target)
                 rig=self.yard_drops[o['id']];done=rig.step(dt)
                 if rig.attached:
                     c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG',owner='RTG',heading=0.)
@@ -606,12 +613,9 @@ class Runtime:
                 c.update(position=o['target']['point'][:],heading=0.)
             o['step_name']=pickup.phase;return done
         if not pick:
-            # Kit's extension importer may cache a directory before a new
-            # sibling script is created. Load by the verified absolute path.
-            YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
             c=self.engine.containers[o['container']]
             if o['id'] not in self.yard_drops:
-                self.yard_drops[o['id']]=YardDrop(self.stage,self.layer,pickup,v,c,o['target'],motion=self.rtg_motion())
+                self.yard_drops[o['id']]=self.create_yard_drop(pickup,v,c,o['target'])
             rig=self.yard_drops[o['id']];finished=rig.step(dt)
             if rig.attached:
                 c.update(position=list(rig.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),location='SPREADER/RTG',owner='RTG',heading=0.)
@@ -627,7 +631,7 @@ class Runtime:
         if pickup.attached:
             c.update(position=list(pickup.contact()-self.Gf.Vec3d(0,0,pickup.height/2)),
                      location='SPREADER/STS_01',owner='STS_01')
-        elif finished or (self.external and pickup.phase=='Unlocked - raise spreader'):
+        elif finished or pickup.phase=='Unlocked - raise spreader':
             c.update(position=truck_load_point(v,c),location=v['id'],owner=v['id'],heading=v['heading'])
         o['step_name']=pickup.phase
         return finished
@@ -638,12 +642,30 @@ class Runtime:
             self.shared_sts=STSController(self.stage,'STS_01')
         return self.shared_sts
 
-    def rtg_motion(self):
+    def create_yard_drop(self,pickup,vehicle,cargo,target):
+        YardDrop=pickup.load_sibling('iecs_yard_drop').YardDrop
+        layers=self.stage.GetSessionLayer().subLayerPaths
+        if self.rtg_layer.identifier not in layers:
+            layers.insert(0,self.rtg_layer.identifier)
         if self.size_ft==20 and self.visual_rtg is None:
             from rtg_transfer_motion import VisualRTG
-            with self.Usd.EditContext(self.stage,self.layer):
+            with self.Usd.EditContext(self.stage,self.rtg_layer):
                 self.visual_rtg=VisualRTG(self.stage,20)
-        return self.visual_rtg
+        return YardDrop(self.stage,self.rtg_layer,pickup,vehicle,cargo,target,motion=self.visual_rtg)
+
+    def release_crane_motion(self):
+        # Release both the session-root overrides and their task-layer transforms.
+        # Container placement and order history live separately from crane motion.
+        if self.visual_rtg:
+            self.visual_rtg.close()
+            self.visual_rtg=None
+        layers=self.stage.GetSessionLayer().subLayerPaths
+        if self.rtg_layer.identifier in layers:
+            layers.remove(self.rtg_layer.identifier)
+            self.rtg_layer.Clear()
+        if self.shared_sts:
+            self.shared_sts.close()
+            self.shared_sts=None
 
     def process(self,cmd):
         action=cmd.get('action')
@@ -666,8 +688,7 @@ class Runtime:
             for pickup in self.pickups.values():pickup.close()
             self.pickups.clear();self.ship_bindings.clear()
             self.yard_drops.clear()
-            if self.visual_rtg:self.visual_rtg.close();self.visual_rtg=None
-            if self.shared_sts:self.shared_sts.close();self.shared_sts=None
+            self.release_crane_motion()
             self.release_ship()
             # Clear only our anonymous opinions. Source inventory is untouched.
             self.layer.Clear();self.models.clear()
@@ -738,6 +759,8 @@ class Runtime:
     def advance(self,dt):
         if self.external:self.external.poll()
         self.engine.tick(dt)
+        if not self.external and all(order['status']=='completed' for order in self.engine.orders.values()):
+            self.release_crane_motion()
         self.apply_scene()
         if self.external:self.external.observe()
         self.publish()
@@ -769,9 +792,8 @@ class Runtime:
         self.closed=True;self.subscription=None
         if self.external:self.external.close()
         for pickup in self.pickups.values():pickup.close()
-        if self.shared_sts:self.shared_sts.close();self.shared_sts=None
+        self.release_crane_motion()
         self.release_ship()
-        if self.visual_rtg:self.visual_rtg.close();self.visual_rtg=None
         if self.server:self.server.shutdown();self.server.server_close()
         if self.layer.identifier in self.stage.GetSessionLayer().subLayerPaths:
             paths=list(self.stage.GetSessionLayer().subLayerPaths);paths.remove(self.layer.identifier)

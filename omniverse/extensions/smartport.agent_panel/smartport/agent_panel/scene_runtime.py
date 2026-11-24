@@ -197,6 +197,9 @@ class SceneRuntime:
         self.notify = notify or (lambda event: None)
         self.stage = None
         self.motion = None
+        self.sim_motion_id = None
+        self.sim_sts_motion_id = None
+        self.sim_capture_id = None
         self.operations = {}
         self.jobs = {}
         self.sequence = 0
@@ -207,6 +210,8 @@ class SceneRuntime:
         self.camera_layer = None
         self.previous_camera = None
         self.active_view = None
+        self.camera_preview = None
+        self.sts_statistics = None
         self.camera_lens_signature = None
         self.owned_sts = {}
         self.transfer_task = None
@@ -270,9 +275,19 @@ class SceneRuntime:
             raise ValueError('船舶与堆场搬运演示持有设备，请先查询任务并复位后再手动操作')
         if equipment == "rtg" and any(item["status"] == "running" and item["kind"] == "lidar_positions" for item in self.operations.values()):
             raise ValueError("A multi-position LiDAR capture owns the RTG; wait or cancel it first")
+        capture = self.operations.get(self.sim_capture_id)
+        if capture and capture["status"] == "running":
+            captured_equipment = capture.get("equipment", "rtg")
+            if equipment == "rtg" and captured_equipment == "rtg":
+                raise ValueError("正在采集主 RTG 点云，请等待采集完成。")
+            if equipment == "sts" and captured_equipment == "sts01" and crane_id in (None, "STS_01"):
+                raise ValueError("正在采集 STS_01 点云，请等待采集完成。")
         iecs = iecs_runtime(self.stage)
-        if not allow_iecs and iecs and any(order["status"] != "completed" for order in iecs.engine.orders.values()):
-            raise ValueError("IECS owns the equipment for an unfinished task. Inspect get_current_tasks and finish or reset that task first.")
+        if not allow_iecs and iecs:
+            if getattr(iecs, "external", None):
+                raise ValueError("真实 IECS 已接管设备，请在 IECS 工作台关闭接入后再调试。")
+            if any(order["status"] != "completed" for order in iecs.engine.orders.values()):
+                raise ValueError("IECS 调度还有未完成任务，请等待任务完成或复位后再操作设备。")
         panel = current_sts_panel(self.stage)
         task = panel.unload_task if panel else None
         if task and not task.finished and (equipment == "rtg" or task.c.path.endswith("/" + str(crane_id))):
@@ -290,11 +305,11 @@ class SceneRuntime:
             if getattr(builtins, "_SMART_PORT_RTG_REMOTE_MANUAL_ACTIVE", False):
                 raise ValueError("Gamepad manual mode owns the RTG. Stop gamepad mode before Agent movement.")
 
-    def rtg_move(self, arguments, bay=False):
+    def rtg_move(self, arguments, bay=False, *, simulation=False):
         self._guard_manual("rtg")
         import rtg_live_control as live
         from yard_coordinate_mapping import bay_id_position_m
-        controller = live.RTGController(self.stage)
+        controller = live.RTGController(self.stage, simulation=True) if simulation else live.RTGController(self.stage)
         start = dict(zip(("gantry_m", "trolley_m", "hoist_m"), controller.get_positions()))
         end = dict(start)
         for key in end:
@@ -310,7 +325,7 @@ class SceneRuntime:
         identifier = self.operation("rtg_motion", start=start, target=end, duration_s=arguments.get("duration_s", 3.0), progress=0.0)
         axes = {"gantry_m"} if bay else set(arguments) & end.keys()
         self.motion = {"id": identifier, "controller": controller, "start": start, "end": end,
-                       "axes": axes, "elapsed": 0.0, "duration": arguments.get("duration_s", 3.0)}
+                       "axes": axes, "simulation": simulation, "elapsed": 0.0, "duration": arguments.get("duration_s", 3.0)}
         return {**self.operations[identifier], "requested_bay": arguments.get("bay_id"),
                 "message": "Motion started. Poll get_operation_status to confirm arrival. USD visualization only."}
 
@@ -356,8 +371,14 @@ class SceneRuntime:
                 fraction = min(1.0, motion["elapsed"] / motion["duration"])
                 alpha = fraction * fraction * (3.0 - 2.0 * fraction)
                 for axis in motion["axes"]:
-                    value = motion["start"][axis] + (motion["end"][axis] - motion["start"][axis]) * alpha
-                    getattr(motion["controller"], {"gantry_m": "set_gantry_safe", "trolley_m": "set_trolley_safe", "hoist_m": "set_hoist_safe"}[axis])(value)
+                    start, target = motion["start"][axis], motion["end"][axis]
+                    value = start + (target - start) * alpha
+                    setter = {"gantry_m": "set_gantry", "trolley_m": "set_trolley", "hoist_m": "set_hoist"}[axis]
+                    # SIM targets already passed the soft-limit check. Recover
+                    # smoothly when a previous controller left an axis outside it.
+                    if not motion["simulation"]:
+                        setter += "_safe"
+                    getattr(motion["controller"], setter)(value)
                 operation = self.operations[motion["id"]]
                 operation["progress"] = fraction
                 if fraction >= 1:
@@ -368,6 +389,10 @@ class SceneRuntime:
                 self.operations[motion["id"]].update(status="failed", error=str(exc))
                 self.motion = None
                 self.notify({"kind": "tool_result", "name": "rtg_motion_failed", "result": dict(self.operations[motion["id"]])})
+        if self.sim_sts_motion_id:
+            from .sim_workbench import update_sts_motion
+
+            update_sts_motion(self)
         panel = current_sts_panel(stage)
         for key, controller in tuple(self.owned_sts.items()):
             if controller.closed:
@@ -388,16 +413,18 @@ class SceneRuntime:
                 self.follow = self.follow_viewport = self._follow_iecs_order = None
                 self.notify({"kind": "status", "text": f"Camera following stopped: {exc}"})
 
-    def equipment_status(self, args):
+    def equipment_status(self, args, *, simulation=False):
         import rtg_live_control as live
         result = {}
         if args.get("equipment", "all") in {"all", "rtg"}:
             try:
                 from pxr import UsdPhysics
                 positions = {}
+                trolley_from_usd = live.trolley_usd_to_sim if simulation else live.trolley_usd_to_actual
+                hoist_from_usd = live.hoist_usd_to_sim if simulation else live.hoist_usd_to_actual
                 for key, joint_path, converter in (("gantry_m", live.GANTRY_JOINT_PATH, live.gantry_usd_to_actual),
-                                                    ("trolley_m", live.TROLLEY_JOINT_PATH, live.trolley_usd_to_actual),
-                                                    ("hoist_m", live.HOIST_JOINT_PATH, live.hoist_usd_to_actual)):
+                                                    ("trolley_m", live.TROLLEY_JOINT_PATH, trolley_from_usd),
+                                                    ("hoist_m", live.HOIST_JOINT_PATH, hoist_from_usd)):
                     joint = UsdPhysics.PrismaticJoint.Get(self.stage, joint_path)
                     if not joint: raise ValueError(f"Missing RTG joint: {joint_path}")
                     value = UsdPhysics.DriveAPI.Get(joint.GetPrim(), UsdPhysics.Tokens.linear).GetTargetPositionAttr().Get()
@@ -730,6 +757,9 @@ class SceneRuntime:
         viewport = viewport or self._viewport()
         view = args.get("view", "angled")
         under_trolley = view == "under_trolley"
+        under_sts_spreader = view == "under_sts_spreader"
+        downward = under_trolley or under_sts_spreader
+        mount_path = TROLLEY if under_trolley else None
         truck = None
         order_focus = None
         if args["target"] == "truck":
@@ -742,6 +772,11 @@ class SceneRuntime:
         truck_mounted = truck is not None and view in {"cabin", "chase"}
         if under_trolley:
             eye, center, up, distance = self._under_trolley_pose()
+        elif under_sts_spreader:
+            from sts_lidar_mounts import HOIST_PATH, under_spreader_pose
+
+            eye, center, up, distance = under_spreader_pose(self.stage)
+            mount_path = HOIST_PATH
         elif truck_mounted:
             eye, center, up, distance = self._truck_camera_pose(truck, view)
         else:
@@ -757,11 +792,11 @@ class SceneRuntime:
             distance = args.get("distance_m", radius * 3.8)
             eye = center + Gf.Vec3d(math.cos(azimuth) * math.cos(elevation), math.sin(azimuth) * math.cos(elevation), math.sin(elevation)) * distance
             up = Gf.Vec3d(0, 1, 0) if abs(math.cos(elevation)) < 0.01 else Gf.Vec3d(0, 0, 1)
-        aperture = 36.0 if under_trolley or truck_mounted else 20.955
-        default_fov = UNDER_TROLLEY_FOV_DEG if under_trolley else 80.0 if truck_mounted else math.degrees(2 * math.atan(aperture / 48.0))
+        aperture = 36.0 if downward or truck_mounted else 20.955
+        default_fov = UNDER_TROLLEY_FOV_DEG if downward else 80.0 if truck_mounted else math.degrees(2 * math.atan(aperture / 48.0))
         fov = args.get("field_of_view_deg", default_fov)
         focal_length = aperture / (2 * math.tan(math.radians(fov) / 2))
-        vertical_aperture = aperture / self._viewport_aspect(viewport) if under_trolley or truck_mounted or "field_of_view_deg" in args else 15.2908
+        vertical_aperture = aperture / self._viewport_aspect(viewport) if downward or truck_mounted or "field_of_view_deg" in args else 15.2908
         clipping_far = max(10000.0, distance * 10)
         lens_signature = (aperture, vertical_aperture, focal_length, clipping_far)
         if self.camera_layer is None:
@@ -798,17 +833,19 @@ class SceneRuntime:
                 target_path = "/World/STSControls/" + args["crane_id"]
                 if self.stage.GetPrimAtPath(target_path + "/Gantry"):
                     target_path += "/Gantry"
+            if under_sts_spreader:
+                target_path = mount_path
             prim.CreateAttribute("smartport:navigationTarget", Sdf.ValueTypeNames.String, custom=True).Set(target_path)
             prim.CreateAttribute("smartport:navigationCenter", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
             prim.CreateAttribute("omni:kit:centerOfInterest", Sdf.ValueTypeNames.Vector3d, custom=True).Set(center)
             prim.CreateAttribute("smartport:navigationRadius", Sdf.ValueTypeNames.Double, custom=True).Set(
-                max(1.0, distance / 3.8) if under_trolley or truck_mounted else radius)
+                max(1.0, distance / 3.8) if downward or truck_mounted else radius)
         if str(viewport.camera_path) != CAMERA_PATH:
             viewport.camera_path = CAMERA_PATH
         result = {"camera_path": CAMERA_PATH, "target": args["target"], "view": view,
                 "eye_m": list(eye), "look_at_m": list(center), "distance_m": distance, "following": bool(args.get("follow")),
-                "field_of_view_deg": fov, "mount_path": TROLLEY if under_trolley else None,
-                "vertical_down": under_trolley}
+                "field_of_view_deg": fov, "mount_path": mount_path,
+                "vertical_down": downward}
         if truck:
             result.update(truck_path=str(truck.GetPath()),
                           mount_path=str(truck.GetPath()) if truck_mounted else None)
@@ -903,6 +940,10 @@ class SceneRuntime:
             identifier = args["operation_id"]
             if identifier not in self.operations: raise ValueError("Unknown operation_id")
             if self.motion and self.motion["id"] == identifier: self._cancel_motion()
+            if self.sim_sts_motion_id == identifier:
+                from .sim_workbench import stop_sts_motion
+
+                stop_sts_motion(self)
             if identifier in self.jobs and not self.jobs[identifier].done():
                 self.operations[identifier]["status"] = "cancelling"
                 self.jobs[identifier].cancel()
@@ -911,11 +952,22 @@ class SceneRuntime:
         return execute_project_interface(self, name, args)
 
     def release(self):
+        self.sts_statistics = None
+        if self.camera_preview:
+            self.camera_preview.close()
+            self.camera_preview = None
         if self.transfer_camera:self.transfer_camera.close()
         self.transfer_camera=None;self.transfer_camera_error=None
         if self.transfer_task and not self.transfer_task.closed:self.transfer_task.close()
         self.transfer_task=None
         self._cancel_motion()
+        if self.sim_sts_motion_id:
+            from .sim_workbench import stop_sts_motion
+
+            stop_sts_motion(self)
+        self.sim_motion_id = None
+        self.sim_sts_motion_id = None
+        self.sim_capture_id = None
         for task in self.jobs.values():
             if not task.done(): task.cancel()
         self.jobs.clear()

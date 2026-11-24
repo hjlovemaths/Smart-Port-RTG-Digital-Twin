@@ -78,6 +78,21 @@ class CameraPopupTests(unittest.TestCase):
             "rtsp://admin:secret@192.168.2.64:554/Streaming/Channels/101",
         )
 
+    def test_local_config_can_set_a_vendor_specific_rtsp_path(self) -> None:
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            default = Path(directory) / "Cam_RTG_220.json"
+            local = default.with_suffix(".local.json")
+            local.write_text(json.dumps({"CameraList": [{
+                "Seq": 5, "IP": "camera.example", "RtspPort": 8554,
+                "RtspPath": "/preview?stream=1", "Location": "前横梁",
+            }]}), encoding="utf-8")
+            with patch.object(popup, "DEFAULT_CONFIG_PATH", default):
+                self.assertEqual(popup.camera_config_path(), local)
+                camera = popup._read_camera_config(popup.camera_config_path())[5]
+        self.assertEqual(camera.rtsp_url, "rtsp://camera.example:8554/preview?stream=1")
+
 
 if __name__ == "__main__":
     unittest.main()

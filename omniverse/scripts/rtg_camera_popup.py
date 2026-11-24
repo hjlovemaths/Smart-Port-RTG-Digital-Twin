@@ -97,6 +97,7 @@ class CameraDefinition:
     rotate_angle: int = 0
     rtsp_port: int = 554
     rtsp_channel: Optional[str] = None
+    rtsp_path: Optional[str] = None
 
     @property
     def rtsp_url(self) -> str:
@@ -106,6 +107,10 @@ class CameraDefinition:
 
         user = quote(self.username, safe="")
         password = quote(self.password, safe="")
+        if self.rtsp_path:
+            credentials = f"{user}:{password}@" if user or password else ""
+            host = f"[{self.ip}]" if ":" in self.ip and not self.ip.startswith("[") else self.ip
+            return f"rtsp://{credentials}{host}:{self.rtsp_port}{self.rtsp_path}"
         brand = self.brand.strip().lower()
         if any(token in brand for token in ("hik", "haikang", "海康")):
             channel = self.rtsp_channel or str(max(int(self.attached_line or "1"), 1))
@@ -133,6 +138,11 @@ class CameraDefinition:
         return urls
 
 
+def camera_config_path() -> Path:
+    local = DEFAULT_CONFIG_PATH.with_suffix(".local.json")
+    return local if local.is_file() else DEFAULT_CONFIG_PATH
+
+
 def _read_camera_config(path: Path) -> Dict[int, CameraDefinition]:
     print(f"[RTG Camera] using camera config: {path}")
     if not path.exists():
@@ -145,34 +155,39 @@ def _read_camera_config(path: Path) -> Dict[int, CameraDefinition]:
         print(f"[RTG Camera] config read failed: {path}: {exc}")
         return {}
 
+    items = payload.get("CameraList") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return {}
     result: Dict[int, CameraDefinition] = {}
-    for item in payload.get("CameraList", []) or []:
+    for item in items:
+        if not isinstance(item, dict):
+            continue
         try:
             seq = int(item.get("Seq"))
             ip = str(item.get("IP") or "").strip()
-            if not seq or not ip:
+            port = int(item.get("Port") or 554)
+            rtsp_port = int(item.get("RtspPort") or item.get("RTSPPort") or item.get("rtspPort") or 554)
+            rtsp_path = str(item.get("RtspPath") or "").strip()
+            if (seq < 1 or not ip or not 1 <= port <= 65535 or not 1 <= rtsp_port <= 65535
+                    or rtsp_path and (not rtsp_path.startswith("/") or rtsp_path.startswith("//"))):
                 continue
             result[seq] = CameraDefinition(
                 seq=seq,
                 ip=ip,
-                port=int(item.get("Port") or 554),
+                port=port,
                 username=str(item.get("UserName") or ""),
                 password=str(item.get("Password") or ""),
                 attached_line=str(item.get("AttachedLine") or seq),
                 brand=str(item.get("Brand") or ""),
                 location=str(item.get("Location") or ""),
                 rotate_angle=int(item.get("RotateAngle") or 0),
-                rtsp_port=int(
-                    item.get("RtspPort")
-                    or item.get("RTSPPort")
-                    or item.get("rtspPort")
-                    or 554
-                ),
+                rtsp_port=rtsp_port,
                 rtsp_channel=(
                     str(item.get("RtspChannel") or item.get("RTSPChannel"))
                     if item.get("RtspChannel") or item.get("RTSPChannel")
                     else None
                 ),
+                rtsp_path=rtsp_path or None,
             )
         except (TypeError, ValueError):
             continue
@@ -267,12 +282,20 @@ def _flat_byte_sequence(data: Any) -> List[int]:
 class RtgRtspReader:
     """Decode one RTSP stream on a worker thread and expose RGBA frames."""
 
-    def __init__(self, camera: CameraDefinition, on_frame: Any, on_status: Any) -> None:
+    def __init__(self, camera: CameraDefinition, on_frame: Any, on_status: Any, *, active=None) -> None:
         self.camera = camera
         self.on_frame = on_frame
         self.on_status = on_status
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._active = active
+
+    @property
+    def running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def _keep_reading(self) -> bool:
+        return not self._stop.is_set() and (self._active is None or self._active())
 
     def start(self) -> None:
         self._stop.clear()
@@ -283,9 +306,9 @@ class RtgRtspReader:
         )
         self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self, *, wait: bool = True) -> None:
         self._stop.set()
-        if self._thread and self._thread.is_alive():
+        if wait and self.running:
             self._thread.join(timeout=1.0)
 
     def _run(self) -> None:
@@ -301,8 +324,11 @@ class RtgRtspReader:
         capture = None
         try:
             # FFMPEG is the most reliable OpenCV backend for Axis/HaiKang RTSP.
+            options = [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 4000, cv2.CAP_PROP_READ_TIMEOUT_MSEC, 3000]
             for candidate in self.camera.rtsp_urls:
-                capture = cv2.VideoCapture(candidate, cv2.CAP_FFMPEG)
+                if not self._keep_reading():
+                    return
+                capture = cv2.VideoCapture(candidate, cv2.CAP_FFMPEG, options)
                 if capture and capture.isOpened():
                     break
                 if capture is not None:
@@ -313,9 +339,12 @@ class RtgRtspReader:
                 self.on_status(f"Cannot open RTSP stream; attempted: {attempted}")
                 return
             self.on_status(f"Streaming {_safe_rtsp_url(candidate)}")
-            while not self._stop.is_set():
+            while self._keep_reading():
                 ok, frame = capture.read()
                 if not ok or frame is None:
+                    if self._active is not None:
+                        self.on_status("RTSP frame read failed")
+                        return
                     self.on_status("RTSP frame read failed; reconnecting…")
                     time.sleep(0.5)
                     continue
@@ -336,7 +365,7 @@ class RtgRtspReader:
 
 class RtgCameraPopupService:
     def __init__(self, config_path: Optional[Path] = None) -> None:
-        self.config_path = Path(config_path or DEFAULT_CONFIG_PATH)
+        self.config_path = Path(config_path) if config_path else camera_config_path()
         self.cameras = _read_camera_config(self.config_path)
         self._reader: Optional[RtgRtspReader] = None
         self._selected_seq: Optional[int] = None
@@ -637,7 +666,7 @@ class RtgSpreaderCameraGridService:
     IMAGE_HEIGHT = 360
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
-        self.config_path = Path(config_path or DEFAULT_CONFIG_PATH)
+        self.config_path = Path(config_path) if config_path else camera_config_path()
         self.cameras = _read_camera_config(self.config_path)
         self._readers: Dict[int, RtgRtspReader] = {}
         self._window = None
