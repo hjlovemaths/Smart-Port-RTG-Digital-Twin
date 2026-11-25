@@ -211,7 +211,11 @@ class SceneRuntime:
         self.previous_camera = None
         self.active_view = None
         self.camera_preview = None
+        self.dataset = None
+        self.replay_dataset = None
         self.sts_statistics = None
+        self.sts_analysis_report = None
+        self.dataset_reports = []
         self.camera_lens_signature = None
         self.owned_sts = {}
         self.transfer_task = None
@@ -953,6 +957,8 @@ class SceneRuntime:
 
     def release(self):
         self.sts_statistics = None
+        self.sts_analysis_report = None
+        self.dataset_reports.clear()
         if self.camera_preview:
             self.camera_preview.close()
             self.camera_preview = None

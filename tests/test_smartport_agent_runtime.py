@@ -13,7 +13,94 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "omniverse/scripts"))
 sys.path.insert(0, str(ROOT / "omniverse/extensions/smartport.agent_panel"))
 
-from smartport.agent_panel import agent_api, project_interfaces, runtime_catalog, scene_runtime
+from smartport.agent_panel import agent_api, project_interfaces, runtime_catalog, scene_runtime, sts_statistics
+from smartport.agent_panel.dataset_analysis import import_file
+
+
+def test_excel_import_uses_actual_cells_when_dimension_is_a1():
+    from io import BytesIO
+    from zipfile import ZipFile
+
+    openpyxl = pytest.importorskip("openpyxl")
+    book = openpyxl.Workbook()
+    book.active.sheet_state = "hidden"
+    sheet = book.create_sheet("明细")
+    sheet.append(["编号", "效率", "备注"])
+    sheet.append(["0944", 28.53])
+    sheet.append(["1122", 32, "复核"])
+    raw = BytesIO()
+    book.save(raw)
+    modified = BytesIO()
+    with ZipFile(raw) as original, ZipFile(modified, "w") as output:
+        for name in original.namelist():
+            content = original.read(name)
+            if name == "xl/worksheets/sheet2.xml":
+                assert b'ref="A1:C3"' in content
+                content = content.replace(b'ref="A1:C3"', b'ref="A1"')
+            output.writestr(name, content)
+    dataset = import_file("效率.xlsx", modified.getvalue())
+    result = dataset.analyze({"dataset_id": dataset.id, "title": "明细",
+                              "sql": "SELECT 编号, 效率, 备注 FROM data ORDER BY 效率"})
+    assert result["rows"] == [("0944", 28.53, None), ("1122", 32, "复核")]
+
+
+def test_analyze_unrelated_datasets_through_runtime(runtime):
+    dataset = import_file("门店销售.csv", "门店,月份,销售额,成本\n001,10,20,12\n001,10,18,3\n002,10,8,10\n002,11,100,0".encode("gb18030"))
+    runtime.dataset = dataset
+    schema = runtime.execute(None, "describe_dataset", {})
+    assert schema["fields"][0] == {"name": "门店", "type": "TEXT", "nulls": 0}
+    args = {"dataset_id": schema["dataset_id"], "format": "chart", "x": "门店", "y": "利润", "title": "十月门店利润",
+            "sql": "SELECT 门店, sum(销售额-成本) AS 利润 FROM data WHERE 月份=10 GROUP BY 门店 ORDER BY 利润 DESC"}
+    result = runtime.execute(None, "analyze_dataset", args)
+    assert result["result_preview"] == [("001", 23), ("002", -2)]
+    assert [p["value"] for p in runtime.sts_analysis_report["series"]] == [23, -2]
+
+    runtime.dataset = import_file("监测.jsonl", '{"探头":"A","读数":12}\n{"探头":"B","读数":null}\n{"探头":"C","读数":14}'.encode())
+    with pytest.raises(ValueError, match="切换"):
+        runtime.execute(None, "analyze_dataset", args)
+    schema = runtime.execute(None, "describe_dataset", {})
+    assert schema["fields"][1]["nulls"] == 1
+    summary = runtime.execute(None, "analyze_dataset", {"dataset_id": schema["dataset_id"], "title": "最高两项",
+        "sql": "WITH ranked AS (SELECT 探头, 读数 FROM data WHERE 读数 IS NOT NULL) SELECT * FROM ranked ORDER BY 读数 DESC LIMIT 2"})
+    assert summary["result_preview"] == [("C", 14), ("A", 12)]
+    assert runtime.sts_analysis_report["format"] == "table"
+    bad_sql = ["DELETE FROM data", "SELECT name FROM sqlite_master", "SELECT 1", "WITH a AS (SELECT 1) DELETE FROM data",
+               "SELECT * FROM data; SELECT * FROM data", "SELECT randomblob(1000) FROM data"]
+    for sql in bad_sql:
+        with pytest.raises(ValueError):
+            runtime.execute(None, "analyze_dataset", {"dataset_id": schema["dataset_id"], "title": "检查", "sql": sql})
+    assert runtime.sts_analysis_report["title"] == "最高两项"
+    aggregate = runtime.execute(None, "analyze_dataset", {"dataset_id": schema["dataset_id"], "title": "记录数",
+        "sql": "SELECT count(*) FROM data"})
+    assert aggregate["result_preview"] == [(3,)]
+
+
+def test_dataset_pie_calculates_shares_and_rejects_negative_values(runtime):
+    runtime.dataset = import_file("counts.csv", b"category,amount\nA,3\nB,1\nC,0")
+    schema = runtime.execute(None, "describe_dataset", {})
+    args = {"dataset_id": schema["dataset_id"], "title": "构成", "format": "pie", "x": "category", "y": "total",
+            "sql": "SELECT category, sum(amount) AS total FROM data GROUP BY category ORDER BY category"}
+    result = runtime.execute(None, "analyze_dataset", args)
+    assert result["report"]["format"] == "pie"
+    assert [p["share"] for p in runtime.sts_analysis_report["series"]] == [0.75, 0.25, 0]
+    runtime.execute(None, "analyze_dataset", {**args, "format": "chart", "title": "对比"})
+    assert [report["format"] for report in runtime.sts_analysis_report["reports"]] == ["pie", "chart"]
+    assert [report["title"] for report in runtime.sts_analysis_report["reports"]] == ["构成", "对比"]
+    with pytest.raises(ValueError, match="非负"):
+        runtime.execute(None, "analyze_dataset", {**args, "sql": "SELECT category, -amount AS total FROM data"})
+
+
+def test_dataset_computes_before_display_limit_and_can_explore_without_opening(runtime):
+    data = import_file("counts.json", ('{"columns":["index"],"rows":[' +
+                       ",".join(f"[{i}]" for i in range(222)) + ']}').encode())
+    runtime.dataset = data
+    base = {"dataset_id": data.id, "title": "记录"}
+    preview = runtime.execute(None, "analyze_dataset", {**base, "sql": "SELECT SUM([index]) FROM data", "format": "preview"})
+    assert preview["result_preview"] == [(sum(range(222)),)] and runtime.sts_analysis_report is None
+    result = runtime.execute(None, "analyze_dataset", {**base, "format": "line", "x": "i", "y": "s",
+        "sql": "SELECT [index] AS i, sum([index]) OVER (ORDER BY [index]) AS s FROM data ORDER BY i"})
+    assert result["truncated"] and result["displayed_rows"] == 200 and len(result["result_preview"]) == 20
+    assert runtime.sts_analysis_report["series"][-1]["value"] == sum(range(200))
 
 
 @pytest.mark.parametrize("live_running,sim_running,expected_hidden", [
@@ -279,7 +366,7 @@ def test_physics_target_adapter_fills_untouched_axes(runtime, monkeypatch):
 def test_capabilities_can_be_read_without_loading_or_starting_service_modules(runtime, monkeypatch):
     monkeypatch.setattr(project_interfaces, "load", lambda _name: pytest.fail("Capability listing must not load services"))
     result = runtime.execute(None, "get_agent_capabilities", {})
-    assert result["interface_count"] == 47
+    assert result["interface_count"] == 51
     assert any(item["name"] == "get_current_tasks" for item in result["interfaces"])
 
 
@@ -290,6 +377,86 @@ def test_documented_interface_names_and_machine_schemas_match_the_live_catalog()
     assert machine["tools"] == list(agent_api.TOOLS)
     for item in agent_api.TOOLS:
         assert "`" + item["function"]["name"] + "`" in documentation
+
+
+@pytest.fixture
+def sts_report(tmp_path):
+    import json
+
+    source = tmp_path / sts_statistics.SNAPSHOT
+    source.parent.mkdir(parents=True)
+    source.write_text(json.dumps({
+        "columns": ["桥吊编号", "开始时间", "任务用时(s)", "任务类型", "等集卡时间（s）", "司机工号"],
+        "start": "2026-11-24T08:00:00+08:00",
+        "end": "2026-11-25T08:00:00+08:00",
+        "missing_replies": 3,
+        "rows": [
+            ["H101", "08:10", "60", "卸船-DSCH", "0", "test-operator"],
+            ["H101", "08:11", 120, "卸船-DSCH", "20", "test-operator"],
+            ["H105", "08:12", "300", "卸船-DSCH", "/", "test-operator"],
+            ["H105", "08:13", "", "卸船-DSCH", "NaN", "test-operator"],
+            ["H105", "08:14", 900, "装船-LOAD", 50, "test-operator"],
+        ],
+    }), encoding="utf-8")
+    return scene_runtime.SceneRuntime(tmp_path)
+
+
+def test_agent_analyzes_sts_rows_without_changing_the_open_panel(sts_report):
+    sts_report.execute(None, "control_sts_statistics", {"action": "query", "crane": "H101"})
+    visible_report = sts_report.sts_statistics
+    name, args = agent_api.parse_tool_call({"function": {
+        "name": "analyze_sts_statistics", "arguments": '{"task_type":"DSCH","top_n":2}',
+    }})
+    result = sts_report.execute(None, name, args)
+    assert result["overall"] == {
+        "row_count": 4, "valid_count": 3, "invalid_count": 1, "mean_seconds": 160,
+        "median_seconds": 120, "min_seconds": 60, "max_seconds": 300,
+    }
+    assert result["by_crane"]["H101"]["mean_seconds"] == 90
+    assert result["by_crane"]["H105"]["valid_count"] == 1
+    assert list(result["by_task_type"]) == ["DSCH"]
+    assert result["longest"] == [
+        {"crane": "H105", "task_type": "DSCH", "seconds": 300, "start": "08:12"},
+        {"crane": "H101", "task_type": "DSCH", "seconds": 120, "start": "08:11"},
+    ]
+    assert result["source"] == "日志回放"
+    assert result["start"] == "2026-11-24T08:00:00+08:00"
+    assert result["snapshot_missing_replies"] == 3
+    assert sts_report.sts_statistics is visible_report
+    assert "test-operator" not in repr(result)
+
+
+def test_agent_preserves_zero_waits_and_reports_empty_sts_filters(sts_report):
+    wait = sts_report.execute(None, "analyze_sts_statistics",
+                              {"crane": "H101", "metric": "truck_wait", "top_n": 0})
+    assert wait["overall"]["valid_count"] == 2
+    assert wait["overall"]["min_seconds"] == 0
+    assert wait["overall"]["mean_seconds"] == 10
+    assert wait["longest"] == []
+    empty = sts_report.execute(None, "analyze_sts_statistics", {"crane": "H101", "task_type": "LOAD"})
+    assert empty["overall"]["row_count"] == 0 and empty["overall"]["mean_seconds"] is None
+    assert empty["covered_cranes"] == ["H101", "H105"]
+    assert sts_report.sts_statistics is None
+    with pytest.raises(ValueError, match="贝扫用时"):
+        sts_report.execute(None, "analyze_sts_statistics", {"metric": "bay_scan"})
+
+
+def test_agent_groups_report_columns_into_table_and_chart(sts_report):
+    by_crane = sts_report.execute(None, "query_sts_data",
+                                  {"group_by": "桥吊编号", "operation": "count", "report_format": "chart"})
+    assert [(point["label"], point["value"]) for point in by_crane["points"]] == [
+        ("H105", 3), ("H101", 2),
+    ]
+    assert sts_report.sts_analysis_report["format"] == "chart"
+    assert sts_report.sts_analysis_report["unit"] == "条"
+    waits = sts_report.execute(None, "query_sts_data",
+                               {"group_by": "桥吊编号", "operation": "mean", "measure": "等集卡时间(s)",
+                                "filter_field": "任务类型", "filter_value": "DSCH", "report_format": "table"})
+    assert waits["matched_rows"] == 4
+    assert waits["points"][0]["value"] == 10
+    assert waits["points"][1]["value"] is None
+    assert sts_report.sts_analysis_report["rows"][1][3] == 0
+    assert sts_report.sts_analysis_report["format"] == "table"
 
 
 def test_idle_simulator_subscription_is_reported_running_before_first_task():

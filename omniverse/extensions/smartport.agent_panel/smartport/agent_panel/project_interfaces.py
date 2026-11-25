@@ -10,12 +10,14 @@ from .scene_runtime import current_sts_panel, current_tasks, existing_module, ie
 
 
 HANDLED_TOOLS = {
+    "describe_dataset", "analyze_dataset",
     "preview_yard_to_ship_transfer", "start_yard_to_ship_transfer", "control_yard_to_ship_transfer",
     "preview_ship_to_yard_transfer", "start_ship_to_yard_transfer", "control_ship_to_yard_transfer",
     "get_vessel_structure",
     "set_rtg_spreader_size", "resume_sts_crane", "control_timeline", "control_sts_task", "submit_rtg_task",
     "control_rtg_simulation", "control_iecs", "control_live_twin", "control_plc_zmq", "control_sea_motion",
-    "control_camera_display", "control_sts_statistics", "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
+    "control_camera_display", "control_sts_statistics", "analyze_sts_statistics", "query_sts_data",
+    "control_info_panel", "show_alarm", "control_gamepad", "rtg_slot_operation",
     "control_rtg_physics", "control_lidar", "capture_lidar", "reload_yard_inventory", "control_livestream",
 }
 
@@ -418,6 +420,9 @@ def _lidar(owner, args):
 
 
 def execute_project_interface(owner, name, args):
+    if name in {"describe_dataset", "analyze_dataset"}:
+        from .dataset_analysis import execute
+        return execute(owner, name, args)
     if name not in HANDLED_TOOLS: raise ValueError(f"Unsupported runtime interface: {name}")
     if name in {"preview_ship_to_yard_transfer", "start_ship_to_yard_transfer", "control_ship_to_yard_transfer", "preview_yard_to_ship_transfer", "start_yard_to_ship_transfer", "control_yard_to_ship_transfer"}:
         from .transfer_interfaces import execute_transfer
@@ -475,6 +480,17 @@ def execute_project_interface(owner, name, args):
         from .sts_statistics import command
 
         return command(owner, args)
+    if name == "analyze_sts_statistics":
+        from .sts_statistics import analyze, show_analysis_report
+
+        result = analyze(owner.project_root, args)
+        if "report_view" in args or "report_format" in args:
+            result["report"] = show_analysis_report(owner, result, args)
+        return result
+    if name == "query_sts_data":
+        from .sts_statistics import query_data
+
+        return query_data(owner, args)
     if name == "control_info_panel": return _panels(args)
     if name == "show_alarm":
         module = load("rtg_alarm_popup")

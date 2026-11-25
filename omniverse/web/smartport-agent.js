@@ -1,5 +1,5 @@
 // Browser-native IME controls. Scene operations still use the existing Agent.
-import {createStsStatisticsPanel} from './smartport-sts-statistics.js?v=3';
+import {createStsStatisticsPanel} from './smartport-sts-statistics.js?v=6';
 import {enablePanelDrag} from './smartport-panel-drag.js?v=1';
 
 const iecsAgent = document.documentElement.classList.contains('smartport-iecs');
@@ -21,6 +21,43 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
   if (iecsAgent) modal.querySelector('p').textContent = '请填写公网 HTTPS 接口。配置保留在本次登录中。同一接口域名和端口下，Key 留空可保留已有值。';
   document.body.append(host, modal, responseCard);
   const statistics = iecsAgent ? null : createStsStatisticsPanel(api);
+  const analysisReport = iecsAgent ? null : createStsStatisticsPanel(api, {analysis: true});
+  let importButton, importing = false;
+  if (!iecsAgent) {
+    const file = document.createElement('input');
+    file.type = 'file';
+    file.accept = '.xlsx,.csv,.tsv,.json,.jsonl,.ndjson';
+    file.hidden = true;
+    importButton = document.createElement('button');
+    importButton.type = 'button';
+    importButton.className = 'agent-dataset-button';
+    importButton.textContent = '导入数据';
+    importButton.title = '选择 Excel（.xlsx）、CSV、TSV、JSON 或 JSONL。提问时，Agent 将向配置的模型发送字段和查询结果节选。';
+    host.querySelector('header button').before(importButton, file);
+    importButton.onclick = () => file.click();
+    file.onchange = async () => {
+      const source = file.files[0];
+      if (!source) return;
+      importing = true;
+      importButton.disabled = true;
+      sendButton.disabled = true;
+      try {
+        if (source.size > 2 * 1024 * 1024) throw new Error('文件超过 2 MiB');
+        const response = await fetch('/api/smartport-agent/dataset?name=' + encodeURIComponent(source.name),
+          {method: 'POST', body: source});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || '导入失败');
+        localError = '';
+        input.focus();
+      } catch (error) {
+        status.textContent = localError = error.message;
+      } finally {
+        file.value = '';
+        importing = false;
+        await poll();
+      }
+    };
+  }
   const liveCamera = document.createElement('aside');
   liveCamera.id = 'web-live-camera';
   liveCamera.hidden = true;
@@ -126,14 +163,14 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
     const approval=responseCard.querySelector('.approval');approval.hidden=!state.approval;
     if(state.approval)approval.querySelector('p').textContent=state.approval.summary || `确认场景操作：${state.approval.name} ${JSON.stringify(state.approval.arguments)}`;
   }
-  const input = host.querySelector('input'), sendButton = host.querySelector('#web-agent-send');
+  const input = host.querySelector('#web-agent-input'), sendButton = host.querySelector('#web-agent-send');
   const status = host.querySelector('[role=status]'), settings = modal.querySelector('form');
   let composing = false, state = null, pollBusy = false, posting = false, initialized = false, draftTimer, localError = '';
   // Installed before the SDK's document listeners; keep native IME/default
   // browser editing, but do not also send these keystrokes to the 3D viewport.
   for (const name of ['keydown','keyup','keypress','beforeinput','input','compositionstart','compositionupdate','compositionend']) {
     document.addEventListener(name, event => {
-      if (host.contains(event.target) || modal.contains(event.target) || responseCard.contains(event.target) || liveCamera.contains(event.target) || statistics?.element.contains(event.target)) event.stopImmediatePropagation();
+      if (host.contains(event.target) || modal.contains(event.target) || responseCard.contains(event.target) || liveCamera.contains(event.target) || statistics?.element.contains(event.target) || analysisReport?.element.contains(event.target)) event.stopImmediatePropagation();
     }, true);
   }
   // Target listeners perform editing actions because document capture above
@@ -189,12 +226,19 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
       host.hidden = false; renderResponse(); speech.update(state); layout();
       renderLiveCameras(state.live_camera);
       statistics?.update(state.sts_statistics ?? null);
+      analysisReport?.update(state.sts_analysis ?? null);
+      if (importButton) {
+        importButton.disabled = importing || state.busy;
+        importButton.textContent = importing ? '正在导入…' : (state.dataset || '导入数据');
+        importButton.setAttribute('aria-label', state.dataset ? '更换当前数据表 ' + state.dataset : '导入数据');
+      }
       status.textContent = localError || (state.status === 'URL / Model saved (API key not saved)'
         ? '配置已保存，Key 仅保留在当前会话' : state.status);
-      sendButton.disabled = state.busy || posting || state.configured === false;
+      sendButton.disabled = importing || state.busy || posting || state.configured === false;
     } catch(e){
       renderLiveCameras(null);
       statistics?.update(null);
+      analysisReport?.update(null);
       if(initialized || iecsAgent) {
         host.hidden = false; status.textContent = e.message;
         sendButton.disabled = true;
@@ -203,7 +247,7 @@ if (iecsAgent || (document.documentElement.classList.contains('smartport-video-o
     finally{pollBusy=false;}
   }
   async function submit() {
-    if(composing || posting || state?.busy || state?.configured === false || !input.value.trim()) return;
+    if(composing || importing || posting || state?.busy || state?.configured === false || !input.value.trim()) return;
     clearTimeout(draftTimer); posting=true; sendButton.disabled=true;
     try {const result=await api('send',{text:input.value}); if(result.accepted){input.value=''; localError='';}}
     catch(e){localError=e.message; status.textContent=e.message;}

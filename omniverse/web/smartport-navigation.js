@@ -17,7 +17,7 @@ if(pageClasses.contains('smartport-video-only') && (!pageClasses.contains('smart
   const inspector = createSceneInspector(api);
   function consume(e) {e.preventDefault(); e.stopImmediatePropagation();}
   function editing(e) {
-    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-live-camera,#web-sts-statistics,#web-navigation,#web-container-info,#web-device-map,#web-device-map-toggle,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
+    return e.target?.closest?.('input,textarea,select,[contenteditable="true"],#web-agent,#web-agent-settings,#web-agent-response,#web-live-camera,.sts-report-panel,#web-navigation,#web-container-info,#web-device-map,#web-device-map-toggle,#transfer-cinema,#iecs-workbench,#spectator-fullscreen,form[action="/auth/logout"]');
   }
   function settingsOpen() {
     const settings = document.getElementById('web-agent-settings');

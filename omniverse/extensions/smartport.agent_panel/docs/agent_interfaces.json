@@ -1,5 +1,5 @@
 {
-  "interface_count": 47,
+  "interface_count": 51,
   "tools": [
     {
       "type": "function",
@@ -1206,6 +1206,247 @@
           "required": [
             "action"
           ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "analyze_sts_statistics",
+        "description": "Analyze 桥吊装卸船效率统计报表 from replay rows and optionally open a separate analysis report. Use for 作业用时、桥吊效率对比、最慢作业、等集卡、动贝、贝扫 or 杂项时间. Returns counts, mean, median, min/max in seconds overall, by crane and by task type, and the longest rows. For 列出作业用时最长的5票, set report_view=ranking and top_n=5. A request to list or rank the longest tasks opens a ranking report even without the word 报表. Use by_crane or by_task_type for comparison reports. Use report_format=chart for 图表、柱状图 or 条形图, and choose chart_value if the question requests a particular grouped statistic. Omit report_view and report_format for chat-only answers. For multiple cranes omit crane and use by_crane. For a like-for-like comparison set task_type to LOAD or DSCH. Use the returned shift dates, valid sample counts and replay source. Block markers are recorded context, not proof of cause. The unit of observation is a task row, not a container count.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "crane": {
+              "type": "string",
+              "pattern": "^(?:ALL|H[0-9]{3})$"
+            },
+            "task_type": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "LOAD",
+                "DSCH"
+              ]
+            },
+            "metric": {
+              "type": "string",
+              "enum": [
+                "task_duration",
+                "truck_wait",
+                "bay_change",
+                "bay_scan",
+                "other_time"
+              ],
+              "description": "Defaults to task_duration"
+            },
+            "top_n": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20,
+              "description": "Number of longest rows, default 5. Use 0 for aggregates only."
+            },
+            "report_view": {
+              "type": "string",
+              "enum": [
+                "ranking",
+                "by_crane",
+                "by_task_type"
+              ],
+              "description": "Open a ranking or comparison panel in the administrator browser. Defaults to by_crane when only report_format is provided."
+            },
+            "report_format": {
+              "type": "string",
+              "enum": [
+                "table",
+                "chart"
+              ],
+              "description": "Choose a data table (default) or bar chart."
+            },
+            "chart_value": {
+              "type": "string",
+              "enum": [
+                "mean_seconds",
+                "median_seconds",
+                "min_seconds",
+                "max_seconds",
+                "row_count"
+              ],
+              "description": "Statistic plotted in grouped charts. Defaults to mean_seconds. Ranking charts always plot the selected timing metric."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "describe_dataset",
+        "description": "Inspect the current uploaded table, or explicitly select the built-in STS replay. Returns exact field names, SQLite types, null counts and a dataset_id for analysis.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "uploaded",
+                "sts_replay"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "analyze_dataset",
+        "description": "Analyze the selected dataset using a single read-only SQLite SELECT from data. Use actual field names in square brackets, numeric measures, WHERE, GROUP BY, date functions, window functions or CTEs as needed. Alias expressions clearly. Use preview for exploration, table for details, chart for bars, line for ordered trends, and pie for 饼图 or 扇形图. For charts supply result columns x and numeric y. For pie, group by category and return nonnegative parts of a whole with a positive total; include all categories or aggregate the rest as 其他. Use counts or additive measures for a share, not averages. Check missing values, especially before aggregating text columns.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "dataset_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "sql": {
+              "type": "string",
+              "maxLength": 3000
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "preview",
+                "table",
+                "chart",
+                "line",
+                "pie"
+              ]
+            },
+            "x": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "y": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "unit": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "dataset_id",
+            "sql",
+            "title"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_sts_data",
+        "description": "Analyze the captured 桥吊装卸船 report by any supported grouping and metric. Choose group_by from the recorded columns, including crane, ship, driver, box size, lane, task type, work mode, bay and 开始小时. Choose operation=count for task counts, or mean/median/sum/min/max with a numeric measure. Use filter_field and filter_value for a substring filter such as 船名 or 箱尺寸. For requests to display a table or graph set report_format=table or chart. Return only computed values from the replay, with shift dates and sample counts. If the user requests a measure or grouping absent from the report, explain the available fields.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "group_by": {
+              "type": "string",
+              "enum": [
+                "桥吊编号",
+                "任务类型",
+                "司机工号",
+                "船名",
+                "船型",
+                "车道",
+                "车号",
+                "车类型",
+                "箱尺寸",
+                "作业工艺",
+                "工作模式",
+                "工作方式",
+                "作业贝位号",
+                "任务阻断标记",
+                "开始小时"
+              ]
+            },
+            "measure": {
+              "type": "string",
+              "enum": [
+                "任务用时(s)",
+                "等集卡时间(s)",
+                "动贝用时(s)",
+                "贝扫用时(s)",
+                "杂项时间(s)"
+              ]
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "count",
+                "mean",
+                "median",
+                "sum",
+                "min",
+                "max"
+              ]
+            },
+            "filter_field": {
+              "type": "string",
+              "enum": [
+                "桥吊编号",
+                "任务类型",
+                "司机工号",
+                "船名",
+                "船型",
+                "车道",
+                "车号",
+                "车类型",
+                "箱尺寸",
+                "作业工艺",
+                "工作模式",
+                "工作方式",
+                "作业贝位号",
+                "任务阻断标记"
+              ]
+            },
+            "filter_value": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "ascending",
+                "descending"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "report_format": {
+              "type": "string",
+              "enum": [
+                "table",
+                "chart"
+              ]
+            }
+          },
+          "required": [],
           "additionalProperties": false
         }
       }

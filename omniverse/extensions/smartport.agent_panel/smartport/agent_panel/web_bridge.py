@@ -257,6 +257,8 @@ class AgentWebBridge:
         app.add_api_route(prefix + "/work-mode", work_mode, methods=["GET"])
         install_camera_routes(app, prefix, lambda: self.camera_preview if not self.closed else None, execute)
         sts_statistics.install_routes(app, prefix, execute)
+        from . import dataset_analysis
+        dataset_analysis.install_routes(app, prefix, execute)
         app.add_api_route('/api/transfer-camera/state',cinema_state,methods=['GET'])
         async def iecs_state():
             return await execute('iecs_state',{})
@@ -683,6 +685,29 @@ class AgentWebBridge:
             if arguments.get("action") == "close" and revision and (not report or revision != report["revision"]):
                 return {"visible": bool(report)}
             return panel._execute_tool("control_sts_statistics", arguments)
+        if action == "dataset-import":
+            if panel._busy:
+                raise ValueError("Agent 正在处理提问，请在回答结束后导入")
+            if getattr(panel, "_runtime", None) is None:
+                from .scene_runtime import SceneRuntime
+                panel._runtime = SceneRuntime(panel._project_root, panel._ui_events.put)
+            runtime = panel._runtime
+            if runtime.dataset:
+                runtime.dataset.db.close()
+            runtime.dataset = payload["dataset"]
+            runtime.sts_analysis_report = None
+            runtime.dataset_reports.clear()
+            return {"source": runtime.dataset.name, "rows": runtime.dataset.count}
+        if action in {"sts-analysis-data", "sts-analysis-close"}:
+            runtime = getattr(panel, "_runtime", None)
+            analysis = getattr(runtime, "sts_analysis_report", None)
+            if action == "sts-analysis-data":
+                return analysis or {"visible": False}
+            if analysis and payload.get("revision") == analysis["revision"]:
+                runtime.sts_analysis_report = None
+                runtime.dataset_reports.clear()
+                return {"visible": False}
+            return {"visible": bool(analysis)}
         if action == "state":
             if payload.get("native_input") is True:
                 # Expire automatically when the browser card stops polling.
@@ -691,6 +716,7 @@ class AgentWebBridge:
             runtime = getattr(panel, "_runtime", None)
             preview = getattr(runtime, "camera_preview", None)
             report = getattr(runtime, "sts_statistics", None)
+            analysis = getattr(runtime, "sts_analysis_report", None)
             pending=getattr(panel,"_pending_approval",None)
             approval=None
             if pending and not pending['decision'].is_set():
@@ -704,6 +730,8 @@ class AgentWebBridge:
                     "key_configured": bool(panel._key_model.get_value_as_string()),
                     "live_camera": preview.state() if preview else None,
                     "sts_statistics": report["revision"] if report else None,
+                    "sts_analysis": analysis["revision"] if analysis else None,
+                    "dataset": runtime.dataset.name if getattr(runtime, "dataset", None) else None,
                     "draft": panel._input_model.get_value_as_string(),
                     "native_input_visible": getattr(getattr(overlay, "_input_card", None), "visible", None)}
         if action in ("draft", "send"):

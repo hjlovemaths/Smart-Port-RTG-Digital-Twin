@@ -7,6 +7,7 @@ readme = "docs/README.md"
 
 [dependencies]
 "omni.kit.menu.utils" = {}
+"omni.kit.pipapi" = {}
 "omni.kit.uiapp" = {}
 "omni.ui" = {}
 "omni.usd" = {}
@@ -16,6 +17,10 @@ readme = "docs/README.md"
 
 [[python.module]]
 name = "smartport.agent_panel.extension"
+
+[python.pipapi]
+requirements = ["defusedxml==0.7.1", "openpyxl==3.1.5"]
+use_online_index = true
 
 # The font file alone is insufficient: Kit also needs the CJK glyph range at
 # renderer startup, including for native StringField/IME input.

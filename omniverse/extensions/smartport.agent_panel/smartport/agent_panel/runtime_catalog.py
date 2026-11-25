@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .sts_statistics import ANALYSIS_VIEWS, CHART_VALUES, GROUP_FIELDS, MEASURE_FIELDS, METRICS as STS_REPORT_METRICS
+
 
 def enum(*values):
     return {"type": "string", "enum": list(values)}
@@ -20,6 +22,7 @@ TEXT = {"type": "string", "maxLength": 256}
 BOOL = {"type": "boolean"}
 BAY = {"type": "string", "description": "For example 4C41 or 4C/041"}
 CRANE = {"type": "string", "description": "STS_01 through STS_07; specify the requested crane"}
+REPORT_CRANE = {"type": "string", "pattern": "^(?:ALL|H[0-9]{3})$"}
 IECS_ORDER_SELECTORS = {
     "order_id": {"type": "string", "pattern": "^[Ii][Ee][Cc][Ss]-[0-9]{5,}$", "description": "IECS order ID, for example IECS-00004"},
     "order_index": {**number(1, integer=True), "description": "One-based row in the IECS workbench order list"},
@@ -104,7 +107,45 @@ TOOLS = (
           "action": enum("status", "start", "stop", "refresh"), "camera_number": number(1, 33, True)}, ("display", "action")),
     tool("control_sts_statistics", "Open, query, or close 桥吊 → 数据统计 → 作业流程效率统计报表(新)-装卸船 in the administrator browser. Opening immediately displays all 今天昼夜 rows. For an explicit query, use action=query and period=today_day_night, with optional crane such as H101, or omit crane for ALL. Query also opens the report. The demo replays the captured shift (08:00 to next day 08:00 Beijing time) from a local log. Report the replay source and do not claim live or complete shift coverage. The browser displays the table; this tool returns only the summary.",
          {"action": enum("open", "query", "close"), "period": enum("today_day_night"),
-          "crane": {"type": "string", "pattern": "^(?:ALL|H[0-9]{3})$"}}, ("action",)),
+          "crane": REPORT_CRANE}, ("action",)),
+    tool("analyze_sts_statistics",
+         "Analyze 桥吊装卸船效率统计报表 from replay rows and optionally open a separate analysis report. "
+         "Use for 作业用时、桥吊效率对比、最慢作业、等集卡、动贝、贝扫 or 杂项时间. "
+         "Returns counts, mean, median, min/max in seconds overall, by crane and by task type, and the longest rows. "
+         "For 列出作业用时最长的5票, set report_view=ranking and top_n=5. A request to list or rank the longest tasks opens a ranking report even without the word 报表. "
+         "Use by_crane or by_task_type for comparison reports. Use report_format=chart for 图表、柱状图 or 条形图, "
+         "and choose chart_value if the question requests a particular grouped statistic. Omit report_view and report_format for chat-only answers. "
+         "For multiple cranes omit crane and use by_crane. For a like-for-like comparison set task_type to LOAD or DSCH. "
+         "Use the returned shift dates, valid sample counts and replay source. Block markers are recorded context, not proof of cause. "
+         "The unit of observation is a task row, not a container count.",
+         {"crane": REPORT_CRANE, "task_type": enum("ALL", "LOAD", "DSCH"),
+          "metric": {**enum(*STS_REPORT_METRICS), "description": "Defaults to task_duration"},
+          "top_n": {**number(0, 20, True), "description": "Number of longest rows, default 5. Use 0 for aggregates only."},
+          "report_view": {**enum(*ANALYSIS_VIEWS), "description": "Open a ranking or comparison panel in the administrator browser. Defaults to by_crane when only report_format is provided."},
+          "report_format": {**enum("table", "chart"), "description": "Choose a data table (default) or bar chart."},
+          "chart_value": {**enum(*CHART_VALUES), "description": "Statistic plotted in grouped charts. Defaults to mean_seconds. Ranking charts always plot the selected timing metric."}}),
+    tool("describe_dataset", "Inspect the current uploaded table, or explicitly select the built-in STS replay. Returns exact field names, SQLite types, null counts and a dataset_id for analysis.",
+         {"source": enum("uploaded", "sts_replay")}),
+    tool("analyze_dataset", "Analyze the selected dataset using a single read-only SQLite SELECT from data. Use actual field names in square brackets, numeric measures, WHERE, GROUP BY, date functions, window functions or CTEs as needed. Alias expressions clearly. Use preview for exploration, table for details, chart for bars, line for ordered trends, and pie for 饼图 or 扇形图. For charts supply result columns x and numeric y. For pie, group by category and return nonnegative parts of a whole with a positive total; include all categories or aggregate the rest as 其他. Use counts or additive measures for a share, not averages. Check missing values, especially before aggregating text columns.",
+         {"dataset_id": TEXT, "sql": {"type": "string", "maxLength": 3000}, "title": TEXT,
+          "format": enum("preview", "table", "chart", "line", "pie"), "x": TEXT, "y": TEXT, "unit": TEXT},
+         ("dataset_id", "sql", "title")),
+    tool("query_sts_data",
+         "Analyze the captured 桥吊装卸船 report by any supported grouping and metric. "
+         "Choose group_by from the recorded columns, including crane, ship, driver, box size, lane, task type, work mode, bay and 开始小时. "
+         "Choose operation=count for task counts, or mean/median/sum/min/max with a numeric measure. "
+         "Use filter_field and filter_value for a substring filter such as 船名 or 箱尺寸. "
+         "For requests to display a table or graph set report_format=table or chart. "
+         "Return only computed values from the replay, with shift dates and sample counts. "
+         "If the user requests a measure or grouping absent from the report, explain the available fields.",
+         {"group_by": enum(*GROUP_FIELDS, "开始小时"),
+          "measure": enum(*MEASURE_FIELDS),
+          "operation": enum("count", "mean", "median", "sum", "min", "max"),
+          "filter_field": enum(*GROUP_FIELDS),
+          "filter_value": TEXT,
+          "sort": enum("ascending", "descending"),
+          "limit": number(1, 50, True),
+          "report_format": enum("table", "chart")}),
     tool("control_info_panel", "Start/stop the existing device, container or alarm information overlay services.",
          {"panel": enum("device", "container", "alarm"), "action": enum("status", "start", "stop")}, ("panel", "action")),
     tool("show_alarm", "Read, display or clear a local simulated RTG alarm. Does not acknowledge real equipment alarms.",

@@ -149,8 +149,8 @@ def test_sts_statistics_agent_and_browser_use_the_same_read_only_report(panel, t
     httpx = pytest.importorskip("httpx")
     source = tmp_path / sts_statistics.SNAPSHOT
     source.parent.mkdir(parents=True)
-    rows = [["H101", "test-container-1"], ["H105", "test-container-2"]]
-    source.write_text(json.dumps({"columns": ["桥吊编号", "箱号"], "rows": rows, "missing_replies": 3,
+    rows = [["H101", "test-container-1", "卸船-DSCH", "60"], ["H105", "test-container-2", "卸船-DSCH", "120"]]
+    source.write_text(json.dumps({"columns": ["桥吊编号", "箱号", "任务类型", "任务用时(s)"], "rows": rows, "missing_replies": 3,
                                   "start": "2026-11-24T08:00:00+08:00", "end": "2026-11-25T08:00:00+08:00"}), encoding="utf-8")
     panel._runtime = SceneRuntime(tmp_path)
     panel._execute_tool = lambda name, args: panel._runtime.execute(None, name, args)
@@ -173,16 +173,58 @@ def test_sts_statistics_agent_and_browser_use_the_same_read_only_report(panel, t
 
     prefix = "/api/smartport-agent"
     sts_statistics.install_routes(app, prefix, execute)
+    from smartport.agent_panel import dataset_analysis
+    dataset_analysis.install_routes(app, prefix, execute)
 
     async def check():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             path = prefix + "/sts-statistics"
             admin = {"test-role": "admin"}
             viewer = {"test-role": "viewer"}
+            upload = prefix + "/dataset?name=temperatures.tsv"
+            content = b"station\tcelsius\nA\t-4\nB\t12"
+            assert (await client.post(upload, content=content, headers=viewer)).status_code == 403
+            assert (await client.post(upload, content=content, headers=admin)).json()["rows"] == 2
+            assert (await client.post(upload, content=b"bad\tbad\n1\t2", headers=admin)).status_code == 400
+            schema = panel._execute_tool("describe_dataset", {})
+            panel._execute_tool("analyze_dataset", {"dataset_id": schema["dataset_id"], "title": "Highest",
+                                "sql": "SELECT station FROM data ORDER BY celsius DESC LIMIT 1"})
+            result_table = (await client.get(prefix + "/sts-analysis", headers=admin)).json()
+            assert result_table["rows"] == [["B"]] and result_table["source"] == "temperatures.tsv"
+            await client.post(prefix + "/sts-analysis", json={"action": "close", "revision": result_table["revision"]}, headers=admin)
             assert (await client.get(path, headers=viewer)).status_code == 403
             assert (await client.post(path, json={"action": "close"}, headers=viewer)).status_code == 403
             report = await client.get(path, headers=admin)
             assert report.headers["cache-control"] == "private, no-store" and report.json()["rows"] == rows
+
+            analysis_path = prefix + "/sts-analysis"
+            analysis_tool = "analyze_sts_statistics"
+            panel._execute_tool(analysis_tool, {"top_n": 1})
+            assert AgentWebBridge.execute(panel, "state", {})["sts_analysis"] is None
+            analyzed = panel._execute_tool(analysis_tool, {"report_view": "ranking", "top_n": 1})
+            assert analyzed["report"]["format"] == "table"
+            ranking = (await client.get(analysis_path, headers=admin)).json()
+            assert ranking["rows"][0][:4] == [1, "H105", "卸船", 120]
+            assert len(ranking["rows"]) == 1
+            state = AgentWebBridge.execute(panel, "state", {})
+            assert state["sts_analysis"] == ranking["revision"]
+            assert state["sts_statistics"] == result["revision"]
+            assert (await client.get(analysis_path, headers=viewer)).status_code == 403
+            assert (await client.post(analysis_path, json={"action": "close", "revision": ranking["revision"]},
+                                      headers=viewer)).status_code == 403
+            panel._execute_tool(analysis_tool, {"report_view": "by_crane", "report_format": "chart", "task_type": "DSCH"})
+            response = await client.get(analysis_path, headers=admin)
+            assert response.headers["cache-control"] == "private, no-store"
+            chart = response.json()
+            assert chart["format"] == "chart"
+            assert chart["scope"] == "全部桥吊 · 卸船"
+            assert [(point["label"], point["value"]) for point in chart["series"]] == [("H101", 60), ("H105", 120)]
+            stale = await client.post(analysis_path, json={"action": "close", "revision": ranking["revision"]}, headers=admin)
+            assert stale.json()["visible"]
+            closed = await client.post(analysis_path, json={"action": "close", "revision": chart["revision"]}, headers=admin)
+            assert closed.json() == {"visible": False}
+            assert (await client.get(path, headers=admin)).json()["rows"] == rows
+
             selected = await client.post(path, json={"action": "query", "crane": "H105"}, headers=admin)
             assert selected.json()["row_count"] == 1
             await client.post(path, json={"action": "close", "revision": result["revision"]}, headers=admin)
